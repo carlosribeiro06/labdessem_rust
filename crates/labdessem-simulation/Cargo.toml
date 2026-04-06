@@ -1,0 +1,9 @@
+[package]
+name = "labdessem-simulation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+labdessem-model = { path = "../labdessem-model" }
+labdessem-solver = { path = "../labdessem-solver" }
+labdessem-core = { path = "../labdessem-core" }
