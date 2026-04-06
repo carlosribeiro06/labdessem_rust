@@ -1,0 +1,8 @@
+[package]
+name = "labdessem-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+labdessem-io = { path = "../labdessem-io" }
+labdessem-simulation = { path = "../labdessem-simulation" }
