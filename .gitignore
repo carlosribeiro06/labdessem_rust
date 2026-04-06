@@ -1,0 +1,33 @@
+# Rust
+/target
+**/target
+
+# Build artifacts
+*.rlib
+*.rmeta
+*.pdb
+*.ilk
+*.d
+*.o
+*.obj
+*.lib
+*.exp
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local configs
+.env
+.env.*
+*.local
+
+# Generated study outputs
+examples/**/RESULTADOS/
+
+# Temporary logs
+*.log

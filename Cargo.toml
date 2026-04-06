@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "crates/labdessem-cli",
+    "crates/labdessem-common",
+    "crates/labdessem-core",
+    "crates/labdessem-io",
+    "crates/labdessem-model",
+    "crates/labdessem-simulation",
+    "crates/labdessem-solver"
+]
+
+resolver = "2"
