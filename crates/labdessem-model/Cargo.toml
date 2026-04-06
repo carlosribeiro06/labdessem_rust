@@ -1,0 +1,8 @@
+[package]
+name = "labdessem-model"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+labdessem-core = { path = "../labdessem-core" }
+labdessem-common = { path = "../labdessem-common" }
