@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LABDESSEM Rust</title>
+  <meta
+    name="description"
+    content="LABDESSEM Rust is a professional Rust workspace for reduced-scale power system scheduling with LP, MILP, hydro cascades, renewables, and iterative network flow cuts."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="stylesheet" href="./styles.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <div class="transmission-background" aria-hidden="true">
+    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="lineGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
+          <stop offset="50%" stop-color="#55e6b2" stop-opacity="0.95"></stop>
+          <stop offset="100%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
+        </linearGradient>
+        <linearGradient id="wireStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#4f6f99"></stop>
+          <stop offset="100%" stop-color="#90a9cf"></stop>
+        </linearGradient>
+        <filter id="softGlow">
+          <feGaussianBlur stdDeviation="6"></feGaussianBlur>
+        </filter>
+      </defs>
+
+      <ellipse cx="260" cy="760" rx="320" ry="120" fill="rgba(104, 184, 255, 0.06)"></ellipse>
+      <ellipse cx="1340" cy="760" rx="320" ry="120" fill="rgba(85, 230, 178, 0.05)"></ellipse>
+
+      <g class="tower tower-left">
+        <line class="main-leg" x1="270" y1="132" x2="196" y2="726"></line>
+        <line class="main-leg" x1="270" y1="132" x2="344" y2="726"></line>
+        <line class="spine" x1="270" y1="132" x2="270" y2="726"></line>
+
+        <line class="crossarm" x1="168" y1="246" x2="372" y2="246"></line>
+        <line class="crossarm" x1="146" y1="352" x2="394" y2="352"></line>
+        <line class="crossarm" x1="124" y1="482" x2="416" y2="482"></line>
+
+        <line class="brace" x1="270" y1="176" x2="198" y2="246"></line>
+        <line class="brace" x1="270" y1="176" x2="342" y2="246"></line>
+        <line class="brace" x1="270" y1="270" x2="182" y2="352"></line>
+        <line class="brace" x1="270" y1="270" x2="358" y2="352"></line>
+        <line class="brace" x1="270" y1="390" x2="164" y2="482"></line>
+        <line class="brace" x1="270" y1="390" x2="376" y2="482"></line>
+        <line class="brace" x1="196" y1="726" x2="270" y2="614"></line>
+        <line class="brace" x1="344" y1="726" x2="270" y2="614"></line>
+        <line class="brace" x1="196" y1="726" x2="344" y2="726"></line>
+      </g>
+
+      <g class="tower tower-right">
+        <line class="main-leg" x1="1330" y1="132" x2="1256" y2="726"></line>
+        <line class="main-leg" x1="1330" y1="132" x2="1404" y2="726"></line>
+        <line class="spine" x1="1330" y1="132" x2="1330" y2="726"></line>
+
+        <line class="crossarm" x1="1228" y1="246" x2="1432" y2="246"></line>
+        <line class="crossarm" x1="1206" y1="352" x2="1454" y2="352"></line>
+        <line class="crossarm" x1="1184" y1="482" x2="1476" y2="482"></line>
+
+        <line class="brace" x1="1330" y1="176" x2="1258" y2="246"></line>
+        <line class="brace" x1="1330" y1="176" x2="1402" y2="246"></line>
+        <line class="brace" x1="1330" y1="270" x2="1242" y2="352"></line>
+        <line class="brace" x1="1330" y1="270" x2="1418" y2="352"></line>
+        <line class="brace" x1="1330" y1="390" x2="1224" y2="482"></line>
+        <line class="brace" x1="1330" y1="390" x2="1436" y2="482"></line>
+        <line class="brace" x1="1256" y1="726" x2="1330" y2="614"></line>
+        <line class="brace" x1="1404" y1="726" x2="1330" y2="614"></line>
+        <line class="brace" x1="1256" y1="726" x2="1404" y2="726"></line>
+      </g>
+
+      <path class="wire" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
+      <path class="wire" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
+      <path class="wire" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
+
+      <path class="energy energy-1" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
+      <path class="energy energy-2" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
+      <path class="energy energy-3" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
+
+      <path class="energy-blur blur-1" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
+      <path class="energy-blur blur-2" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
+      <path class="energy-blur blur-3" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
+    </svg>
+  </div>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="brand-mark">L</span>
+        <span class="brand-text">LABDESSEM Rust</span>
+      </a>
+      <nav class="nav">
+        <a href="#architecture">Architecture</a>
+        <a href="#methodology">Methodology</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#results">Results</a>
+        <a href="#run">Run</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Power System Scheduling in Rust</p>
+          <h1>
+            A modern optimization workspace for
+            <span>thermal UC, hydro cascades, renewables, and iterative network cuts</span>
+          </h1>
+          <p class="hero-text">
+            LABDESSEM Rust is a reduced-scale DESSEM-inspired project built for professional-grade
+            modeling, simulation, and experimentation. It combines domain-driven architecture with
+            LP, MILP, and fixed-integer workflows under a clean Rust workspace.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#run">Run the Study</a>
+            <a class="button button-secondary" href="#architecture">Explore the Stack</a>
+            <a class="button button-secondary" href="#methodology">View Methodology</a>
+            <a
+              class="button button-github"
+              href="https://github.com/carlosribeiro06/labdessem_rust"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub Repository
+            </a>
+          </div>
+          <ul class="hero-pills">
+            <li>Rust Workspace</li>
+            <li>LP / MILP / LP-Fixed</li>
+            <li>Hydro + Thermal + Renewable</li>
+            <li>DC Flow Cuts</li>
+          </ul>
+        </div>
+
+        <div class="hero-panel">
+          <div class="panel panel-terminal">
+            <div class="terminal-top">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="terminal-body">
+              <p><span class="prompt">$</span> cargo run -p labdessem-cli</p>
+              <p>Lendo configuracao do estudo...</p>
+              <p>Caso selecionado: ../../examples/caso_base</p>
+              <p>Iniciando processo iterativo de resolucao...</p>
+              <p class="accent">LP #01 | objective = 20020.0000 | flow violations = 0</p>
+              <p class="accent">MILP #01 | objective = 20020.0000 | flow violations = 0</p>
+              <p class="accent">LP-FIXED #01 | objective = 20020.0000 | flow violations = 0</p>
+              <p>CSV output directory: examples/caso_base/RESULTADOS</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article class="metric-card">
+          <span class="metric-value">7</span>
+          <span class="metric-label">Workspace crates</span>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">3</span>
+          <span class="metric-label">Solve modes</span>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">4</span>
+          <span class="metric-label">Generation blocks</span>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">CSV</span>
+          <span class="metric-label">Config-driven inputs</span>
+        </article>
+      </section>
+
+      <section id="architecture" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Architecture</p>
+          <h2>Separation of concerns from domain to simulation</h2>
+          <p>
+            The workspace is divided into focused crates so the project can evolve with strong
+            boundaries between data modeling, optimization, IO, solver integration, and execution.
+          </p>
+        </div>
+
+        <div class="architecture-grid">
+          <article class="stack-card">
+            <h3>labdessem-core</h3>
+            <p>Domain structures, identifiers, validations, generation assets, reservoirs, buses, lines, and submarkets.</p>
+          </article>
+          <article class="stack-card">
+            <h3>labdessem-model</h3>
+            <p>Variables, constraints, objective function, indexing, and solve modes for LP, MILP, and LP-fixed.</p>
+          </article>
+          <article class="stack-card">
+            <h3>labdessem-io</h3>
+            <p>Study reader driven by a JSON configuration file pointing to a case path with CSV data.</p>
+          </article>
+          <article class="stack-card">
+            <h3>labdessem-solver</h3>
+            <p>Optimization backend integration through <code>good_lp</code> with a HiGHS-oriented setup.</p>
+          </article>
+          <article class="stack-card">
+            <h3>labdessem-simulation</h3>
+            <p>Iterative orchestration, DC flow evaluation, flow-cut accumulation, and CSV result export.</p>
+          </article>
+          <article class="stack-card">
+            <h3>labdessem-cli</h3>
+            <p>Runtime entrypoint with progress logging, case loading, simulation execution, and output reporting.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="methodology" class="section section-methodology">
+        <div class="section-heading">
+          <p class="eyebrow">Methodology</p>
+          <h2>Mathematical formulation and solution strategy</h2>
+          <p>
+            This section summarizes the methodology currently represented by the codebase:
+            sets, decision variables, objective terms, operating constraints, hydro balance,
+            network cut generation, and the iterative solution policy used in simulation.
+          </p>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Sets and Indexes</p>
+            <ul class="method-list">
+              <li><code>t ∈ T</code>: study periods</li>
+              <li><code>s ∈ S</code>: submarkets</li>
+              <li><code>b ∈ B</code>: buses</li>
+              <li><code>l ∈ L</code>: transmission lines</li>
+              <li><code>i ∈ U<sup>th</sup></code>: thermal units</li>
+              <li><code>j ∈ U<sup>hy</sup></code>: hydro units</li>
+              <li><code>h ∈ H</code>: hydro plants</li>
+              <li><code>w ∈ W</code>: wind plants</li>
+              <li><code>q ∈ Q</code>: solar plants</li>
+              <li><code>(s,r) ∈ I</code>: directed submarket interchange pairs</li>
+            </ul>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">Solve Modes</p>
+            <ul class="method-list">
+              <li><code>LP</code>: commitment binaries inactive</li>
+              <li><code>MILP</code>: commitment binaries active</li>
+              <li><code>LP-FIXED</code>: commitment binaries fixed from MILP solution</li>
+            </ul>
+            <p class="method-note">
+              This separation allows progressive enforcement of commitment logic while preserving a
+              practical operational pipeline for network-feasibility polishing.
+            </p>
+          </article>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Decision Variables</p>
+          <div class="method-columns">
+            <div>
+              <h3>Thermal</h3>
+              <ul class="method-list">
+                <li><code>G^{th}_{i,t}</code>: thermal generation</li>
+                <li><code>u^{th}_{i,t}</code>: on/off commitment</li>
+                <li><code>su^{th}_{i,t}</code>: startup indicator</li>
+                <li><code>sd^{th}_{i,t}</code>: shutdown indicator</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Hydro</h3>
+              <ul class="method-list">
+                <li><code>G^{hy}_{j,t}</code>: hydro generation by unit</li>
+                <li><code>Q_{j,t}</code>: turbining by hydro unit</li>
+                <li><code>V_{h,t}</code>: reservoir volume by plant</li>
+                <li><code>S_{h,t}</code>: spillage by plant</li>
+                <li><code>u^{hy}_{j,t}</code>: hydro commitment</li>
+                <li><code>su^{hy}_{j,t}</code>: hydro startup</li>
+                <li><code>sd^{hy}_{j,t}</code>: hydro shutdown</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Renewable and System</h3>
+              <ul class="method-list">
+                <li><code>G^{w}_{w,t}</code>: wind generation</li>
+                <li><code>G^{q}_{q,t}</code>: solar generation</li>
+                <li><code>INT_{s,r,t}</code>: directed interchange</li>
+                <li><code>DEF_{s,t}</code>: demand deficit by submarket</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Objective Function</p>
+          <div class="equation-block">
+            \[
+            \min Z =
+            \sum_{t}\sum_{i \in U^{th}} c^{var}_{i}\,\Delta t\,G^{th}_{i,t}
+            + \sum_{t}\sum_{s \in S} c^{def}_{s}\,\Delta t\,DEF_{s,t}
+            + \sum_{t}\sum_{h \in H} c^{spill}_{h}\,S_{h,t}
+            \]
+            \[
+            \qquad
+            + \sum_{t}\sum_{(s,r)\in I} c^{int}_{s,r}\,\Delta t\,INT_{s,r,t}
+            + \sum_{t}\sum_{i \in U^{th}}
+            \left(c^{start}_{i}\,su^{th}_{i,t} + c^{stop}_{i}\,sd^{th}_{i,t}\right)
+            \]
+            \[
+            \qquad
+            + \sum_{t}\sum_{j \in U^{hy}}
+            \left(c^{start}_{j}\,su^{hy}_{j,t} + c^{stop}_{j}\,sd^{hy}_{j,t}\right)
+            \]
+          </div>
+          <p class="method-note">
+            Startup and shutdown terms are active only in commitment-enabled solve modes. In pure
+            LP mode, the objective remains continuous and operational.
+          </p>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Demand Balance by Submarket</p>
+          <div class="equation-block">
+            \[
+            \sum_{i \in s} G^{th}_{i,t}
+            + \sum_{j \in s} G^{hy}_{j,t}
+            + \sum_{w \in s} G^{w}_{w,t}
+            + \sum_{q \in s} G^{q}_{q,t}
+            + \sum_{r} INT_{r,s,t}
+            - \sum_{r} INT_{s,r,t}
+            + DEF_{s,t}
+            = DEM_{s,t}
+            \]
+          </div>
+          <p class="method-note">
+            Demand satisfaction is enforced at the submarket level. Directed interchange variables
+            close the balance across submarkets.
+          </p>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Thermal Operating Limits</p>
+            <div class="equation-block">
+              <div class="equation-caption">LP</div>
+              \[
+              0 \le G^{th}_{i,t} \le P^{max}_{i}
+              \]
+              <div class="equation-caption">MILP / LP-FIXED</div>
+              \[
+              G^{th}_{i,t} \le P^{max}_{i}\,u^{th}_{i,t}
+              \qquad
+              G^{th}_{i,t} \ge P^{min}_{i}\,u^{th}_{i,t}
+              \]
+            </div>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">Hydro Operating Limits</p>
+            <div class="equation-block">
+              \[
+              0 \le Q_{j,t} \le Q^{max}_{j}
+              \qquad
+              S_{h,t} \ge 0
+              \qquad
+              G^{hy}_{j,t} = prod_{j}\,Q_{j,t}
+              \]
+              <div class="equation-caption">LP</div>
+              \[
+              0 \le G^{hy}_{j,t} \le P^{max}_{j}
+              \]
+              <div class="equation-caption">MILP / LP-FIXED</div>
+              \[
+              G^{hy}_{j,t} \le P^{max}_{j}\,u^{hy}_{j,t}
+              \qquad
+              G^{hy}_{j,t} \ge P^{min}_{j}\,u^{hy}_{j,t}
+              \]
+            </div>
+          </article>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Hydro Balance</p>
+          <div class="equation-block">
+            <div class="equation-caption">For \(t = 1\)</div>
+            \[
+            V_{h,1}
+            =
+            V_{h,0}
+            + INA_{h,1}
+            + \sum_{m \in Up(h)} \left(Q_{m,1} + S_{m,1}\right)
+            - \sum_{j \in h} Q_{j,1}
+            - S_{h,1}
+            \]
+            <div class="equation-caption">For \(t &gt; 1\)</div>
+            \[
+            V_{h,t}
+            =
+            V_{h,t-1}
+            + INA_{h,t}
+            + \sum_{m \in Up(h)} \left(Q_{m,t} + S_{m,t}\right)
+            - \sum_{j \in h} Q_{j,t}
+            - S_{h,t}
+            \]
+          </div>
+          <p class="method-note">
+            <code>V_h,0</code> is the initial storage condition from the input data. The current
+            formulation supports multiple upstream hydro plants in cascade.
+          </p>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Reservoir Bounds</p>
+            <div class="equation-block">
+              \[
+              V^{min}_{h} \le V_{h,t} \le V^{max}_{h}
+              \]
+            </div>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">Directed Interchange Limits</p>
+            <div class="equation-block">
+              \[
+              0 \le INT_{s,r,t} \le LIM_{s,r}
+              \]
+            </div>
+            <p class="method-note">
+              Limits are directional, so the bound from <code>s → r</code> may differ from
+              <code>r → s</code>.
+            </p>
+          </article>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Network Representation</p>
+          <p class="method-note">
+            The PTDF section is presented here in the same matrix form as your Julia
+            implementation. One slack bus is removed from the formulation, and the reduced network
+            matrices are built explicitly before computing the line-flow sensitivities.
+          </p>
+          <div class="equation-block">
+            <div class="equation-caption">Reduced nodal susceptance matrix</div>
+            \[
+            B = 
+            \begin{bmatrix}
+            \sum \dfrac{1}{x_l} & \cdots & -\dfrac{1}{x_l} \\
+            \vdots & \ddots & \vdots \\
+            -\dfrac{1}{x_l} & \cdots & \sum \dfrac{1}{x_l}
+            \end{bmatrix}
+            \]
+            <div class="equation-caption">Diagonal line susceptance matrix</div>
+            \[
+            B_{diag} = \operatorname{diag}\left(\frac{1}{x_1}, \frac{1}{x_2}, \ldots, \frac{1}{x_{|L|}}\right)
+            \]
+            <div class="equation-caption">Reduced incidence matrix</div>
+            \[
+            A_{l,b} =
+            \begin{cases}
+            1, & \text{if } b = \text{barra\_de}(l) \\
+            -1, & \text{if } b = \text{barra\_para}(l) \\
+            0, & \text{otherwise}
+            \end{cases}
+            \]
+            <div class="equation-caption">PTDF matrix</div>
+            \[
+            \beta = B_{diag}\,A\,B^{-1}
+            \]
+            <div class="equation-caption">Load vector by period</div>
+            \[
+            P_t =
+            \begin{bmatrix}
+            D_{2,t} & D_{3,t} & \cdots & D_{|B|,t}
+            \end{bmatrix}^{\top}
+            \]
+            <div class="equation-caption">Generation vector by period</div>
+            \[
+            G_t =
+            \begin{bmatrix}
+            G_{2,t} & G_{3,t} & \cdots & G_{|B|,t}
+            \end{bmatrix}^{\top}
+            \]
+            <div class="equation-caption">Line flow vector</div>
+            \[
+            F_t = \beta \left(G_t - P_t\right)
+            \]
+          </div>
+          <p class="method-note">
+            Therefore, for each line <code>\(l\)</code> and period <code>\(t\)</code>, the flow is
+            extracted from the vector <code>\(F_t\)</code> and compared against the thermal limit:
+          </p>
+          <div class="equation-block">
+            \[
+            -F^{max}_{l} \le f_{l,t} \le F^{max}_{l}
+            \]
+          </div>
+          <p class="method-note">
+            This is the same formulation pattern you showed in Julia: build
+            <code>\(B\)</code>, build <code>\(B_{diag}\)</code>, build <code>\(A\)</code>, build
+            <code>\(P_t\)</code>, build <code>\(G_t\)</code>, and finally compute
+            <code>\(\beta = B_{diag}AB^{-1}\)</code>.
+          </p>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Flow-Cut Generation</p>
+          <div class="equation-block">
+            <div class="equation-caption">For each violated \((l,t)\)</div>
+            \[
+            f_{l,t} \le F^{max}_{l}
+            \qquad
+            f_{l,t} \ge -F^{max}_{l}
+            \]
+          </div>
+          <p class="method-note">
+            The flow expression is rewritten directly in terms of generation variables and the
+            constant nodal demand shift, so only violated branch-period pairs produce additional
+            constraints.
+          </p>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Iterative Resolution Strategy</p>
+          <ol class="method-steps">
+            <li>Solve the `LP`.</li>
+            <li>Compute DC line flows.</li>
+            <li>Detect violated line-period pairs.</li>
+            <li>Add flow cuts only for the observed violations.</li>
+            <li>Repeat until the LP becomes network-feasible.</li>
+            <li>Solve the `MILP` with all accumulated cuts.</li>
+            <li>Recompute flows on the MILP solution.</li>
+            <li>If new violations appear, fix the integer decisions and solve `LP-FIXED` iteratively.</li>
+            <li>Stop when no additional flow violations remain.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="workflow" class="section section-highlight">
+        <div class="section-heading">
+          <p class="eyebrow">Workflow</p>
+          <h2>Iterative network-constrained solution loop</h2>
+          <p>
+            The current process separates dispatch optimization from network violation discovery,
+            adding line flow cuts only where they are actually required.
+          </p>
+        </div>
+
+        <div class="workflow-grid">
+          <article class="workflow-step">
+            <span>01</span>
+            <h3>LP</h3>
+            <p>Solve the relaxed dispatch problem without the full set of network cuts.</p>
+          </article>
+          <article class="workflow-step">
+            <span>02</span>
+            <h3>DC Flow</h3>
+            <p>Compute line flows from nodal injections using the reduced susceptance model.</p>
+          </article>
+          <article class="workflow-step">
+            <span>03</span>
+            <h3>Violation Detection</h3>
+            <p>Identify only the line-period pairs whose flows exceed thermal capacity.</p>
+          </article>
+          <article class="workflow-step">
+            <span>04</span>
+            <h3>Flow Cuts</h3>
+            <p>Add upper and lower line limits only for the violated branch-period combinations.</p>
+          </article>
+          <article class="workflow-step">
+            <span>05</span>
+            <h3>MILP</h3>
+            <p>Once the LP is network-feasible, solve the mixed-integer model with accumulated cuts.</p>
+          </article>
+          <article class="workflow-step">
+            <span>06</span>
+            <h3>LP-Fixed</h3>
+            <p>If new violations appear, fix commitment decisions and polish the solution iteratively.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Modeling Scope</p>
+          <h2>Generation, reservoirs, curtailment, and submarket balance</h2>
+        </div>
+
+        <div class="scope-grid">
+          <article class="scope-card">
+            <h3>Thermal</h3>
+            <p>Thermal plants contain units and support unit commitment-oriented modeling decisions.</p>
+          </article>
+          <article class="scope-card">
+            <h3>Hydro</h3>
+            <p>Hydro plants include groups, units, storage limits, initial volume, inflows, and cascades.</p>
+          </article>
+          <article class="scope-card">
+            <h3>Renewables</h3>
+            <p>Wind and solar are modeled at plant level with available generation and endogenous curtailment.</p>
+          </article>
+          <article class="scope-card">
+            <h3>Network</h3>
+            <p>Submarkets, buses, lines, linearized flows, and iterative flow restrictions shape system feasibility.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="results" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Outputs</p>
+          <h2>Operational results exported as analysis-ready CSV files</h2>
+          <p>
+            Every completed run writes structured output files under
+            <code>&lt;case_path&gt;/RESULTADOS</code>.
+          </p>
+        </div>
+
+        <div class="results-layout">
+          <div class="panel result-list">
+            <ul>
+              <li><strong>Hydro:</strong> volume, generation, turbining, and spillage by period</li>
+              <li><strong>Thermal:</strong> generation, on/off state, and residence times by period</li>
+              <li><strong>Network:</strong> line flow, line limit, and violation flags by period</li>
+              <li><strong>Wind:</strong> dispatched generation by period</li>
+              <li><strong>Solar:</strong> dispatched generation by period</li>
+            </ul>
+          </div>
+          <div class="panel result-file">
+            <p class="mini-label">Example output</p>
+            <pre>examples/caso_base/RESULTADOS/
+|-- resultado_hidreletricas.csv
+|-- resultado_termicas.csv
+|-- resultado_rede.csv
+|-- resultado_eolicas.csv
+`-- resultado_solares.csv</pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="run" class="section section-run">
+        <div class="section-heading">
+          <p class="eyebrow">Run</p>
+          <h2>Configuration-driven execution</h2>
+          <p>
+            The CLI reads a JSON file containing the selected study path and launches the iterative
+            workflow from there.
+          </p>
+        </div>
+
+        <div class="run-grid">
+          <div class="panel code-panel">
+            <p class="mini-label">Default run</p>
+            <pre><code>cargo run -p labdessem-cli</code></pre>
+          </div>
+          <div class="panel code-panel">
+            <p class="mini-label">Explicit configuration</p>
+            <pre><code>cargo run -p labdessem-cli -- crates/labdessem-io/study_config.json</code></pre>
+          </div>
+          <div class="panel code-panel wide">
+            <p class="mini-label">Study config</p>
+            <pre><code>{
+  "case_path": "../../examples/caso_base"
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-footer-callout">
+        <div>
+          <p class="eyebrow">Built for Growth</p>
+          <h2>Ready to evolve into a fuller professional scheduling platform</h2>
+        </div>
+        <p>
+          The workspace is already structured for deeper thermal UC, hydro UC, stronger network
+          integration, richer reporting, and broader test coverage.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="./site.js"></script>
+</body>
+</html>

@@ -593,7 +593,7 @@ fn injections_by_period(system: &System, dc_network: &DcNetworkModel, summary: &
 
 impl DcNetworkModel {
     fn from_system(system: &System) -> Result<Self, SimulationError> {
-        let slack_bus = system
+        let _slack_bus = system
             .buses
             .iter()
             .find(|bus| bus.angle_reference)
@@ -624,32 +624,13 @@ impl DcNetworkModel {
         }
 
         let reduced_b = build_reduced_susceptance(system, &non_slack_bus_positions);
-        let mut ptdf_rows = vec![vec![0.0; non_slack_bus_ids.len()]; system.branches.len()];
-
-        for injection_bus_pos in 0..non_slack_bus_ids.len() {
-            let mut rhs = vec![0.0; non_slack_bus_ids.len()];
-            rhs[injection_bus_pos] = 1.0;
-            let theta = solve_linear_system(&reduced_b, &rhs)?;
-
-            for (branch_idx, branch) in system.branches.iter().enumerate() {
-                let theta_from = if branch.from_bus_id == slack_bus.id {
-                    0.0
-                } else {
-                    theta[*non_slack_bus_positions
-                        .get(&branch.from_bus_id)
-                        .expect("from bus should be mapped in reduced system")]
-                };
-                let theta_to = if branch.to_bus_id == slack_bus.id {
-                    0.0
-                } else {
-                    theta[*non_slack_bus_positions
-                        .get(&branch.to_bus_id)
-                        .expect("to bus should be mapped in reduced system")]
-                };
-                ptdf_rows[branch_idx][injection_bus_pos] =
-                    (theta_from - theta_to) / branch.reactance_pu;
-            }
-        }
+        let branch_susceptance_diag = build_branch_susceptance_diag(system);
+        let reduced_incidence =
+            build_reduced_incidence(system, &non_slack_bus_positions);
+        let inverse_reduced_b = invert_matrix(&reduced_b)?;
+        let branch_times_incidence =
+            multiply_matrices(&branch_susceptance_diag, &reduced_incidence)?;
+        let ptdf_rows = multiply_matrices(&branch_times_incidence, &inverse_reduced_b)?;
 
         Ok(Self {
             non_slack_bus_ids,
@@ -689,6 +670,106 @@ fn build_reduced_susceptance(
     }
 
     matrix
+}
+
+fn build_branch_susceptance_diag(system: &System) -> Vec<Vec<f64>> {
+    let size = system.branches.len();
+    let mut matrix = vec![vec![0.0; size]; size];
+
+    for (branch_idx, branch) in system.branches.iter().enumerate() {
+        matrix[branch_idx][branch_idx] = 1.0 / branch.reactance_pu;
+    }
+
+    matrix
+}
+
+fn build_reduced_incidence(
+    system: &System,
+    non_slack_bus_positions: &HashMap<BusId, usize>,
+) -> Vec<Vec<f64>> {
+    let row_count = system.branches.len();
+    let column_count = non_slack_bus_positions.len();
+    let mut matrix = vec![vec![0.0; column_count]; row_count];
+
+    for (branch_idx, branch) in system.branches.iter().enumerate() {
+        if let Some(from_pos) = non_slack_bus_positions.get(&branch.from_bus_id) {
+            matrix[branch_idx][*from_pos] = 1.0;
+        }
+        if let Some(to_pos) = non_slack_bus_positions.get(&branch.to_bus_id) {
+            matrix[branch_idx][*to_pos] = -1.0;
+        }
+    }
+
+    matrix
+}
+
+fn invert_matrix(matrix: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, SimulationError> {
+    let n = matrix.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+
+    if matrix.iter().any(|row| row.len() != n) {
+        return Err(SimulationError::InvalidNetwork(
+            "matrix inversion requires a square matrix".into(),
+        ));
+    }
+
+    let mut inverse = vec![vec![0.0; n]; n];
+    for column in 0..n {
+        let mut rhs = vec![0.0; n];
+        rhs[column] = 1.0;
+        let solution = solve_linear_system(matrix, &rhs)?;
+        for row in 0..n {
+            inverse[row][column] = solution[row];
+        }
+    }
+
+    Ok(inverse)
+}
+
+fn multiply_matrices(
+    left: &[Vec<f64>],
+    right: &[Vec<f64>],
+) -> Result<Vec<Vec<f64>>, SimulationError> {
+    if left.is_empty() || right.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let left_columns = left[0].len();
+    let right_rows = right.len();
+    let right_columns = right[0].len();
+
+    if left.iter().any(|row| row.len() != left_columns)
+        || right.iter().any(|row| row.len() != right_columns)
+    {
+        return Err(SimulationError::InvalidNetwork(
+            "matrix multiplication requires rectangular matrices".into(),
+        ));
+    }
+
+    if left_columns != right_rows {
+        return Err(SimulationError::InvalidNetwork(format!(
+            "matrix multiplication dimension mismatch: left is {}x{}, right is {}x{}",
+            left.len(),
+            left_columns,
+            right_rows,
+            right_columns
+        )));
+    }
+
+    let mut product = vec![vec![0.0; right_columns]; left.len()];
+    for (row_idx, left_row) in left.iter().enumerate() {
+        for column_idx in 0..right_columns {
+            let mut value = 0.0;
+            for k in 0..left_columns {
+                value += left_row[k] * right[k][column_idx];
+            }
+            product[row_idx][column_idx] = value;
+        }
+    }
+
+    Ok(product)
 }
 
 fn solve_linear_system(
