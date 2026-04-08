@@ -1,0 +1,10 @@
+[package]
+name = "labdessem-solver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+labdessem-model = { path = "../labdessem-model" }
+labdessem-io = { path = "../labdessem-io" }
+labdessem-common = { path = "../labdessem-common" }
+good_lp = { version = "1.15", default-features = false, features = ["highs"] }

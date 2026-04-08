@@ -1,0 +1,10 @@
+CodigoBarra;NomeBarra;Periodo;Carga;CodigoSubmercado;Swing
+1;BARRA1;1;80;1;True
+2;BARRA2;1;80;2;False
+3;BARRA3;1;80;2;False
+1;BARRA1;2;80;1;True
+2;BARRA2;2;80;2;False
+3;BARRA3;2;80;2;False
+1;BARRA1;3;80;1;True
+2;BARRA2;3;80;2;False
+3;BARRA3;3;80;2;False

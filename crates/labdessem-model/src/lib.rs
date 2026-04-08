@@ -1,0 +1,736 @@
+pub mod constraints;
+pub mod indexing;
+pub mod objective;
+pub mod variables;
+
+use labdessem_core::system::System;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SolveMode {
+    LinearProgramming,
+    MixedIntegerLinearProgramming,
+    LinearProgrammingWithFixedCommitment,
+}
+
+#[derive(Debug)]
+pub struct Model {
+    pub solve_mode: SolveMode,
+    pub indexing: indexing::Indexing,
+    pub variables: variables::Variables,
+    pub constraints: constraints::ConstraintSet,
+    pub objective: objective::Objective,
+}
+
+impl Model {
+    pub fn from_system(system: &System, solve_mode: SolveMode) -> Self {
+        let indexing = indexing::Indexing::from_system(system);
+        let variables = variables::Variables::for_system(system, &indexing, solve_mode);
+        let constraints =
+            constraints::ConstraintSet::for_system(system, &indexing, &variables, solve_mode);
+        let objective = objective::Objective::for_system(system, &indexing, &variables, solve_mode);
+
+        Self {
+            solve_mode,
+            indexing,
+            variables,
+            constraints,
+            objective,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use labdessem_core::{
+        hydro::{HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir},
+        ids::{
+            BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
+            ThermalPlantId, ThermalUnitId, WindPlantId,
+        },
+        renewable::{SolarPlant, WindPlant},
+        system::{Bus, StudyHorizon, Submarket, System},
+        thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
+    };
+
+    fn build_system() -> System {
+        System {
+            horizon: StudyHorizon {
+                periods: 2,
+                period_duration_hours: 1.0,
+            },
+            submarkets: vec![
+                Submarket {
+                    id: SubmarketId(1),
+                    name: "SE".into(),
+                    demand_mw: vec![100.0, 105.0],
+                    deficit_cost_per_mwh: 1_000.0,
+                },
+                Submarket {
+                    id: SubmarketId(2),
+                    name: "S".into(),
+                    demand_mw: vec![60.0, 62.0],
+                    deficit_cost_per_mwh: 1_000.0,
+                },
+            ],
+            interchange_limits: vec![
+                labdessem_core::system::InterchangeLimit {
+                    from_submarket_id: SubmarketId(1),
+                    to_submarket_id: SubmarketId(2),
+                    max_flow_mw: 80.0,
+                    penalty_cost_per_mwh: 2.0,
+                },
+                labdessem_core::system::InterchangeLimit {
+                    from_submarket_id: SubmarketId(2),
+                    to_submarket_id: SubmarketId(1),
+                    max_flow_mw: 65.0,
+                    penalty_cost_per_mwh: 3.0,
+                },
+            ],
+            buses: vec![
+                Bus {
+                    id: BusId(1),
+                    name: "BUS-1".into(),
+                    submarket_id: SubmarketId(1),
+                    angle_reference: true,
+                    demand_mw: vec![40.0, 42.0],
+                },
+                Bus {
+                    id: BusId(2),
+                    name: "BUS-2".into(),
+                    submarket_id: SubmarketId(2),
+                    angle_reference: false,
+                    demand_mw: vec![60.0, 63.0],
+                },
+            ],
+            branches: vec![],
+            thermal_plants: vec![ThermalPlant {
+                id: ThermalPlantId(1),
+                name: "UTE-1".into(),
+                submarket_id: SubmarketId(1),
+                bus_id: BusId(1),
+                units: vec![ThermalUnit {
+                    id: ThermalUnitId(1),
+                    name: "GT-1".into(),
+                    min_generation_mw: 20.0,
+                    max_generation_mw: 100.0,
+                    startup_trajectory_mw: vec![20.0, 40.0],
+                    shutdown_trajectory_mw: vec![40.0, 20.0],
+                    min_up_time: 1,
+                    min_down_time: 1,
+                    startup_cost: 10.0,
+                    shutdown_cost: 5.0,
+                    variable_cost_per_mwh: 100.0,
+                    initial_condition: ThermalInitialCondition {
+                        is_on: true,
+                        generation_mw: 20.0,
+                        time_in_state: 1,
+                    },
+                }],
+            }],
+            hydro_plants: vec![HydroPlant {
+                id: HydroPlantId(1),
+                name: "UHE-1".into(),
+                submarket_id: SubmarketId(2),
+                bus_id: BusId(2),
+                upstream_plant_ids: vec![],
+                downstream_plant_id: None,
+                reservoir: Reservoir {
+                    min_volume_hm3: 1.0,
+                    max_volume_hm3: 10.0,
+                    initial_volume_hm3: 5.0,
+                },
+                natural_inflow_hm3: vec![1.0, 1.0],
+                spillage_cost_per_hm3: 0.0,
+                groups: vec![HydroGroup {
+                    id: HydroGroupId(1),
+                    name: "CJ-1".into(),
+                    units: vec![HydroUnit {
+                        id: HydroUnitId(1),
+                        name: "UG-1".into(),
+                        min_generation_mw: 5.0,
+                        max_generation_mw: 50.0,
+                        max_turbining_hm3: 20.0,
+                        productivity_mw_per_hm3: 2.5,
+                        startup_trajectory_mw: vec![5.0, 10.0],
+                        shutdown_trajectory_mw: vec![10.0, 5.0],
+                        min_up_time: 1,
+                        min_down_time: 1,
+                        startup_cost: 0.0,
+                        shutdown_cost: 0.0,
+                        initial_condition: HydroInitialCondition {
+                            is_on: true,
+                            generation_mw: 5.0,
+                            time_in_state: 1,
+                        },
+                    }],
+                }],
+            }],
+            wind_plants: vec![WindPlant {
+                id: WindPlantId(1),
+                name: "EOL-1".into(),
+                submarket_id: SubmarketId(1),
+                bus_id: BusId(1),
+                available_generation_mw: vec![10.0, 10.0],
+            }],
+            solar_plants: vec![SolarPlant {
+                id: SolarPlantId(1),
+                name: "SOL-1".into(),
+                submarket_id: SubmarketId(2),
+                bus_id: BusId(2),
+                available_generation_mw: vec![8.0, 7.0],
+            }],
+        }
+    }
+
+    fn build_system_with_multiple_upstreams() -> System {
+        System {
+            horizon: StudyHorizon {
+                periods: 1,
+                period_duration_hours: 1.0,
+            },
+            submarkets: vec![Submarket {
+                id: SubmarketId(1),
+                name: "SE".into(),
+                demand_mw: vec![0.0],
+                deficit_cost_per_mwh: 1_000.0,
+            }],
+            interchange_limits: vec![],
+            buses: vec![Bus {
+                id: BusId(1),
+                name: "BUS-1".into(),
+                submarket_id: SubmarketId(1),
+                angle_reference: true,
+                demand_mw: vec![0.0],
+            }],
+            branches: vec![],
+            thermal_plants: vec![],
+            hydro_plants: vec![
+                HydroPlant {
+                    id: HydroPlantId(1),
+                    name: "UHE-A".into(),
+                    submarket_id: SubmarketId(1),
+                    bus_id: BusId(1),
+                    upstream_plant_ids: vec![],
+                    downstream_plant_id: Some(HydroPlantId(3)),
+                    reservoir: Reservoir {
+                        min_volume_hm3: 0.0,
+                        max_volume_hm3: 10.0,
+                        initial_volume_hm3: 1.0,
+                    },
+                    natural_inflow_hm3: vec![0.0],
+                    spillage_cost_per_hm3: 0.0,
+                    groups: vec![HydroGroup {
+                        id: HydroGroupId(1),
+                        name: "CJ-A".into(),
+                        units: vec![HydroUnit {
+                            id: HydroUnitId(1),
+                            name: "UG-A".into(),
+                            min_generation_mw: 1.0,
+                            max_generation_mw: 10.0,
+                            max_turbining_hm3: 5.0,
+                            productivity_mw_per_hm3: 2.0,
+                            startup_trajectory_mw: vec![1.0],
+                            shutdown_trajectory_mw: vec![1.0],
+                            min_up_time: 1,
+                            min_down_time: 1,
+                            startup_cost: 0.0,
+                            shutdown_cost: 0.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 1.0,
+                                time_in_state: 1,
+                            },
+                        }],
+                    }],
+                },
+                HydroPlant {
+                    id: HydroPlantId(2),
+                    name: "UHE-B".into(),
+                    submarket_id: SubmarketId(1),
+                    bus_id: BusId(1),
+                    upstream_plant_ids: vec![],
+                    downstream_plant_id: Some(HydroPlantId(3)),
+                    reservoir: Reservoir {
+                        min_volume_hm3: 0.0,
+                        max_volume_hm3: 10.0,
+                        initial_volume_hm3: 1.0,
+                    },
+                    natural_inflow_hm3: vec![0.0],
+                    spillage_cost_per_hm3: 0.0,
+                    groups: vec![HydroGroup {
+                        id: HydroGroupId(2),
+                        name: "CJ-B".into(),
+                        units: vec![HydroUnit {
+                            id: HydroUnitId(2),
+                            name: "UG-B".into(),
+                            min_generation_mw: 1.0,
+                            max_generation_mw: 10.0,
+                            max_turbining_hm3: 5.0,
+                            productivity_mw_per_hm3: 2.0,
+                            startup_trajectory_mw: vec![1.0],
+                            shutdown_trajectory_mw: vec![1.0],
+                            min_up_time: 1,
+                            min_down_time: 1,
+                            startup_cost: 0.0,
+                            shutdown_cost: 0.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 1.0,
+                                time_in_state: 1,
+                            },
+                        }],
+                    }],
+                },
+                HydroPlant {
+                    id: HydroPlantId(3),
+                    name: "UHE-C".into(),
+                    submarket_id: SubmarketId(1),
+                    bus_id: BusId(1),
+                    upstream_plant_ids: vec![HydroPlantId(1), HydroPlantId(2)],
+                    downstream_plant_id: None,
+                    reservoir: Reservoir {
+                        min_volume_hm3: 0.0,
+                        max_volume_hm3: 20.0,
+                        initial_volume_hm3: 5.0,
+                    },
+                    natural_inflow_hm3: vec![3.0],
+                    spillage_cost_per_hm3: 0.0,
+                    groups: vec![HydroGroup {
+                        id: HydroGroupId(3),
+                        name: "CJ-C".into(),
+                        units: vec![HydroUnit {
+                            id: HydroUnitId(3),
+                            name: "UG-C".into(),
+                            min_generation_mw: 1.0,
+                            max_generation_mw: 10.0,
+                            max_turbining_hm3: 5.0,
+                            productivity_mw_per_hm3: 2.0,
+                            startup_trajectory_mw: vec![1.0],
+                            shutdown_trajectory_mw: vec![1.0],
+                            min_up_time: 1,
+                            min_down_time: 1,
+                            startup_cost: 0.0,
+                            shutdown_cost: 0.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 1.0,
+                                time_in_state: 1,
+                            },
+                        }],
+                    }],
+                },
+            ],
+            wind_plants: vec![],
+            solar_plants: vec![],
+        }
+    }
+
+    #[test]
+    fn builds_model_skeleton() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+
+        assert_eq!(model.indexing.thermal_units, 1);
+        assert_eq!(model.indexing.hydro_units, 1);
+        assert_eq!(model.variables.hydro_turbining.len(), 2);
+        assert_eq!(model.variables.hydro_spillage.len(), 2);
+        assert_eq!(model.variables.hydro_volume.len(), 3);
+        assert_eq!(model.variables.deficit.len(), 4);
+        assert_eq!(model.variables.interchange.len(), 4);
+        assert_eq!(model.constraints.demand_balance().len(), 4);
+        assert_eq!(model.constraints.hydro_balance().len(), 2);
+        assert_eq!(model.constraints.interchange_limits().len(), 4);
+        assert_eq!(model.constraints.hydro_turbining_limits().len(), 4);
+        assert_eq!(model.constraints.hydro_spillage_nonnegativity().len(), 2);
+        assert_eq!(model.constraints.hydro_productivity().len(), 2);
+        assert!(
+            model
+                .constraints
+                .names()
+                .contains(&"linearized_network_flow")
+        );
+        assert!(model.constraints.names().contains(&"unit_commitment"));
+    }
+
+    #[test]
+    fn builds_demand_balance_by_submarket_and_period() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let balances = model.constraints.demand_balance();
+        assert_eq!(balances.len(), 4);
+
+        let first = &balances[0];
+        assert_eq!(first.name, "demand_balance[submarket=SE,t=1]");
+        assert_eq!(first.rhs, 100.0);
+
+        let term_names: Vec<_> = first
+            .terms
+            .iter()
+            .map(|term| term.variable.as_str())
+            .collect();
+        assert!(term_names.contains(&"thermal_generation[p=UTE-1,u=GT-1,t=1]"));
+        assert!(term_names.contains(&"wind_generation[p=EOL-1,t=1]"));
+        assert!(term_names.contains(&"interchange[from=S,to=SE,t=1]"));
+        assert!(term_names.contains(&"interchange[from=SE,to=S,t=1]"));
+        assert!(term_names.contains(&"deficit[submarket=SE,t=1]"));
+
+        let incoming = first
+            .terms
+            .iter()
+            .find(|term| term.variable == "interchange[from=S,to=SE,t=1]")
+            .expect("incoming interchange term should exist");
+        assert_eq!(incoming.coefficient, 1.0);
+
+        let outgoing = first
+            .terms
+            .iter()
+            .find(|term| term.variable == "interchange[from=SE,to=S,t=1]")
+            .expect("outgoing interchange term should exist");
+        assert_eq!(outgoing.coefficient, -1.0);
+    }
+
+    #[test]
+    fn builds_hydro_turbining_and_spillage_variables() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        assert_eq!(
+            model.variables.hydro_turbining[0].name,
+            "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+        );
+        assert_eq!(model.variables.hydro_turbining[0].lower_bound, 0.0);
+        assert_eq!(model.variables.hydro_turbining[0].upper_bound, Some(20.0));
+
+        assert_eq!(
+            model.variables.hydro_spillage[0].name,
+            "hydro_spillage[p=UHE-1,t=1]"
+        );
+        assert_eq!(model.variables.hydro_spillage[0].lower_bound, 0.0);
+        assert_eq!(model.variables.hydro_spillage[0].upper_bound, None);
+
+        assert_eq!(
+            model.variables.hydro_volume[0].name,
+            "hydro_volume[p=UHE-1,t=0]"
+        );
+        assert_eq!(model.variables.hydro_volume[0].lower_bound, 1.0);
+        assert_eq!(model.variables.hydro_volume[0].upper_bound, Some(10.0));
+        assert_eq!(model.variables.hydro_volume[0].fixed_value, Some(5.0));
+    }
+
+    #[test]
+    fn builds_interchange_limit_constraints_with_directional_values() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let limits = model.constraints.interchange_limits();
+        assert_eq!(limits.len(), 4);
+
+        let se_to_s = limits
+            .iter()
+            .find(|constraint| constraint.name == "interchange_limit[from=SE,to=S,t=1]")
+            .expect("SE to S interchange limit should exist");
+        assert_eq!(se_to_s.rhs, 80.0);
+
+        let s_to_se = limits
+            .iter()
+            .find(|constraint| constraint.name == "interchange_limit[from=S,to=SE,t=1]")
+            .expect("S to SE interchange limit should exist");
+        assert_eq!(s_to_se.rhs, 65.0);
+    }
+
+    #[test]
+    fn does_not_fix_hydro_volume_in_first_period() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        assert!(
+            !model
+                .constraints
+                .names()
+                .iter()
+                .any(|name| name.starts_with("initial_hydro_volume["))
+        );
+    }
+
+    #[test]
+    fn builds_hydro_balance_for_first_period_with_boundary_condition() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let first = model
+            .constraints
+            .hydro_balance()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-1,t=1]")
+            .expect("first-period hydro balance should exist");
+
+        assert_eq!(first.sense, constraints::ConstraintSense::Equal);
+        assert_eq!(first.rhs, 1.0);
+        assert!(first
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == 1.0));
+        assert!(first
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=0]" && term.coefficient == -1.0));
+        assert!(first.terms.iter().any(|term| {
+            term.variable == "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]" && term.coefficient == 1.0
+        }));
+        assert!(
+            first
+                .terms
+                .iter()
+                .any(|term| term.variable == "hydro_spillage[p=UHE-1,t=1]"
+                    && term.coefficient == 1.0)
+        );
+        assert!(
+            !first
+                .terms
+                .iter()
+                .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -1.0)
+        );
+    }
+
+    #[test]
+    fn builds_hydro_balance_for_later_periods_with_previous_volume() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let second = model
+            .constraints
+            .hydro_balance()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-1,t=2]")
+            .expect("later-period hydro balance should exist");
+
+        assert_eq!(second.sense, constraints::ConstraintSense::Equal);
+        assert_eq!(second.rhs, 1.0);
+        assert!(second
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == 1.0));
+        assert!(
+            second.terms.iter().any(
+                |term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == -1.0
+            )
+        );
+    }
+
+    #[test]
+    fn builds_hydro_turbining_spillage_and_productivity_constraints() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let turbining_upper = model
+            .constraints
+            .hydro_turbining_limits()
+            .into_iter()
+            .find(|constraint| {
+                constraint.name == "hydro_turbining_upper[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+            })
+            .expect("hydro turbining upper limit should exist");
+        assert_eq!(turbining_upper.rhs, 20.0);
+
+        let spillage_nonnegative = model
+            .constraints
+            .hydro_spillage_nonnegativity()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_spillage_nonnegative[p=UHE-1,t=1]")
+            .expect("hydro spillage nonnegativity should exist");
+        assert_eq!(
+            spillage_nonnegative.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
+        assert_eq!(spillage_nonnegative.rhs, 0.0);
+
+        let productivity = model
+            .constraints
+            .hydro_productivity()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_productivity[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+            .expect("hydro productivity constraint should exist");
+        assert_eq!(productivity.sense, constraints::ConstraintSense::Equal);
+        assert!(productivity.terms.iter().any(|term| term.variable
+            == "hydro_generation[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+            && term.coefficient == 1.0));
+        assert!(productivity.terms.iter().any(|term| term.variable
+            == "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+            && term.coefficient == -2.5));
+    }
+
+    #[test]
+    fn sums_all_upstream_plants_in_hydro_balance() {
+        let system = build_system_with_multiple_upstreams();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let balance = model
+            .constraints
+            .hydro_balance()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-C,t=1]")
+            .expect("hydro balance with multiple upstreams should exist");
+
+        assert!(balance.terms.iter().any(|term| term.variable
+            == "hydro_turbining[p=UHE-A,g=CJ-A,u=UG-A,t=1]"
+            && term.coefficient == -1.0));
+        assert!(
+            balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "hydro_spillage[p=UHE-A,t=1]"
+                    && term.coefficient == -1.0)
+        );
+        assert!(balance.terms.iter().any(|term| term.variable
+            == "hydro_turbining[p=UHE-B,g=CJ-B,u=UG-B,t=1]"
+            && term.coefficient == -1.0));
+        assert!(
+            balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "hydro_spillage[p=UHE-B,t=1]"
+                    && term.coefficient == -1.0)
+        );
+    }
+
+    #[test]
+    fn builds_channeling_constraints_for_commitment_modes() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+
+        let channeling = model.constraints.channeling();
+        assert_eq!(channeling.len(), 8);
+
+        let thermal_upper = channeling
+            .iter()
+            .find(|constraint| constraint.name == "channeling_thermal_upper[p=UTE-1,u=GT-1,t=1]")
+            .expect("thermal upper channeling should exist");
+        assert_eq!(
+            thermal_upper.sense,
+            constraints::ConstraintSense::LessOrEqual
+        );
+        assert_eq!(thermal_upper.rhs, 0.0);
+        assert!(thermal_upper.terms.iter().any(|term| term.variable
+            == "thermal_generation[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == 1.0));
+        assert!(
+            thermal_upper
+                .terms
+                .iter()
+                .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]"
+                    && term.coefficient == -100.0)
+        );
+
+        let hydro_lower = channeling
+            .iter()
+            .find(|constraint| {
+                constraint.name == "channeling_hydro_lower[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+            })
+            .expect("hydro lower channeling should exist");
+        assert_eq!(
+            hydro_lower.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
+        assert!(hydro_lower.terms.iter().any(|term| term.variable
+            == "hydro_generation[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+            && term.coefficient == 1.0));
+        assert!(hydro_lower.terms.iter().any(|term| term.variable
+            == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+            && term.coefficient == -5.0));
+    }
+
+    #[test]
+    fn does_not_build_channeling_constraints_in_pure_lp_mode() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        assert!(model.constraints.channeling().is_empty());
+    }
+
+    #[test]
+    fn builds_objective_with_operating_costs_in_lp_mode() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        assert_eq!(model.objective.sense, objective::ObjectiveSense::Minimize);
+
+        let thermal_cost = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "thermal_generation[p=UTE-1,u=GT-1,t=1]")
+            .expect("thermal generation cost should exist");
+        assert_eq!(thermal_cost.coefficient, 100.0);
+
+        let deficit_cost = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "deficit[submarket=SE,t=1]")
+            .expect("deficit cost should exist");
+        assert_eq!(deficit_cost.coefficient, 1_000.0);
+
+        let spillage_cost = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "hydro_spillage[p=UHE-1,t=1]")
+            .expect("spillage cost should exist");
+        assert_eq!(spillage_cost.coefficient, 0.0);
+
+        let interchange_cost = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "interchange[from=SE,to=S,t=1]")
+            .expect("interchange penalty should exist");
+        assert_eq!(interchange_cost.coefficient, 2.0);
+
+        assert!(
+            !model
+                .objective
+                .terms
+                .iter()
+                .any(|term| term.variable.starts_with("thermal_startup["))
+        );
+    }
+
+    #[test]
+    fn builds_objective_with_startup_and_shutdown_costs_in_commitment_modes() {
+        let system = build_system();
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+
+        let thermal_startup = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]")
+            .expect("thermal startup cost should exist");
+        assert_eq!(thermal_startup.coefficient, 10.0);
+
+        let thermal_shutdown = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]")
+            .expect("thermal shutdown cost should exist");
+        assert_eq!(thermal_shutdown.coefficient, 5.0);
+
+        let hydro_startup = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "hydro_startup[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+            .expect("hydro startup cost should exist");
+        assert_eq!(hydro_startup.coefficient, 0.0);
+
+        let hydro_shutdown = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "hydro_shutdown[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+            .expect("hydro shutdown cost should exist");
+        assert_eq!(hydro_shutdown.coefficient, 0.0);
+    }
+}
