@@ -1117,7 +1117,7 @@ mod tests {
         System {
             horizon: StudyHorizon {
                 periods: 2,
-                period_duration_hours: 1,
+                period_duration_hours: 1.0,
             },
             submarkets: vec![
                 Submarket {
