@@ -8,6 +8,8 @@ pub struct ThermalInitialCondition {
     pub is_on: bool,
     pub generation_mw: f64,
     pub time_in_state: usize,
+    pub is_ramping_up: bool,
+    pub is_ramping_down: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,7 +82,31 @@ impl ThermalUnit {
                 self.id
             )));
         }
-        if self.initial_condition.is_on {
+        if self.initial_condition.is_ramping_up && self.initial_condition.is_ramping_down {
+            return Err(CoreError::validation(format!(
+                "thermal unit {:?} cannot be ramping up and down at the same time",
+                self.id
+            )));
+        }
+        if (self.initial_condition.is_ramping_up || self.initial_condition.is_ramping_down)
+            && !self.initial_condition.is_on
+        {
+            return Err(CoreError::validation(format!(
+                "thermal unit {:?} in ramp state must be initially on",
+                self.id
+            )));
+        }
+        if self.initial_condition.is_ramping_up {
+            self.initial_startup_remaining_trajectory()?;
+        }
+        if self.initial_condition.is_ramping_down {
+            self.initial_shutdown_remaining_trajectory()?;
+        }
+
+        if self.initial_condition.is_on
+            && !self.initial_condition.is_ramping_up
+            && !self.initial_condition.is_ramping_down
+        {
             if self.initial_condition.generation_mw < self.min_generation_mw
                 || self.initial_condition.generation_mw > self.max_generation_mw
             {
@@ -89,7 +115,10 @@ impl ThermalUnit {
                     self.id
                 )));
             }
-        } else if self.initial_condition.generation_mw > 0.0 {
+        } else if !self.initial_condition.is_ramping_up
+            && !self.initial_condition.is_ramping_down
+            && self.initial_condition.generation_mw > 0.0
+        {
             return Err(CoreError::validation(format!(
                 "thermal unit {:?} is off but has positive initial generation",
                 self.id
@@ -98,6 +127,73 @@ impl ThermalUnit {
 
         Ok(())
     }
+
+    pub fn initial_startup_remaining_trajectory(&self) -> Result<Vec<f64>, CoreError> {
+        remaining_trajectory_from_time_in_state(
+            self.id,
+            "startup",
+            &self.startup_trajectory_mw,
+            self.initial_condition.time_in_state,
+            self.initial_condition.generation_mw,
+        )
+    }
+
+    pub fn initial_shutdown_remaining_trajectory(&self) -> Result<Vec<f64>, CoreError> {
+        remaining_trajectory_from_time_in_state(
+            self.id,
+            "shutdown",
+            &self.shutdown_trajectory_mw,
+            self.initial_condition.time_in_state,
+            self.initial_condition.generation_mw,
+        )
+    }
+}
+
+fn remaining_trajectory_from_time_in_state(
+    unit_id: ThermalUnitId,
+    trajectory_name: &str,
+    trajectory: &[f64],
+    time_in_state: usize,
+    generation_mw: f64,
+) -> Result<Vec<f64>, CoreError> {
+    if trajectory.is_empty() {
+        return Err(CoreError::validation(format!(
+            "thermal unit {:?} is marked in {} trajectory but the trajectory is empty",
+            unit_id, trajectory_name
+        )));
+    }
+
+    if time_in_state == 0 {
+        return Err(CoreError::validation(format!(
+            "thermal unit {:?} is marked in {} trajectory but has zero time in state",
+            unit_id, trajectory_name
+        )));
+    }
+
+    if time_in_state > trajectory.len() {
+        return Err(CoreError::validation(format!(
+            "thermal unit {:?} time in state {} exceeds {} trajectory length {}",
+            unit_id,
+            time_in_state,
+            trajectory_name,
+            trajectory.len()
+        )));
+    }
+
+    let current_step_idx = time_in_state - 1;
+    let expected_generation = trajectory[current_step_idx];
+    if (expected_generation - generation_mw).abs() > 1e-6 {
+        return Err(CoreError::validation(format!(
+            "thermal unit {:?} initial generation {} is inconsistent with {} trajectory step {} ({})",
+            unit_id,
+            generation_mw,
+            trajectory_name,
+            time_in_state,
+            expected_generation
+        )));
+    }
+
+    Ok(trajectory[(current_step_idx + 1)..].to_vec())
 }
 
 #[derive(Debug, Clone, PartialEq)]

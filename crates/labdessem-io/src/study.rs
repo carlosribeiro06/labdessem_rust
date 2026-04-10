@@ -2,6 +2,8 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs,
     fs::File,
+    io,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -13,7 +15,10 @@ use labdessem_core::{
         ThermalUnitId,
     },
     renewable::{SolarPlant, WindPlant},
-    system::{Branch, Bus, InterchangeLimit, StudyHorizon, Submarket, System},
+    system::{
+        Branch, Bus, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
+        OperationalLimitVariable, ResidualCost, StudyHorizon, Submarket, System,
+    },
     thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
 };
 use serde::{Deserialize, Deserializer};
@@ -23,6 +28,9 @@ use crate::error::IoError;
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct StudyConfig {
     pub case_path: PathBuf,
+    pub rede: u8,
+    #[serde(rename = "TON_Residual")]
+    pub ton_residual: u8,
 }
 
 pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, IoError> {
@@ -50,10 +58,13 @@ pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, I
 
 pub fn read_study_from_config(config_path: impl AsRef<Path>) -> Result<System, IoError> {
     let config = read_study_config(config_path)?;
-    read_study_from_path(config.case_path)
+    read_study_from_path_with_options(config.case_path, config.ton_residual != 0)
 }
 
-pub fn read_study_from_path(base_path: impl AsRef<Path>) -> Result<System, IoError> {
+fn read_study_from_path_with_options(
+    base_path: impl AsRef<Path>,
+    ton_residual_enabled: bool,
+) -> Result<System, IoError> {
     let base_path = base_path.as_ref();
     let cad_path = base_path.join("CAD");
     let oper_path = base_path.join("OPER");
@@ -66,6 +77,11 @@ pub fn read_study_from_path(base_path: impl AsRef<Path>) -> Result<System, IoErr
     let branch_rows: Vec<BranchRow> = read_csv(oper_path.join("OPER_LINHA.csv"))?;
     let interchange_rows: Vec<InterchangeRow> =
         read_csv(oper_path.join("OPER_LIMITE_INTERCAMBIO.csv"))?;
+    let residual_cost_rows: Vec<ResidualCostRow> = if ton_residual_enabled {
+        read_csv(oper_path.join("OPER_CUSTO_RESIDUAL.csv"))?
+    } else {
+        Vec::new()
+    };
     let thermal_rows: Vec<ThermalUnitRow> = read_csv(cad_path.join("CAD_UNID_UTE.csv"))?;
     let hydro_rows: Vec<HydroPlantRow> = read_csv(cad_path.join("CAD_UHE.csv"))?;
     let hydro_unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
@@ -91,10 +107,14 @@ pub fn read_study_from_path(base_path: impl AsRef<Path>) -> Result<System, IoErr
     let buses = build_buses(&bus_rows, horizon.periods)?;
     let branches = build_branches(&branch_rows);
     let interchange_limits = build_interchange_limits(&interchange_rows);
+    let residual_costs = build_residual_costs(&residual_cost_rows);
+    let operational_limit_rows: Vec<OperationalLimitRow> =
+        read_csv(oper_path.join("OPER_REST_LIM.csv"))?;
     let thermal_plants = build_thermal_plants(
         &thermal_rows,
         &thermal_startup_trajectories,
         &thermal_shutdown_trajectories,
+        horizon.period_duration_hours,
     )?;
     let hydro_plants = build_hydro_plants(
         &hydro_rows,
@@ -103,17 +123,27 @@ pub fn read_study_from_path(base_path: impl AsRef<Path>) -> Result<System, IoErr
         &hydro_startup_trajectories,
         &hydro_shutdown_trajectories,
         horizon.periods,
+        horizon.period_duration_hours,
     )?;
     let (wind_plants, solar_plants) = build_renewables(
         &renewable_catalog_rows,
         &renewable_operation_rows,
         horizon.periods,
     )?;
+    let operational_limits = build_operational_limits(
+        &operational_limit_rows,
+        &thermal_plants,
+        &hydro_plants,
+        horizon.periods,
+    )?;
 
     let system = System {
         horizon,
+        ton_residual_enabled,
+        residual_costs,
         submarkets,
         interchange_limits,
+        operational_limits,
         buses,
         branches,
         thermal_plants,
@@ -298,6 +328,7 @@ fn build_thermal_plants(
     rows: &[ThermalUnitRow],
     startup_trajectories: &HashMap<String, Vec<f64>>,
     shutdown_trajectories: &HashMap<String, Vec<f64>>,
+    period_duration_hours: f64,
 ) -> Result<Vec<ThermalPlant>, IoError> {
     let mut grouped = BTreeMap::<usize, Vec<&ThermalUnitRow>>::new();
     for row in rows {
@@ -311,8 +342,9 @@ fn build_thermal_plants(
             let mut units = Vec::with_capacity(plant_rows.len());
 
             for row in plant_rows {
-                let startup = trajectory_for(startup_trajectories, &row.nome_ute)?;
-                let shutdown = trajectory_for(shutdown_trajectories, &row.nome_ute)?;
+                let unit_trajectory_key = format!("{}-{}", row.nome_ute, row.unidade);
+                let startup = trajectory_for(startup_trajectories, &unit_trajectory_key)?;
+                let shutdown = trajectory_for(shutdown_trajectories, &unit_trajectory_key)?;
 
                 units.push(ThermalUnit {
                     id: ThermalUnitId(row.unidade),
@@ -321,15 +353,32 @@ fn build_thermal_plants(
                     max_generation_mw: row.pmax,
                     startup_trajectory_mw: startup,
                     shutdown_trajectory_mw: shutdown,
-                    min_up_time: row.ton,
-                    min_down_time: row.toff,
+                    min_up_time: hours_to_periods(
+                        row.ton,
+                        period_duration_hours,
+                        "Ton",
+                        &row.nome_ute,
+                    )?,
+                    min_down_time: hours_to_periods(
+                        row.toff,
+                        period_duration_hours,
+                        "Toff",
+                        &row.nome_ute,
+                    )?,
                     startup_cost: row.custo_partida,
                     shutdown_cost: row.custo_desliga,
                     variable_cost_per_mwh: row.cvu,
                     initial_condition: ThermalInitialCondition {
                         is_on: row.status_inic != 0,
                         generation_mw: row.ger_inic,
-                        time_in_state: row.tinic,
+                        time_in_state: hours_to_periods(
+                            row.tinic,
+                            period_duration_hours,
+                            "Tinic",
+                            &row.nome_ute,
+                        )?,
+                        is_ramping_up: row.rup_inic != 0,
+                        is_ramping_down: row.rdown_inic != 0,
                     },
                 });
             }
@@ -352,6 +401,7 @@ fn build_hydro_plants(
     startup_trajectories: &HashMap<String, Vec<f64>>,
     shutdown_trajectories: &HashMap<String, Vec<f64>>,
     horizon: usize,
+    period_duration_hours: f64,
 ) -> Result<Vec<HydroPlant>, IoError> {
     let hydro_name_to_id: HashMap<_, _> = plant_rows
         .iter()
@@ -404,14 +454,29 @@ fn build_hydro_plants(
                         productivity_mw_per_hm3: unit_row.prod,
                         startup_trajectory_mw: startup,
                         shutdown_trajectory_mw: shutdown,
-                        min_up_time: unit_row.ton,
-                        min_down_time: unit_row.toff,
+                        min_up_time: hours_to_periods(
+                            unit_row.ton,
+                            period_duration_hours,
+                            "Ton",
+                            &row.nome,
+                        )?,
+                        min_down_time: hours_to_periods(
+                            unit_row.toff,
+                            period_duration_hours,
+                            "Toff",
+                            &row.nome,
+                        )?,
                         startup_cost: unit_row.custo_partida,
                         shutdown_cost: unit_row.custo_desliga,
                         initial_condition: HydroInitialCondition {
                             is_on,
                             generation_mw: if is_on { unit_row.pmin } else { 0.0 },
-                            time_in_state: unit_row.tinic,
+                            time_in_state: hours_to_periods(
+                                unit_row.tinic,
+                                period_duration_hours,
+                                "Tinic",
+                                &row.nome,
+                            )?,
                         },
                     });
                 }
@@ -469,6 +534,166 @@ fn build_renewables(
     )))
 }
 
+fn build_residual_costs(rows: &[ResidualCostRow]) -> Vec<ResidualCost> {
+    rows.iter()
+        .map(|row| ResidualCost {
+            submarket_id: SubmarketId(row.submercado),
+            cmo_per_mwh: row.cmo,
+        })
+        .collect()
+}
+
+fn build_operational_limits(
+    rows: &[OperationalLimitRow],
+    thermal_plants: &[ThermalPlant],
+    hydro_plants: &[HydroPlant],
+    horizon: usize,
+) -> Result<Vec<OperationalLimit>, IoError> {
+    rows.iter()
+        .map(|row| {
+            let start_period = parse_restriction_period(&row.periodo_inicial, horizon, true)?;
+            let end_period = parse_restriction_period(&row.periodo_final, horizon, false)?;
+            let variable = parse_operational_limit_variable(&row.variavel)?;
+            let lower_bound = parse_optional_bound(&row.linf, "Linf")?;
+            let upper_bound = parse_optional_bound(&row.lsup, "Lsup")?;
+
+            let thermal_match = thermal_plants
+                .iter()
+                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == row.nome_usina);
+            let hydro_match = hydro_plants
+                .iter()
+                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == row.nome_usina);
+
+            let target = match variable {
+                OperationalLimitVariable::Generation => {
+                    match (thermal_match, hydro_match) {
+                        (Some(plant), None) => {
+                            OperationalLimitTarget::ThermalPlant(plant.id)
+                        }
+                        (None, Some(plant)) => {
+                            OperationalLimitTarget::HydroPlant(plant.id)
+                        }
+                        (Some(_), Some(_)) => {
+                            return Err(IoError::invalid_data(format!(
+                                "operational limit for {} is ambiguous between thermal and hydro generation",
+                                row.nome_usina
+                            )));
+                        }
+                        (None, None) => {
+                            return Err(IoError::invalid_data(format!(
+                                "unknown plant {} ({}) in OPER_REST_LIM.csv",
+                                row.nome_usina, row.codigo_usina
+                            )));
+                        }
+                    }
+                }
+                _ => {
+                    if let Some(thermal) = thermal_match {
+                        return Err(IoError::invalid_data(format!(
+                            "thermal plant {} cannot define restriction for variable {}",
+                            thermal.name, row.variavel
+                        )));
+                    }
+
+                    let hydro = hydro_match.ok_or_else(|| {
+                        IoError::invalid_data(format!(
+                            "unknown hydro plant {} ({}) in OPER_REST_LIM.csv",
+                            row.nome_usina, row.codigo_usina
+                        ))
+                    })?;
+                    OperationalLimitTarget::HydroPlant(hydro.id)
+                }
+            };
+
+            Ok(OperationalLimit {
+                target,
+                plant_name: row.nome_usina.clone(),
+                variable,
+                start_period,
+                end_period,
+                lower_bound,
+                upper_bound,
+            })
+        })
+        .collect()
+}
+
+fn parse_restriction_period(
+    value: &str,
+    horizon: usize,
+    is_start: bool,
+) -> Result<usize, IoError> {
+    let trimmed = value.trim();
+    if trimmed.eq_ignore_ascii_case("I") {
+        return Ok(1);
+    }
+    if trimmed.eq_ignore_ascii_case("F") {
+        return Ok(horizon);
+    }
+
+    let period = trimmed.parse::<usize>().map_err(|_| {
+        IoError::invalid_data(format!("invalid restriction period value '{trimmed}'"))
+    })?;
+
+    if !(1..=horizon).contains(&period) {
+        return Err(IoError::invalid_data(format!(
+            "restriction {} period {} is outside study horizon 1..={}",
+            if is_start { "initial" } else { "final" },
+            period,
+            horizon
+        )));
+    }
+
+    Ok(period)
+}
+
+fn parse_optional_bound(value: &str, field_name: &str) -> Result<Option<f64>, IoError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    let parsed = trimmed.parse::<f64>().map_err(|_| {
+        IoError::invalid_data(format!("invalid {field_name} value '{trimmed}' in OPER_REST_LIM.csv"))
+    })?;
+    Ok(Some(parsed))
+}
+
+fn parse_operational_limit_variable(value: &str) -> Result<OperationalLimitVariable, IoError> {
+    match value.trim().to_ascii_uppercase().as_str() {
+        "GER" => Ok(OperationalLimitVariable::Generation),
+        "VERT" => Ok(OperationalLimitVariable::Spillage),
+        "VOL" => Ok(OperationalLimitVariable::Volume),
+        "DEFLU" => Ok(OperationalLimitVariable::Defluence),
+        "TURB" => Ok(OperationalLimitVariable::Turbining),
+        other => Err(IoError::invalid_data(format!(
+            "unknown operational limit variable '{other}' in OPER_REST_LIM.csv"
+        ))),
+    }
+}
+
+fn hours_to_periods(
+    hours: f64,
+    period_duration_hours: f64,
+    field_name: &str,
+    asset_name: &str,
+) -> Result<usize, IoError> {
+    if hours < 0.0 {
+        return Err(IoError::invalid_data(format!(
+            "{field_name} for {asset_name} cannot be negative"
+        )));
+    }
+
+    let periods = (hours / period_duration_hours).ceil();
+    if !periods.is_finite() {
+        return Err(IoError::invalid_data(format!(
+            "failed to convert {field_name} for {asset_name} from hours to periods"
+        )));
+    }
+
+    Ok(periods as usize)
+}
+
 fn optional_hydro_reference(
     value: &str,
     hydro_name_to_id: &HashMap<String, HydroPlantId>,
@@ -511,7 +736,9 @@ fn trajectory_for(
     trajectories: &HashMap<String, Vec<f64>>,
     asset_name: &str,
 ) -> Result<Vec<f64>, IoError> {
-    Ok(trajectories.get(asset_name).cloned().unwrap_or_default())
+    trajectories.get(asset_name).cloned().ok_or_else(|| {
+        IoError::invalid_data(format!("missing trajectory for '{asset_name}'"))
+    })
 }
 
 fn validate_period(period: usize, horizon: usize, file_name: &str) -> Result<usize, IoError> {
@@ -525,6 +752,7 @@ fn validate_period(period: usize, horizon: usize, file_name: &str) -> Result<usi
 }
 
 fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoError> {
+    log_read_file(&path);
     let mut reader = ReaderBuilder::new()
         .delimiter(b';')
         .has_headers(true)
@@ -539,6 +767,7 @@ fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoErr
 }
 
 fn read_trajectory_table(path: PathBuf) -> Result<HashMap<String, Vec<f64>>, IoError> {
+    log_read_file(&path);
     let file = File::open(&path).map_err(|error| {
         IoError::invalid_data(format!("failed to open {}: {error}", path.display()))
     })?;
@@ -660,6 +889,14 @@ struct InterchangeRow {
 }
 
 #[derive(Debug, Deserialize)]
+struct ResidualCostRow {
+    #[serde(rename = "Submercado")]
+    submercado: usize,
+    #[serde(rename = "CMO")]
+    cmo: f64,
+}
+
+#[derive(Debug, Deserialize)]
 struct ThermalUnitRow {
     #[serde(rename = "CodigoUTE")]
     codigo_ute: usize,
@@ -672,15 +909,19 @@ struct ThermalUnitRow {
     #[serde(rename = "Pmax")]
     pmax: f64,
     #[serde(rename = "Ton")]
-    ton: usize,
+    ton: f64,
     #[serde(rename = "Toff")]
-    toff: usize,
+    toff: f64,
     #[serde(rename = "GerInic")]
     ger_inic: f64,
     #[serde(rename = "StatusInic")]
     status_inic: usize,
     #[serde(rename = "Tinic")]
-    tinic: usize,
+    tinic: f64,
+    #[serde(rename = "RupInic")]
+    rup_inic: usize,
+    #[serde(rename = "RdownInic")]
+    rdown_inic: usize,
     #[serde(rename = "CVU")]
     cvu: f64,
     #[serde(rename = "CustoPartida")]
@@ -728,13 +969,13 @@ struct HydroUnitRow {
     #[serde(rename = "Pmax")]
     pmax: f64,
     #[serde(rename = "Ton")]
-    ton: usize,
+    ton: f64,
     #[serde(rename = "Toff")]
-    toff: usize,
+    toff: f64,
     #[serde(rename = "StatusInic")]
     status_inic: usize,
     #[serde(rename = "Tinic")]
-    tinic: usize,
+    tinic: f64,
     #[serde(rename = "Barra")]
     barra: usize,
     #[serde(rename = "MaxTurb")]
@@ -781,6 +1022,35 @@ struct RenewableOperationRow {
     _ger_prog: Option<f64>,
 }
 
+fn log_read_file(path: &Path) {
+    println!("Lendo arquivo: {}", file_label(path));
+    io::stdout().flush().ok();
+}
+
+fn file_label(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
+}
+
+#[derive(Debug, Deserialize)]
+struct OperationalLimitRow {
+    #[serde(rename = "PeriodoInicial")]
+    periodo_inicial: String,
+    #[serde(rename = "PeriodoFinal")]
+    periodo_final: String,
+    #[serde(rename = "CodigoUsina")]
+    codigo_usina: usize,
+    #[serde(rename = "NomeUsina")]
+    nome_usina: String,
+    #[serde(rename = "Variavel")]
+    variavel: String,
+    #[serde(rename = "Linf")]
+    linf: String,
+    #[serde(rename = "Lsup")]
+    lsup: String,
+}
+
 #[derive(Debug)]
 struct BusAccumulator {
     name: String,
@@ -805,15 +1075,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{read_study_config, read_study_from_config, read_study_from_path};
+    use super::{read_study_config, read_study_from_config};
     use std::path::PathBuf;
 
     #[test]
     fn reads_example_case_into_a_valid_system() {
-        let example_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/3Barras");
+        let config_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/3Barras/study_config.json");
 
         let system =
-            read_study_from_path(example_path).expect("3Barras example should be readable");
+            read_study_from_config(config_path).expect("3Barras example should be readable");
 
         assert_eq!(system.horizon.periods, 3);
         assert_eq!(system.horizon.period_duration_hours, 1.0);
@@ -844,12 +1115,16 @@ mod tests {
         let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
 
         let config = read_study_config(&config_path).expect("study config should be readable");
-        assert!(config.case_path.ends_with("examples/3Barras"));
+        assert!(config.case_path.ends_with("examples/caso_base"));
+        assert_eq!(config.rede, 1);
+        assert_eq!(config.ton_residual, 1);
 
         let system =
             read_study_from_config(config_path).expect("study config should build a valid system");
         assert_eq!(system.submarkets.len(), 2);
-        assert_eq!(system.thermal_plants.len(), 1);
-        assert_eq!(system.hydro_plants.len(), 2);
+        assert_eq!(system.thermal_plants.len(), 2);
+        assert_eq!(system.hydro_plants.len(), 4);
+        assert!(system.ton_residual_enabled);
+        assert_eq!(system.residual_costs.len(), 2);
     }
 }

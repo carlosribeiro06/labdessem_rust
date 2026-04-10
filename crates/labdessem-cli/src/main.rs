@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
-use labdessem_io::{read_study_config, read_study_from_path};
+use labdessem_io::{read_study_config, read_study_from_config};
 use labdessem_simulation::{run_iterative_simulation, write_results_csvs};
 
 fn main() -> ExitCode {
@@ -21,9 +21,25 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
     println!("Lendo configuracao do estudo...");
     let config = read_study_config(config_path)?;
     println!("Caso selecionado: {}", config.case_path.display());
+    println!(
+        "Restricoes de rede: {}",
+        if config.rede == 0 {
+            "desativadas"
+        } else {
+            "ativadas"
+        }
+    );
+    println!(
+        "TON residual: {}",
+        if config.ton_residual == 0 {
+            "desativado"
+        } else {
+            "ativado"
+        }
+    );
 
     println!("Lendo dados de entrada...");
-    let system = read_study_from_path(&config.case_path)?;
+    let system = read_study_from_config(config_path)?;
 
     println!("Dados carregados com sucesso.");
     println!(
@@ -36,13 +52,13 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
         system.wind_plants.len(),
         system.solar_plants.len()
     );
-
     println!("Iniciando processo iterativo de resolucao...");
-    let result = run_iterative_simulation(&system)?;
+    let network_enabled = config.rede != 0;
+    let result = run_iterative_simulation(&system, network_enabled)?;
     let output_dir = config.case_path.join("RESULTADOS");
 
     println!("Gravando arquivos CSV de saida...");
-    write_results_csvs(&system, &result, &output_dir)?;
+    write_results_csvs(&system, &result, &output_dir, network_enabled)?;
     let display_output_dir = fs::canonicalize(&output_dir).unwrap_or(output_dir.clone());
 
     println!("Iterative simulation finished.");
@@ -74,6 +90,5 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
             .to_string()
             .trim_start_matches(r"\\?\")
     );
-
     Ok(())
 }

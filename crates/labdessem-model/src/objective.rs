@@ -96,6 +96,23 @@ impl Objective {
                     let shutdown = &variables.thermal_shutdown[entry_idx * horizon + period];
                     terms.push(term(startup, unit.startup_cost));
                     terms.push(term(shutdown, unit.shutdown_cost));
+                    if system.ton_residual_enabled {
+                        let cmo = system.residual_costs.iter().find_map(|residual_cost| {
+                            (residual_cost.submarket_id == plant.submarket_id)
+                                .then_some(residual_cost.cmo_per_mwh)
+                        });
+                        if let Some(cmo_per_mwh) = cmo {
+                            let residual_generation_mw = thermal_post_horizon_generation(unit);
+                            let residual_cost_per_mwh =
+                                (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0);
+                            terms.push(term(
+                                startup,
+                                residual_generation_mw
+                                    * residual_cost_per_mwh
+                                    * period_duration_hours,
+                            ));
+                        }
+                    }
                 }
             }
 
@@ -118,6 +135,17 @@ impl Objective {
             terms,
         }
     }
+}
+
+fn thermal_post_horizon_generation(unit: &labdessem_core::thermal::ThermalUnit) -> f64 {
+    let startup_sum: f64 = unit.startup_trajectory_mw.iter().sum();
+    let steady_periods = unit
+        .min_up_time
+        .saturating_sub(unit.startup_trajectory_mw.len());
+    let steady_sum = steady_periods as f64 * unit.min_generation_mw;
+    let shutdown_sum: f64 = unit.shutdown_trajectory_mw.iter().sum();
+
+    startup_sum + steady_sum + shutdown_sum
 }
 
 fn term(variable: &Variable, coefficient: f64) -> ObjectiveTerm {
