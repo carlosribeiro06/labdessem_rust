@@ -59,6 +59,8 @@ mod tests {
                 periods: 2,
                 period_duration_hours: 1.0,
             },
+            ton_residual_enabled: false,
+            residual_costs: vec![],
             submarkets: vec![
                 Submarket {
                     id: SubmarketId(1),
@@ -87,6 +89,7 @@ mod tests {
                     penalty_cost_per_mwh: 3.0,
                 },
             ],
+            operational_limits: vec![],
             buses: vec![
                 Bus {
                     id: BusId(1),
@@ -125,6 +128,8 @@ mod tests {
                         is_on: true,
                         generation_mw: 20.0,
                         time_in_state: 1,
+                        is_ramping_up: false,
+                        is_ramping_down: false,
                     },
                 }],
             }],
@@ -189,6 +194,8 @@ mod tests {
                 periods: 1,
                 period_duration_hours: 1.0,
             },
+            ton_residual_enabled: false,
+            residual_costs: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
                 name: "SE".into(),
@@ -196,6 +203,7 @@ mod tests {
                 deficit_cost_per_mwh: 1_000.0,
             }],
             interchange_limits: vec![],
+            operational_limits: vec![],
             buses: vec![Bus {
                 id: BusId(1),
                 name: "BUS-1".into(),
@@ -600,27 +608,7 @@ mod tests {
         let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
 
         let channeling = model.constraints.channeling();
-        assert_eq!(channeling.len(), 8);
-
-        let thermal_upper = channeling
-            .iter()
-            .find(|constraint| constraint.name == "channeling_thermal_upper[p=UTE-1,u=GT-1,t=1]")
-            .expect("thermal upper channeling should exist");
-        assert_eq!(
-            thermal_upper.sense,
-            constraints::ConstraintSense::LessOrEqual
-        );
-        assert_eq!(thermal_upper.rhs, 0.0);
-        assert!(thermal_upper.terms.iter().any(|term| term.variable
-            == "thermal_generation[p=UTE-1,u=GT-1,t=1]"
-            && term.coefficient == 1.0));
-        assert!(
-            thermal_upper
-                .terms
-                .iter()
-                .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]"
-                    && term.coefficient == -100.0)
-        );
+        assert_eq!(channeling.len(), 4);
 
         let hydro_lower = channeling
             .iter()
@@ -646,6 +634,165 @@ mod tests {
         let model = Model::from_system(&system, SolveMode::LinearProgramming);
 
         assert!(model.constraints.channeling().is_empty());
+        assert!(model.constraints.thermal_min_up_down().is_empty());
+        assert!(model.constraints.hydro_min_up_down().is_empty());
+        assert!(model.constraints.thermal_ramps().is_empty());
+    }
+
+    #[test]
+    fn builds_thermal_min_up_down_constraints_with_remaining_initial_on_time() {
+        let mut system = build_system();
+        system.horizon.periods = 4;
+        system.submarkets[0].demand_mw = vec![100.0, 105.0, 110.0, 115.0];
+        system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0, 66.0];
+        system.buses[0].demand_mw = vec![40.0, 42.0, 44.0, 46.0];
+        system.buses[1].demand_mw = vec![60.0, 63.0, 66.0, 69.0];
+        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
+        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
+        system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.thermal_plants[0].units[0].min_up_time = 3;
+        system.thermal_plants[0].units[0].min_down_time = 2;
+        system.thermal_plants[0].units[0].initial_condition.is_on = true;
+        system.thermal_plants[0].units[0].initial_condition.time_in_state = 1;
+
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+        let thermal_limits = model.constraints.thermal_min_up_down();
+
+        assert!(thermal_limits
+            .iter()
+            .any(|constraint| constraint.name == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=1]"
+                && constraint.rhs == 1.0));
+        assert!(thermal_limits
+            .iter()
+            .any(|constraint| constraint.name == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=2]"
+                && constraint.rhs == 1.0));
+
+        let first_ton = thermal_limits
+            .iter()
+            .find(|constraint| constraint.name == "thermal_min_up[p=UTE-1,u=GT-1,t=1]")
+            .expect("first-period thermal minimum up constraint should exist");
+        assert_eq!(first_ton.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(first_ton.rhs, -3.0);
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -3.0));
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=2]" && term.coefficient == 1.0));
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=3]" && term.coefficient == 1.0));
+    }
+
+    #[test]
+    fn builds_hydro_min_up_down_constraints_with_remaining_initial_on_time() {
+        let mut system = build_system();
+        system.horizon.periods = 4;
+        system.submarkets[0].demand_mw = vec![100.0, 105.0, 110.0, 115.0];
+        system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0, 66.0];
+        system.buses[0].demand_mw = vec![40.0, 42.0, 44.0, 46.0];
+        system.buses[1].demand_mw = vec![60.0, 63.0, 66.0, 69.0];
+        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
+        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
+        system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.hydro_plants[0].groups[0].units[0].min_up_time = 3;
+        system.hydro_plants[0].groups[0].units[0].min_down_time = 2;
+        system.hydro_plants[0].groups[0].units[0].initial_condition.is_on = true;
+        system.hydro_plants[0].groups[0].units[0].initial_condition.time_in_state = 1;
+
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+        let hydro_limits = model.constraints.hydro_min_up_down();
+
+        assert!(hydro_limits
+            .iter()
+            .any(|constraint| constraint.name == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+                && constraint.rhs == 1.0));
+        assert!(hydro_limits
+            .iter()
+            .any(|constraint| constraint.name == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+                && constraint.rhs == 1.0));
+
+        let first_ton = hydro_limits
+            .iter()
+            .find(|constraint| constraint.name == "hydro_min_up[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+            .expect("first-period hydro minimum up constraint should exist");
+        assert_eq!(first_ton.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(first_ton.rhs, -3.0);
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=1]" && term.coefficient == -3.0));
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=2]" && term.coefficient == 1.0));
+        assert!(first_ton
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=3]" && term.coefficient == 1.0));
+    }
+
+    #[test]
+    fn builds_thermal_ramp_constraints_for_commitment_modes() {
+        let mut system = build_system();
+        system.horizon.periods = 3;
+        system.submarkets[0].demand_mw = vec![100.0, 105.0, 110.0];
+        system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0];
+        system.buses[0].demand_mw = vec![40.0, 42.0, 44.0];
+        system.buses[1].demand_mw = vec![60.0, 63.0, 66.0];
+        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0];
+        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0];
+        system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0];
+        system.thermal_plants[0].units[0].startup_trajectory_mw = vec![20.0, 40.0];
+        system.thermal_plants[0].units[0].shutdown_trajectory_mw = vec![40.0, 20.0];
+
+        let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
+        let ramps = model.constraints.thermal_ramps();
+
+        let first_transition = ramps
+            .iter()
+            .find(|constraint| constraint.name == "thermal_transition[p=UTE-1,u=GT-1,t=1]")
+            .expect("first thermal transition constraint should exist");
+        assert_eq!(first_transition.sense, constraints::ConstraintSense::Equal);
+        assert_eq!(first_transition.rhs, 1.0);
+        assert!(first_transition
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
+        assert!(first_transition
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -1.0));
+        assert!(first_transition
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
+
+        let first_lower = ramps
+            .iter()
+            .find(|constraint| constraint.name == "thermal_ramp_lower[p=UTE-1,u=GT-1,t=1]")
+            .expect("first thermal lower ramp constraint should exist");
+        assert_eq!(first_lower.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(first_lower.rhs, 0.0);
+        assert!(first_lower
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_generation[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
+        assert!(first_lower
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -20.0));
+        assert!(first_lower
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 20.0));
+        assert!(first_lower
+            .terms
+            .iter()
+            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -20.0));
     }
 
     #[test]

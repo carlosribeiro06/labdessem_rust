@@ -177,6 +177,7 @@ name = "labdessem-cli"
 version = "0.1.0"
 dependencies = [
  "labdessem-io",
+ "labdessem-model",
  "labdessem-simulation",
 ]
 

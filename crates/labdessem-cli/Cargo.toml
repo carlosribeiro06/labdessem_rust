@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 labdessem-io = { path = "../labdessem-io" }
+labdessem-model = { path = "../labdessem-model" }
 labdessem-simulation = { path = "../labdessem-simulation" }
