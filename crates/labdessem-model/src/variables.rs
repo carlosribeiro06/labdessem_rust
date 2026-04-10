@@ -33,6 +33,8 @@ pub struct Variables {
     pub hydro_commitment: Vec<Variable>,
     pub hydro_startup: Vec<Variable>,
     pub hydro_shutdown: Vec<Variable>,
+    pub network_flow_slack: Vec<Variable>,
+    pub operational_limit_slack: Vec<Variable>,
 }
 
 impl Variables {
@@ -245,7 +247,7 @@ impl Variables {
             solve_mode,
         );
 
-        let thermal_startup = build_commitment_variables(
+        let thermal_startup = build_unit_interval_variables(
             indexing
                 .thermal_unit_entries
                 .iter()
@@ -325,6 +327,8 @@ impl Variables {
             hydro_commitment,
             hydro_startup,
             hydro_shutdown,
+            network_flow_slack: Vec::new(),
+            operational_limit_slack: Vec::new(),
         }
     }
 }
@@ -357,6 +361,33 @@ fn build_commitment_variables(
                     upper_bound: Some(1.0),
                     domain: VariableDomain::Binary,
                     fixed_value: Some(0.0),
+                })
+            })
+            .collect(),
+    }
+}
+
+fn build_unit_interval_variables(
+    base_names: Vec<String>,
+    horizon: usize,
+    solve_mode: SolveMode,
+) -> Vec<Variable> {
+    match solve_mode {
+        SolveMode::LinearProgramming => Vec::new(),
+        SolveMode::MixedIntegerLinearProgramming
+        | SolveMode::LinearProgrammingWithFixedCommitment => base_names
+            .into_iter()
+            .flat_map(|base_name| {
+                (0..horizon).map(move |period| Variable {
+                    name: format!("{base_name},t={}]", display_period(period)),
+                    lower_bound: 0.0,
+                    upper_bound: Some(1.0),
+                    domain: VariableDomain::Continuous,
+                    fixed_value: if matches!(solve_mode, SolveMode::LinearProgrammingWithFixedCommitment) {
+                        Some(0.0)
+                    } else {
+                        None
+                    },
                 })
             })
             .collect(),

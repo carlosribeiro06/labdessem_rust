@@ -3,7 +3,7 @@ use crate::{
     indexing::Indexing,
     variables::{Variable, Variables},
 };
-use labdessem_core::system::System;
+use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConstraintSense {
@@ -52,16 +52,25 @@ impl ConstraintSet {
         linear_constraints.extend(build_hydro_productivity_constraints(
             system, indexing, variables,
         ));
+        linear_constraints.extend(build_operational_limit_constraints(
+            system, indexing, variables,
+        ));
 
         if matches!(
             solve_mode,
             SolveMode::MixedIntegerLinearProgramming
                 | SolveMode::LinearProgrammingWithFixedCommitment
         ) {
-            linear_constraints.extend(build_thermal_commitment_channeling_constraints(
+            linear_constraints.extend(build_thermal_min_up_down_constraints(
+                system, indexing, variables,
+            ));
+            linear_constraints.extend(build_thermal_ramp_constraints(
                 system, indexing, variables,
             ));
             linear_constraints.extend(build_hydro_commitment_channeling_constraints(
+                system, indexing, variables,
+            ));
+            linear_constraints.extend(build_hydro_min_up_down_constraints(
                 system, indexing, variables,
             ));
         }
@@ -110,6 +119,39 @@ impl ConstraintSet {
             .collect()
     }
 
+    pub fn thermal_min_up_down(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| {
+                constraint.name.starts_with("thermal_min_up[")
+                    || constraint.name.starts_with("thermal_min_down[")
+                    || constraint.name.starts_with("thermal_initial_")
+            })
+            .collect()
+    }
+
+    pub fn thermal_ramps(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| {
+                constraint.name.starts_with("thermal_transition[")
+                    || constraint.name.starts_with("thermal_startup_shutdown_exclusive[")
+                    || constraint.name.starts_with("thermal_ramp_")
+            })
+            .collect()
+    }
+
+    pub fn hydro_min_up_down(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| {
+                constraint.name.starts_with("hydro_min_up[")
+                    || constraint.name.starts_with("hydro_min_down[")
+                    || constraint.name.starts_with("hydro_initial_")
+            })
+            .collect()
+    }
+
     pub fn hydro_balance(&self) -> Vec<&LinearConstraint> {
         self.linear_constraints
             .iter()
@@ -142,6 +184,13 @@ impl ConstraintSet {
         self.linear_constraints
             .iter()
             .filter(|constraint| constraint.name.starts_with("hydro_productivity["))
+            .collect()
+    }
+
+    pub fn operational_limits(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| constraint.name.starts_with("operational_limit_"))
             .collect()
     }
 }
@@ -389,6 +438,142 @@ fn build_hydro_productivity_constraints(
         .collect()
 }
 
+fn build_operational_limit_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let mut constraints = Vec::new();
+
+    for limit in &system.operational_limits {
+        for period in limit.start_period - 1..=limit.end_period - 1 {
+            let terms = operational_limit_terms(system, indexing, variables, limit, period, horizon);
+
+            if let Some(lower_bound) = limit.lower_bound {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "operational_limit_lower[p={},var={},t={}]",
+                        limit.plant_name,
+                        operational_limit_variable_label(limit.variable),
+                        display_period(period)
+                    ),
+                    terms: terms.clone(),
+                    sense: ConstraintSense::GreaterOrEqual,
+                    rhs: lower_bound,
+                });
+            }
+
+            if let Some(upper_bound) = limit.upper_bound {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "operational_limit_upper[p={},var={},t={}]",
+                        limit.plant_name,
+                        operational_limit_variable_label(limit.variable),
+                        display_period(period)
+                    ),
+                    terms: terms.clone(),
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: upper_bound,
+                });
+            }
+        }
+    }
+
+    constraints
+}
+
+fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
+    match variable {
+        OperationalLimitVariable::Generation => "GER",
+        OperationalLimitVariable::Spillage => "VERT",
+        OperationalLimitVariable::Volume => "VOL",
+        OperationalLimitVariable::Defluence => "DEFLU",
+        OperationalLimitVariable::Turbining => "TURB",
+    }
+}
+
+fn operational_limit_terms(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+    limit: &labdessem_core::system::OperationalLimit,
+    period: usize,
+    horizon: usize,
+) -> Vec<LinearTerm> {
+    match (limit.target, limit.variable) {
+        (OperationalLimitTarget::ThermalPlant(plant_id), OperationalLimitVariable::Generation) => {
+            indexing
+                .thermal_unit_entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| system.thermal_plants[entry.plant_idx].id == plant_id)
+                .map(|(entry_idx, _)| term(&variables.thermal_generation[entry_idx * horizon + period], 1.0))
+                .collect()
+        }
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Generation) => {
+            indexing
+                .hydro_unit_entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .map(|(entry_idx, _)| term(&variables.hydro_generation[entry_idx * horizon + period], 1.0))
+                .collect()
+        }
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Spillage) => {
+            let plant_entry_idx = indexing
+                .hydro_plant_entries
+                .iter()
+                .position(|entry| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .expect("validated hydro plant should exist");
+            vec![term(&variables.hydro_spillage[plant_entry_idx * horizon + period], 1.0)]
+        }
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Volume) => {
+            let plant_entry_idx = indexing
+                .hydro_plant_entries
+                .iter()
+                .position(|entry| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .expect("validated hydro plant should exist");
+            vec![term(
+                &variables.hydro_volume[plant_entry_idx * (horizon + 1) + period + 1],
+                1.0,
+            )]
+        }
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Turbining) => indexing
+            .hydro_unit_entries
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
+            .map(|(entry_idx, _)| term(&variables.hydro_turbining[entry_idx * horizon + period], 1.0))
+            .collect(),
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Defluence) => {
+            let mut terms: Vec<LinearTerm> = indexing
+                .hydro_unit_entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .map(|(entry_idx, _)| {
+                    term(
+                        &variables.hydro_turbining[entry_idx * horizon + period],
+                        1.0,
+                    )
+                })
+                .collect();
+            let plant_entry_idx = indexing
+                .hydro_plant_entries
+                .iter()
+                .position(|entry| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .expect("validated hydro plant should exist");
+            terms.push(term(
+                &variables.hydro_spillage[plant_entry_idx * horizon + period],
+                1.0,
+            ));
+            terms
+        }
+        _ => unreachable!("validated operational limits should be compatible with target"),
+    }
+}
+
 fn demand_balance_terms(
     system: &System,
     indexing: &Indexing,
@@ -454,51 +639,6 @@ fn term(variable: &Variable, coefficient: f64) -> LinearTerm {
     }
 }
 
-fn build_thermal_commitment_channeling_constraints(
-    system: &System,
-    indexing: &Indexing,
-    variables: &Variables,
-) -> Vec<LinearConstraint> {
-    let horizon = system.horizon.periods;
-    let mut constraints = Vec::new();
-
-    for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
-        let plant = &system.thermal_plants[entry.plant_idx];
-        let unit = &plant.units[entry.unit_idx];
-
-        for period in 0..horizon {
-            let generation = &variables.thermal_generation[entry_idx * horizon + period];
-            let on = &variables.thermal_commitment[entry_idx * horizon + period];
-
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "channeling_thermal_upper[p={},u={},t={}]",
-                    plant.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(generation, 1.0), term(on, -unit.max_generation_mw)],
-                sense: ConstraintSense::LessOrEqual,
-                rhs: 0.0,
-            });
-
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "channeling_thermal_lower[p={},u={},t={}]",
-                    plant.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(generation, 1.0), term(on, -unit.min_generation_mw)],
-                sense: ConstraintSense::GreaterOrEqual,
-                rhs: 0.0,
-            });
-        }
-    }
-
-    constraints
-}
-
 fn build_hydro_commitment_channeling_constraints(
     system: &System,
     indexing: &Indexing,
@@ -541,6 +681,484 @@ fn build_hydro_commitment_channeling_constraints(
                 sense: ConstraintSense::GreaterOrEqual,
                 rhs: 0.0,
             });
+        }
+    }
+
+    constraints
+}
+
+fn build_thermal_ramp_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let mut constraints = Vec::new();
+
+    for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
+        let plant = &system.thermal_plants[entry.plant_idx];
+        let unit = &plant.units[entry.unit_idx];
+        let initial_status = if unit.initial_condition.is_on { 1.0 } else { 0.0 };
+        let initial_startup_remaining = if unit.initial_condition.is_ramping_up {
+            unit.initial_startup_remaining_trajectory()
+                .expect("validated thermal startup trajectory should be consistent")
+        } else {
+            Vec::new()
+        };
+        let initial_shutdown_remaining = if unit.initial_condition.is_ramping_down {
+            unit.initial_shutdown_remaining_trajectory()
+                .expect("validated thermal shutdown trajectory should be consistent")
+        } else {
+            Vec::new()
+        };
+
+        for period in 0..horizon {
+            let on = &variables.thermal_commitment[entry_idx * horizon + period];
+            let startup = &variables.thermal_startup[entry_idx * horizon + period];
+            let shutdown = &variables.thermal_shutdown[entry_idx * horizon + period];
+
+            let mut transition_terms = vec![term(on, 1.0), term(startup, -1.0), term(shutdown, 1.0)];
+            let transition_rhs = if period == 0 {
+                initial_status
+            } else {
+                let previous_on = &variables.thermal_commitment[entry_idx * horizon + period - 1];
+                transition_terms.push(term(previous_on, -1.0));
+                0.0
+            };
+
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_transition[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: transition_terms,
+                sense: ConstraintSense::Equal,
+                rhs: transition_rhs,
+            });
+
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_startup_shutdown_exclusive[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(startup, 1.0), term(shutdown, 1.0)],
+                sense: ConstraintSense::LessOrEqual,
+                rhs: 1.0,
+            });
+
+            let mut startup_sum_terms = Vec::new();
+            let mut startup_weighted_terms = Vec::new();
+            for (k, startup_level) in unit.startup_trajectory_mw.iter().enumerate() {
+                if period >= k {
+                    let startup_var =
+                        &variables.thermal_startup[entry_idx * horizon + (period - k)];
+                    startup_sum_terms.push(term(startup_var, 1.0));
+                    startup_weighted_terms.push(term(startup_var, *startup_level));
+                }
+            }
+
+            let mut shutdown_sum_terms = Vec::new();
+            let mut shutdown_weighted_terms = Vec::new();
+            let shutdown_len = unit.shutdown_trajectory_mw.len();
+            for k in 1..=shutdown_len {
+                if period + k < horizon {
+                    let shutdown_var =
+                        &variables.thermal_shutdown[entry_idx * horizon + (period + k)];
+                    shutdown_sum_terms.push(term(shutdown_var, 1.0));
+                    shutdown_weighted_terms.push(term(
+                        shutdown_var,
+                        unit.shutdown_trajectory_mw[shutdown_len - k],
+                    ));
+                }
+            }
+
+            let initial_startup_active = if period < initial_startup_remaining.len() {
+                1.0
+            } else {
+                0.0
+            };
+            let initial_startup_generation =
+                initial_startup_remaining.get(period).copied().unwrap_or(0.0);
+            let initial_shutdown_active = if period < initial_shutdown_remaining.len() {
+                1.0
+            } else {
+                0.0
+            };
+            let initial_shutdown_generation =
+                initial_shutdown_remaining.get(period).copied().unwrap_or(0.0);
+
+            let generation = &variables.thermal_generation[entry_idx * horizon + period];
+            let mut lower_terms = vec![
+                term(generation, 1.0),
+                term(
+                    on,
+                    -unit.min_generation_mw,
+                ),
+            ];
+            let mut upper_terms = vec![
+                term(generation, 1.0),
+                term(
+                    on,
+                    -unit.max_generation_mw,
+                ),
+            ];
+
+            for startup_term in &startup_sum_terms {
+                lower_terms.push(LinearTerm {
+                    variable: startup_term.variable.clone(),
+                    coefficient: unit.min_generation_mw,
+                });
+                upper_terms.push(LinearTerm {
+                    variable: startup_term.variable.clone(),
+                    coefficient: unit.max_generation_mw,
+                });
+            }
+            for shutdown_term in &shutdown_sum_terms {
+                lower_terms.push(LinearTerm {
+                    variable: shutdown_term.variable.clone(),
+                    coefficient: unit.min_generation_mw,
+                });
+                upper_terms.push(LinearTerm {
+                    variable: shutdown_term.variable.clone(),
+                    coefficient: unit.max_generation_mw,
+                });
+            }
+            for startup_term in &startup_weighted_terms {
+                lower_terms.push(LinearTerm {
+                    variable: startup_term.variable.clone(),
+                    coefficient: -startup_term.coefficient,
+                });
+                upper_terms.push(LinearTerm {
+                    variable: startup_term.variable.clone(),
+                    coefficient: -startup_term.coefficient,
+                });
+            }
+            for shutdown_term in &shutdown_weighted_terms {
+                lower_terms.push(LinearTerm {
+                    variable: shutdown_term.variable.clone(),
+                    coefficient: -shutdown_term.coefficient,
+                });
+                upper_terms.push(LinearTerm {
+                    variable: shutdown_term.variable.clone(),
+                    coefficient: -shutdown_term.coefficient,
+                });
+            }
+
+            let lower_rhs = -unit.min_generation_mw
+                * (initial_startup_active + initial_shutdown_active)
+                + initial_startup_generation
+                + initial_shutdown_generation;
+            let upper_rhs = -unit.max_generation_mw
+                * (initial_startup_active + initial_shutdown_active)
+                + initial_startup_generation
+                + initial_shutdown_generation;
+
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_ramp_lower[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: lower_terms,
+                sense: ConstraintSense::GreaterOrEqual,
+                rhs: lower_rhs,
+            });
+
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_ramp_upper[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: upper_terms,
+                sense: ConstraintSense::LessOrEqual,
+                rhs: upper_rhs,
+            });
+        }
+    }
+
+    constraints
+}
+
+fn build_thermal_min_up_down_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let mut constraints = Vec::new();
+
+    for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
+        let plant = &system.thermal_plants[entry.plant_idx];
+        let unit = &plant.units[entry.unit_idx];
+        let initial_on = unit.initial_condition.is_on;
+        let initial_status = if initial_on { 1.0 } else { 0.0 };
+
+        let remaining_on = if initial_on {
+            unit.min_up_time.saturating_sub(unit.initial_condition.time_in_state)
+        } else {
+            0
+        };
+        let remaining_off = if !initial_on {
+            unit.min_down_time
+                .saturating_sub(unit.initial_condition.time_in_state)
+        } else {
+            0
+        };
+
+        for period in 0..remaining_on.min(horizon) {
+            let on = &variables.thermal_commitment[entry_idx * horizon + period];
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_initial_on_fix[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(on, 1.0)],
+                sense: ConstraintSense::Equal,
+                rhs: 1.0,
+            });
+        }
+
+        for period in 0..remaining_off.min(horizon) {
+            let on = &variables.thermal_commitment[entry_idx * horizon + period];
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "thermal_initial_off_fix[p={},u={},t={}]",
+                    plant.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(on, 1.0)],
+                sense: ConstraintSense::Equal,
+                rhs: 0.0,
+            });
+        }
+
+        for period in 0..horizon {
+            let min_up_window = unit.min_up_time.min(horizon - period);
+            let mut min_up_terms = Vec::new();
+            for ts in period..(period + min_up_window) {
+                let on = &variables.thermal_commitment[entry_idx * horizon + ts];
+                min_up_terms.push(term(on, 1.0));
+            }
+            let current_on = &variables.thermal_commitment[entry_idx * horizon + period];
+            min_up_terms.push(term(current_on, -(min_up_window as f64)));
+
+            if period == 0 {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "thermal_min_up[p={},u={},t={}]",
+                        plant.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_up_terms,
+                    sense: ConstraintSense::GreaterOrEqual,
+                    rhs: -(min_up_window as f64) * initial_status,
+                });
+            } else {
+                let previous_on = &variables.thermal_commitment[entry_idx * horizon + period - 1];
+                min_up_terms.push(term(previous_on, min_up_window as f64));
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "thermal_min_up[p={},u={},t={}]",
+                        plant.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_up_terms,
+                    sense: ConstraintSense::GreaterOrEqual,
+                    rhs: 0.0,
+                });
+            }
+
+            let min_down_window = unit.min_down_time.min(horizon - period);
+            let mut min_down_terms = Vec::new();
+            for ts in period..(period + min_down_window) {
+                let on = &variables.thermal_commitment[entry_idx * horizon + ts];
+                min_down_terms.push(term(on, 1.0));
+            }
+            let current_on = &variables.thermal_commitment[entry_idx * horizon + period];
+            min_down_terms.push(term(current_on, -(min_down_window as f64)));
+
+            if period == 0 {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "thermal_min_down[p={},u={},t={}]",
+                        plant.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_down_terms,
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: (min_down_window as f64) * (1.0 - initial_status),
+                });
+            } else {
+                let previous_on = &variables.thermal_commitment[entry_idx * horizon + period - 1];
+                min_down_terms.push(term(previous_on, min_down_window as f64));
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "thermal_min_down[p={},u={},t={}]",
+                        plant.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_down_terms,
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: min_down_window as f64,
+                });
+            }
+        }
+    }
+
+    constraints
+}
+
+fn build_hydro_min_up_down_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let mut constraints = Vec::new();
+
+    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
+        let plant = &system.hydro_plants[entry.plant_idx];
+        let group = &plant.groups[entry.group_idx];
+        let unit = &group.units[entry.unit_idx];
+        let initial_on = unit.initial_condition.is_on;
+        let initial_status = if initial_on { 1.0 } else { 0.0 };
+
+        let remaining_on = if initial_on {
+            unit.min_up_time.saturating_sub(unit.initial_condition.time_in_state)
+        } else {
+            0
+        };
+        let remaining_off = if !initial_on {
+            unit.min_down_time
+                .saturating_sub(unit.initial_condition.time_in_state)
+        } else {
+            0
+        };
+
+        for period in 0..remaining_on.min(horizon) {
+            let on = &variables.hydro_commitment[entry_idx * horizon + period];
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "hydro_initial_on_fix[p={},g={},u={},t={}]",
+                    plant.name,
+                    group.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(on, 1.0)],
+                sense: ConstraintSense::Equal,
+                rhs: 1.0,
+            });
+        }
+
+        for period in 0..remaining_off.min(horizon) {
+            let on = &variables.hydro_commitment[entry_idx * horizon + period];
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "hydro_initial_off_fix[p={},g={},u={},t={}]",
+                    plant.name,
+                    group.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(on, 1.0)],
+                sense: ConstraintSense::Equal,
+                rhs: 0.0,
+            });
+        }
+
+        for period in 0..horizon {
+            let min_up_window = unit.min_up_time.min(horizon - period);
+            let mut min_up_terms = Vec::new();
+            for ts in period..(period + min_up_window) {
+                let on = &variables.hydro_commitment[entry_idx * horizon + ts];
+                min_up_terms.push(term(on, 1.0));
+            }
+            let current_on = &variables.hydro_commitment[entry_idx * horizon + period];
+            min_up_terms.push(term(current_on, -(min_up_window as f64)));
+
+            if period == 0 {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "hydro_min_up[p={},g={},u={},t={}]",
+                        plant.name,
+                        group.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_up_terms,
+                    sense: ConstraintSense::GreaterOrEqual,
+                    rhs: -(min_up_window as f64) * initial_status,
+                });
+            } else {
+                let previous_on = &variables.hydro_commitment[entry_idx * horizon + period - 1];
+                min_up_terms.push(term(previous_on, min_up_window as f64));
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "hydro_min_up[p={},g={},u={},t={}]",
+                        plant.name,
+                        group.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_up_terms,
+                    sense: ConstraintSense::GreaterOrEqual,
+                    rhs: 0.0,
+                });
+            }
+
+            let min_down_window = unit.min_down_time.min(horizon - period);
+            let mut min_down_terms = Vec::new();
+            for ts in period..(period + min_down_window) {
+                let on = &variables.hydro_commitment[entry_idx * horizon + ts];
+                min_down_terms.push(term(on, 1.0));
+            }
+            let current_on = &variables.hydro_commitment[entry_idx * horizon + period];
+            min_down_terms.push(term(current_on, -(min_down_window as f64)));
+
+            if period == 0 {
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "hydro_min_down[p={},g={},u={},t={}]",
+                        plant.name,
+                        group.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_down_terms,
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: (min_down_window as f64) * (1.0 - initial_status),
+                });
+            } else {
+                let previous_on = &variables.hydro_commitment[entry_idx * horizon + period - 1];
+                min_down_terms.push(term(previous_on, min_down_window as f64));
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "hydro_min_down[p={},g={},u={},t={}]",
+                        plant.name,
+                        group.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: min_down_terms,
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: min_down_window as f64,
+                });
+            }
         }
     }
 

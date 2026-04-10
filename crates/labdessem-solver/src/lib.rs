@@ -191,6 +191,8 @@ fn collect_variables(model: &Model) -> Vec<&labdessem_model::variables::Variable
     all.extend(variables.hydro_commitment.iter());
     all.extend(variables.hydro_startup.iter());
     all.extend(variables.hydro_shutdown.iter());
+    all.extend(variables.network_flow_slack.iter());
+    all.extend(variables.operational_limit_slack.iter());
     all
 }
 

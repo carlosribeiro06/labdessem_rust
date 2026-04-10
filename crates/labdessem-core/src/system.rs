@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{
     error::CoreError,
     hydro::HydroPlant,
-    ids::{BranchId, BusId, SubmarketId},
+    ids::{BranchId, BusId, HydroPlantId, SubmarketId, ThermalPlantId},
     renewable::{SolarPlant, WindPlant},
     thermal::ThermalPlant,
 };
@@ -148,6 +148,106 @@ pub struct InterchangeLimit {
     pub penalty_cost_per_mwh: f64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResidualCost {
+    pub submarket_id: SubmarketId,
+    pub cmo_per_mwh: f64,
+}
+
+impl ResidualCost {
+    pub fn validate(&self) -> Result<(), CoreError> {
+        if self.cmo_per_mwh < 0.0 {
+            return Err(CoreError::validation(format!(
+                "residual cost for submarket {:?} must be non-negative",
+                self.submarket_id
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationalLimitVariable {
+    Generation,
+    Spillage,
+    Volume,
+    Defluence,
+    Turbining,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationalLimitTarget {
+    ThermalPlant(ThermalPlantId),
+    HydroPlant(HydroPlantId),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OperationalLimit {
+    pub target: OperationalLimitTarget,
+    pub plant_name: String,
+    pub variable: OperationalLimitVariable,
+    pub start_period: usize,
+    pub end_period: usize,
+    pub lower_bound: Option<f64>,
+    pub upper_bound: Option<f64>,
+}
+
+impl OperationalLimit {
+    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
+        if self.plant_name.trim().is_empty() {
+            return Err(CoreError::validation(
+                "operational limit plant name cannot be empty",
+            ));
+        }
+        if self.start_period == 0 || self.end_period == 0 {
+            return Err(CoreError::validation(
+                "operational limit periods must start at 1",
+            ));
+        }
+        if self.start_period > self.end_period {
+            return Err(CoreError::validation(format!(
+                "operational limit for {} has start period greater than end period",
+                self.plant_name
+            )));
+        }
+        if self.end_period > horizon {
+            return Err(CoreError::validation(format!(
+                "operational limit for {} exceeds study horizon",
+                self.plant_name
+            )));
+        }
+        if self.lower_bound.is_none() && self.upper_bound.is_none() {
+            return Err(CoreError::validation(format!(
+                "operational limit for {} must define at least one bound",
+                self.plant_name
+            )));
+        }
+        if let (Some(lower), Some(upper)) = (self.lower_bound, self.upper_bound) {
+            if lower > upper {
+                return Err(CoreError::validation(format!(
+                    "operational limit for {} has lower bound greater than upper bound",
+                    self.plant_name
+                )));
+            }
+        }
+
+        match (self.target, self.variable) {
+            (
+                OperationalLimitTarget::ThermalPlant(_),
+                OperationalLimitVariable::Spillage
+                | OperationalLimitVariable::Volume
+                | OperationalLimitVariable::Defluence
+                | OperationalLimitVariable::Turbining,
+            ) => Err(CoreError::validation(format!(
+                "thermal plant {} cannot define limit for {:?}",
+                self.plant_name, self.variable
+            ))),
+            _ => Ok(()),
+        }
+    }
+}
+
 impl InterchangeLimit {
     pub fn validate(&self) -> Result<(), CoreError> {
         if self.from_submarket_id == self.to_submarket_id {
@@ -173,8 +273,11 @@ impl InterchangeLimit {
 #[derive(Debug, Clone, PartialEq)]
 pub struct System {
     pub horizon: StudyHorizon,
+    pub ton_residual_enabled: bool,
+    pub residual_costs: Vec<ResidualCost>,
     pub submarkets: Vec<Submarket>,
     pub interchange_limits: Vec<InterchangeLimit>,
+    pub operational_limits: Vec<OperationalLimit>,
     pub buses: Vec<Bus>,
     pub branches: Vec<Branch>,
     pub thermal_plants: Vec<ThermalPlant>,
@@ -232,6 +335,28 @@ impl System {
         }
 
         let submarket_ids: HashSet<_> = self.submarkets.iter().map(|entity| entity.id).collect();
+
+        let mut seen_residual_costs = HashSet::new();
+        for residual_cost in &self.residual_costs {
+            residual_cost.validate()?;
+            if !submarket_ids.contains(&residual_cost.submarket_id) {
+                return Err(CoreError::validation(format!(
+                    "residual cost references unknown submarket {:?}",
+                    residual_cost.submarket_id
+                )));
+            }
+            if !seen_residual_costs.insert(residual_cost.submarket_id) {
+                return Err(CoreError::validation(
+                    "residual costs must be unique per submarket",
+                ));
+            }
+        }
+
+        if self.ton_residual_enabled && self.residual_costs.len() != self.submarkets.len() {
+            return Err(CoreError::validation(
+                "TON residual objective is enabled but residual costs are missing for some submarkets",
+            ));
+        }
 
         let mut seen_interchange_pairs = HashSet::new();
         for limit in &self.interchange_limits {
@@ -400,6 +525,48 @@ impl System {
             )?;
         }
 
+        for limit in &self.operational_limits {
+            limit.validate(self.horizon.periods)?;
+            match limit.target {
+                OperationalLimitTarget::ThermalPlant(plant_id) => {
+                    let plant = self
+                        .thermal_plants
+                        .iter()
+                        .find(|candidate| candidate.id == plant_id)
+                        .ok_or_else(|| {
+                            CoreError::validation(format!(
+                                "operational limit references unknown thermal plant {:?}",
+                                plant_id
+                            ))
+                        })?;
+                    if plant.name != limit.plant_name {
+                        return Err(CoreError::validation(format!(
+                            "operational limit plant name mismatch for thermal plant {:?}",
+                            plant_id
+                        )));
+                    }
+                }
+                OperationalLimitTarget::HydroPlant(plant_id) => {
+                    let plant = self
+                        .hydro_plants
+                        .iter()
+                        .find(|candidate| candidate.id == plant_id)
+                        .ok_or_else(|| {
+                            CoreError::validation(format!(
+                                "operational limit references unknown hydro plant {:?}",
+                                plant_id
+                            ))
+                        })?;
+                    if plant.name != limit.plant_name {
+                        return Err(CoreError::validation(format!(
+                            "operational limit plant name mismatch for hydro plant {:?}",
+                            plant_id
+                        )));
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -473,6 +640,8 @@ mod tests {
                 periods: 2,
                 period_duration_hours: 1.0,
             },
+            ton_residual_enabled: false,
+            residual_costs: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
                 name: "SE".into(),
@@ -480,6 +649,7 @@ mod tests {
                 deficit_cost_per_mwh: 1_000.0,
             }],
             interchange_limits: vec![],
+            operational_limits: vec![],
             buses: vec![Bus {
                 id: BusId(1),
                 name: "BUS-1".into(),
@@ -509,6 +679,8 @@ mod tests {
                         is_on: true,
                         generation_mw: 40.0,
                         time_in_state: 2,
+                        is_ramping_up: false,
+                        is_ramping_down: false,
                     },
                 }],
             }],

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     error::Error,
     fmt,
     fs,
@@ -10,13 +10,17 @@ use std::{
 
 use labdessem_core::{
     ids::{BranchId, BusId},
-    system::System,
+    system::{OperationalLimitTarget, OperationalLimitVariable, System},
 };
 use labdessem_model::{
     Model, SolveMode,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
+    objective::ObjectiveTerm,
+    variables::{Variable, VariableDomain},
 };
 use labdessem_solver::{SolveSummary, SolverError, solve_model};
+
+const NETWORK_FLOW_SLACK_PENALTY_PER_MW: f64 = 1_000_000.0;
 
 #[derive(Debug)]
 pub enum SimulationError {
@@ -81,7 +85,10 @@ pub struct FlowViolation {
 pub struct IterationReport {
     pub stage: IterationStage,
     pub iteration: usize,
+    pub variable_count: usize,
+    pub constraint_count: usize,
     pub objective_value: f64,
+    pub solution_status: String,
     pub solve_time: Duration,
     pub violation_count: usize,
 }
@@ -93,6 +100,9 @@ pub struct IterativeSimulationResult {
     pub final_violations: Vec<FlowViolation>,
     pub accumulated_flow_cuts: usize,
     pub final_line_flows: Vec<LineFlowResult>,
+    pub added_flow_cut_lines: Vec<AddedFlowCutLineResult>,
+    pub network_infeasibilities: Vec<NetworkInfeasibilityRecord>,
+    pub operational_limit_infeasibilities: Vec<OperationalLimitInfeasibilityRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +114,36 @@ pub struct LineFlowResult {
     pub period: usize,
     pub flow_mw: f64,
     pub limit_mw: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AddedFlowCutLineResult {
+    pub branch_id: BranchId,
+    pub branch_name: String,
+    pub from_bus_id: BusId,
+    pub to_bus_id: BusId,
+    pub flow_mw: f64,
+    pub limit_mw: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NetworkInfeasibilityRecord {
+    pub stage: IterationStage,
+    pub iteration: usize,
+    pub period: usize,
+    pub branch_name: String,
+    pub violation_mw: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OperationalLimitInfeasibilityRecord {
+    pub stage: IterationStage,
+    pub iteration: usize,
+    pub period: usize,
+    pub plant_code: usize,
+    pub plant_name: String,
+    pub lower_violation_mw: f64,
+    pub upper_violation_mw: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -121,14 +161,28 @@ struct DcNetworkModel {
 
 pub fn run_iterative_simulation(
     system: &System,
+    network_enabled: bool,
 ) -> Result<IterativeSimulationResult, SimulationError> {
+    if !network_enabled {
+        return run_simulation_without_network(system);
+    }
+
     let dc_network = DcNetworkModel::from_system(system)?;
     let mut accumulated_cuts = BTreeSet::<FlowCutKey>::new();
     let mut steps = Vec::new();
+    let mut network_infeasibilities = Vec::new();
+    let mut operational_limit_infeasibilities = Vec::new();
 
-    run_lp_cut_loop(system, &dc_network, &mut accumulated_cuts, &mut steps)?;
+    run_lp_cut_loop(
+        system,
+        &dc_network,
+        &mut accumulated_cuts,
+        &mut steps,
+        &mut network_infeasibilities,
+        &mut operational_limit_infeasibilities,
+    )?;
 
-    let (milp_summary, milp_violations) = solve_stage(
+    let (milp_summary, milp_violations, milp_used_slacks) = solve_stage(
         system,
         &dc_network,
         SolveMode::MixedIntegerLinearProgramming,
@@ -137,14 +191,32 @@ pub fn run_iterative_simulation(
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
+        &mut network_infeasibilities,
+        &mut operational_limit_infeasibilities,
     )?;
-    extend_cut_set(&mut accumulated_cuts, system, &milp_violations);
+    let milp_new_cuts = extend_cut_set(&mut accumulated_cuts, system, &milp_violations);
+    if milp_used_slacks && milp_new_cuts == 0 {
+        let final_line_flows = compute_line_flows(system, &dc_network, &milp_summary);
+        let added_flow_cut_lines =
+            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+
+        return Ok(IterativeSimulationResult {
+            steps,
+            final_summary: milp_summary,
+            final_violations: milp_violations,
+            accumulated_flow_cuts: accumulated_cuts.len(),
+            final_line_flows,
+            added_flow_cut_lines,
+            network_infeasibilities,
+            operational_limit_infeasibilities,
+        });
+    }
 
     let mut fixed_iteration = 1usize;
     let final_summary;
     let final_violations;
     loop {
-        let (summary, violations) = solve_stage(
+        let (summary, violations, used_slacks) = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
@@ -153,6 +225,8 @@ pub fn run_iterative_simulation(
             IterationStage::LinearProgrammingWithFixedCommitment,
             fixed_iteration,
             &mut steps,
+            &mut network_infeasibilities,
+            &mut operational_limit_infeasibilities,
         )?;
 
         if violations.is_empty() {
@@ -163,6 +237,12 @@ pub fn run_iterative_simulation(
 
         let new_cuts = extend_cut_set(&mut accumulated_cuts, system, &violations);
         if new_cuts == 0 {
+            if used_slacks {
+                final_summary = summary;
+                final_violations = violations;
+                break;
+            }
+
             return Err(SimulationError::IterativeProcess(
                 "LP with fixed commitment still has flow violations, but no new flow cut could be added".into(),
             ));
@@ -172,6 +252,8 @@ pub fn run_iterative_simulation(
     }
 
     let final_line_flows = compute_line_flows(system, &dc_network, &final_summary);
+    let added_flow_cut_lines =
+        summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
     Ok(IterativeSimulationResult {
         steps,
@@ -179,6 +261,57 @@ pub fn run_iterative_simulation(
         final_violations,
         accumulated_flow_cuts: accumulated_cuts.len(),
         final_line_flows,
+        added_flow_cut_lines,
+        network_infeasibilities,
+        operational_limit_infeasibilities,
+    })
+}
+
+fn run_simulation_without_network(
+    system: &System,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    let mut steps = Vec::new();
+    let mut operational_limit_infeasibilities = Vec::new();
+
+    let _lp_summary = solve_stage_without_network(
+        system,
+        SolveMode::LinearProgramming,
+        None,
+        IterationStage::LinearProgramming,
+        1,
+        &mut steps,
+        &mut operational_limit_infeasibilities,
+    )?;
+
+    let milp_summary = solve_stage_without_network(
+        system,
+        SolveMode::MixedIntegerLinearProgramming,
+        None,
+        IterationStage::MixedIntegerLinearProgramming,
+        1,
+        &mut steps,
+        &mut operational_limit_infeasibilities,
+    )?;
+
+    let final_summary = solve_stage_without_network(
+        system,
+        SolveMode::LinearProgrammingWithFixedCommitment,
+        Some(&milp_summary),
+        IterationStage::LinearProgrammingWithFixedCommitment,
+        1,
+        &mut steps,
+        &mut operational_limit_infeasibilities,
+    )?;
+
+    Ok(IterativeSimulationResult {
+        steps,
+        final_summary,
+        final_violations: Vec::new(),
+        accumulated_flow_cuts: 0,
+        final_line_flows: Vec::new(),
+        added_flow_cut_lines: Vec::new(),
+        network_infeasibilities: Vec::new(),
+        operational_limit_infeasibilities,
     })
 }
 
@@ -187,10 +320,12 @@ fn run_lp_cut_loop(
     dc_network: &DcNetworkModel,
     accumulated_cuts: &mut BTreeSet<FlowCutKey>,
     steps: &mut Vec<IterationReport>,
+    network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
+    operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
 ) -> Result<(), SimulationError> {
     let mut iteration = 1usize;
     loop {
-        let (_summary, violations) = solve_stage(
+        let (_summary, violations, used_slacks) = solve_stage(
             system,
             dc_network,
             SolveMode::LinearProgramming,
@@ -199,6 +334,8 @@ fn run_lp_cut_loop(
             IterationStage::LinearProgramming,
             iteration,
             steps,
+            network_infeasibilities,
+            operational_limit_infeasibilities,
         )?;
 
         if violations.is_empty() {
@@ -207,6 +344,10 @@ fn run_lp_cut_loop(
 
         let new_cuts = extend_cut_set(accumulated_cuts, system, &violations);
         if new_cuts == 0 {
+            if used_slacks {
+                return Ok(());
+            }
+
             return Err(SimulationError::IterativeProcess(
                 "LP flow-cut loop stalled because the same network violations persisted without generating new cuts".into(),
             ));
@@ -225,7 +366,9 @@ fn solve_stage(
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
-) -> Result<(SolveSummary, Vec<FlowViolation>), SimulationError> {
+    network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
+    operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
+) -> Result<(SolveSummary, Vec<FlowViolation>, bool), SimulationError> {
     println!(
         "Resolvendo {} #{:02}...",
         stage.label(),
@@ -237,10 +380,55 @@ fn solve_stage(
     if let Some(commitment_source) = commitment_source {
         apply_commitment_fixes(&mut model, commitment_source);
     }
-    add_flow_cuts(&mut model, system, accumulated_cuts, dc_network);
+    add_flow_cuts(&mut model, system, accumulated_cuts, dc_network, false);
+    let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
-    let summary = solve_model(&model)?;
+    let mut used_slacks = false;
+    let summary = match solve_model(&model) {
+        Ok(summary) => summary,
+        Err(SolverError::InfeasibleOrUnbounded(_))
+            if !accumulated_cuts.is_empty() || !system.operational_limits.is_empty() =>
+        {
+            used_slacks = true;
+            println!(
+                "{} #{:02} inviavel com restricoes de rede/limite. Adicionando folgas...",
+                stage.label(),
+                iteration
+            );
+            io::stdout().flush().ok();
+
+            let mut relaxed_model = Model::from_system(system, solve_mode);
+            if let Some(commitment_source) = commitment_source {
+                apply_commitment_fixes(&mut relaxed_model, commitment_source);
+            }
+            add_flow_cuts(
+                &mut relaxed_model,
+                system,
+                accumulated_cuts,
+                dc_network,
+                true,
+            );
+            add_operational_limit_slacks(&mut relaxed_model);
+
+            let relaxed_summary = solve_model(&relaxed_model)?;
+            network_infeasibilities.extend(collect_network_infeasibilities(
+                system,
+                accumulated_cuts,
+                &relaxed_summary,
+                stage,
+                iteration,
+            ));
+            operational_limit_infeasibilities.extend(collect_operational_limit_infeasibilities(
+                system,
+                &relaxed_summary,
+                stage,
+                iteration,
+            ));
+            relaxed_summary
+        }
+        Err(error) => return Err(error.into()),
+    };
     let solve_time = started_at.elapsed();
     let violations = detect_flow_violations(system, dc_network, &summary)?;
 
@@ -257,16 +445,101 @@ fn solve_stage(
     steps.push(IterationReport {
         stage,
         iteration,
+        variable_count,
+        constraint_count,
         objective_value: summary.objective_value,
+        solution_status: if used_slacks {
+            "OPTIMAL_WITH_SLACK".into()
+        } else {
+            "OPTIMAL".into()
+        },
         solve_time,
         violation_count: violations.len(),
     });
 
-    Ok((summary, violations))
+    Ok((summary, violations, used_slacks))
+}
+
+fn solve_stage_without_network(
+    system: &System,
+    solve_mode: SolveMode,
+    commitment_source: Option<&SolveSummary>,
+    stage: IterationStage,
+    iteration: usize,
+    steps: &mut Vec<IterationReport>,
+    operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
+) -> Result<SolveSummary, SimulationError> {
+    println!("Resolvendo {} #{:02}...", stage.label(), iteration);
+    io::stdout().flush().ok();
+
+    let mut model = Model::from_system(system, solve_mode);
+    if let Some(commitment_source) = commitment_source {
+        apply_commitment_fixes(&mut model, commitment_source);
+    }
+    let (variable_count, constraint_count) = model_dimensions(&model);
+
+    let started_at = Instant::now();
+    let summary = match solve_model(&model) {
+        Ok(summary) => summary,
+        Err(SolverError::InfeasibleOrUnbounded(_)) if !system.operational_limits.is_empty() => {
+            println!(
+                "{} #{:02} inviavel com restricoes de limite. Adicionando folgas...",
+                stage.label(),
+                iteration
+            );
+            io::stdout().flush().ok();
+
+            let mut relaxed_model = Model::from_system(system, solve_mode);
+            if let Some(commitment_source) = commitment_source {
+                apply_commitment_fixes(&mut relaxed_model, commitment_source);
+            }
+            add_operational_limit_slacks(&mut relaxed_model);
+
+            let relaxed_summary = solve_model(&relaxed_model)?;
+            operational_limit_infeasibilities.extend(collect_operational_limit_infeasibilities(
+                system,
+                &relaxed_summary,
+                stage,
+                iteration,
+            ));
+            relaxed_summary
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let solve_time = started_at.elapsed();
+
+    println!(
+        "{} #{:02} finalizado | objective = {:.4} | flow violations = 0 | solve time = {:.3} s",
+        stage.label(),
+        iteration,
+        summary.objective_value,
+        solve_time.as_secs_f64()
+    );
+    io::stdout().flush().ok();
+
+    steps.push(IterationReport {
+        stage,
+        iteration,
+        variable_count,
+        constraint_count,
+        objective_value: summary.objective_value,
+        solution_status: if operational_limit_infeasibilities
+            .iter()
+            .any(|record| record.stage == stage && record.iteration == iteration)
+        {
+            "OPTIMAL_WITH_SLACK".into()
+        } else {
+            "OPTIMAL".into()
+        },
+        solve_time,
+        violation_count: 0,
+    });
+
+    Ok(summary)
 }
 
 fn apply_commitment_fixes(model: &mut Model, source: &SolveSummary) {
-    let binary_vectors = [
+    let variable_vectors = [
         &mut model.variables.thermal_commitment,
         &mut model.variables.thermal_startup,
         &mut model.variables.thermal_shutdown,
@@ -275,14 +548,19 @@ fn apply_commitment_fixes(model: &mut Model, source: &SolveSummary) {
         &mut model.variables.hydro_shutdown,
     ];
 
-    for variables in binary_vectors {
+    for variables in variable_vectors {
         for variable in variables {
             let value = source
                 .variable_values
                 .get(&variable.name)
                 .copied()
                 .unwrap_or(0.0);
-            variable.fixed_value = Some(if value >= 0.5 { 1.0 } else { 0.0 });
+            variable.fixed_value = Some(match variable.domain {
+                VariableDomain::Binary => {
+                    if value >= 0.5 { 1.0 } else { 0.0 }
+                }
+                VariableDomain::Continuous => value,
+            });
         }
     }
 }
@@ -318,11 +596,32 @@ fn add_flow_cuts(
     system: &System,
     cut_keys: &BTreeSet<FlowCutKey>,
     dc_network: &DcNetworkModel,
+    use_slack_variables: bool,
 ) {
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
         let rhs_shift = constant_load_shift(system, dc_network, cut_key.branch_idx, cut_key.period);
         let terms = flow_terms_for_cut(model, system, dc_network, cut_key.branch_idx, cut_key.period);
+        let mut upper_terms = terms.clone();
+        let mut lower_terms = terms;
+
+        if use_slack_variables {
+            let upper_slack_name =
+                flow_slack_name("flow_slack_upper", branch.name.as_str(), cut_key.period);
+            let lower_slack_name =
+                flow_slack_name("flow_slack_lower", branch.name.as_str(), cut_key.period);
+            add_network_flow_slack_variable(model, &upper_slack_name);
+            add_network_flow_slack_variable(model, &lower_slack_name);
+
+            upper_terms.push(LinearTerm {
+                variable: upper_slack_name,
+                coefficient: -1.0,
+            });
+            lower_terms.push(LinearTerm {
+                variable: lower_slack_name,
+                coefficient: 1.0,
+            });
+        }
 
         model.constraints.linear_constraints.push(LinearConstraint {
             name: format!(
@@ -330,7 +629,7 @@ fn add_flow_cuts(
                 branch.name,
                 cut_key.period + 1
             ),
-            terms: terms.clone(),
+            terms: upper_terms,
             sense: ConstraintSense::LessOrEqual,
             rhs: branch.thermal_limit_mw + rhs_shift,
         });
@@ -340,11 +639,175 @@ fn add_flow_cuts(
                 branch.name,
                 cut_key.period + 1
             ),
-            terms,
+            terms: lower_terms,
             sense: ConstraintSense::GreaterOrEqual,
             rhs: -branch.thermal_limit_mw + rhs_shift,
         });
     }
+}
+
+fn add_network_flow_slack_variable(model: &mut Model, name: &str) {
+    model.variables.network_flow_slack.push(Variable {
+        name: name.to_string(),
+        lower_bound: 0.0,
+        upper_bound: None,
+        domain: VariableDomain::Continuous,
+        fixed_value: None,
+    });
+    model.objective.terms.push(ObjectiveTerm {
+        variable: name.to_string(),
+        coefficient: NETWORK_FLOW_SLACK_PENALTY_PER_MW,
+    });
+}
+
+fn collect_network_infeasibilities(
+    system: &System,
+    cut_keys: &BTreeSet<FlowCutKey>,
+    summary: &SolveSummary,
+    stage: IterationStage,
+    iteration: usize,
+) -> Vec<NetworkInfeasibilityRecord> {
+    let mut records = Vec::new();
+
+    for cut_key in cut_keys {
+        let branch = &system.branches[cut_key.branch_idx];
+        let upper_violation = summary
+            .variable_values
+            .get(&flow_slack_name(
+                "flow_slack_upper",
+                branch.name.as_str(),
+                cut_key.period,
+            ))
+            .copied()
+            .unwrap_or(0.0);
+        let lower_violation = summary
+            .variable_values
+            .get(&flow_slack_name(
+                "flow_slack_lower",
+                branch.name.as_str(),
+                cut_key.period,
+            ))
+            .copied()
+            .unwrap_or(0.0);
+        let violation_mw = upper_violation + lower_violation;
+
+        if violation_mw > 1e-8 {
+            records.push(NetworkInfeasibilityRecord {
+                stage,
+                iteration,
+                period: cut_key.period + 1,
+                branch_name: branch.name.clone(),
+                violation_mw,
+            });
+        }
+    }
+
+    records
+}
+
+fn add_operational_limit_slacks(model: &mut Model) {
+    let mut slack_specs = Vec::<(usize, String, f64)>::new();
+
+    for (constraint_idx, constraint) in model.constraints.linear_constraints.iter().enumerate() {
+        if let Some(suffix) = constraint.name.strip_prefix("operational_limit_lower") {
+            slack_specs.push((
+                constraint_idx,
+                format!("operational_limit_slack_lower{suffix}"),
+                1.0,
+            ));
+        } else if let Some(suffix) = constraint.name.strip_prefix("operational_limit_upper") {
+            slack_specs.push((
+                constraint_idx,
+                format!("operational_limit_slack_upper{suffix}"),
+                -1.0,
+            ));
+        }
+    }
+
+    for (constraint_idx, slack_name, coefficient) in slack_specs {
+        model.variables.operational_limit_slack.push(Variable {
+            name: slack_name.clone(),
+            lower_bound: 0.0,
+            upper_bound: None,
+            domain: VariableDomain::Continuous,
+            fixed_value: None,
+        });
+        model.objective.terms.push(ObjectiveTerm {
+            variable: slack_name.clone(),
+            coefficient: NETWORK_FLOW_SLACK_PENALTY_PER_MW,
+        });
+        model.constraints.linear_constraints[constraint_idx]
+            .terms
+            .push(LinearTerm {
+                variable: slack_name,
+                coefficient,
+            });
+    }
+}
+
+fn collect_operational_limit_infeasibilities(
+    system: &System,
+    summary: &SolveSummary,
+    stage: IterationStage,
+    iteration: usize,
+) -> Vec<OperationalLimitInfeasibilityRecord> {
+    let mut aggregated =
+        BTreeMap::<(usize, usize, String), (f64, f64)>::new();
+
+    for limit in &system.operational_limits {
+        let plant_code = match limit.target {
+            OperationalLimitTarget::ThermalPlant(id) => id.0,
+            OperationalLimitTarget::HydroPlant(id) => id.0,
+        };
+
+        for period in limit.start_period..=limit.end_period {
+            let lower_violation = summary
+                .variable_values
+                .get(&operational_limit_slack_name(
+                    true,
+                    limit.plant_name.as_str(),
+                    limit.variable,
+                    period,
+                ))
+                .copied()
+                .unwrap_or(0.0);
+            let upper_violation = summary
+                .variable_values
+                .get(&operational_limit_slack_name(
+                    false,
+                    limit.plant_name.as_str(),
+                    limit.variable,
+                    period,
+                ))
+                .copied()
+                .unwrap_or(0.0);
+
+            if lower_violation <= 1e-8 && upper_violation <= 1e-8 {
+                continue;
+            }
+
+            let entry = aggregated
+                .entry((period, plant_code, limit.plant_name.clone()))
+                .or_insert((0.0, 0.0));
+            entry.0 += lower_violation;
+            entry.1 += upper_violation;
+        }
+    }
+
+    aggregated
+        .into_iter()
+        .map(|((period, plant_code, plant_name), (lower_violation_mw, upper_violation_mw))| {
+            OperationalLimitInfeasibilityRecord {
+                stage,
+                iteration,
+                period,
+                plant_code,
+                plant_name,
+                lower_violation_mw,
+                upper_violation_mw,
+            }
+        })
+        .collect()
 }
 
 fn flow_terms_for_cut(
@@ -499,6 +962,44 @@ fn compute_line_flows(
     line_flows
 }
 
+fn summarize_added_flow_cut_lines(
+    system: &System,
+    cut_keys: &BTreeSet<FlowCutKey>,
+    final_line_flows: &[LineFlowResult],
+) -> Vec<AddedFlowCutLineResult> {
+    let mut periods_by_branch = BTreeMap::<usize, Vec<usize>>::new();
+    for cut_key in cut_keys {
+        periods_by_branch
+            .entry(cut_key.branch_idx)
+            .or_default()
+            .push(cut_key.period + 1);
+    }
+
+    let mut output = Vec::with_capacity(periods_by_branch.len());
+    for (branch_idx, active_periods) in periods_by_branch {
+        let branch = &system.branches[branch_idx];
+        let selected_flow = final_line_flows
+            .iter()
+            .filter(|line_flow| {
+                line_flow.branch_id == branch.id && active_periods.contains(&line_flow.period)
+            })
+            .max_by(|left, right| left.flow_mw.abs().total_cmp(&right.flow_mw.abs()));
+
+        let flow_mw = selected_flow.map(|line_flow| line_flow.flow_mw).unwrap_or(0.0);
+
+        output.push(AddedFlowCutLineResult {
+            branch_id: branch.id,
+            branch_name: branch.name.clone(),
+            from_bus_id: branch.from_bus_id,
+            to_bus_id: branch.to_bus_id,
+            flow_mw,
+            limit_mw: branch.thermal_limit_mw,
+        });
+    }
+
+    output
+}
+
 fn injections_by_period(system: &System, dc_network: &DcNetworkModel, summary: &SolveSummary) -> Vec<Vec<f64>> {
     let horizon = system.horizon.periods;
     let mut injections = vec![vec![0.0; dc_network.non_slack_bus_ids.len()]; horizon];
@@ -593,7 +1094,7 @@ fn injections_by_period(system: &System, dc_network: &DcNetworkModel, summary: &
 
 impl DcNetworkModel {
     fn from_system(system: &System) -> Result<Self, SimulationError> {
-        let slack_bus = system
+        let _slack_bus = system
             .buses
             .iter()
             .find(|bus| bus.angle_reference)
@@ -624,32 +1125,13 @@ impl DcNetworkModel {
         }
 
         let reduced_b = build_reduced_susceptance(system, &non_slack_bus_positions);
-        let mut ptdf_rows = vec![vec![0.0; non_slack_bus_ids.len()]; system.branches.len()];
-
-        for injection_bus_pos in 0..non_slack_bus_ids.len() {
-            let mut rhs = vec![0.0; non_slack_bus_ids.len()];
-            rhs[injection_bus_pos] = 1.0;
-            let theta = solve_linear_system(&reduced_b, &rhs)?;
-
-            for (branch_idx, branch) in system.branches.iter().enumerate() {
-                let theta_from = if branch.from_bus_id == slack_bus.id {
-                    0.0
-                } else {
-                    theta[*non_slack_bus_positions
-                        .get(&branch.from_bus_id)
-                        .expect("from bus should be mapped in reduced system")]
-                };
-                let theta_to = if branch.to_bus_id == slack_bus.id {
-                    0.0
-                } else {
-                    theta[*non_slack_bus_positions
-                        .get(&branch.to_bus_id)
-                        .expect("to bus should be mapped in reduced system")]
-                };
-                ptdf_rows[branch_idx][injection_bus_pos] =
-                    (theta_from - theta_to) / branch.reactance_pu;
-            }
-        }
+        let branch_susceptance_diag = build_branch_susceptance_diag(system);
+        let reduced_incidence =
+            build_reduced_incidence(system, &non_slack_bus_positions);
+        let inverse_reduced_b = invert_matrix(&reduced_b)?;
+        let branch_times_incidence =
+            multiply_matrices(&branch_susceptance_diag, &reduced_incidence)?;
+        let ptdf_rows = multiply_matrices(&branch_times_incidence, &inverse_reduced_b)?;
 
         Ok(Self {
             non_slack_bus_ids,
@@ -689,6 +1171,106 @@ fn build_reduced_susceptance(
     }
 
     matrix
+}
+
+fn build_branch_susceptance_diag(system: &System) -> Vec<Vec<f64>> {
+    let size = system.branches.len();
+    let mut matrix = vec![vec![0.0; size]; size];
+
+    for (branch_idx, branch) in system.branches.iter().enumerate() {
+        matrix[branch_idx][branch_idx] = 1.0 / branch.reactance_pu;
+    }
+
+    matrix
+}
+
+fn build_reduced_incidence(
+    system: &System,
+    non_slack_bus_positions: &HashMap<BusId, usize>,
+) -> Vec<Vec<f64>> {
+    let row_count = system.branches.len();
+    let column_count = non_slack_bus_positions.len();
+    let mut matrix = vec![vec![0.0; column_count]; row_count];
+
+    for (branch_idx, branch) in system.branches.iter().enumerate() {
+        if let Some(from_pos) = non_slack_bus_positions.get(&branch.from_bus_id) {
+            matrix[branch_idx][*from_pos] = 1.0;
+        }
+        if let Some(to_pos) = non_slack_bus_positions.get(&branch.to_bus_id) {
+            matrix[branch_idx][*to_pos] = -1.0;
+        }
+    }
+
+    matrix
+}
+
+fn invert_matrix(matrix: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, SimulationError> {
+    let n = matrix.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+
+    if matrix.iter().any(|row| row.len() != n) {
+        return Err(SimulationError::InvalidNetwork(
+            "matrix inversion requires a square matrix".into(),
+        ));
+    }
+
+    let mut inverse = vec![vec![0.0; n]; n];
+    for column in 0..n {
+        let mut rhs = vec![0.0; n];
+        rhs[column] = 1.0;
+        let solution = solve_linear_system(matrix, &rhs)?;
+        for row in 0..n {
+            inverse[row][column] = solution[row];
+        }
+    }
+
+    Ok(inverse)
+}
+
+fn multiply_matrices(
+    left: &[Vec<f64>],
+    right: &[Vec<f64>],
+) -> Result<Vec<Vec<f64>>, SimulationError> {
+    if left.is_empty() || right.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let left_columns = left[0].len();
+    let right_rows = right.len();
+    let right_columns = right[0].len();
+
+    if left.iter().any(|row| row.len() != left_columns)
+        || right.iter().any(|row| row.len() != right_columns)
+    {
+        return Err(SimulationError::InvalidNetwork(
+            "matrix multiplication requires rectangular matrices".into(),
+        ));
+    }
+
+    if left_columns != right_rows {
+        return Err(SimulationError::InvalidNetwork(format!(
+            "matrix multiplication dimension mismatch: left is {}x{}, right is {}x{}",
+            left.len(),
+            left_columns,
+            right_rows,
+            right_columns
+        )));
+    }
+
+    let mut product = vec![vec![0.0; right_columns]; left.len()];
+    for (row_idx, left_row) in left.iter().enumerate() {
+        for column_idx in 0..right_columns {
+            let mut value = 0.0;
+            for k in 0..left_columns {
+                value += left_row[k] * right[k][column_idx];
+            }
+            product[row_idx][column_idx] = value;
+        }
+    }
+
+    Ok(product)
 }
 
 fn solve_linear_system(
@@ -767,10 +1349,34 @@ fn round_to_digits(value: f64, digits: u32) -> f64 {
     (value * factor).round() / factor
 }
 
+fn model_dimensions(model: &Model) -> (usize, usize) {
+    let variables = &model.variables;
+    let variable_count = variables.thermal_generation.len()
+        + variables.hydro_generation.len()
+        + variables.hydro_turbining.len()
+        + variables.hydro_spillage.len()
+        + variables.hydro_volume.len()
+        + variables.deficit.len()
+        + variables.wind_generation.len()
+        + variables.solar_generation.len()
+        + variables.interchange.len()
+        + variables.thermal_commitment.len()
+        + variables.thermal_startup.len()
+        + variables.thermal_shutdown.len()
+        + variables.hydro_commitment.len()
+        + variables.hydro_startup.len()
+        + variables.hydro_shutdown.len()
+        + variables.network_flow_slack.len()
+        + variables.operational_limit_slack.len();
+
+    (variable_count, model.constraints.linear_constraints.len())
+}
+
 pub fn write_results_csvs(
     system: &System,
     result: &IterativeSimulationResult,
     output_dir: impl AsRef<Path>,
+    network_enabled: bool,
 ) -> Result<(), SimulationError> {
     let output_dir = output_dir.as_ref();
     fs::create_dir_all(output_dir).map_err(|error| {
@@ -782,7 +1388,14 @@ pub fn write_results_csvs(
 
     write_hydro_csv(system, &result.final_summary, output_dir)?;
     write_thermal_csv(system, &result.final_summary, output_dir)?;
-    write_network_csv(&result.final_line_flows, output_dir)?;
+    write_process_iterations_csv(&result.steps, output_dir)?;
+    write_operational_limits_csv(system, output_dir)?;
+    write_operational_limit_infeasibility_csv(&result.operational_limit_infeasibilities, output_dir)?;
+    if network_enabled {
+        write_network_csv(&result.final_line_flows, output_dir)?;
+        write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
+        write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
+    }
     write_renewable_csv(system, &result.final_summary, output_dir, true)?;
     write_renewable_csv(system, &result.final_summary, output_dir, false)?;
 
@@ -810,6 +1423,8 @@ fn write_hydro_csv(
                 .get(&hydro_spillage_name(plant.name.as_str(), period))
                 .copied()
                 .unwrap_or(0.0);
+            let mut total_generation = 0.0;
+            let mut total_turbining = 0.0;
 
             for group in &plant.groups {
                 for unit in &group.units {
@@ -833,12 +1448,14 @@ fn write_hydro_csv(
                         ))
                         .copied()
                         .unwrap_or(0.0);
+                    total_generation += generation;
+                    total_turbining += turbining;
 
                     csv.push_str(&format!(
                         "{};{};{};{};{:.6};{:.6};{:.6};{:.6}\n",
                         plant.name,
-                        group.name,
-                        unit.name,
+                        group.id.0,
+                        unit.id.0,
                         period + 1,
                         volume,
                         generation,
@@ -847,10 +1464,44 @@ fn write_hydro_csv(
                     ));
                 }
             }
+
+            csv.push_str(&format!(
+                "{};99;99;{};{:.6};{:.6};{:.6};{:.6}\n",
+                plant.name,
+                period + 1,
+                volume,
+                total_generation,
+                total_turbining,
+                spillage
+            ));
         }
     }
 
     write_csv_file(output_dir.join("resultado_hidreletricas.csv"), csv)
+}
+
+fn write_process_iterations_csv(
+    steps: &[IterationReport],
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv = String::from(
+        "Etapa;Iteracao;NumeroRestricoes;NumeroVariaveis;ValorFuncaoObjetivo;StatusSolucao;TempoResolucaoSeg\n",
+    );
+
+    for step in steps {
+        csv.push_str(&format!(
+            "{};{};{};{};{:.6};{};{:.6}\n",
+            step.stage.label(),
+            step.iteration,
+            step.constraint_count,
+            step.variable_count,
+            step.objective_value,
+            step.solution_status,
+            step.solve_time.as_secs_f64()
+        ));
+    }
+
+    write_csv_file(output_dir.join("resultado_processo_iter.csv"), csv)
 }
 
 fn write_thermal_csv(
@@ -858,10 +1509,30 @@ fn write_thermal_csv(
     summary: &SolveSummary,
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
-    let mut csv =
-        String::from("Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff\n");
+    let residual_enabled = system.ton_residual_enabled;
+    let mut csv = if residual_enabled {
+        String::from(
+            "Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff;TempoResidualHoras;CustoResidual\n",
+        )
+    } else {
+        String::from("Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff\n")
+    };
 
     for plant in &system.thermal_plants {
+        let mut unit_rows = Vec::new();
+        let mut aggregated_generation = vec![0.0; system.horizon.periods];
+        let mut aggregated_status = vec![false; system.horizon.periods];
+        let mut aggregated_residual_hours = vec![0.0; system.horizon.periods];
+        let mut aggregated_residual_cost = vec![0.0; system.horizon.periods];
+        let residual_cost_per_mwh = if residual_enabled {
+            system.residual_costs.iter().find_map(|residual_cost| {
+                (residual_cost.submarket_id == plant.submarket_id)
+                    .then_some(residual_cost.cmo_per_mwh)
+            })
+        } else {
+            None
+        };
+
         for unit in &plant.units {
             let statuses = (0..system.horizon.periods)
                 .map(|period| {
@@ -902,22 +1573,136 @@ fn write_thermal_csv(
                     ))
                     .copied()
                     .unwrap_or(0.0);
+                let (residual_hours, residual_cost) = if let Some(cmo_per_mwh) = residual_cost_per_mwh
+                {
+                    thermal_residual_output_values(system, unit, period, cmo_per_mwh)
+                } else {
+                    (0.0, 0.0)
+                };
+                aggregated_generation[period] += generation;
+                aggregated_status[period] |= statuses[period];
+                aggregated_residual_hours[period] += residual_hours;
+                aggregated_residual_cost[period] += residual_cost;
 
-                csv.push_str(&format!(
-                    "{};{};{};{:.6};{};{};{}\n",
-                    plant.name,
-                    unit.name,
-                    period + 1,
+                unit_rows.push((
+                    period,
+                    unit.id.0,
                     generation,
                     if statuses[period] { 1 } else { 0 },
                     times_on[period],
-                    times_off[period]
+                    times_off[period],
+                    residual_hours,
+                    residual_cost,
+                ));
+            }
+        }
+
+        let initial_is_on = plant.units.iter().any(|unit| unit.initial_condition.is_on);
+        let initial_time_in_state = plant
+            .units
+            .iter()
+            .map(|unit| unit.initial_condition.time_in_state)
+            .max()
+            .unwrap_or(0);
+        let (agg_times_on, agg_times_off) = thermal_residence_times(
+            initial_is_on,
+            initial_time_in_state,
+            &aggregated_status,
+        );
+
+        for period in 0..system.horizon.periods {
+            for (row_period, unit_id, generation, status_on, time_on, time_off, residual_hours, residual_cost) in &unit_rows {
+                if *row_period == period {
+                    if residual_enabled {
+                        csv.push_str(&format!(
+                            "{};{};{};{:.6};{};{};{};{:.6};{:.6}\n",
+                            plant.name,
+                            unit_id,
+                            period + 1,
+                            generation,
+                            status_on,
+                            time_on,
+                            time_off,
+                            residual_hours,
+                            residual_cost
+                        ));
+                    } else {
+                        csv.push_str(&format!(
+                            "{};{};{};{:.6};{};{};{}\n",
+                            plant.name,
+                            unit_id,
+                            period + 1,
+                            generation,
+                            status_on,
+                            time_on,
+                            time_off
+                        ));
+                    }
+                }
+            }
+
+            if residual_enabled {
+                csv.push_str(&format!(
+                    "{};99;{};{:.6};{};{};{};{:.6};{:.6}\n",
+                    plant.name,
+                    period + 1,
+                    aggregated_generation[period],
+                    if aggregated_status[period] { 1 } else { 0 },
+                    agg_times_on[period],
+                    agg_times_off[period],
+                    aggregated_residual_hours[period],
+                    aggregated_residual_cost[period]
+                ));
+            } else {
+                csv.push_str(&format!(
+                    "{};99;{};{:.6};{};{};{}\n",
+                    plant.name,
+                    period + 1,
+                    aggregated_generation[period],
+                    if aggregated_status[period] { 1 } else { 0 },
+                    agg_times_on[period],
+                    agg_times_off[period]
                 ));
             }
         }
     }
 
     write_csv_file(output_dir.join("resultado_termicas.csv"), csv)
+}
+
+fn thermal_residual_output_values(
+    system: &System,
+    unit: &labdessem_core::thermal::ThermalUnit,
+    startup_period: usize,
+    cmo_per_mwh: f64,
+) -> (f64, f64) {
+    let residual_profile = thermal_post_horizon_profile(unit);
+    let periods_inside_horizon = system.horizon.periods.saturating_sub(startup_period);
+    let residual_steps = residual_profile
+        .len()
+        .saturating_sub(periods_inside_horizon);
+
+    if residual_steps == 0 {
+        return (0.0, 0.0);
+    }
+
+    let residual_mw_sum: f64 = residual_profile[periods_inside_horizon..].iter().sum();
+    let residual_hours = residual_steps as f64 * system.horizon.period_duration_hours;
+    let residual_cost = residual_mw_sum
+        * (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0)
+        * system.horizon.period_duration_hours;
+
+    (residual_hours, residual_cost)
+}
+
+fn thermal_post_horizon_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
+    let mut profile = unit.startup_trajectory_mw.clone();
+    let steady_periods = unit
+        .min_up_time
+        .saturating_sub(unit.startup_trajectory_mw.len());
+    profile.extend(std::iter::repeat_n(unit.min_generation_mw, steady_periods));
+    profile.extend(unit.shutdown_trajectory_mw.iter().copied());
+    profile
 }
 
 fn write_network_csv(
@@ -944,6 +1729,109 @@ fn write_network_csv(
     }
 
     write_csv_file(output_dir.join("resultado_rede.csv"), csv)
+}
+
+fn write_added_flow_cut_lines_csv(
+    added_lines: &[AddedFlowCutLineResult],
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv =
+        String::from("NomeLinha;CodigoLinha;BarraDe;BarraPara;FluxoMW;CapacidadeMW\n");
+
+    for line in added_lines {
+        csv.push_str(&format!(
+            "{};{};{};{};{:.6};{:.6}\n",
+            line.branch_name,
+            line.branch_id.0,
+            line.from_bus_id.0,
+            line.to_bus_id.0,
+            line.flow_mw,
+            line.limit_mw
+        ));
+    }
+
+    write_csv_file(output_dir.join("resultado_linhas_adicionadas.csv"), csv)
+}
+
+fn write_network_infeasibility_csv(
+    infeasibilities: &[NetworkInfeasibilityRecord],
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv = String::from("Etapa;Iteracao;Periodo;Linha;ViolacaoMW\n");
+
+    for record in infeasibilities {
+        csv.push_str(&format!(
+            "{};{};{};{};{:.6}\n",
+            record.stage.label(),
+            record.iteration,
+            record.period,
+            record.branch_name,
+            record.violation_mw
+        ));
+    }
+
+    write_csv_file(output_dir.join("resultado_inviabilidade_rede.csv"), csv)
+}
+
+fn write_operational_limit_infeasibility_csv(
+    infeasibilities: &[OperationalLimitInfeasibilityRecord],
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv =
+        String::from("Etapa;Iteracao;Periodo;CodigoUsina;NomeUsina;ViolacaoLinf;ViolacaoLsup\n");
+
+    for record in infeasibilities {
+        csv.push_str(&format!(
+            "{};{};{};{};{};{:.6};{:.6}\n",
+            record.stage.label(),
+            record.iteration,
+            record.period,
+            record.plant_code,
+            record.plant_name,
+            record.lower_violation_mw,
+            record.upper_violation_mw
+        ));
+    }
+
+    write_csv_file(output_dir.join("resultado_inviabilidade_lim.csv"), csv)
+}
+
+fn write_operational_limits_csv(
+    system: &System,
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv = String::from("TipoUsina;CodigoUsina;NomeUsina;Variavel;Periodo;Linf;Lsup\n");
+
+    for limit in &system.operational_limits {
+        let (plant_type, plant_code) = match limit.target {
+            OperationalLimitTarget::ThermalPlant(id) => ("TERMICA", id.0),
+            OperationalLimitTarget::HydroPlant(id) => ("HIDRAULICA", id.0),
+        };
+
+        for period in limit.start_period..=limit.end_period {
+            let lower_bound = limit
+                .lower_bound
+                .map(|value| format!("{value:.6}"))
+                .unwrap_or_default();
+            let upper_bound = limit
+                .upper_bound
+                .map(|value| format!("{value:.6}"))
+                .unwrap_or_default();
+
+            csv.push_str(&format!(
+                "{};{};{};{};{};{};{}\n",
+                plant_type,
+                plant_code,
+                limit.plant_name,
+                operational_limit_variable_label(limit.variable),
+                period,
+                lower_bound,
+                upper_bound
+            ));
+        }
+    }
+
+    write_csv_file(output_dir.join("resultado_rest_lim.csv"), csv)
 }
 
 fn write_renewable_csv(
@@ -1091,6 +1979,39 @@ fn renewable_generation_name(prefix: &str, plant_name: &str, period: usize) -> S
     format!("{prefix}[p={},t={}]", plant_name, period + 1)
 }
 
+fn flow_slack_name(prefix: &str, branch_name: &str, period: usize) -> String {
+    format!("{prefix}[branch={},t={}]", branch_name, period + 1)
+}
+
+fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
+    match variable {
+        OperationalLimitVariable::Generation => "GER",
+        OperationalLimitVariable::Spillage => "VERT",
+        OperationalLimitVariable::Volume => "VOL",
+        OperationalLimitVariable::Defluence => "DEFLU",
+        OperationalLimitVariable::Turbining => "TURB",
+    }
+}
+
+fn operational_limit_slack_name(
+    is_lower: bool,
+    plant_name: &str,
+    variable: OperationalLimitVariable,
+    period: usize,
+) -> String {
+    let prefix = if is_lower {
+        "operational_limit_slack_lower"
+    } else {
+        "operational_limit_slack_upper"
+    };
+    format!(
+        "{prefix}[p={},var={},t={}]",
+        plant_name,
+        operational_limit_variable_label(variable),
+        period
+    )
+}
+
 fn bus_name(system: &System, bus_id: BusId) -> String {
     system
         .buses
@@ -1119,6 +2040,8 @@ mod tests {
                 periods: 2,
                 period_duration_hours: 1.0,
             },
+            ton_residual_enabled: false,
+            residual_costs: vec![],
             submarkets: vec![
                 Submarket {
                     id: SubmarketId(1),
@@ -1134,6 +2057,7 @@ mod tests {
                 },
             ],
             interchange_limits: vec![],
+            operational_limits: vec![],
             buses: vec![
                 Bus {
                     id: BusId(1),
@@ -1179,6 +2103,8 @@ mod tests {
                         is_on: false,
                         generation_mw: 0.0,
                         time_in_state: 1,
+                        is_ramping_up: false,
+                        is_ramping_down: false,
                     },
                 }],
             }],
@@ -1227,7 +2153,7 @@ mod tests {
 
     #[test]
     fn runs_iterative_process_and_reports_steps() {
-        let result = run_iterative_simulation(&build_system())
+        let result = run_iterative_simulation(&build_system(), true)
             .expect("iterative simulation should solve the simple case");
 
         assert!(!result.steps.is_empty());
