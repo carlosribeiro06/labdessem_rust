@@ -59,14 +59,14 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
 
     println!("Dados carregados com sucesso.");
     println!(
-        "Resumo do caso: {} submercados, {} barras, {} linhas, {} UTEs, {} UHEs, {} eolicas, {} solares",
+        "Resumo do caso: {} submercados, {} barras, {} linhas, {} UTEs, {} UHEs, {} elevatorias, {} renovaveis",
         system.submarkets.len(),
         system.buses.len(),
         system.branches.len(),
         system.thermal_plants.len(),
         system.hydro_plants.len(),
-        system.wind_plants.len(),
-        system.solar_plants.len()
+        system.pumping_plants.len(),
+        system.wind_plants.len() + system.solar_plants.len()
     );
     println!("Iniciando processo iterativo de resolucao...");
     let network_enabled = config.rede != 0;
