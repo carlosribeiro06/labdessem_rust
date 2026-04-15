@@ -1,5 +1,5 @@
 {
-  "case_path": "../../examples/caso_sin_sem_rede",
+  "case_path": "../../examples/caso_sin_sem_rede_horizonte_exp",
   "rede": 0,
   "UCT": 0,
   "UCH": 0,
