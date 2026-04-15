@@ -49,9 +49,7 @@ impl ConstraintSet {
         linear_constraints.extend(build_hydro_spillage_nonnegativity_constraints(
             indexing, variables, system,
         ));
-        linear_constraints.extend(build_hydro_productivity_constraints(
-            system, indexing, variables,
-        ));
+        linear_constraints.extend(build_hydro_fpha_constraints(system, indexing, variables));
         linear_constraints.extend(build_operational_limit_constraints(
             system, indexing, variables,
         ));
@@ -61,18 +59,21 @@ impl ConstraintSet {
             SolveMode::MixedIntegerLinearProgramming
                 | SolveMode::LinearProgrammingWithFixedCommitment
         ) {
-            linear_constraints.extend(build_thermal_min_up_down_constraints(
-                system, indexing, variables,
-            ));
-            linear_constraints.extend(build_thermal_ramp_constraints(
-                system, indexing, variables,
-            ));
-            linear_constraints.extend(build_hydro_commitment_channeling_constraints(
-                system, indexing, variables,
-            ));
-            linear_constraints.extend(build_hydro_min_up_down_constraints(
-                system, indexing, variables,
-            ));
+            if system.thermal_unit_commitment_enabled {
+                linear_constraints.extend(build_thermal_min_up_down_constraints(
+                    system, indexing, variables,
+                ));
+                linear_constraints
+                    .extend(build_thermal_ramp_constraints(system, indexing, variables));
+            }
+            if system.hydro_unit_commitment_enabled {
+                linear_constraints.extend(build_hydro_commitment_channeling_constraints(
+                    system, indexing, variables,
+                ));
+                linear_constraints.extend(build_hydro_min_up_down_constraints(
+                    system, indexing, variables,
+                ));
+            }
         }
 
         linear_constraints.push(LinearConstraint {
@@ -86,7 +87,8 @@ impl ConstraintSet {
             solve_mode,
             SolveMode::MixedIntegerLinearProgramming
                 | SolveMode::LinearProgrammingWithFixedCommitment
-        ) {
+        ) && (system.thermal_unit_commitment_enabled || system.hydro_unit_commitment_enabled)
+        {
             linear_constraints.push(LinearConstraint {
                 name: "unit_commitment".into(),
                 terms: Vec::new(),
@@ -135,7 +137,9 @@ impl ConstraintSet {
             .iter()
             .filter(|constraint| {
                 constraint.name.starts_with("thermal_transition[")
-                    || constraint.name.starts_with("thermal_startup_shutdown_exclusive[")
+                    || constraint
+                        .name
+                        .starts_with("thermal_startup_shutdown_exclusive[")
                     || constraint.name.starts_with("thermal_ramp_")
             })
             .collect()
@@ -180,10 +184,10 @@ impl ConstraintSet {
             .collect()
     }
 
-    pub fn hydro_productivity(&self) -> Vec<&LinearConstraint> {
+    pub fn hydro_fpha(&self) -> Vec<&LinearConstraint> {
         self.linear_constraints
             .iter()
-            .filter(|constraint| constraint.name.starts_with("hydro_productivity["))
+            .filter(|constraint| constraint.name.starts_with("hydro_fpha["))
             .collect()
     }
 
@@ -254,6 +258,9 @@ fn build_hydro_balance_constraints(
                 let spillage = &variables.hydro_spillage[plant_entry_idx * horizon + period];
                 terms.push(term(spillage, 1.0));
 
+                let diversion = &variables.hydro_diversion[plant_entry_idx * horizon + period];
+                terms.push(term(diversion, 1.0));
+
                 for upstream_id in &plant.upstream_plant_ids {
                     if let Some(upstream_entry_idx) = indexing
                         .hydro_plant_entries
@@ -278,8 +285,24 @@ fn build_hydro_balance_constraints(
                     }
                 }
 
+                for upstream_id in &plant.diversion_upstream_plant_ids {
+                    if let Some(upstream_entry_idx) = indexing
+                        .hydro_plant_entries
+                        .iter()
+                        .position(|entry| system.hydro_plants[entry.plant_idx].id == *upstream_id)
+                    {
+                        let upstream_diversion =
+                            &variables.hydro_diversion[upstream_entry_idx * horizon + period];
+                        terms.push(term(upstream_diversion, -1.0));
+                    }
+                }
+
                 LinearConstraint {
-                    name: format!("hydro_balance[p={},t={}]", plant.name, display_period(period)),
+                    name: format!(
+                        "hydro_balance[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
                     terms,
                     sense: ConstraintSense::Equal,
                     rhs: plant.natural_inflow_hm3[period],
@@ -397,42 +420,63 @@ fn build_hydro_spillage_nonnegativity_constraints(
         .collect()
 }
 
-fn build_hydro_productivity_constraints(
+fn build_hydro_fpha_constraints(
     system: &System,
     indexing: &Indexing,
     variables: &Variables,
 ) -> Vec<LinearConstraint> {
     let horizon = system.horizon.periods;
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
 
     indexing
-        .hydro_unit_entries
+        .hydro_plant_entries
         .iter()
         .enumerate()
-        .flat_map(|(entry_idx, entry)| {
+        .flat_map(|(plant_entry_idx, entry)| {
             let plant = &system.hydro_plants[entry.plant_idx];
-            let group = &plant.groups[entry.group_idx];
-            let unit = &group.units[entry.unit_idx];
 
-            (0..horizon).map(move |period| LinearConstraint {
-                name: format!(
-                    "hydro_productivity[p={},g={},u={},t={}]",
-                    plant.name,
-                    group.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![
-                    term(
-                        &variables.hydro_generation[entry_idx * horizon + period],
-                        1.0,
-                    ),
-                    term(
-                        &variables.hydro_turbining[entry_idx * horizon + period],
-                        -unit.productivity_mw_per_hm3,
-                    ),
-                ],
-                sense: ConstraintSense::Equal,
-                rhs: 0.0,
+            (0..horizon).flat_map(move |period| {
+                plant.fpha_segments.iter().map(move |segment| {
+                    let mut terms = Vec::new();
+
+                    for (unit_entry_idx, unit_entry) in
+                        indexing.hydro_unit_entries.iter().enumerate()
+                    {
+                        if unit_entry.plant_idx == entry.plant_idx {
+                            terms.push(term(
+                                &variables.hydro_generation[unit_entry_idx * horizon + period],
+                                1.0,
+                            ));
+                            terms.push(term(
+                                &variables.hydro_turbining[unit_entry_idx * horizon + period],
+                                -(segment.correction_factor * segment.turbining_coefficient
+                                    / flow_conversion),
+                            ));
+                        }
+                    }
+
+                    terms.push(term(
+                        &variables.hydro_volume[plant_entry_idx * (horizon + 1) + period + 1],
+                        -(segment.correction_factor * segment.volume_coefficient),
+                    ));
+                    terms.push(term(
+                        &variables.hydro_spillage[plant_entry_idx * horizon + period],
+                        -(segment.correction_factor * segment.lateral_flow_coefficient
+                            / flow_conversion),
+                    ));
+
+                    LinearConstraint {
+                        name: format!(
+                            "hydro_fpha[p={},seg={},t={}]",
+                            plant.name,
+                            segment.segment,
+                            display_period(period)
+                        ),
+                        terms,
+                        sense: ConstraintSense::LessOrEqual,
+                        rhs: segment.correction_factor * segment.rhs,
+                    }
+                })
             })
         })
         .collect()
@@ -448,7 +492,8 @@ fn build_operational_limit_constraints(
 
     for limit in &system.operational_limits {
         for period in limit.start_period - 1..=limit.end_period - 1 {
-            let terms = operational_limit_terms(system, indexing, variables, limit, period, horizon);
+            let terms =
+                operational_limit_terms(system, indexing, variables, limit, period, horizon);
 
             if let Some(lower_bound) = limit.lower_bound {
                 constraints.push(LinearConstraint {
@@ -508,7 +553,12 @@ fn operational_limit_terms(
                 .iter()
                 .enumerate()
                 .filter(|(_, entry)| system.thermal_plants[entry.plant_idx].id == plant_id)
-                .map(|(entry_idx, _)| term(&variables.thermal_generation[entry_idx * horizon + period], 1.0))
+                .map(|(entry_idx, _)| {
+                    term(
+                        &variables.thermal_generation[entry_idx * horizon + period],
+                        1.0,
+                    )
+                })
                 .collect()
         }
         (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Generation) => {
@@ -517,7 +567,12 @@ fn operational_limit_terms(
                 .iter()
                 .enumerate()
                 .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
-                .map(|(entry_idx, _)| term(&variables.hydro_generation[entry_idx * horizon + period], 1.0))
+                .map(|(entry_idx, _)| {
+                    term(
+                        &variables.hydro_generation[entry_idx * horizon + period],
+                        1.0,
+                    )
+                })
                 .collect()
         }
         (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Spillage) => {
@@ -526,7 +581,10 @@ fn operational_limit_terms(
                 .iter()
                 .position(|entry| system.hydro_plants[entry.plant_idx].id == plant_id)
                 .expect("validated hydro plant should exist");
-            vec![term(&variables.hydro_spillage[plant_entry_idx * horizon + period], 1.0)]
+            vec![term(
+                &variables.hydro_spillage[plant_entry_idx * horizon + period],
+                1.0,
+            )]
         }
         (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Volume) => {
             let plant_entry_idx = indexing
@@ -539,13 +597,20 @@ fn operational_limit_terms(
                 1.0,
             )]
         }
-        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Turbining) => indexing
-            .hydro_unit_entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
-            .map(|(entry_idx, _)| term(&variables.hydro_turbining[entry_idx * horizon + period], 1.0))
-            .collect(),
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Turbining) => {
+            indexing
+                .hydro_unit_entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .map(|(entry_idx, _)| {
+                    term(
+                        &variables.hydro_turbining[entry_idx * horizon + period],
+                        1.0,
+                    )
+                })
+                .collect()
+        }
         (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Defluence) => {
             let mut terms: Vec<LinearTerm> = indexing
                 .hydro_unit_entries
@@ -698,7 +763,11 @@ fn build_thermal_ramp_constraints(
     for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
         let plant = &system.thermal_plants[entry.plant_idx];
         let unit = &plant.units[entry.unit_idx];
-        let initial_status = if unit.initial_condition.is_on { 1.0 } else { 0.0 };
+        let initial_status = if unit.initial_condition.is_on {
+            1.0
+        } else {
+            0.0
+        };
         let initial_startup_remaining = if unit.initial_condition.is_ramping_up {
             unit.initial_startup_remaining_trajectory()
                 .expect("validated thermal startup trajectory should be consistent")
@@ -717,7 +786,8 @@ fn build_thermal_ramp_constraints(
             let startup = &variables.thermal_startup[entry_idx * horizon + period];
             let shutdown = &variables.thermal_shutdown[entry_idx * horizon + period];
 
-            let mut transition_terms = vec![term(on, 1.0), term(startup, -1.0), term(shutdown, 1.0)];
+            let mut transition_terms =
+                vec![term(on, 1.0), term(startup, -1.0), term(shutdown, 1.0)];
             let transition_rhs = if period == 0 {
                 initial_status
             } else {
@@ -781,31 +851,23 @@ fn build_thermal_ramp_constraints(
             } else {
                 0.0
             };
-            let initial_startup_generation =
-                initial_startup_remaining.get(period).copied().unwrap_or(0.0);
+            let initial_startup_generation = initial_startup_remaining
+                .get(period)
+                .copied()
+                .unwrap_or(0.0);
             let initial_shutdown_active = if period < initial_shutdown_remaining.len() {
                 1.0
             } else {
                 0.0
             };
-            let initial_shutdown_generation =
-                initial_shutdown_remaining.get(period).copied().unwrap_or(0.0);
+            let initial_shutdown_generation = initial_shutdown_remaining
+                .get(period)
+                .copied()
+                .unwrap_or(0.0);
 
             let generation = &variables.thermal_generation[entry_idx * horizon + period];
-            let mut lower_terms = vec![
-                term(generation, 1.0),
-                term(
-                    on,
-                    -unit.min_generation_mw,
-                ),
-            ];
-            let mut upper_terms = vec![
-                term(generation, 1.0),
-                term(
-                    on,
-                    -unit.max_generation_mw,
-                ),
-            ];
+            let mut lower_terms = vec![term(generation, 1.0), term(on, -unit.min_generation_mw)];
+            let mut upper_terms = vec![term(generation, 1.0), term(on, -unit.max_generation_mw)];
 
             for startup_term in &startup_sum_terms {
                 lower_terms.push(LinearTerm {
@@ -901,7 +963,8 @@ fn build_thermal_min_up_down_constraints(
         let initial_status = if initial_on { 1.0 } else { 0.0 };
 
         let remaining_on = if initial_on {
-            unit.min_up_time.saturating_sub(unit.initial_condition.time_in_state)
+            unit.min_up_time
+                .saturating_sub(unit.initial_condition.time_in_state)
         } else {
             0
         };
@@ -1038,7 +1101,8 @@ fn build_hydro_min_up_down_constraints(
         let initial_status = if initial_on { 1.0 } else { 0.0 };
 
         let remaining_on = if initial_on {
-            unit.min_up_time.saturating_sub(unit.initial_condition.time_in_state)
+            unit.min_up_time
+                .saturating_sub(unit.initial_condition.time_in_state)
         } else {
             0
         };

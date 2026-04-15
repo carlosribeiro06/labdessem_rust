@@ -1,8 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     error::Error,
-    fmt,
-    fs,
+    fmt, fs,
     io::{self, Write},
     path::Path,
     time::{Duration, Instant},
@@ -369,11 +368,7 @@ fn solve_stage(
     network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
 ) -> Result<(SolveSummary, Vec<FlowViolation>, bool), SimulationError> {
-    println!(
-        "Resolvendo {} #{:02}...",
-        stage.label(),
-        iteration
-    );
+    println!("Resolvendo {} #{:02}...", stage.label(), iteration);
     io::stdout().flush().ok();
 
     let mut model = Model::from_system(system, solve_mode);
@@ -557,7 +552,11 @@ fn apply_commitment_fixes(model: &mut Model, source: &SolveSummary) {
                 .unwrap_or(0.0);
             variable.fixed_value = Some(match variable.domain {
                 VariableDomain::Binary => {
-                    if value >= 0.5 { 1.0 } else { 0.0 }
+                    if value >= 0.5 {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 VariableDomain::Continuous => value,
             });
@@ -601,7 +600,13 @@ fn add_flow_cuts(
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
         let rhs_shift = constant_load_shift(system, dc_network, cut_key.branch_idx, cut_key.period);
-        let terms = flow_terms_for_cut(model, system, dc_network, cut_key.branch_idx, cut_key.period);
+        let terms = flow_terms_for_cut(
+            model,
+            system,
+            dc_network,
+            cut_key.branch_idx,
+            cut_key.period,
+        );
         let mut upper_terms = terms.clone();
         let mut lower_terms = terms;
 
@@ -751,8 +756,7 @@ fn collect_operational_limit_infeasibilities(
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<OperationalLimitInfeasibilityRecord> {
-    let mut aggregated =
-        BTreeMap::<(usize, usize, String), (f64, f64)>::new();
+    let mut aggregated = BTreeMap::<(usize, usize, String), (f64, f64)>::new();
 
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
@@ -796,17 +800,19 @@ fn collect_operational_limit_infeasibilities(
 
     aggregated
         .into_iter()
-        .map(|((period, plant_code, plant_name), (lower_violation_mw, upper_violation_mw))| {
-            OperationalLimitInfeasibilityRecord {
-                stage,
-                iteration,
-                period,
-                plant_code,
-                plant_name,
-                lower_violation_mw,
-                upper_violation_mw,
-            }
-        })
+        .map(
+            |((period, plant_code, plant_name), (lower_violation_mw, upper_violation_mw))| {
+                OperationalLimitInfeasibilityRecord {
+                    stage,
+                    iteration,
+                    period,
+                    plant_code,
+                    plant_name,
+                    lower_violation_mw,
+                    upper_violation_mw,
+                }
+            },
+        )
         .collect()
 }
 
@@ -985,7 +991,9 @@ fn summarize_added_flow_cut_lines(
             })
             .max_by(|left, right| left.flow_mw.abs().total_cmp(&right.flow_mw.abs()));
 
-        let flow_mw = selected_flow.map(|line_flow| line_flow.flow_mw).unwrap_or(0.0);
+        let flow_mw = selected_flow
+            .map(|line_flow| line_flow.flow_mw)
+            .unwrap_or(0.0);
 
         output.push(AddedFlowCutLineResult {
             branch_id: branch.id,
@@ -1000,7 +1008,11 @@ fn summarize_added_flow_cut_lines(
     output
 }
 
-fn injections_by_period(system: &System, dc_network: &DcNetworkModel, summary: &SolveSummary) -> Vec<Vec<f64>> {
+fn injections_by_period(
+    system: &System,
+    dc_network: &DcNetworkModel,
+    summary: &SolveSummary,
+) -> Vec<Vec<f64>> {
     let horizon = system.horizon.periods;
     let mut injections = vec![vec![0.0; dc_network.non_slack_bus_ids.len()]; horizon];
 
@@ -1126,8 +1138,7 @@ impl DcNetworkModel {
 
         let reduced_b = build_reduced_susceptance(system, &non_slack_bus_positions);
         let branch_susceptance_diag = build_branch_susceptance_diag(system);
-        let reduced_incidence =
-            build_reduced_incidence(system, &non_slack_bus_positions);
+        let reduced_incidence = build_reduced_incidence(system, &non_slack_bus_positions);
         let inverse_reduced_b = invert_matrix(&reduced_b)?;
         let branch_times_incidence =
             multiply_matrices(&branch_susceptance_diag, &reduced_incidence)?;
@@ -1273,10 +1284,7 @@ fn multiply_matrices(
     Ok(product)
 }
 
-fn solve_linear_system(
-    matrix: &[Vec<f64>],
-    rhs: &[f64],
-) -> Result<Vec<f64>, SimulationError> {
+fn solve_linear_system(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, SimulationError> {
     let n = matrix.len();
     if n == 0 {
         return Ok(Vec::new());
@@ -1355,6 +1363,7 @@ fn model_dimensions(model: &Model) -> (usize, usize) {
         + variables.hydro_generation.len()
         + variables.hydro_turbining.len()
         + variables.hydro_spillage.len()
+        + variables.hydro_diversion.len()
         + variables.hydro_volume.len()
         + variables.deficit.len()
         + variables.wind_generation.len()
@@ -1390,7 +1399,10 @@ pub fn write_results_csvs(
     write_thermal_csv(system, &result.final_summary, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
-    write_operational_limit_infeasibility_csv(&result.operational_limit_infeasibilities, output_dir)?;
+    write_operational_limit_infeasibility_csv(
+        &result.operational_limit_infeasibilities,
+        output_dir,
+    )?;
     if network_enabled {
         write_network_csv(&result.final_line_flows, output_dir)?;
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
@@ -1408,8 +1420,9 @@ fn write_hydro_csv(
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
     let mut csv = String::from(
-        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;GeracaoMW;TurbinamentoHM3;VertimentoHM3\n",
+        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;GeracaoMW;TurbinamentoHM3;TurbinamentoM3s;VertimentoHM3;VertimentoM3s;DesvioHM3\n",
     );
+    let period_duration_hours = system.horizon.period_duration_hours;
 
     for plant in &system.hydro_plants {
         for period in 0..system.horizon.periods {
@@ -1423,6 +1436,12 @@ fn write_hydro_csv(
                 .get(&hydro_spillage_name(plant.name.as_str(), period))
                 .copied()
                 .unwrap_or(0.0);
+            let diversion = summary
+                .variable_values
+                .get(&hydro_diversion_name(plant.name.as_str(), period))
+                .copied()
+                .unwrap_or(0.0);
+            let spillage_m3s = volume_hm3_to_flow_m3s(spillage, period_duration_hours);
             let mut total_generation = 0.0;
             let mut total_turbining = 0.0;
 
@@ -1448,11 +1467,12 @@ fn write_hydro_csv(
                         ))
                         .copied()
                         .unwrap_or(0.0);
+                    let turbining_m3s = volume_hm3_to_flow_m3s(turbining, period_duration_hours);
                     total_generation += generation;
                     total_turbining += turbining;
 
                     csv.push_str(&format!(
-                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6}\n",
+                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                         plant.name,
                         group.id.0,
                         unit.id.0,
@@ -1460,19 +1480,27 @@ fn write_hydro_csv(
                         volume,
                         generation,
                         turbining,
-                        spillage
+                        turbining_m3s,
+                        spillage,
+                        spillage_m3s,
+                        diversion
                     ));
                 }
             }
 
+            let total_turbining_m3s =
+                volume_hm3_to_flow_m3s(total_turbining, period_duration_hours);
             csv.push_str(&format!(
-                "{};99;99;{};{:.6};{:.6};{:.6};{:.6}\n",
+                "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                 plant.name,
                 period + 1,
                 volume,
                 total_generation,
                 total_turbining,
-                spillage
+                total_turbining_m3s,
+                spillage,
+                spillage_m3s,
+                diversion
             ));
         }
     }
@@ -1515,7 +1543,9 @@ fn write_thermal_csv(
             "Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff;TempoResidualHoras;CustoResidual\n",
         )
     } else {
-        String::from("Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff\n")
+        String::from(
+            "Usina;Unidade;Periodo;GeracaoMW;StatusOn;TempoPermanenciaOn;TempoPermanenciaOff\n",
+        )
     };
 
     for plant in &system.thermal_plants {
@@ -1573,12 +1603,12 @@ fn write_thermal_csv(
                     ))
                     .copied()
                     .unwrap_or(0.0);
-                let (residual_hours, residual_cost) = if let Some(cmo_per_mwh) = residual_cost_per_mwh
-                {
-                    thermal_residual_output_values(system, unit, period, cmo_per_mwh)
-                } else {
-                    (0.0, 0.0)
-                };
+                let (residual_hours, residual_cost) =
+                    if let Some(cmo_per_mwh) = residual_cost_per_mwh {
+                        thermal_residual_output_values(system, unit, period, cmo_per_mwh)
+                    } else {
+                        (0.0, 0.0)
+                    };
                 aggregated_generation[period] += generation;
                 aggregated_status[period] |= statuses[period];
                 aggregated_residual_hours[period] += residual_hours;
@@ -1604,14 +1634,21 @@ fn write_thermal_csv(
             .map(|unit| unit.initial_condition.time_in_state)
             .max()
             .unwrap_or(0);
-        let (agg_times_on, agg_times_off) = thermal_residence_times(
-            initial_is_on,
-            initial_time_in_state,
-            &aggregated_status,
-        );
+        let (agg_times_on, agg_times_off) =
+            thermal_residence_times(initial_is_on, initial_time_in_state, &aggregated_status);
 
         for period in 0..system.horizon.periods {
-            for (row_period, unit_id, generation, status_on, time_on, time_off, residual_hours, residual_cost) in &unit_rows {
+            for (
+                row_period,
+                unit_id,
+                generation,
+                status_on,
+                time_on,
+                time_off,
+                residual_hours,
+                residual_cost,
+            ) in &unit_rows
+            {
                 if *row_period == period {
                     if residual_enabled {
                         csv.push_str(&format!(
@@ -1735,8 +1772,7 @@ fn write_added_flow_cut_lines_csv(
     added_lines: &[AddedFlowCutLineResult],
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
-    let mut csv =
-        String::from("NomeLinha;CodigoLinha;BarraDe;BarraPara;FluxoMW;CapacidadeMW\n");
+    let mut csv = String::from("NomeLinha;CodigoLinha;BarraDe;BarraPara;FluxoMW;CapacidadeMW\n");
 
     for line in added_lines {
         csv.push_str(&format!(
@@ -1796,10 +1832,7 @@ fn write_operational_limit_infeasibility_csv(
     write_csv_file(output_dir.join("resultado_inviabilidade_lim.csv"), csv)
 }
 
-fn write_operational_limits_csv(
-    system: &System,
-    output_dir: &Path,
-) -> Result<(), SimulationError> {
+fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
     let mut csv = String::from("TipoUsina;CodigoUsina;NomeUsina;Variavel;Periodo;Linf;Lsup\n");
 
     for limit in &system.operational_limits {
@@ -1854,7 +1887,12 @@ fn write_renewable_csv(
                     ))
                     .copied()
                     .unwrap_or(0.0);
-                csv.push_str(&format!("{};{};{:.6}\n", plant.name, period + 1, generation));
+                csv.push_str(&format!(
+                    "{};{};{:.6}\n",
+                    plant.name,
+                    period + 1,
+                    generation
+                ));
             }
         }
 
@@ -1871,7 +1909,12 @@ fn write_renewable_csv(
                     ))
                     .copied()
                     .unwrap_or(0.0);
-                csv.push_str(&format!("{};{};{:.6}\n", plant.name, period + 1, generation));
+                csv.push_str(&format!(
+                    "{};{};{:.6}\n",
+                    plant.name,
+                    period + 1,
+                    generation
+                ));
             }
         }
 
@@ -1971,6 +2014,14 @@ fn hydro_spillage_name(plant_name: &str, period: usize) -> String {
     format!("hydro_spillage[p={},t={}]", plant_name, period + 1)
 }
 
+fn hydro_diversion_name(plant_name: &str, period: usize) -> String {
+    format!("hydro_diversion[p={},t={}]", plant_name, period + 1)
+}
+
+fn volume_hm3_to_flow_m3s(volume_hm3: f64, period_duration_hours: f64) -> f64 {
+    volume_hm3 / (period_duration_hours * 0.0036)
+}
+
 fn hydro_volume_name(plant_name: &str, period: usize) -> String {
     format!("hydro_volume[p={},t={}]", plant_name, period)
 }
@@ -2025,14 +2076,27 @@ fn bus_name(system: &System, bus_id: BusId) -> String {
 mod tests {
     use super::run_iterative_simulation;
     use labdessem_core::{
-        hydro::{HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir},
+        hydro::{
+            HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+        },
         ids::{
-            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId,
-            ThermalPlantId, ThermalUnitId,
+            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
+            ThermalUnitId,
         },
         system::{Branch, Bus, StudyHorizon, Submarket, System},
         thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
+
+    fn fpha_segments() -> Vec<HydroFphaSegment> {
+        vec![HydroFphaSegment {
+            segment: 1,
+            correction_factor: 1.0,
+            rhs: 0.0,
+            volume_coefficient: 0.0,
+            turbining_coefficient: 1.0,
+            lateral_flow_coefficient: 0.0,
+        }]
+    }
 
     fn build_system() -> System {
         System {
@@ -2040,6 +2104,8 @@ mod tests {
                 periods: 2,
                 period_duration_hours: 1.0,
             },
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             residual_costs: vec![],
             submarkets: vec![
@@ -2115,6 +2181,9 @@ mod tests {
                 bus_id: BusId(1),
                 upstream_plant_ids: vec![],
                 downstream_plant_id: None,
+                diversion_upstream_plant_ids: vec![],
+                diversion_plant_id: None,
+                fpha_segments: fpha_segments(),
                 reservoir: Reservoir {
                     min_volume_hm3: 0.0,
                     max_volume_hm3: 500.0,
@@ -2131,7 +2200,6 @@ mod tests {
                         min_generation_mw: 0.0,
                         max_generation_mw: 200.0,
                         max_turbining_hm3: 500.0,
-                        productivity_mw_per_hm3: 1.0,
                         startup_trajectory_mw: vec![10.0],
                         shutdown_trajectory_mw: vec![10.0],
                         min_up_time: 1,

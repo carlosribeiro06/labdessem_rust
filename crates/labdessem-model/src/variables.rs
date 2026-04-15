@@ -22,6 +22,7 @@ pub struct Variables {
     pub hydro_generation: Vec<Variable>,
     pub hydro_turbining: Vec<Variable>,
     pub hydro_spillage: Vec<Variable>,
+    pub hydro_diversion: Vec<Variable>,
     pub hydro_volume: Vec<Variable>,
     pub deficit: Vec<Variable>,
     pub wind_generation: Vec<Variable>,
@@ -114,9 +115,36 @@ impl Variables {
             .flat_map(|entry| {
                 let plant = &system.hydro_plants[entry.plant_idx];
                 (0..horizon).map(move |period| Variable {
-                    name: format!("hydro_spillage[p={},t={}]", plant.name, display_period(period)),
+                    name: format!(
+                        "hydro_spillage[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
                     lower_bound: 0.0,
                     upper_bound: None,
+                    domain: VariableDomain::Continuous,
+                    fixed_value: None,
+                })
+            })
+            .collect();
+
+        let hydro_diversion = indexing
+            .hydro_plant_entries
+            .iter()
+            .flat_map(|entry| {
+                let plant = &system.hydro_plants[entry.plant_idx];
+                (0..horizon).map(move |period| Variable {
+                    name: format!(
+                        "hydro_diversion[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
+                    lower_bound: 0.0,
+                    upper_bound: if plant.diversion_plant_id.is_some() {
+                        None
+                    } else {
+                        Some(0.0)
+                    },
                     domain: VariableDomain::Continuous,
                     fixed_value: None,
                 })
@@ -166,7 +194,11 @@ impl Variables {
             .flat_map(|entry| {
                 let plant = &system.wind_plants[entry.plant_idx];
                 (0..horizon).map(move |period| Variable {
-                    name: format!("wind_generation[p={},t={}]", plant.name, display_period(period)),
+                    name: format!(
+                        "wind_generation[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
                     lower_bound: 0.0,
                     upper_bound: Some(plant.available_generation_mw[period]),
                     domain: VariableDomain::Continuous,
@@ -181,7 +213,11 @@ impl Variables {
             .flat_map(|entry| {
                 let plant = &system.solar_plants[entry.plant_idx];
                 (0..horizon).map(move |period| Variable {
-                    name: format!("solar_generation[p={},t={}]", plant.name, display_period(period)),
+                    name: format!(
+                        "solar_generation[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
                     lower_bound: 0.0,
                     upper_bound: Some(plant.available_generation_mw[period]),
                     domain: VariableDomain::Continuous,
@@ -218,104 +254,129 @@ impl Variables {
             })
             .collect();
 
-        let thermal_commitment = build_commitment_variables(
-            indexing
-                .thermal_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.thermal_plants[entry.plant_idx];
-                    let unit = &plant.units[entry.unit_idx];
-                    format!("thermal_on[p={},u={}", plant.name, unit.name)
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let thermal_commitment = if system.thermal_unit_commitment_enabled {
+            build_commitment_variables(
+                indexing
+                    .thermal_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.thermal_plants[entry.plant_idx];
+                        let unit = &plant.units[entry.unit_idx];
+                        format!("thermal_on[p={},u={}", plant.name, unit.name)
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
-        let hydro_commitment = build_commitment_variables(
-            indexing
-                .hydro_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.hydro_plants[entry.plant_idx];
-                    let group = &plant.groups[entry.group_idx];
-                    let unit = &group.units[entry.unit_idx];
-                    format!("hydro_on[p={},g={},u={}", plant.name, group.name, unit.name)
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let hydro_commitment = if system.hydro_unit_commitment_enabled {
+            build_commitment_variables(
+                indexing
+                    .hydro_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.hydro_plants[entry.plant_idx];
+                        let group = &plant.groups[entry.group_idx];
+                        let unit = &group.units[entry.unit_idx];
+                        format!("hydro_on[p={},g={},u={}", plant.name, group.name, unit.name)
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
-        let thermal_startup = build_unit_interval_variables(
-            indexing
-                .thermal_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.thermal_plants[entry.plant_idx];
-                    let unit = &plant.units[entry.unit_idx];
-                    format!("thermal_startup[p={},u={}", plant.name, unit.name)
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let thermal_startup = if system.thermal_unit_commitment_enabled {
+            build_unit_interval_variables(
+                indexing
+                    .thermal_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.thermal_plants[entry.plant_idx];
+                        let unit = &plant.units[entry.unit_idx];
+                        format!("thermal_startup[p={},u={}", plant.name, unit.name)
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
-        let thermal_shutdown = build_commitment_variables(
-            indexing
-                .thermal_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.thermal_plants[entry.plant_idx];
-                    let unit = &plant.units[entry.unit_idx];
-                    format!("thermal_shutdown[p={},u={}", plant.name, unit.name)
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let thermal_shutdown = if system.thermal_unit_commitment_enabled {
+            build_commitment_variables(
+                indexing
+                    .thermal_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.thermal_plants[entry.plant_idx];
+                        let unit = &plant.units[entry.unit_idx];
+                        format!("thermal_shutdown[p={},u={}", plant.name, unit.name)
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
-        let hydro_startup = build_commitment_variables(
-            indexing
-                .hydro_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.hydro_plants[entry.plant_idx];
-                    let group = &plant.groups[entry.group_idx];
-                    let unit = &group.units[entry.unit_idx];
-                    format!(
-                        "hydro_startup[p={},g={},u={}",
-                        plant.name, group.name, unit.name
-                    )
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let hydro_startup = if system.hydro_unit_commitment_enabled {
+            build_commitment_variables(
+                indexing
+                    .hydro_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.hydro_plants[entry.plant_idx];
+                        let group = &plant.groups[entry.group_idx];
+                        let unit = &group.units[entry.unit_idx];
+                        format!(
+                            "hydro_startup[p={},g={},u={}",
+                            plant.name, group.name, unit.name
+                        )
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
-        let hydro_shutdown = build_commitment_variables(
-            indexing
-                .hydro_unit_entries
-                .iter()
-                .map(|entry| {
-                    let plant = &system.hydro_plants[entry.plant_idx];
-                    let group = &plant.groups[entry.group_idx];
-                    let unit = &group.units[entry.unit_idx];
-                    format!(
-                        "hydro_shutdown[p={},g={},u={}",
-                        plant.name, group.name, unit.name
-                    )
-                })
-                .collect(),
-            horizon,
-            solve_mode,
-        );
+        let hydro_shutdown = if system.hydro_unit_commitment_enabled {
+            build_commitment_variables(
+                indexing
+                    .hydro_unit_entries
+                    .iter()
+                    .map(|entry| {
+                        let plant = &system.hydro_plants[entry.plant_idx];
+                        let group = &plant.groups[entry.group_idx];
+                        let unit = &group.units[entry.unit_idx];
+                        format!(
+                            "hydro_shutdown[p={},g={},u={}",
+                            plant.name, group.name, unit.name
+                        )
+                    })
+                    .collect(),
+                horizon,
+                solve_mode,
+            )
+        } else {
+            Vec::new()
+        };
 
         Self {
             thermal_generation,
             hydro_generation,
             hydro_turbining,
             hydro_spillage,
+            hydro_diversion,
             hydro_volume,
             deficit,
             wind_generation,
@@ -383,7 +444,10 @@ fn build_unit_interval_variables(
                     lower_bound: 0.0,
                     upper_bound: Some(1.0),
                     domain: VariableDomain::Continuous,
-                    fixed_value: if matches!(solve_mode, SolveMode::LinearProgrammingWithFixedCommitment) {
+                    fixed_value: if matches!(
+                        solve_mode,
+                        SolveMode::LinearProgrammingWithFixedCommitment
+                    ) {
                         Some(0.0)
                     } else {
                         None

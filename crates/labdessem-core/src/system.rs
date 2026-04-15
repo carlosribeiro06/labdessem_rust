@@ -273,6 +273,8 @@ impl InterchangeLimit {
 #[derive(Debug, Clone, PartialEq)]
 pub struct System {
     pub horizon: StudyHorizon,
+    pub thermal_unit_commitment_enabled: bool,
+    pub hydro_unit_commitment_enabled: bool,
     pub ton_residual_enabled: bool,
     pub residual_costs: Vec<ResidualCost>,
     pub submarkets: Vec<Submarket>,
@@ -465,6 +467,42 @@ impl System {
                     )));
                 }
             }
+
+            let mut seen_diversion_upstreams = HashSet::new();
+            for upstream in &plant.diversion_upstream_plant_ids {
+                if !seen_diversion_upstreams.insert(*upstream) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has duplicated diversion upstream reference {:?}",
+                        plant.id, upstream
+                    )));
+                }
+                if *upstream == plant.id {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} cannot point to itself as diversion upstream",
+                        plant.id
+                    )));
+                }
+                if !hydro_ids.contains(upstream) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} references unknown diversion upstream plant {:?}",
+                        plant.id, upstream
+                    )));
+                }
+            }
+            if let Some(diversion) = plant.diversion_plant_id {
+                if diversion == plant.id {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} cannot point to itself as diversion destination",
+                        plant.id
+                    )));
+                }
+                if !hydro_ids.contains(&diversion) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} references unknown diversion destination plant {:?}",
+                        plant.id, diversion
+                    )));
+                }
+            }
         }
 
         for plant in &self.hydro_plants {
@@ -494,6 +532,39 @@ impl System {
                     return Err(CoreError::validation(format!(
                         "hydro plant {:?} has inconsistent downstream/upstream linkage with {:?}",
                         plant.id, downstream
+                    )));
+                }
+            }
+
+            for upstream in &plant.diversion_upstream_plant_ids {
+                let upstream_plant = self
+                    .hydro_plants
+                    .iter()
+                    .find(|candidate| candidate.id == *upstream)
+                    .expect("diversion upstream hydro plant should exist after id validation");
+
+                if upstream_plant.diversion_plant_id != Some(plant.id) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has inconsistent diversion upstream linkage with {:?}",
+                        plant.id, upstream
+                    )));
+                }
+            }
+
+            if let Some(diversion) = plant.diversion_plant_id {
+                let diversion_plant = self
+                    .hydro_plants
+                    .iter()
+                    .find(|candidate| candidate.id == diversion)
+                    .expect("diversion hydro plant should exist after id validation");
+
+                if !diversion_plant
+                    .diversion_upstream_plant_ids
+                    .contains(&plant.id)
+                {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has inconsistent diversion destination linkage with {:?}",
+                        plant.id, diversion
                     )));
                 }
             }
@@ -625,7 +696,7 @@ fn validate_bus_and_submarket_membership(
 mod tests {
     use super::*;
     use crate::{
-        hydro::{HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
+        hydro::{HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
         ids::{
             BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
             ThermalPlantId, ThermalUnitId, WindPlantId,
@@ -634,12 +705,25 @@ mod tests {
         thermal::{ThermalInitialCondition, ThermalUnit},
     };
 
+    fn fpha_segments() -> Vec<HydroFphaSegment> {
+        vec![HydroFphaSegment {
+            segment: 1,
+            correction_factor: 1.0,
+            rhs: 0.0,
+            volume_coefficient: 0.0,
+            turbining_coefficient: 1.0,
+            lateral_flow_coefficient: 0.0,
+        }]
+    }
+
     fn valid_system() -> System {
         System {
             horizon: StudyHorizon {
                 periods: 2,
                 period_duration_hours: 1.0,
             },
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             residual_costs: vec![],
             submarkets: vec![Submarket {
@@ -691,6 +775,9 @@ mod tests {
                 bus_id: BusId(1),
                 upstream_plant_ids: vec![],
                 downstream_plant_id: None,
+                diversion_upstream_plant_ids: vec![],
+                diversion_plant_id: None,
+                fpha_segments: fpha_segments(),
                 reservoir: Reservoir {
                     min_volume_hm3: 10.0,
                     max_volume_hm3: 100.0,
@@ -707,7 +794,6 @@ mod tests {
                         min_generation_mw: 10.0,
                         max_generation_mw: 80.0,
                         max_turbining_hm3: 40.0,
-                        productivity_mw_per_hm3: 2.0,
                         startup_trajectory_mw: vec![10.0, 30.0, 60.0],
                         shutdown_trajectory_mw: vec![60.0, 30.0, 10.0],
                         min_up_time: 1,
@@ -776,6 +862,9 @@ mod tests {
             bus_id: BusId(1),
             upstream_plant_ids: vec![],
             downstream_plant_id: None,
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: fpha_segments(),
             reservoir: Reservoir {
                 min_volume_hm3: 5.0,
                 max_volume_hm3: 50.0,
@@ -792,7 +881,6 @@ mod tests {
                     min_generation_mw: 5.0,
                     max_generation_mw: 30.0,
                     max_turbining_hm3: 15.0,
-                    productivity_mw_per_hm3: 2.0,
                     startup_trajectory_mw: vec![5.0, 15.0],
                     shutdown_trajectory_mw: vec![15.0, 5.0],
                     min_up_time: 1,
@@ -823,6 +911,9 @@ mod tests {
             bus_id: BusId(1),
             upstream_plant_ids: vec![],
             downstream_plant_id: Some(HydroPlantId(1)),
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: fpha_segments(),
             reservoir: Reservoir {
                 min_volume_hm3: 5.0,
                 max_volume_hm3: 50.0,
@@ -839,7 +930,6 @@ mod tests {
                     min_generation_mw: 5.0,
                     max_generation_mw: 30.0,
                     max_turbining_hm3: 15.0,
-                    productivity_mw_per_hm3: 2.0,
                     startup_trajectory_mw: vec![5.0, 15.0],
                     shutdown_trajectory_mw: vec![15.0, 5.0],
                     min_up_time: 1,

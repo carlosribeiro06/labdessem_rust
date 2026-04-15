@@ -23,7 +23,11 @@ impl fmt::Display for SolverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedSolveMode(mode) => {
-                write!(f, "solve mode {:?} is not supported by the current LP solver", mode)
+                write!(
+                    f,
+                    "solve mode {:?} is not supported by the current LP solver",
+                    mode
+                )
             }
             Self::UnknownVariable(name) => write!(f, "unknown variable in solver mapping: {name}"),
             Self::InfeasibleOrUnbounded(message) => write!(f, "{message}"),
@@ -89,13 +93,12 @@ fn solve_problem(model: &Model, enforce_binary_domains: bool) -> Result<SolveSum
     let mut variable_map = HashMap::<String, Variable>::new();
 
     for variable_definition in &all_variables {
-        let mut builder = if enforce_binary_domains
-            && variable_definition.domain == VariableDomain::Binary
-        {
-            variable().binary()
-        } else {
-            variable()
-        };
+        let mut builder =
+            if enforce_binary_domains && variable_definition.domain == VariableDomain::Binary {
+                variable().binary()
+            } else {
+                variable()
+            };
         let fixed_value = variable_definition.fixed_value;
 
         if let Some(fixed_value) = fixed_value {
@@ -180,6 +183,7 @@ fn collect_variables(model: &Model) -> Vec<&labdessem_model::variables::Variable
     all.extend(variables.hydro_generation.iter());
     all.extend(variables.hydro_turbining.iter());
     all.extend(variables.hydro_spillage.iter());
+    all.extend(variables.hydro_diversion.iter());
     all.extend(variables.hydro_volume.iter());
     all.extend(variables.deficit.iter());
     all.extend(variables.wind_generation.iter());
@@ -229,20 +233,28 @@ mod tests {
 
     #[test]
     fn solves_lp_for_example_case() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../labdessem-io/study_config.json");
+        let config_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
 
         let result = solve_lp_from_config(config_path).expect("LP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
-        assert!(result.variable_values.contains_key("thermal_generation[p=UTE1,u=UTE1-1,t=1]"));
-        assert!(result.variable_values.contains_key("hydro_volume[p=UHE1,t=0]"));
+        assert!(
+            result
+                .variable_values
+                .contains_key("thermal_generation[p=UTE1,u=UTE1-1,t=1]")
+        );
+        assert!(
+            result
+                .variable_values
+                .contains_key("hydro_volume[p=UHE1,t=0]")
+        );
     }
 
     #[test]
     fn solves_milp_for_example_case() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../labdessem-io/study_config.json");
+        let config_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
 
         let result =
             solve_milp_from_config(config_path).expect("MILP should solve for example case");

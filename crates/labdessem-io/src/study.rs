@@ -9,7 +9,9 @@ use std::{
 
 use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::{
-    hydro::{HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir},
+    hydro::{
+        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+    },
     ids::{
         BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
         ThermalUnitId,
@@ -29,6 +31,10 @@ use crate::error::IoError;
 pub struct StudyConfig {
     pub case_path: PathBuf,
     pub rede: u8,
+    #[serde(rename = "UCT")]
+    pub uct: u8,
+    #[serde(rename = "UCH")]
+    pub uch: u8,
     #[serde(rename = "TON_Residual")]
     pub ton_residual: u8,
 }
@@ -58,12 +64,21 @@ pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, I
 
 pub fn read_study_from_config(config_path: impl AsRef<Path>) -> Result<System, IoError> {
     let config = read_study_config(config_path)?;
-    read_study_from_path_with_options(config.case_path, config.ton_residual != 0)
+    read_study_from_path_with_options(
+        config.case_path,
+        config.ton_residual != 0,
+        config.rede != 0,
+        config.uct != 0,
+        config.uch != 0,
+    )
 }
 
 fn read_study_from_path_with_options(
     base_path: impl AsRef<Path>,
     ton_residual_enabled: bool,
+    network_enabled: bool,
+    thermal_unit_commitment_enabled: bool,
+    hydro_unit_commitment_enabled: bool,
 ) -> Result<System, IoError> {
     let base_path = base_path.as_ref();
     let cad_path = base_path.join("CAD");
@@ -73,8 +88,16 @@ fn read_study_from_path_with_options(
     let duration_rows: Vec<DurationRow> = read_csv(oper_path.join("OPER_DURACAO.csv"))?;
     let submarket_operation_rows: Vec<SubmarketOperationRow> =
         read_csv(oper_path.join("OPER_SBM.csv"))?;
-    let bus_rows: Vec<BusOperationRow> = read_csv(oper_path.join("OPER_CARGA_BARRA.csv"))?;
-    let branch_rows: Vec<BranchRow> = read_csv(oper_path.join("OPER_LINHA.csv"))?;
+    let bus_rows: Vec<BusOperationRow> = if network_enabled {
+        read_csv(oper_path.join("OPER_CARGA_BARRA.csv"))?
+    } else {
+        Vec::new()
+    };
+    let branch_rows: Vec<BranchRow> = if network_enabled {
+        read_csv(oper_path.join("OPER_LINHA.csv"))?
+    } else {
+        Vec::new()
+    };
     let interchange_rows: Vec<InterchangeRow> =
         read_csv(oper_path.join("OPER_LIMITE_INTERCAMBIO.csv"))?;
     let residual_cost_rows: Vec<ResidualCostRow> = if ton_residual_enabled {
@@ -86,17 +109,27 @@ fn read_study_from_path_with_options(
     let hydro_rows: Vec<HydroPlantRow> = read_csv(cad_path.join("CAD_UHE.csv"))?;
     let hydro_unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
     let hydro_inflow_rows: Vec<HydroInflowRow> = read_csv(oper_path.join("OPER_VAZAO.csv"))?;
+    let hydro_fpha_rows = read_fpha_table(oper_path.join("OPER_FPHA.csv"))?;
     let renewable_catalog_rows: Vec<RenewableCatalogRow> = read_csv(cad_path.join("CAD_REN.csv"))?;
     let renewable_operation_rows: Vec<RenewableOperationRow> =
         read_csv(oper_path.join("OPER_REN.csv"))?;
 
-    let thermal_startup_trajectories =
-        read_trajectory_table(cad_path.join("CAD_RAMPAS_UP_UTE.csv"))?;
-    let thermal_shutdown_trajectories =
-        read_trajectory_table(cad_path.join("CAD_RAMPAS_DOWN_UTE.csv"))?;
-    let hydro_startup_trajectories = read_trajectory_table(cad_path.join("CAD_RAMPAS_UP_UHE.csv"))?;
-    let hydro_shutdown_trajectories =
-        read_trajectory_table(cad_path.join("CAD_RAMPAS_DOWN_UHE.csv"))?;
+    let (thermal_startup_trajectories, thermal_shutdown_trajectories) =
+        if thermal_unit_commitment_enabled {
+            read_thermal_trajectory_table(cad_path.join("CAD_RAMPAS_TERMICAS.csv"))?
+        } else {
+            (HashMap::new(), HashMap::new())
+        };
+    let hydro_startup_trajectories = if hydro_unit_commitment_enabled {
+        read_trajectory_table(cad_path.join("CAD_RAMPAS_UP_UHE.csv"))?
+    } else {
+        HashMap::new()
+    };
+    let hydro_shutdown_trajectories = if hydro_unit_commitment_enabled {
+        read_trajectory_table(cad_path.join("CAD_RAMPAS_DOWN_UHE.csv"))?
+    } else {
+        HashMap::new()
+    };
 
     let horizon = build_horizon(&duration_rows)?;
     let submarkets = build_submarkets(
@@ -104,8 +137,16 @@ fn read_study_from_path_with_options(
         &submarket_operation_rows,
         horizon.periods,
     )?;
-    let buses = build_buses(&bus_rows, horizon.periods)?;
-    let branches = build_branches(&branch_rows);
+    let buses = if network_enabled {
+        build_buses(&bus_rows, horizon.periods)?
+    } else {
+        build_dummy_buses(&submarkets, horizon.periods)
+    };
+    let branches = if network_enabled {
+        build_branches(&branch_rows)
+    } else {
+        Vec::new()
+    };
     let interchange_limits = build_interchange_limits(&interchange_rows);
     let residual_costs = build_residual_costs(&residual_cost_rows);
     let operational_limit_rows: Vec<OperationalLimitRow> =
@@ -114,16 +155,23 @@ fn read_study_from_path_with_options(
         &thermal_rows,
         &thermal_startup_trajectories,
         &thermal_shutdown_trajectories,
+        &submarkets,
         horizon.period_duration_hours,
+        network_enabled,
+        thermal_unit_commitment_enabled,
     )?;
     let hydro_plants = build_hydro_plants(
         &hydro_rows,
         &hydro_unit_rows,
         &hydro_inflow_rows,
+        &hydro_fpha_rows,
         &hydro_startup_trajectories,
         &hydro_shutdown_trajectories,
+        &submarkets,
         horizon.periods,
         horizon.period_duration_hours,
+        network_enabled,
+        hydro_unit_commitment_enabled,
     )?;
     let (wind_plants, solar_plants) = build_renewables(
         &renewable_catalog_rows,
@@ -139,6 +187,8 @@ fn read_study_from_path_with_options(
 
     let system = System {
         horizon,
+        thermal_unit_commitment_enabled,
+        hydro_unit_commitment_enabled,
         ton_residual_enabled,
         residual_costs,
         submarkets,
@@ -227,20 +277,17 @@ fn build_submarkets(
             let demand_mw = demand_by_submarket
                 .get(&row.codigo)
                 .cloned()
-                .ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "missing demand data for submarket {}",
-                        row.codigo
-                    ))
-                })?;
+                .unwrap_or_else(|| vec![0.0; horizon]);
 
             let deficit_cost_per_mwh =
-                *deficit_cost_by_submarket.get(&row.codigo).ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "missing deficit cost for submarket {}",
-                        row.codigo
-                    ))
-                })?;
+                *deficit_cost_by_submarket
+                    .get(&row.codigo)
+                    .unwrap_or_else(|| {
+                        deficit_cost_by_submarket
+                            .values()
+                            .next()
+                            .expect("OPER_SBM.csv must contain at least one deficit cost")
+                    });
 
             Ok(Submarket {
                 id: SubmarketId(row.codigo),
@@ -300,6 +347,19 @@ fn build_buses(rows: &[BusOperationRow], horizon: usize) -> Result<Vec<Bus>, IoE
         .collect())
 }
 
+fn build_dummy_buses(submarkets: &[Submarket], horizon: usize) -> Vec<Bus> {
+    submarkets
+        .iter()
+        .map(|submarket| Bus {
+            id: BusId(submarket.id.0),
+            name: format!("DUMMY-BUS-{}", submarket.name),
+            submarket_id: submarket.id,
+            angle_reference: submarket.id == SubmarketId(1),
+            demand_mw: vec![0.0; horizon],
+        })
+        .collect()
+}
+
 fn build_branches(rows: &[BranchRow]) -> Vec<Branch> {
     rows.iter()
         .map(|row| Branch {
@@ -328,7 +388,10 @@ fn build_thermal_plants(
     rows: &[ThermalUnitRow],
     startup_trajectories: &HashMap<String, Vec<f64>>,
     shutdown_trajectories: &HashMap<String, Vec<f64>>,
+    submarkets: &[Submarket],
     period_duration_hours: f64,
+    network_enabled: bool,
+    thermal_unit_commitment_enabled: bool,
 ) -> Result<Vec<ThermalPlant>, IoError> {
     let mut grouped = BTreeMap::<usize, Vec<&ThermalUnitRow>>::new();
     for row in rows {
@@ -342,28 +405,39 @@ fn build_thermal_plants(
             let mut units = Vec::with_capacity(plant_rows.len());
 
             for row in plant_rows {
-                let unit_trajectory_key = format!("{}-{}", row.nome_ute, row.unidade);
-                let startup = trajectory_for(startup_trajectories, &unit_trajectory_key)?;
-                let shutdown = trajectory_for(shutdown_trajectories, &unit_trajectory_key)?;
+                let plant_name = row.nome_ute.trim();
+                let unit_trajectory_key = format!("{}-{}", plant_name, row.unidade);
+                let max_generation_mw =
+                    normalize_max_bound(row.pmin, row.pmax, "Pmax", &unit_trajectory_key)?;
+                let startup = if thermal_unit_commitment_enabled {
+                    trajectory_for(startup_trajectories, &unit_trajectory_key)?
+                } else {
+                    Vec::new()
+                };
+                let shutdown = if thermal_unit_commitment_enabled {
+                    trajectory_for(shutdown_trajectories, &unit_trajectory_key)?
+                } else {
+                    Vec::new()
+                };
 
                 units.push(ThermalUnit {
                     id: ThermalUnitId(row.unidade),
-                    name: format!("{}-{}", row.nome_ute, row.unidade),
+                    name: format!("{}-{}", plant_name, row.unidade),
                     min_generation_mw: row.pmin,
-                    max_generation_mw: row.pmax,
+                    max_generation_mw,
                     startup_trajectory_mw: startup,
                     shutdown_trajectory_mw: shutdown,
                     min_up_time: hours_to_periods(
                         row.ton,
                         period_duration_hours,
                         "Ton",
-                        &row.nome_ute,
+                        plant_name,
                     )?,
                     min_down_time: hours_to_periods(
                         row.toff,
                         period_duration_hours,
                         "Toff",
-                        &row.nome_ute,
+                        plant_name,
                     )?,
                     startup_cost: row.custo_partida,
                     shutdown_cost: row.custo_desliga,
@@ -375,7 +449,7 @@ fn build_thermal_plants(
                             row.tinic,
                             period_duration_hours,
                             "Tinic",
-                            &row.nome_ute,
+                            plant_name,
                         )?,
                         is_ramping_up: row.rup_inic != 0,
                         is_ramping_down: row.rdown_inic != 0,
@@ -383,11 +457,17 @@ fn build_thermal_plants(
                 });
             }
 
+            let submarket_id = submarket_id_by_name(submarkets, &first.submercado)?;
             Ok(ThermalPlant {
                 id: ThermalPlantId(plant_code),
-                name: first.nome_ute.clone(),
-                submarket_id: SubmarketId(first.submercado),
-                bus_id: BusId(first.barra),
+                name: first.nome_ute.trim().to_string(),
+                submarket_id,
+                bus_id: BusId(bus_id_or_dummy(
+                    first.barra,
+                    network_enabled,
+                    first.nome_ute.trim(),
+                    submarket_id,
+                )?),
                 units,
             })
         })
@@ -398,15 +478,50 @@ fn build_hydro_plants(
     plant_rows: &[HydroPlantRow],
     unit_rows: &[HydroUnitRow],
     inflow_rows: &[HydroInflowRow],
+    fpha_rows: &[HydroFphaRow],
     startup_trajectories: &HashMap<String, Vec<f64>>,
     shutdown_trajectories: &HashMap<String, Vec<f64>>,
+    submarkets: &[Submarket],
     horizon: usize,
     period_duration_hours: f64,
+    network_enabled: bool,
+    hydro_unit_commitment_enabled: bool,
 ) -> Result<Vec<HydroPlant>, IoError> {
-    let hydro_name_to_id: HashMap<_, _> = plant_rows
+    let hydro_code_to_id: HashMap<_, _> = plant_rows
         .iter()
-        .map(|row| (row.nome.clone(), HydroPlantId(row.codigo)))
+        .map(|row| (row.codigo, HydroPlantId(row.codigo)))
         .collect();
+
+    let downstream_by_code: HashMap<usize, Option<HydroPlantId>> = plant_rows
+        .iter()
+        .map(|row| {
+            optional_hydro_reference_by_code(&row.jusante, &hydro_code_to_id)
+                .map(|downstream| (row.codigo, downstream))
+        })
+        .collect::<Result<_, _>>()?;
+    let diversion_by_code: HashMap<usize, Option<HydroPlantId>> = plant_rows
+        .iter()
+        .map(|row| {
+            optional_hydro_reference_by_code(&row.desvio, &hydro_code_to_id)
+                .map(|diversion| (row.codigo, diversion))
+        })
+        .collect::<Result<_, _>>()?;
+    let mut upstreams_by_code = HashMap::<usize, Vec<HydroPlantId>>::new();
+    let mut diversion_upstreams_by_code = HashMap::<usize, Vec<HydroPlantId>>::new();
+    for row in plant_rows {
+        if let Some(downstream) = downstream_by_code.get(&row.codigo).copied().flatten() {
+            upstreams_by_code
+                .entry(downstream.0)
+                .or_default()
+                .push(HydroPlantId(row.codigo));
+        }
+        if let Some(diversion) = diversion_by_code.get(&row.codigo).copied().flatten() {
+            diversion_upstreams_by_code
+                .entry(diversion.0)
+                .or_default()
+                .push(HydroPlantId(row.codigo));
+        }
+    }
 
     let mut inflows_by_plant = HashMap::<usize, Vec<f64>>::new();
     for row in inflow_rows {
@@ -414,7 +529,7 @@ fn build_hydro_plants(
         let series = inflows_by_plant
             .entry(row.codigo)
             .or_insert_with(|| vec![0.0; horizon]);
-        series[period_idx] = row.afluencia;
+        series[period_idx] = flow_m3s_to_hm3(row.afluencia, period_duration_hours);
     }
 
     let mut units_by_plant = BTreeMap::<usize, Vec<&HydroUnitRow>>::new();
@@ -422,16 +537,28 @@ fn build_hydro_plants(
         units_by_plant.entry(row.codigo).or_default().push(row);
     }
 
+    let mut fpha_by_plant = BTreeMap::<usize, Vec<HydroFphaSegment>>::new();
+    for row in fpha_rows {
+        fpha_by_plant
+            .entry(row.codigo)
+            .or_default()
+            .push(HydroFphaSegment {
+                segment: row.segmento,
+                correction_factor: row.fator_correcao,
+                rhs: row.rhs,
+                volume_coefficient: row.volume_coefficient,
+                turbining_coefficient: row.turbining_coefficient,
+                lateral_flow_coefficient: row.lateral_flow_coefficient,
+            });
+    }
+
     plant_rows
         .iter()
         .map(|row| {
-            let plant_unit_rows = units_by_plant.get(&row.codigo).ok_or_else(|| {
-                IoError::invalid_data(format!("missing hydro units for plant {}", row.codigo))
-            })?;
-            let first_unit = plant_unit_rows[0];
+            let plant_unit_rows = units_by_plant.get(&row.codigo).cloned().unwrap_or_default();
 
             let mut groups_by_id = BTreeMap::<usize, Vec<&HydroUnitRow>>::new();
-            for unit_row in plant_unit_rows {
+            for unit_row in &plant_unit_rows {
                 groups_by_id
                     .entry(unit_row.conjunto)
                     .or_default()
@@ -442,29 +569,43 @@ fn build_hydro_plants(
             for (group_id, group_rows) in groups_by_id {
                 let mut units = Vec::with_capacity(group_rows.len());
                 for unit_row in group_rows {
-                    let startup = trajectory_for(startup_trajectories, &row.nome)?;
-                    let shutdown = trajectory_for(shutdown_trajectories, &row.nome)?;
+                    let plant_name = row.nome.trim();
+                    let unit_name = format!("{}-{}", plant_name, unit_row.unidade);
+                    let max_generation_mw =
+                        normalize_max_bound(unit_row.pmin, unit_row.pmax, "Pmax", &unit_name)?;
+                    let startup = if hydro_unit_commitment_enabled {
+                        trajectory_for(startup_trajectories, plant_name)?
+                    } else {
+                        Vec::new()
+                    };
+                    let shutdown = if hydro_unit_commitment_enabled {
+                        trajectory_for(shutdown_trajectories, plant_name)?
+                    } else {
+                        Vec::new()
+                    };
                     let is_on = unit_row.status_inic != 0;
                     units.push(HydroUnit {
                         id: HydroUnitId(unit_row.unidade),
-                        name: format!("{}-{}", row.nome, unit_row.unidade),
+                        name: unit_name,
                         min_generation_mw: unit_row.pmin,
-                        max_generation_mw: unit_row.pmax,
-                        max_turbining_hm3: unit_row.max_turb,
-                        productivity_mw_per_hm3: unit_row.prod,
+                        max_generation_mw,
+                        max_turbining_hm3: flow_m3s_to_hm3(
+                            unit_row.max_turb,
+                            period_duration_hours,
+                        ),
                         startup_trajectory_mw: startup,
                         shutdown_trajectory_mw: shutdown,
                         min_up_time: hours_to_periods(
                             unit_row.ton,
                             period_duration_hours,
                             "Ton",
-                            &row.nome,
+                            plant_name,
                         )?,
                         min_down_time: hours_to_periods(
                             unit_row.toff,
                             period_duration_hours,
                             "Toff",
-                            &row.nome,
+                            plant_name,
                         )?,
                         startup_cost: unit_row.custo_partida,
                         shutdown_cost: unit_row.custo_desliga,
@@ -475,7 +616,7 @@ fn build_hydro_plants(
                                 unit_row.tinic,
                                 period_duration_hours,
                                 "Tinic",
-                                &row.nome,
+                                plant_name,
                             )?,
                         },
                     });
@@ -483,28 +624,51 @@ fn build_hydro_plants(
 
                 groups.push(HydroGroup {
                     id: HydroGroupId(group_id),
-                    name: format!("{}-{}", row.nome, group_id),
+                    name: format!("{}-{}", row.nome.trim(), group_id),
                     units,
                 });
             }
 
-            let downstream_plant_id = optional_hydro_reference(&row.jusante, &hydro_name_to_id)?;
-            let upstream_plant_ids = optional_hydro_references(&row.montante, &hydro_name_to_id)?;
-            let natural_inflow_hm3 =
-                inflows_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
+            let downstream_plant_id = downstream_by_code.get(&row.codigo).copied().flatten();
+            let diversion_plant_id = diversion_by_code.get(&row.codigo).copied().flatten();
+            let upstream_plant_ids = upstreams_by_code
+                .get(&row.codigo)
+                .cloned()
+                .unwrap_or_default();
+            let diversion_upstream_plant_ids = diversion_upstreams_by_code
+                .get(&row.codigo)
+                .cloned()
+                .unwrap_or_default();
+            let natural_inflow_hm3 = inflows_by_plant
+                .get(&row.codigo)
+                .cloned()
+                .unwrap_or_else(|| vec![0.0; horizon]);
+            let fpha_segments = if plant_unit_rows.is_empty() {
+                fpha_by_plant.get(&row.codigo).cloned().unwrap_or_default()
+            } else {
+                fpha_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
                     IoError::invalid_data(format!(
-                        "missing hydro inflow data for plant {}",
+                        "missing FPHA data for hydro plant {}",
                         row.codigo
                     ))
-                })?;
+                })?
+            };
 
+            let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
             Ok(HydroPlant {
                 id: HydroPlantId(row.codigo),
-                name: row.nome.clone(),
-                submarket_id: SubmarketId(row.submercado),
-                bus_id: BusId(first_unit.barra),
+                name: row.nome.trim().to_string(),
+                submarket_id,
+                bus_id: BusId(bus_id_or_dummy(
+                    plant_unit_rows.first().and_then(|unit| unit.barra),
+                    network_enabled,
+                    row.nome.trim(),
+                    submarket_id,
+                )?),
                 upstream_plant_ids,
                 downstream_plant_id,
+                diversion_upstream_plant_ids,
+                diversion_plant_id,
                 reservoir: Reservoir {
                     min_volume_hm3: row.vmin,
                     max_volume_hm3: row.vmax,
@@ -512,6 +676,7 @@ fn build_hydro_plants(
                 },
                 natural_inflow_hm3,
                 spillage_cost_per_hm3: row.penal_vert,
+                fpha_segments,
                 groups,
             })
         })
@@ -618,11 +783,7 @@ fn build_operational_limits(
         .collect()
 }
 
-fn parse_restriction_period(
-    value: &str,
-    horizon: usize,
-    is_start: bool,
-) -> Result<usize, IoError> {
+fn parse_restriction_period(value: &str, horizon: usize, is_start: bool) -> Result<usize, IoError> {
     let trimmed = value.trim();
     if trimmed.eq_ignore_ascii_case("I") {
         return Ok(1);
@@ -654,7 +815,9 @@ fn parse_optional_bound(value: &str, field_name: &str) -> Result<Option<f64>, Io
     }
 
     let parsed = trimmed.parse::<f64>().map_err(|_| {
-        IoError::invalid_data(format!("invalid {field_name} value '{trimmed}' in OPER_REST_LIM.csv"))
+        IoError::invalid_data(format!(
+            "invalid {field_name} value '{trimmed}' in OPER_REST_LIM.csv"
+        ))
     })?;
     Ok(Some(parsed))
 }
@@ -694,51 +857,83 @@ fn hours_to_periods(
     Ok(periods as usize)
 }
 
-fn optional_hydro_reference(
+fn flow_m3s_to_hm3(flow_m3s: f64, period_duration_hours: f64) -> f64 {
+    flow_m3s * period_duration_hours * 0.0036
+}
+
+fn submarket_id_by_name(submarkets: &[Submarket], value: &str) -> Result<SubmarketId, IoError> {
+    let submarket_name = value.trim();
+    submarkets
+        .iter()
+        .find(|submarket| submarket.name == submarket_name)
+        .map(|submarket| submarket.id)
+        .ok_or_else(|| IoError::invalid_data(format!("unknown submarket '{submarket_name}'")))
+}
+
+fn normalize_max_bound(
+    min_value: f64,
+    max_value: f64,
+    field_name: &str,
+    asset_name: &str,
+) -> Result<f64, IoError> {
+    if min_value <= max_value {
+        return Ok(max_value);
+    }
+
+    if (min_value - max_value).abs() <= 1e-2 {
+        return Ok(min_value);
+    }
+
+    Err(IoError::invalid_data(format!(
+        "{field_name} for {asset_name} is below the minimum value"
+    )))
+}
+
+fn optional_hydro_reference_by_code(
     value: &str,
-    hydro_name_to_id: &HashMap<String, HydroPlantId>,
+    hydro_code_to_id: &HashMap<usize, HydroPlantId>,
 ) -> Result<Option<HydroPlantId>, IoError> {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed == "-" {
         return Ok(None);
     }
 
-    hydro_name_to_id
-        .get(trimmed)
+    let code = trimmed
+        .parse::<usize>()
+        .map_err(|_| IoError::invalid_data(format!("invalid hydro reference code '{trimmed}'")))?;
+
+    hydro_code_to_id
+        .get(&code)
         .copied()
         .map(Some)
-        .ok_or_else(|| IoError::invalid_data(format!("unknown hydro reference '{trimmed}'")))
-}
-
-fn optional_hydro_references(
-    value: &str,
-    hydro_name_to_id: &HashMap<String, HydroPlantId>,
-) -> Result<Vec<HydroPlantId>, IoError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() || trimmed == "-" {
-        return Ok(Vec::new());
-    }
-
-    trimmed
-        .split(',')
-        .map(|item| item.trim())
-        .filter(|item| !item.is_empty())
-        .map(|item| {
-            hydro_name_to_id
-                .get(item)
-                .copied()
-                .ok_or_else(|| IoError::invalid_data(format!("unknown hydro reference '{item}'")))
-        })
-        .collect()
+        .ok_or_else(|| IoError::invalid_data(format!("unknown hydro reference code '{code}'")))
 }
 
 fn trajectory_for(
     trajectories: &HashMap<String, Vec<f64>>,
     asset_name: &str,
 ) -> Result<Vec<f64>, IoError> {
-    trajectories.get(asset_name).cloned().ok_or_else(|| {
-        IoError::invalid_data(format!("missing trajectory for '{asset_name}'"))
-    })
+    trajectories
+        .get(asset_name)
+        .cloned()
+        .ok_or_else(|| IoError::invalid_data(format!("missing trajectory for '{asset_name}'")))
+}
+
+fn bus_id_or_dummy(
+    bus_id: Option<usize>,
+    network_enabled: bool,
+    asset_name: &str,
+    dummy_submarket_id: SubmarketId,
+) -> Result<usize, IoError> {
+    if network_enabled {
+        bus_id.ok_or_else(|| {
+            IoError::invalid_data(format!(
+                "missing Barra for {asset_name}; Barra is required when rede = 1"
+            ))
+        })
+    } else {
+        Ok(dummy_submarket_id.0)
+    }
 }
 
 fn validate_period(period: usize, horizon: usize, file_name: &str) -> Result<usize, IoError> {
@@ -764,6 +959,139 @@ fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoErr
     }
 
     Ok(rows)
+}
+
+fn read_fpha_table(path: PathBuf) -> Result<Vec<HydroFphaRow>, IoError> {
+    log_read_file(&path);
+    let mut reader = ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_path(path)?;
+
+    let headers = reader
+        .headers()
+        .map_err(IoError::from)?
+        .iter()
+        .map(|header| header.trim().to_ascii_uppercase())
+        .collect::<Vec<_>>();
+
+    let column = |name: &str| -> Result<usize, IoError> {
+        headers
+            .iter()
+            .position(|header| header == name)
+            .ok_or_else(|| {
+                IoError::invalid_data(format!("missing column '{name}' in OPER_FPHA.csv"))
+            })
+    };
+
+    let codigo_idx = column("USIH")?;
+    let segmento_idx = column("SEGFPHA")?;
+    let fator_idx = column("FCORREC")?;
+    let rhs_idx = column("RHS")?;
+    let volume_idx = column("VARM")?;
+    let turbining_idx = column("QTUR")?;
+    let lateral_idx = column("QLAT")?;
+
+    let mut rows = Vec::new();
+    for record in reader.records() {
+        let record = record?;
+        let first_field = record.get(codigo_idx).unwrap_or_default().trim();
+        if first_field.is_empty() || first_field.starts_with('-') {
+            continue;
+        }
+
+        rows.push(HydroFphaRow {
+            codigo: parse_record_usize(&record, codigo_idx, "USIH", "OPER_FPHA.csv")?,
+            segmento: parse_record_usize(&record, segmento_idx, "SegFPHA", "OPER_FPHA.csv")?,
+            fator_correcao: parse_record_f64(&record, fator_idx, "Fcorrec", "OPER_FPHA.csv")?,
+            rhs: parse_record_f64(&record, rhs_idx, "Rhs", "OPER_FPHA.csv")?,
+            volume_coefficient: parse_record_f64(&record, volume_idx, "Varm", "OPER_FPHA.csv")?,
+            turbining_coefficient: parse_record_f64(
+                &record,
+                turbining_idx,
+                "Qtur",
+                "OPER_FPHA.csv",
+            )?,
+            lateral_flow_coefficient: parse_record_f64(
+                &record,
+                lateral_idx,
+                "Qlat",
+                "OPER_FPHA.csv",
+            )?,
+        });
+    }
+
+    Ok(rows)
+}
+
+fn parse_record_usize(
+    record: &StringRecord,
+    index: usize,
+    field_name: &str,
+    file_name: &str,
+) -> Result<usize, IoError> {
+    record
+        .get(index)
+        .unwrap_or_default()
+        .trim()
+        .parse::<usize>()
+        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
+}
+
+fn parse_record_f64(
+    record: &StringRecord,
+    index: usize,
+    field_name: &str,
+    file_name: &str,
+) -> Result<f64, IoError> {
+    record
+        .get(index)
+        .unwrap_or_default()
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
+}
+
+fn read_thermal_trajectory_table(
+    path: PathBuf,
+) -> Result<(HashMap<String, Vec<f64>>, HashMap<String, Vec<f64>>), IoError> {
+    let rows: Vec<ThermalRampRow> = read_csv(path)?;
+    let mut startup_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
+    let mut shutdown_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
+
+    for row in rows {
+        let key = format!("{}-{}", row.nome_ute.trim(), row.unidade);
+        let target = match row.traj.trim().to_ascii_uppercase().as_str() {
+            "A" => &mut startup_steps,
+            "D" => &mut shutdown_steps,
+            other => {
+                return Err(IoError::invalid_data(format!(
+                    "unknown thermal ramp trajectory '{other}' for {key}; expected A or D"
+                )));
+            }
+        };
+        target
+            .entry(key)
+            .or_default()
+            .push((row.indice_passo, row.passo));
+    }
+
+    Ok((
+        build_ordered_trajectory_map(startup_steps),
+        build_ordered_trajectory_map(shutdown_steps),
+    ))
+}
+
+fn build_ordered_trajectory_map(
+    steps_by_unit: BTreeMap<String, Vec<(usize, f64)>>,
+) -> HashMap<String, Vec<f64>> {
+    steps_by_unit
+        .into_iter()
+        .map(|(unit, mut steps)| {
+            steps.sort_by_key(|(step_idx, _)| *step_idx);
+            (unit, steps.into_iter().map(|(_, value)| value).collect())
+        })
+        .collect()
 }
 
 fn read_trajectory_table(path: PathBuf) -> Result<HashMap<String, Vec<f64>>, IoError> {
@@ -929,9 +1257,25 @@ struct ThermalUnitRow {
     #[serde(rename = "CustoDesliga")]
     custo_desliga: f64,
     #[serde(rename = "Barra")]
-    barra: usize,
+    barra: Option<usize>,
     #[serde(rename = "Submercado")]
-    submercado: usize,
+    submercado: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ThermalRampRow {
+    #[serde(rename = "CodigoUTE")]
+    _codigo_ute: usize,
+    #[serde(rename = "NomeUTE")]
+    nome_ute: String,
+    #[serde(rename = "Unidade")]
+    unidade: usize,
+    #[serde(rename = "Traj")]
+    traj: String,
+    #[serde(rename = "Passo")]
+    passo: f64,
+    #[serde(rename = " Ipasso")]
+    indice_passo: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -946,14 +1290,27 @@ struct HydroPlantRow {
     vmin: f64,
     #[serde(rename = "Vmax")]
     vmax: f64,
+    #[serde(rename = "Tipo")]
+    _tipo: String,
     #[serde(rename = "Jusante")]
     jusante: String,
-    #[serde(rename = "Montante")]
-    montante: String,
+    #[serde(rename = "Desvio")]
+    desvio: String,
     #[serde(rename = "Submercado")]
-    submercado: usize,
+    submercado: String,
     #[serde(rename = "PenalVert")]
     penal_vert: f64,
+}
+
+#[derive(Debug)]
+struct HydroFphaRow {
+    codigo: usize,
+    segmento: usize,
+    fator_correcao: f64,
+    rhs: f64,
+    volume_coefficient: f64,
+    turbining_coefficient: f64,
+    lateral_flow_coefficient: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -977,11 +1334,9 @@ struct HydroUnitRow {
     #[serde(rename = "Tinic")]
     tinic: f64,
     #[serde(rename = "Barra")]
-    barra: usize,
+    barra: Option<usize>,
     #[serde(rename = "MaxTurb")]
     max_turb: f64,
-    #[serde(rename = "Prod")]
-    prod: f64,
     #[serde(rename = "CustoPartida")]
     custo_partida: f64,
     #[serde(rename = "CustoDesliga")]
@@ -1075,39 +1430,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{read_study_config, read_study_from_config};
+    use super::{read_study_config, read_study_from_config, read_thermal_trajectory_table};
     use std::path::PathBuf;
 
     #[test]
-    fn reads_example_case_into_a_valid_system() {
-        let config_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/3Barras/study_config.json");
+    fn reads_current_case() {
+        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
 
         let system =
-            read_study_from_config(config_path).expect("3Barras example should be readable");
-
-        assert_eq!(system.horizon.periods, 3);
-        assert_eq!(system.horizon.period_duration_hours, 1.0);
-        assert_eq!(system.submarkets.len(), 2);
-        assert_eq!(system.buses.len(), 3);
-        assert_eq!(system.branches.len(), 3);
-        assert_eq!(system.interchange_limits.len(), 2);
-        assert_eq!(system.thermal_plants.len(), 1);
-        assert_eq!(system.hydro_plants.len(), 2);
-        assert!(system.wind_plants.is_empty());
-        assert!(system.solar_plants.is_empty());
-
-        let uhe1 = system
-            .hydro_plants
-            .iter()
-            .find(|plant| plant.name == "UHE1")
-            .expect("UHE1 should exist");
-        assert_eq!(uhe1.natural_inflow_hm3, vec![100.0, 100.0, 100.0]);
-        assert_eq!(uhe1.spillage_cost_per_hm3, 0.1);
-        assert_eq!(
-            uhe1.downstream_plant_id,
-            Some(labdessem_core::ids::HydroPlantId(2))
-        );
+            read_study_from_config(config_path).expect("caso_sin_sem_rede should be readable");
+        assert_eq!(system.submarkets.len(), 4);
+        assert_eq!(system.buses.len(), 4);
+        assert!(system.branches.is_empty());
+        assert_eq!(system.thermal_plants.len(), 96);
+        assert_eq!(system.hydro_plants.len(), 168);
+        assert!(!system.hydro_unit_commitment_enabled);
     }
 
     #[test]
@@ -1115,16 +1452,37 @@ mod tests {
         let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
 
         let config = read_study_config(&config_path).expect("study config should be readable");
-        assert!(config.case_path.ends_with("examples/caso_base"));
-        assert_eq!(config.rede, 1);
-        assert_eq!(config.ton_residual, 1);
+        assert!(config.case_path.ends_with("examples/caso_sin_sem_rede"));
+        assert_eq!(config.rede, 0);
+        assert!(config.uct <= 1);
+        assert!(config.uch <= 1);
+        assert!(config.ton_residual <= 1);
 
         let system =
             read_study_from_config(config_path).expect("study config should build a valid system");
-        assert_eq!(system.submarkets.len(), 2);
-        assert_eq!(system.thermal_plants.len(), 2);
-        assert_eq!(system.hydro_plants.len(), 4);
-        assert!(system.ton_residual_enabled);
-        assert_eq!(system.residual_costs.len(), 2);
+        assert_eq!(system.submarkets.len(), 4);
+        assert_eq!(system.buses.len(), 4);
+    }
+
+    #[test]
+    fn reads_single_thermal_ramp_file_by_trajectory_type() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/caso_sin_sem_rede/CAD/CAD_RAMPAS_TERMICAS.csv");
+
+        let (startup, shutdown) =
+            read_thermal_trajectory_table(path).expect("thermal ramp file should be readable");
+
+        assert_eq!(
+            startup
+                .get("ANGRA 1-1")
+                .expect("ANGRA 1 startup should exist"),
+            &vec![122.0, 212.0, 302.0, 392.0, 460.0]
+        );
+        assert_eq!(
+            shutdown
+                .get("ANGRA 1-1")
+                .expect("ANGRA 1 shutdown should exist"),
+            &vec![460.0, 392.0, 302.0, 212.0, 122.0, 0.0]
+        );
     }
 }
