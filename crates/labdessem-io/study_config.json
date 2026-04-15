@@ -1,5 +1,7 @@
 {
-  "case_path": "../../examples/caso_base",
-  "rede": 1,
-  "TON_Residual": 1
+  "case_path": "../../examples/caso_sin_sem_rede",
+  "rede": 0,
+  "UCT": 0,
+  "UCH": 0,
+  "TON_Residual": 0
 }

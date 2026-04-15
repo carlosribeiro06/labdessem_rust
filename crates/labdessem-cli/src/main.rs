@@ -37,6 +37,22 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
             "ativado"
         }
     );
+    println!(
+        "Unit commitment termico: {}",
+        if config.uct == 0 {
+            "desativado"
+        } else {
+            "ativado"
+        }
+    );
+    println!(
+        "Unit commitment hidraulico: {}",
+        if config.uch == 0 {
+            "desativado"
+        } else {
+            "ativado"
+        }
+    );
 
     println!("Lendo dados de entrada...");
     let system = read_study_from_config(config_path)?;
