@@ -185,11 +185,7 @@ fn remaining_trajectory_from_time_in_state(
     if (expected_generation - generation_mw).abs() > 1e-6 {
         return Err(CoreError::validation(format!(
             "thermal unit {:?} initial generation {} is inconsistent with {} trajectory step {} ({})",
-            unit_id,
-            generation_mw,
-            trajectory_name,
-            time_in_state,
-            expected_generation
+            unit_id, generation_mw, trajectory_name, time_in_state, expected_generation
         )));
     }
 
