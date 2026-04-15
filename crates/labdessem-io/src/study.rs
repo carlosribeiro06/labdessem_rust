@@ -13,13 +13,13 @@ use labdessem_core::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
     },
     ids::{
-        BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
-        ThermalUnitId,
+        BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, SubmarketId,
+        ThermalPlantId, ThermalUnitId, WindPlantId,
     },
     renewable::{SolarPlant, WindPlant},
     system::{
         Branch, Bus, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
-        OperationalLimitVariable, ResidualCost, StudyHorizon, Submarket, System,
+        OperationalLimitVariable, PumpingPlant, ResidualCost, StudyHorizon, Submarket, System,
     },
     thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
 };
@@ -107,12 +107,12 @@ fn read_study_from_path_with_options(
     };
     let thermal_rows: Vec<ThermalUnitRow> = read_csv(cad_path.join("CAD_UNID_UTE.csv"))?;
     let hydro_rows: Vec<HydroPlantRow> = read_csv(cad_path.join("CAD_UHE.csv"))?;
+    let pumping_rows = read_pumping_table(cad_path.join("CAD_USIE.csv"))?;
     let hydro_unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
     let hydro_inflow_rows: Vec<HydroInflowRow> = read_csv(oper_path.join("OPER_VAZAO.csv"))?;
     let hydro_fpha_rows = read_fpha_table(oper_path.join("OPER_FPHA.csv"))?;
-    let renewable_catalog_rows: Vec<RenewableCatalogRow> = read_csv(cad_path.join("CAD_REN.csv"))?;
-    let renewable_operation_rows: Vec<RenewableOperationRow> =
-        read_csv(oper_path.join("OPER_REN.csv"))?;
+    let renewable_catalog_rows = read_renewable_catalog_table(cad_path.join("CAD_REN.csv"))?;
+    let renewable_operation_rows = read_renewable_operation_table(oper_path.join("OPER_REN.csv"))?;
 
     let (thermal_startup_trajectories, thermal_shutdown_trajectories) =
         if thermal_unit_commitment_enabled {
@@ -132,13 +132,9 @@ fn read_study_from_path_with_options(
     };
 
     let horizon = build_horizon(&duration_rows)?;
-    let submarkets = build_submarkets(
-        &submarket_catalog,
-        &submarket_operation_rows,
-        horizon.periods,
-    )?;
+    let submarkets = build_submarkets(&submarket_catalog, &submarket_operation_rows, &horizon)?;
     let buses = if network_enabled {
-        build_buses(&bus_rows, horizon.periods)?
+        build_buses(&bus_rows, &horizon)?
     } else {
         build_dummy_buses(&submarkets, horizon.periods)
     };
@@ -168,21 +164,29 @@ fn read_study_from_path_with_options(
         &hydro_startup_trajectories,
         &hydro_shutdown_trajectories,
         &submarkets,
-        horizon.periods,
-        horizon.period_duration_hours,
+        &horizon,
         network_enabled,
         hydro_unit_commitment_enabled,
+    )?;
+    let pumping_plants = build_pumping_plants(
+        &pumping_rows,
+        &hydro_plants,
+        &submarkets,
+        horizon.period_duration_hours,
+        network_enabled,
     )?;
     let (wind_plants, solar_plants) = build_renewables(
         &renewable_catalog_rows,
         &renewable_operation_rows,
-        horizon.periods,
+        &submarkets,
+        &horizon,
+        network_enabled,
     )?;
     let operational_limits = build_operational_limits(
         &operational_limit_rows,
         &thermal_plants,
         &hydro_plants,
-        horizon.periods,
+        &horizon,
     )?;
 
     let system = System {
@@ -198,6 +202,7 @@ fn read_study_from_path_with_options(
         branches,
         thermal_plants,
         hydro_plants,
+        pumping_plants,
         wind_plants,
         solar_plants,
     };
@@ -206,6 +211,8 @@ fn read_study_from_path_with_options(
 
     Ok(system)
 }
+
+const INTERNAL_PERIOD_DURATION_HOURS: f64 = 0.5;
 
 fn build_horizon(duration_rows: &[DurationRow]) -> Result<StudyHorizon, IoError> {
     if duration_rows.is_empty() {
@@ -226,36 +233,65 @@ fn build_horizon(duration_rows: &[DurationRow]) -> Result<StudyHorizon, IoError>
         }
     }
 
-    let first_duration = *periods
-        .values()
-        .next()
-        .expect("duration map should not be empty");
-    if periods.values().any(|duration| *duration != first_duration) {
-        return Err(IoError::invalid_data(
-            "all periods must have the same duration in OPER_DURACAO.csv",
-        ));
+    let mut original_period_durations_hours = Vec::with_capacity(expected_periods);
+    let mut internal_to_original_period = Vec::new();
+    let mut internal_subperiod_index = Vec::new();
+
+    for original_period in 1..=expected_periods {
+        let duration = *periods
+            .get(&original_period)
+            .expect("duration should exist after sequence validation");
+        if duration <= 0.0 {
+            return Err(IoError::invalid_data(format!(
+                "duration for period {original_period} must be positive"
+            )));
+        }
+        let subperiods = duration / INTERNAL_PERIOD_DURATION_HOURS;
+        let rounded_subperiods = subperiods.round();
+        if (subperiods - rounded_subperiods).abs() > 1e-8 {
+            return Err(IoError::invalid_data(format!(
+                "duration for period {original_period} must be a multiple of {INTERNAL_PERIOD_DURATION_HOURS} hour"
+            )));
+        }
+        let subperiod_count = rounded_subperiods as usize;
+        if subperiod_count == 0 {
+            return Err(IoError::invalid_data(format!(
+                "duration for period {original_period} is below the internal time step"
+            )));
+        }
+
+        original_period_durations_hours.push(duration);
+        for subperiod in 1..=subperiod_count {
+            internal_to_original_period.push(original_period);
+            internal_subperiod_index.push(subperiod);
+        }
     }
 
     Ok(StudyHorizon {
-        periods: expected_periods,
-        period_duration_hours: first_duration,
+        periods: internal_to_original_period.len(),
+        period_duration_hours: INTERNAL_PERIOD_DURATION_HOURS,
+        original_periods: expected_periods,
+        original_period_durations_hours,
+        internal_to_original_period,
+        internal_subperiod_index,
     })
 }
 
 fn build_submarkets(
     catalog_rows: &[SubmarketCatalogRow],
     operation_rows: &[SubmarketOperationRow],
-    horizon: usize,
+    horizon: &StudyHorizon,
 ) -> Result<Vec<Submarket>, IoError> {
     let mut demand_by_submarket: HashMap<usize, Vec<f64>> = HashMap::new();
     let mut deficit_cost_by_submarket: HashMap<usize, f64> = HashMap::new();
 
     for row in operation_rows {
-        let period_idx = validate_period(row.periodo, horizon, "OPER_SBM.csv")?;
         let demand_series = demand_by_submarket
             .entry(row.codigo_submercado)
-            .or_insert_with(|| vec![0.0; horizon]);
-        demand_series[period_idx] = row.demanda;
+            .or_insert_with(|| vec![0.0; horizon.periods]);
+        for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_SBM.csv")? {
+            demand_series[period_idx] = row.demanda;
+        }
 
         match deficit_cost_by_submarket.get(&row.codigo_submercado) {
             Some(cost) if (*cost - row.custo_deficit).abs() > f64::EPSILON => {
@@ -277,7 +313,7 @@ fn build_submarkets(
             let demand_mw = demand_by_submarket
                 .get(&row.codigo)
                 .cloned()
-                .unwrap_or_else(|| vec![0.0; horizon]);
+                .unwrap_or_else(|| vec![0.0; horizon.periods]);
 
             let deficit_cost_per_mwh =
                 *deficit_cost_by_submarket
@@ -299,18 +335,17 @@ fn build_submarkets(
         .collect()
 }
 
-fn build_buses(rows: &[BusOperationRow], horizon: usize) -> Result<Vec<Bus>, IoError> {
+fn build_buses(rows: &[BusOperationRow], horizon: &StudyHorizon) -> Result<Vec<Bus>, IoError> {
     let mut buses = BTreeMap::<usize, BusAccumulator>::new();
 
     for row in rows {
-        let period_idx = validate_period(row.periodo, horizon, "OPER_CARGA_BARRA.csv")?;
         let entry = buses
             .entry(row.codigo_barra)
             .or_insert_with(|| BusAccumulator {
                 name: row.nome_barra.clone(),
                 submarket_id: row.codigo_submercado,
                 angle_reference: row.swing,
-                demand_mw: vec![0.0; horizon],
+                demand_mw: vec![0.0; horizon.periods],
             });
 
         if entry.name != row.nome_barra {
@@ -332,7 +367,11 @@ fn build_buses(rows: &[BusOperationRow], horizon: usize) -> Result<Vec<Bus>, IoE
             )));
         }
 
-        entry.demand_mw[period_idx] = row.carga;
+        for period_idx in
+            internal_periods_for_input_period(row.periodo, horizon, "OPER_CARGA_BARRA.csv")?
+        {
+            entry.demand_mw[period_idx] = row.carga;
+        }
     }
 
     Ok(buses
@@ -345,6 +384,21 @@ fn build_buses(rows: &[BusOperationRow], horizon: usize) -> Result<Vec<Bus>, IoE
             demand_mw: bus.demand_mw,
         })
         .collect())
+}
+
+fn internal_periods_for_input_period(
+    period: usize,
+    horizon: &StudyHorizon,
+    file_name: &str,
+) -> Result<Vec<usize>, IoError> {
+    if !(1..=horizon.original_periods).contains(&period) {
+        return Err(IoError::invalid_data(format!(
+            "invalid period {period} in {file_name}; expected values between 1 and {}",
+            horizon.original_periods
+        )));
+    }
+
+    Ok(horizon.internal_periods_for_original(period))
 }
 
 fn build_dummy_buses(submarkets: &[Submarket], horizon: usize) -> Vec<Bus> {
@@ -482,11 +536,11 @@ fn build_hydro_plants(
     startup_trajectories: &HashMap<String, Vec<f64>>,
     shutdown_trajectories: &HashMap<String, Vec<f64>>,
     submarkets: &[Submarket],
-    horizon: usize,
-    period_duration_hours: f64,
+    horizon: &StudyHorizon,
     network_enabled: bool,
     hydro_unit_commitment_enabled: bool,
 ) -> Result<Vec<HydroPlant>, IoError> {
+    let period_duration_hours = horizon.period_duration_hours;
     let hydro_code_to_id: HashMap<_, _> = plant_rows
         .iter()
         .map(|row| (row.codigo, HydroPlantId(row.codigo)))
@@ -524,12 +578,19 @@ fn build_hydro_plants(
     }
 
     let mut inflows_by_plant = HashMap::<usize, Vec<f64>>::new();
+    let mut withdrawals_by_plant = HashMap::<usize, Vec<f64>>::new();
     for row in inflow_rows {
-        let period_idx = validate_period(row.periodo, horizon, "OPER_VAZAO.csv")?;
         let series = inflows_by_plant
             .entry(row.codigo)
-            .or_insert_with(|| vec![0.0; horizon]);
-        series[period_idx] = flow_m3s_to_hm3(row.afluencia, period_duration_hours);
+            .or_insert_with(|| vec![0.0; horizon.periods]);
+        let withdrawals = withdrawals_by_plant
+            .entry(row.codigo)
+            .or_insert_with(|| vec![0.0; horizon.periods]);
+        for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_VAZAO.csv")?
+        {
+            series[period_idx] = flow_m3s_to_hm3(row.afluencia, period_duration_hours);
+            withdrawals[period_idx] = flow_m3s_to_hm3(row.retirada, period_duration_hours);
+        }
     }
 
     let mut units_by_plant = BTreeMap::<usize, Vec<&HydroUnitRow>>::new();
@@ -567,59 +628,76 @@ fn build_hydro_plants(
 
             let mut groups = Vec::with_capacity(groups_by_id.len());
             for (group_id, group_rows) in groups_by_id {
-                let mut units = Vec::with_capacity(group_rows.len());
+                let unit_count = group_rows
+                    .iter()
+                    .map(|unit_row| unit_row.unidades)
+                    .sum::<usize>();
+                let mut units = Vec::with_capacity(unit_count);
+                let mut next_unit_id = 1usize;
                 for unit_row in group_rows {
                     let plant_name = row.nome.trim();
-                    let unit_name = format!("{}-{}", plant_name, unit_row.unidade);
-                    let max_generation_mw =
-                        normalize_max_bound(unit_row.pmin, unit_row.pmax, "Pmax", &unit_name)?;
-                    let startup = if hydro_unit_commitment_enabled {
-                        trajectory_for(startup_trajectories, plant_name)?
-                    } else {
-                        Vec::new()
-                    };
-                    let shutdown = if hydro_unit_commitment_enabled {
-                        trajectory_for(shutdown_trajectories, plant_name)?
-                    } else {
-                        Vec::new()
-                    };
-                    let is_on = unit_row.status_inic != 0;
-                    units.push(HydroUnit {
-                        id: HydroUnitId(unit_row.unidade),
-                        name: unit_name,
-                        min_generation_mw: unit_row.pmin,
-                        max_generation_mw,
-                        max_turbining_hm3: flow_m3s_to_hm3(
-                            unit_row.max_turb,
-                            period_duration_hours,
-                        ),
-                        startup_trajectory_mw: startup,
-                        shutdown_trajectory_mw: shutdown,
-                        min_up_time: hours_to_periods(
-                            unit_row.ton,
-                            period_duration_hours,
-                            "Ton",
-                            plant_name,
-                        )?,
-                        min_down_time: hours_to_periods(
-                            unit_row.toff,
-                            period_duration_hours,
-                            "Toff",
-                            plant_name,
-                        )?,
-                        startup_cost: unit_row.custo_partida,
-                        shutdown_cost: unit_row.custo_desliga,
-                        initial_condition: HydroInitialCondition {
-                            is_on,
-                            generation_mw: if is_on { unit_row.pmin } else { 0.0 },
-                            time_in_state: hours_to_periods(
-                                unit_row.tinic,
+                    let unit_quantity = unit_row.unidades;
+                    if unit_quantity == 0 {
+                        return Err(IoError::invalid_data(format!(
+                            "hydro plant {} group {} must have at least one unit",
+                            plant_name, group_id
+                        )));
+                    }
+
+                    for _ in 0..unit_quantity {
+                        let unit_id = next_unit_id;
+                        next_unit_id += 1;
+                        let unit_name = format!("{}-{}-{}", plant_name, group_id, unit_id);
+                        let max_generation_mw =
+                            normalize_max_bound(unit_row.pmin, unit_row.pmax, "Pmax", &unit_name)?;
+                        let startup = if hydro_unit_commitment_enabled {
+                            trajectory_for(startup_trajectories, plant_name)?
+                        } else {
+                            Vec::new()
+                        };
+                        let shutdown = if hydro_unit_commitment_enabled {
+                            trajectory_for(shutdown_trajectories, plant_name)?
+                        } else {
+                            Vec::new()
+                        };
+                        let is_on = unit_row.status_inic != 0;
+                        units.push(HydroUnit {
+                            id: HydroUnitId(unit_id),
+                            name: unit_name,
+                            min_generation_mw: unit_row.pmin,
+                            max_generation_mw,
+                            max_turbining_hm3: flow_m3s_to_hm3(
+                                unit_row.max_turb,
                                 period_duration_hours,
-                                "Tinic",
+                            ),
+                            startup_trajectory_mw: startup,
+                            shutdown_trajectory_mw: shutdown,
+                            min_up_time: hours_to_periods(
+                                unit_row.ton,
+                                period_duration_hours,
+                                "Ton",
                                 plant_name,
                             )?,
-                        },
-                    });
+                            min_down_time: hours_to_periods(
+                                unit_row.toff,
+                                period_duration_hours,
+                                "Toff",
+                                plant_name,
+                            )?,
+                            startup_cost: unit_row.custo_partida,
+                            shutdown_cost: unit_row.custo_desliga,
+                            initial_condition: HydroInitialCondition {
+                                is_on,
+                                generation_mw: if is_on { unit_row.pmin } else { 0.0 },
+                                time_in_state: hours_to_periods(
+                                    unit_row.tinic,
+                                    period_duration_hours,
+                                    "Tinic",
+                                    plant_name,
+                                )?,
+                            },
+                        });
+                    }
                 }
 
                 groups.push(HydroGroup {
@@ -642,7 +720,11 @@ fn build_hydro_plants(
             let natural_inflow_hm3 = inflows_by_plant
                 .get(&row.codigo)
                 .cloned()
-                .unwrap_or_else(|| vec![0.0; horizon]);
+                .unwrap_or_else(|| vec![0.0; horizon.periods]);
+            let water_withdrawal_hm3 = withdrawals_by_plant
+                .get(&row.codigo)
+                .cloned()
+                .unwrap_or_else(|| vec![0.0; horizon.periods]);
             let fpha_segments = if plant_unit_rows.is_empty() {
                 fpha_by_plant.get(&row.codigo).cloned().unwrap_or_default()
             } else {
@@ -675,6 +757,7 @@ fn build_hydro_plants(
                     initial_volume_hm3: row.vol_inic,
                 },
                 natural_inflow_hm3,
+                water_withdrawal_hm3,
                 spillage_cost_per_hm3: row.penal_vert,
                 fpha_segments,
                 groups,
@@ -683,20 +766,100 @@ fn build_hydro_plants(
         .collect()
 }
 
+fn build_pumping_plants(
+    rows: &[PumpingPlantRow],
+    hydro_plants: &[HydroPlant],
+    submarkets: &[Submarket],
+    period_duration_hours: f64,
+    network_enabled: bool,
+) -> Result<Vec<PumpingPlant>, IoError> {
+    rows.iter()
+        .map(|row| {
+            let name = row.nome.trim().to_string();
+            let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
+            let downstream_hydro_id = hydro_plants
+                .iter()
+                .find(|plant| plant.id.0 == row.jusante)
+                .map(|plant| plant.id)
+                .ok_or_else(|| {
+                    IoError::invalid_data(format!(
+                        "pumping plant {} references unknown downstream hydro plant {}",
+                        name, row.jusante
+                    ))
+                })?;
+            let upstream_hydro_id = hydro_plants
+                .iter()
+                .find(|plant| plant.id.0 == row.montante)
+                .map(|plant| plant.id)
+                .ok_or_else(|| {
+                    IoError::invalid_data(format!(
+                        "pumping plant {} references unknown upstream hydro plant {}",
+                        name, row.montante
+                    ))
+                })?;
+
+            Ok(PumpingPlant {
+                id: PumpingPlantId(row.codigo),
+                name: name.clone(),
+                submarket_id,
+                bus_id: BusId(bus_id_or_dummy(
+                    row.barra,
+                    network_enabled,
+                    name.as_str(),
+                    submarket_id,
+                )?),
+                downstream_hydro_id,
+                upstream_hydro_id,
+                min_pumping_hm3: flow_m3s_to_hm3(row.qbomb_min, period_duration_hours),
+                max_pumping_hm3: flow_m3s_to_hm3(row.qbomb_max, period_duration_hours),
+                specific_consumption_mw_per_m3s: row.consumo_especifico,
+            })
+        })
+        .collect()
+}
+
 fn build_renewables(
     catalog_rows: &[RenewableCatalogRow],
     operation_rows: &[RenewableOperationRow],
-    _horizon: usize,
+    submarkets: &[Submarket],
+    horizon: &StudyHorizon,
+    network_enabled: bool,
 ) -> Result<(Vec<WindPlant>, Vec<SolarPlant>), IoError> {
-    if catalog_rows.is_empty() && operation_rows.is_empty() {
-        return Ok((Vec::new(), Vec::new()));
+    let mut generation_by_plant = HashMap::<usize, Vec<f64>>::new();
+
+    for row in operation_rows {
+        let series = generation_by_plant
+            .entry(row.codigo)
+            .or_insert_with(|| vec![0.0; horizon.periods]);
+        for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_REN.csv")? {
+            series[period_idx] = row.ger_prog;
+        }
     }
 
-    Err(IoError::invalid_data(format!(
-        "renewable parsing is not implemented yet; found {} catalog rows and {} operation rows",
-        catalog_rows.len(),
-        operation_rows.len()
-    )))
+    let wind_plants = catalog_rows
+        .iter()
+        .map(|row| {
+            let name = row.nome.trim().to_string();
+            let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
+            Ok(WindPlant {
+                id: WindPlantId(row.codigo),
+                name: name.clone(),
+                submarket_id,
+                bus_id: BusId(bus_id_or_dummy(
+                    row.barra,
+                    network_enabled,
+                    name.as_str(),
+                    submarket_id,
+                )?),
+                available_generation_mw: generation_by_plant
+                    .get(&row.codigo)
+                    .cloned()
+                    .unwrap_or_else(|| vec![0.0; horizon.periods]),
+            })
+        })
+        .collect::<Result<Vec<_>, IoError>>()?;
+
+    Ok((wind_plants, Vec::new()))
 }
 
 fn build_residual_costs(rows: &[ResidualCostRow]) -> Vec<ResidualCost> {
@@ -712,12 +875,40 @@ fn build_operational_limits(
     rows: &[OperationalLimitRow],
     thermal_plants: &[ThermalPlant],
     hydro_plants: &[HydroPlant],
-    horizon: usize,
+    horizon: &StudyHorizon,
 ) -> Result<Vec<OperationalLimit>, IoError> {
     rows.iter()
         .map(|row| {
-            let start_period = parse_restriction_period(&row.periodo_inicial, horizon, true)?;
-            let end_period = parse_restriction_period(&row.periodo_final, horizon, false)?;
+            let start_original =
+                parse_restriction_period(&row.periodo_inicial, horizon.original_periods, true)?;
+            let end_original =
+                parse_restriction_period(&row.periodo_final, horizon.original_periods, false)?;
+            if start_original > end_original {
+                return Err(IoError::invalid_data(format!(
+                    "operational limit for {} has initial period after final period",
+                    row.nome_usina
+                )));
+            }
+            let start_period = horizon
+                .internal_periods_for_original(start_original)
+                .first()
+                .copied()
+                .map(|period| period + 1)
+                .ok_or_else(|| {
+                    IoError::invalid_data(format!(
+                        "period {start_original} has no internal representation"
+                    ))
+                })?;
+            let end_period = horizon
+                .internal_periods_for_original(end_original)
+                .last()
+                .copied()
+                .map(|period| period + 1)
+                .ok_or_else(|| {
+                    IoError::invalid_data(format!(
+                        "period {end_original} has no internal representation"
+                    ))
+                })?;
             let variable = parse_operational_limit_variable(&row.variavel)?;
             let lower_bound = parse_optional_bound(&row.linf, "Linf")?;
             let upper_bound = parse_optional_bound(&row.lsup, "Lsup")?;
@@ -936,16 +1127,6 @@ fn bus_id_or_dummy(
     }
 }
 
-fn validate_period(period: usize, horizon: usize, file_name: &str) -> Result<usize, IoError> {
-    if !(1..=horizon).contains(&period) {
-        return Err(IoError::invalid_data(format!(
-            "invalid period {period} in {file_name}; expected values between 1 and {horizon}"
-        )));
-    }
-
-    Ok(period - 1)
-}
-
 fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoError> {
     log_read_file(&path);
     let mut reader = ReaderBuilder::new()
@@ -1024,6 +1205,112 @@ fn read_fpha_table(path: PathBuf) -> Result<Vec<HydroFphaRow>, IoError> {
     Ok(rows)
 }
 
+fn read_renewable_catalog_table(path: PathBuf) -> Result<Vec<RenewableCatalogRow>, IoError> {
+    log_read_file(&path);
+    let mut reader = ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_path(path)?;
+
+    let headers = reader
+        .headers()
+        .map_err(IoError::from)?
+        .iter()
+        .map(|header| header.trim().to_ascii_uppercase())
+        .collect::<Vec<_>>();
+
+    let column = |name: &str| -> Result<usize, IoError> {
+        headers
+            .iter()
+            .position(|header| header == name)
+            .ok_or_else(|| IoError::invalid_data(format!("missing column '{name}' in CAD_REN.csv")))
+    };
+
+    let codigo_idx = column("CODIGO")?;
+    let nome_idx = column("NOME")?;
+    let barra_idx = column("BARRA")?;
+    let submercado_idx = column("SUBMERCADO")?;
+
+    let mut rows = Vec::new();
+    for record in reader.records() {
+        let record = record?;
+        let first_field = record.get(codigo_idx).unwrap_or_default().trim();
+        if first_field.is_empty() || first_field.starts_with('-') {
+            continue;
+        }
+
+        let barra_text = record.get(barra_idx).unwrap_or_default().trim();
+        rows.push(RenewableCatalogRow {
+            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "CAD_REN.csv")?,
+            nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
+            barra: if barra_text.is_empty() || barra_text == "-" {
+                None
+            } else {
+                Some(parse_record_usize(
+                    &record,
+                    barra_idx,
+                    "Barra",
+                    "CAD_REN.csv",
+                )?)
+            },
+            submercado: record
+                .get(submercado_idx)
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+        });
+    }
+
+    Ok(rows)
+}
+
+fn read_renewable_operation_table(path: PathBuf) -> Result<Vec<RenewableOperationRow>, IoError> {
+    log_read_file(&path);
+    let mut reader = ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_path(path)?;
+
+    let headers = reader
+        .headers()
+        .map_err(IoError::from)?
+        .iter()
+        .map(|header| header.trim().to_ascii_uppercase())
+        .collect::<Vec<_>>();
+
+    let column = |name: &str| -> Result<usize, IoError> {
+        headers
+            .iter()
+            .position(|header| header == name)
+            .ok_or_else(|| {
+                IoError::invalid_data(format!("missing column '{name}' in OPER_REN.csv"))
+            })
+    };
+
+    let periodo_idx = column("PERIODO")?;
+    let codigo_idx = column("CODIGO")?;
+    let nome_idx = column("NOME")?;
+    let ger_prog_idx = column("GERPROG")?;
+
+    let mut rows = Vec::new();
+    for record in reader.records() {
+        let record = record?;
+        let first_field = record.get(periodo_idx).unwrap_or_default().trim();
+        if first_field.is_empty() || first_field.starts_with('-') {
+            continue;
+        }
+
+        rows.push(RenewableOperationRow {
+            periodo: parse_record_usize(&record, periodo_idx, "Periodo", "OPER_REN.csv")?,
+            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "OPER_REN.csv")?,
+            _nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
+            ger_prog: parse_record_f64(&record, ger_prog_idx, "GerProg", "OPER_REN.csv")?,
+        });
+    }
+
+    Ok(rows)
+}
+
 fn parse_record_usize(
     record: &StringRecord,
     index: usize,
@@ -1050,6 +1337,103 @@ fn parse_record_f64(
         .trim()
         .parse::<f64>()
         .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
+}
+
+fn parse_optional_record_usize(
+    record: &StringRecord,
+    index: usize,
+    field_name: &str,
+    file_name: &str,
+) -> Result<Option<usize>, IoError> {
+    let value = record.get(index).unwrap_or_default().trim();
+    if value.is_empty() || value == "-" {
+        return Ok(None);
+    }
+
+    value
+        .parse::<usize>()
+        .map(Some)
+        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
+}
+
+fn read_pumping_table(path: PathBuf) -> Result<Vec<PumpingPlantRow>, IoError> {
+    log_read_file(&path);
+    let mut reader = ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_path(path)?;
+
+    let headers = reader
+        .headers()
+        .map_err(IoError::from)?
+        .iter()
+        .map(normalize_column_name)
+        .collect::<Vec<_>>();
+
+    let column = |names: &[&str]| -> Result<usize, IoError> {
+        headers
+            .iter()
+            .position(|header| names.iter().any(|name| header == name))
+            .ok_or_else(|| {
+                IoError::invalid_data(format!(
+                    "missing column '{}' in CAD_USIE.csv",
+                    names.join("' or '")
+                ))
+            })
+    };
+
+    let codigo_idx = column(&["CODIGO", "USIE"])?;
+    let nome_idx = column(&["NOME", "NOMEUSIE"])?;
+    let submarket_idx = column(&["SUBMERCADO", "NOMESIST"])?;
+    let downstream_idx = column(&["JUSANTE", "USIHJUS"])?;
+    let upstream_idx = column(&["MONTANTE", "MONTATE", "USIHMON"])?;
+    let min_idx = column(&["QBOMBMIN"])?;
+    let max_idx = column(&["QBOMBMAX"])?;
+    let consumption_idx = column(&["CONSUMO", "CONSESPEC"])?;
+    let bus_idx = headers.iter().position(|header| header == "BARRA");
+
+    let mut rows = Vec::new();
+    for record in reader.records() {
+        let record = record?;
+        let first_field = record.get(codigo_idx).unwrap_or_default().trim();
+        if first_field.is_empty() || first_field.starts_with('-') {
+            continue;
+        }
+
+        rows.push(PumpingPlantRow {
+            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "CAD_USIE.csv")?,
+            nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
+            submercado: record
+                .get(submarket_idx)
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+            jusante: parse_record_usize(&record, downstream_idx, "Jusante", "CAD_USIE.csv")?,
+            montante: parse_record_usize(&record, upstream_idx, "Montante", "CAD_USIE.csv")?,
+            qbomb_min: parse_record_f64(&record, min_idx, "QbombMin", "CAD_USIE.csv")?,
+            qbomb_max: parse_record_f64(&record, max_idx, "QbombMax", "CAD_USIE.csv")?,
+            consumo_especifico: parse_record_f64(
+                &record,
+                consumption_idx,
+                "Consumo",
+                "CAD_USIE.csv",
+            )?,
+            barra: match bus_idx {
+                Some(idx) => parse_optional_record_usize(&record, idx, "Barra", "CAD_USIE.csv")?,
+                None => None,
+            },
+        });
+    }
+
+    Ok(rows)
+}
+
+fn normalize_column_name(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>()
+        .to_ascii_uppercase()
 }
 
 fn read_thermal_trajectory_table(
@@ -1319,8 +1703,8 @@ struct HydroUnitRow {
     codigo: usize,
     #[serde(rename = "Conjunto")]
     conjunto: usize,
-    #[serde(rename = "Unidade")]
-    unidade: usize,
+    #[serde(rename = "Unidades")]
+    unidades: usize,
     #[serde(rename = "Pmin")]
     pmin: f64,
     #[serde(rename = "Pmax")]
@@ -1349,32 +1733,49 @@ struct HydroInflowRow {
     codigo: usize,
     #[serde(rename = "Periodo")]
     periodo: usize,
+    #[serde(rename = "Nome")]
+    _nome: String,
     #[serde(rename = "Afluencia")]
     afluencia: f64,
+    #[serde(rename = "Retirada")]
+    retirada: f64,
+}
+
+#[derive(Debug)]
+struct PumpingPlantRow {
+    codigo: usize,
+    nome: String,
+    submercado: String,
+    jusante: usize,
+    montante: usize,
+    qbomb_min: f64,
+    qbomb_max: f64,
+    consumo_especifico: f64,
+    barra: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RenewableCatalogRow {
     #[serde(rename = "Codigo")]
-    _codigo: usize,
+    codigo: usize,
     #[serde(rename = "Nome")]
-    _nome: String,
+    nome: String,
+    #[serde(rename = "Barra")]
+    barra: Option<usize>,
     #[serde(rename = "Submercado")]
-    _submercado: usize,
+    submercado: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct RenewableOperationRow {
-    #[serde(rename = "Posto")]
-    _posto: Option<usize>,
-    #[serde(rename = "Codigo")]
-    _codigo: Option<usize>,
-    #[serde(rename = "Nome")]
-    _nome: Option<String>,
     #[serde(rename = "Periodo")]
-    _periodo: Option<usize>,
+    periodo: usize,
+    #[serde(rename = "Codigo")]
+    codigo: usize,
+    #[serde(rename = "Nome")]
+    _nome: String,
     #[serde(rename = "GerProg")]
-    _ger_prog: Option<f64>,
+    ger_prog: f64,
 }
 
 fn log_read_file(path: &Path) {
@@ -1452,7 +1853,8 @@ mod tests {
         let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
 
         let config = read_study_config(&config_path).expect("study config should be readable");
-        assert!(config.case_path.ends_with("examples/caso_sin_sem_rede"));
+        assert!(config.case_path.is_absolute());
+        assert!(config.case_path.exists());
         assert_eq!(config.rede, 0);
         assert!(config.uct <= 1);
         assert!(config.uch <= 1);

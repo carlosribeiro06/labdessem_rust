@@ -297,6 +297,20 @@ fn build_hydro_balance_constraints(
                     }
                 }
 
+                for (pumping_entry_idx, pumping_entry) in
+                    indexing.pumping_plant_entries.iter().enumerate()
+                {
+                    let pumping_plant = &system.pumping_plants[pumping_entry.plant_idx];
+                    let pumping_variable = &variables.pumping[pumping_entry_idx * horizon + period];
+
+                    if pumping_plant.downstream_hydro_id == plant.id {
+                        terms.push(term(pumping_variable, 1.0));
+                    }
+                    if pumping_plant.upstream_hydro_id == plant.id {
+                        terms.push(term(pumping_variable, -1.0));
+                    }
+                }
+
                 LinearConstraint {
                     name: format!(
                         "hydro_balance[p={},t={}]",
@@ -305,7 +319,7 @@ fn build_hydro_balance_constraints(
                     ),
                     terms,
                     sense: ConstraintSense::Equal,
-                    rhs: plant.natural_inflow_hm3[period],
+                    rhs: plant.natural_inflow_hm3[period] - plant.water_withdrawal_hm3[period],
                 }
             })
         })
@@ -688,6 +702,18 @@ fn demand_balance_terms(
         }
         if entry.from_submarket_idx == submarket_idx {
             terms.push(term(variable, -1.0));
+        }
+    }
+
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+    for (entry_idx, entry) in indexing.pumping_plant_entries.iter().enumerate() {
+        if entry.submarket_idx == submarket_idx {
+            let plant = &system.pumping_plants[entry.plant_idx];
+            let variable = &variables.pumping[entry_idx * horizon + period];
+            terms.push(term(
+                variable,
+                -(plant.specific_consumption_mw_per_m3s / flow_conversion),
+            ));
         }
     }
 

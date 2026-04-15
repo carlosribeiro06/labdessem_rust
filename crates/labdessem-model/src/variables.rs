@@ -23,6 +23,7 @@ pub struct Variables {
     pub hydro_turbining: Vec<Variable>,
     pub hydro_spillage: Vec<Variable>,
     pub hydro_diversion: Vec<Variable>,
+    pub pumping: Vec<Variable>,
     pub hydro_volume: Vec<Variable>,
     pub deficit: Vec<Variable>,
     pub wind_generation: Vec<Variable>,
@@ -166,6 +167,21 @@ impl Variables {
                     } else {
                         None
                     },
+                })
+            })
+            .collect();
+
+        let pumping = indexing
+            .pumping_plant_entries
+            .iter()
+            .flat_map(|entry| {
+                let plant = &system.pumping_plants[entry.plant_idx];
+                (0..horizon).map(move |period| Variable {
+                    name: format!("pumping[p={},t={}]", plant.name, display_period(period)),
+                    lower_bound: plant.min_pumping_hm3,
+                    upper_bound: Some(plant.max_pumping_hm3),
+                    domain: VariableDomain::Continuous,
+                    fixed_value: None,
                 })
             })
             .collect();
@@ -377,6 +393,7 @@ impl Variables {
             hydro_turbining,
             hydro_spillage,
             hydro_diversion,
+            pumping,
             hydro_volume,
             deficit,
             wind_generation,

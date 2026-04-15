@@ -28,6 +28,12 @@ pub struct HydroPlantIndex {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PumpingPlantIndex {
+    pub plant_idx: usize,
+    pub submarket_idx: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InterchangeIndex {
     pub from_submarket_idx: usize,
     pub to_submarket_idx: usize,
@@ -41,12 +47,14 @@ pub struct Indexing {
     pub hydro_unit_entries: Vec<HydroUnitIndex>,
     pub wind_plant_entries: Vec<RenewablePlantIndex>,
     pub solar_plant_entries: Vec<RenewablePlantIndex>,
+    pub pumping_plant_entries: Vec<PumpingPlantIndex>,
     pub interchange_entries: Vec<InterchangeIndex>,
     pub submarket_ids: Vec<SubmarketId>,
     pub thermal_units: usize,
     pub hydro_units: usize,
     pub wind_plants: usize,
     pub solar_plants: usize,
+    pub pumping_plants: usize,
     pub buses: usize,
     pub submarkets: usize,
 }
@@ -131,6 +139,16 @@ impl Indexing {
             })
             .collect::<Vec<_>>();
 
+        let pumping_plant_entries = system
+            .pumping_plants
+            .iter()
+            .enumerate()
+            .map(|(plant_idx, plant)| PumpingPlantIndex {
+                plant_idx,
+                submarket_idx: submarket_position(&submarket_ids, plant.submarket_id),
+            })
+            .collect::<Vec<_>>();
+
         let interchange_entries = (0..system.horizon.periods)
             .flat_map(|period| {
                 (0..system.submarkets.len()).flat_map(move |from_submarket_idx| {
@@ -150,6 +168,7 @@ impl Indexing {
             hydro_units: hydro_unit_entries.len(),
             wind_plants: wind_plant_entries.len(),
             solar_plants: solar_plant_entries.len(),
+            pumping_plants: pumping_plant_entries.len(),
             buses: system.buses.len(),
             submarkets: system.submarkets.len(),
             hydro_plant_entries,
@@ -157,6 +176,7 @@ impl Indexing {
             hydro_unit_entries,
             wind_plant_entries,
             solar_plant_entries,
+            pumping_plant_entries,
             interchange_entries,
             submarket_ids,
         }

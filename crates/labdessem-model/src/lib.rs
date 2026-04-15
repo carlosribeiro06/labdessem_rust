@@ -47,11 +47,11 @@ mod tests {
             HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
         },
         ids::{
-            BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
-            ThermalPlantId, ThermalUnitId, WindPlantId,
+            BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, SolarPlantId,
+            SubmarketId, ThermalPlantId, ThermalUnitId, WindPlantId,
         },
         renewable::{SolarPlant, WindPlant},
-        system::{Bus, StudyHorizon, Submarket, System},
+        system::{Bus, PumpingPlant, StudyHorizon, Submarket, System},
         thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
 
@@ -71,6 +71,10 @@ mod tests {
             horizon: StudyHorizon {
                 periods: 2,
                 period_duration_hours: 1.0,
+                original_periods: 2,
+                original_period_durations_hours: vec![1.0, 1.0],
+                internal_to_original_period: vec![1, 2],
+                internal_subperiod_index: vec![1, 1],
             },
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
@@ -164,6 +168,7 @@ mod tests {
                     initial_volume_hm3: 5.0,
                 },
                 natural_inflow_hm3: vec![1.0, 1.0],
+                water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 0.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
@@ -188,6 +193,7 @@ mod tests {
                     }],
                 }],
             }],
+            pumping_plants: Vec::new(),
             wind_plants: vec![WindPlant {
                 id: WindPlantId(1),
                 name: "EOL-1".into(),
@@ -210,6 +216,10 @@ mod tests {
             horizon: StudyHorizon {
                 periods: 1,
                 period_duration_hours: 1.0,
+                original_periods: 1,
+                original_period_durations_hours: vec![1.0],
+                internal_to_original_period: vec![1],
+                internal_subperiod_index: vec![1],
             },
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
@@ -249,6 +259,7 @@ mod tests {
                         initial_volume_hm3: 1.0,
                     },
                     natural_inflow_hm3: vec![0.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(1),
@@ -289,6 +300,7 @@ mod tests {
                         initial_volume_hm3: 1.0,
                     },
                     natural_inflow_hm3: vec![0.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(2),
@@ -329,6 +341,7 @@ mod tests {
                         initial_volume_hm3: 5.0,
                     },
                     natural_inflow_hm3: vec![3.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(3),
@@ -354,6 +367,7 @@ mod tests {
                     }],
                 },
             ],
+            pumping_plants: Vec::new(),
             wind_plants: vec![],
             solar_plants: vec![],
         }
@@ -450,6 +464,57 @@ mod tests {
         assert_eq!(model.variables.hydro_volume[0].lower_bound, 1.0);
         assert_eq!(model.variables.hydro_volume[0].upper_bound, Some(10.0));
         assert_eq!(model.variables.hydro_volume[0].fixed_value, Some(5.0));
+    }
+
+    #[test]
+    fn adds_pumping_to_demand_and_hydro_balances() {
+        let mut system = build_system_with_multiple_upstreams();
+        system.pumping_plants = vec![PumpingPlant {
+            id: PumpingPlantId(1),
+            name: "USIE-1".into(),
+            submarket_id: SubmarketId(1),
+            bus_id: BusId(1),
+            downstream_hydro_id: HydroPlantId(3),
+            upstream_hydro_id: HydroPlantId(1),
+            min_pumping_hm3: 0.0,
+            max_pumping_hm3: 3.6,
+            specific_consumption_mw_per_m3s: 0.5,
+        }];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        assert_eq!(model.variables.pumping.len(), 1);
+        assert_eq!(model.variables.pumping[0].name, "pumping[p=USIE-1,t=1]");
+
+        let demand = model.constraints.demand_balance()[0];
+        let pumping_in_demand = demand
+            .terms
+            .iter()
+            .find(|term| term.variable == "pumping[p=USIE-1,t=1]")
+            .expect("pumping should enter demand balance");
+        assert!((pumping_in_demand.coefficient + 0.5 / 0.0036).abs() < 1e-8);
+
+        let hydro_balances = model.constraints.hydro_balance();
+        let upstream_balance = hydro_balances
+            .iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-A,t=1]")
+            .expect("upstream hydro balance should exist");
+        assert!(
+            upstream_balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "pumping[p=USIE-1,t=1]" && term.coefficient == -1.0)
+        );
+
+        let downstream_balance = hydro_balances
+            .iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-C,t=1]")
+            .expect("downstream hydro balance should exist");
+        assert!(
+            downstream_balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "pumping[p=USIE-1,t=1]" && term.coefficient == 1.0)
+        );
     }
 
     #[test]
@@ -706,6 +771,7 @@ mod tests {
         system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
         system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0, 0.0];
         system.thermal_plants[0].units[0].min_up_time = 3;
         system.thermal_plants[0].units[0].min_down_time = 2;
         system.thermal_plants[0].units[0].initial_condition.is_on = true;
@@ -758,6 +824,7 @@ mod tests {
         system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
         system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0, 0.0];
         system.hydro_plants[0].groups[0].units[0].min_up_time = 3;
         system.hydro_plants[0].groups[0].units[0].min_down_time = 2;
         system.hydro_plants[0].groups[0].units[0]
@@ -808,6 +875,7 @@ mod tests {
         system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0];
         system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0];
         system.thermal_plants[0].units[0].startup_trajectory_mw = vec![20.0, 40.0];
         system.thermal_plants[0].units[0].shutdown_trajectory_mw = vec![40.0, 20.0];
 

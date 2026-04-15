@@ -208,6 +208,7 @@ pub struct HydroPlant {
     pub diversion_plant_id: Option<HydroPlantId>,
     pub reservoir: Reservoir,
     pub natural_inflow_hm3: Vec<f64>,
+    pub water_withdrawal_hm3: Vec<f64>,
     pub spillage_cost_per_hm3: f64,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
@@ -229,6 +230,20 @@ impl HydroPlant {
         if self.natural_inflow_hm3.iter().any(|value| *value < 0.0) {
             return Err(CoreError::validation(format!(
                 "hydro plant {:?} has negative inflow",
+                self.id
+            )));
+        }
+        if self.water_withdrawal_hm3.len() != horizon {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} withdrawal horizon mismatch: expected {}, found {}",
+                self.id,
+                horizon,
+                self.water_withdrawal_hm3.len()
+            )));
+        }
+        if self.water_withdrawal_hm3.iter().any(|value| *value < 0.0) {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative water withdrawal",
                 self.id
             )));
         }
