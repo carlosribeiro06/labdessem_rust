@@ -8,6 +8,21 @@
     name="description"
     content="LABDESSEM Rust is a professional Rust workspace for reduced-scale power system scheduling with LP, MILP, hydro cascades, renewables, and iterative network flow cuts."
   >
+  <link rel="canonical" href="https://labdessem-rs.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="LABDESSEM Rust">
+  <meta
+    property="og:description"
+    content="A Rust workspace for reduced-scale power system scheduling with LP, MILP, hydro cascades, renewables, and iterative network flow cuts."
+  >
+  <meta property="og:url" content="https://labdessem-rs.dev/">
+  <meta property="og:site_name" content="LABDESSEM Rust">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="LABDESSEM Rust">
+  <meta
+    name="twitter:description"
+    content="A Rust workspace for reduced-scale power system scheduling with LP, MILP, hydro cascades, renewables, and iterative network flow cuts."
+  >
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -232,11 +247,11 @@
       <section id="methodology" class="section section-methodology">
         <div class="section-heading">
           <p class="eyebrow">Methodology</p>
-          <h2>Mathematical formulation and solution strategy</h2>
+          <h2>Mathematical formulation, decision variables, and constraint system</h2>
           <p>
-            This section summarizes the methodology currently represented by the codebase:
-            sets, decision variables, objective terms, operating constraints, hydro balance,
-            network cut generation, and the iterative solution policy used in simulation.
+            The current codebase already contains a concrete mathematical model with CSV-driven
+            data, three solve modes, commitment logic, hydro balance, operational limits, PTDF
+            network cuts, infeasibility slacks, and residual-cost accounting for thermal startups.
           </p>
         </div>
 
@@ -244,29 +259,31 @@
           <article class="panel method-card">
             <p class="mini-label">Sets and Indexes</p>
             <ul class="method-list">
-              <li><code>t ∈ T</code>: study periods</li>
-              <li><code>s ∈ S</code>: submarkets</li>
-              <li><code>b ∈ B</code>: buses</li>
-              <li><code>l ∈ L</code>: transmission lines</li>
-              <li><code>i ∈ U<sup>th</sup></code>: thermal units</li>
-              <li><code>j ∈ U<sup>hy</sup></code>: hydro units</li>
-              <li><code>h ∈ H</code>: hydro plants</li>
-              <li><code>w ∈ W</code>: wind plants</li>
-              <li><code>q ∈ Q</code>: solar plants</li>
-              <li><code>(s,r) ∈ I</code>: directed submarket interchange pairs</li>
+              <li><span class="inline-math">\(t \in T\)</span>: study periods</li>
+              <li><span class="inline-math">\(s \in S\)</span>: submarkets</li>
+              <li><span class="inline-math">\(b \in B\)</span>: buses</li>
+              <li><span class="inline-math">\(l \in L\)</span>: transmission lines</li>
+              <li><span class="inline-math">\(i \in U^{th}\)</span>: thermal units</li>
+              <li><span class="inline-math">\(j \in U^{hy}\)</span>: hydro units</li>
+              <li><span class="inline-math">\(h \in H\)</span>: hydro plants</li>
+              <li><span class="inline-math">\(w \in W\)</span>: wind plants</li>
+              <li><span class="inline-math">\(q \in Q\)</span>: solar plants</li>
+              <li><span class="inline-math">\((s,r) \in I\)</span>: directed submarket interchange pairs</li>
             </ul>
           </article>
 
           <article class="panel method-card">
             <p class="mini-label">Solve Modes</p>
             <ul class="method-list">
-              <li><code>LP</code>: commitment binaries inactive</li>
-              <li><code>MILP</code>: commitment binaries active</li>
-              <li><code>LP-FIXED</code>: commitment binaries fixed from MILP solution</li>
+              <li><code>LP</code>: continuous dispatch with no commitment logic</li>
+              <li><code>MILP</code>: thermal and hydro commitment constraints activated</li>
+              <li><code>LP-FIXED</code>: commitment copied from MILP and fixed for polishing</li>
             </ul>
             <p class="method-note">
-              This separation allows progressive enforcement of commitment logic while preserving a
-              practical operational pipeline for network-feasibility polishing.
+              Network cuts are discovered iteratively around this solve stack. Time data such as
+              <code>TON</code>, <code>TOFF</code>, and <code>Tinic</code> are read in hours and
+              converted internally to periods using
+              <span class="inline-math">\( \left\lceil \frac{\text{hours}}{\Delta t} \right\rceil \)</span>.
             </p>
           </article>
         </div>
@@ -277,31 +294,33 @@
             <div>
               <h3>Thermal</h3>
               <ul class="method-list">
-                <li><code>G^{th}_{i,t}</code>: thermal generation</li>
-                <li><code>u^{th}_{i,t}</code>: on/off commitment</li>
-                <li><code>su^{th}_{i,t}</code>: startup indicator</li>
-                <li><code>sd^{th}_{i,t}</code>: shutdown indicator</li>
+                <li><span class="inline-math">\(G^{th}_{i,t}\)</span>: thermal generation</li>
+                <li><span class="inline-math">\(u^{th}_{i,t}\)</span>: on/off commitment</li>
+                <li><span class="inline-math">\(y^{th}_{i,t}\)</span>: thermal startup variable with <span class="inline-math">\(0 \le y \le 1\)</span></li>
+                <li><span class="inline-math">\(w^{th}_{i,t}\)</span>: thermal shutdown binary</li>
               </ul>
             </div>
             <div>
               <h3>Hydro</h3>
               <ul class="method-list">
-                <li><code>G^{hy}_{j,t}</code>: hydro generation by unit</li>
-                <li><code>Q_{j,t}</code>: turbining by hydro unit</li>
-                <li><code>V_{h,t}</code>: reservoir volume by plant</li>
-                <li><code>S_{h,t}</code>: spillage by plant</li>
-                <li><code>u^{hy}_{j,t}</code>: hydro commitment</li>
-                <li><code>su^{hy}_{j,t}</code>: hydro startup</li>
-                <li><code>sd^{hy}_{j,t}</code>: hydro shutdown</li>
+                <li><span class="inline-math">\(G^{hy}_{j,t}\)</span>: hydro generation by unit</li>
+                <li><span class="inline-math">\(Q_{j,t}\)</span>: turbining by hydro unit</li>
+                <li><span class="inline-math">\(V_{h,t}\)</span>: reservoir volume by plant</li>
+                <li><span class="inline-math">\(S_{h,t}\)</span>: spillage by plant</li>
+                <li><span class="inline-math">\(u^{hy}_{j,t}\)</span>: hydro commitment</li>
+                <li><span class="inline-math">\(su^{hy}_{j,t}\)</span>: hydro startup binary</li>
+                <li><span class="inline-math">\(sd^{hy}_{j,t}\)</span>: hydro shutdown binary</li>
               </ul>
             </div>
             <div>
               <h3>Renewable and System</h3>
               <ul class="method-list">
-                <li><code>G^{w}_{w,t}</code>: wind generation</li>
-                <li><code>G^{q}_{q,t}</code>: solar generation</li>
-                <li><code>INT_{s,r,t}</code>: directed interchange</li>
-                <li><code>DEF_{s,t}</code>: demand deficit by submarket</li>
+                <li><span class="inline-math">\(G^{w}_{w,t}\)</span>: wind generation</li>
+                <li><span class="inline-math">\(G^{q}_{q,t}\)</span>: solar generation</li>
+                <li><span class="inline-math">\(INT_{s,r,t}\)</span>: directed interchange</li>
+                <li><span class="inline-math">\(DEF_{s,t}\)</span>: demand deficit by submarket</li>
+                <li><span class="inline-math">\(\sigma^{flow}\)</span>: network slack for infeasible flow cuts</li>
+                <li><span class="inline-math">\(\sigma^{lim}\)</span>: slack for infeasible operational limits</li>
               </ul>
             </div>
           </div>
@@ -320,17 +339,28 @@
             \qquad
             + \sum_{t}\sum_{(s,r)\in I} c^{int}_{s,r}\,\Delta t\,INT_{s,r,t}
             + \sum_{t}\sum_{i \in U^{th}}
-            \left(c^{start}_{i}\,su^{th}_{i,t} + c^{stop}_{i}\,sd^{th}_{i,t}\right)
+            \left(c^{start}_{i}\,y^{th}_{i,t} + c^{stop}_{i}\,w^{th}_{i,t}\right)
             \]
             \[
             \qquad
             + \sum_{t}\sum_{j \in U^{hy}}
             \left(c^{start}_{j}\,su^{hy}_{j,t} + c^{stop}_{j}\,sd^{hy}_{j,t}\right)
             \]
+            \[
+            \qquad
+            + \sum_{t}\sum_{i \in U^{th}}
+            y^{th}_{i,t}\,GT^{pos}_{i}\,\max\{CVU_i-\pi_{s(i)},0\}\,\Delta t
+            \]
           </div>
           <p class="method-note">
-            Startup and shutdown terms are active only in commitment-enabled solve modes. In pure
-            LP mode, the objective remains continuous and operational.
+            The residual thermal term is activated only when the
+            <code>TON_Residual</code> flag is on. In the current implementation,
+            the thermal startup and shutdown costs use the same
+            <code>\(y^{th}_{i,t}\)</code> and <code>\(w^{th}_{i,t}\)</code> variables that appear
+            in the ramp formulation,
+            <code>\(GT^{pos}_{i}\)</code> is an aggregated post-horizon obligation built from the
+            startup trajectory, the remaining minimum-up block at
+            <code>\(P^{min}\)</code>, and the shutdown trajectory of each thermal unit.
           </p>
         </div>
 
@@ -356,6 +386,46 @@
 
         <div class="method-grid">
           <article class="panel method-card">
+            <p class="mini-label">Thermal State Transition</p>
+            <div class="equation-block">
+              <div class="equation-caption">For \(t = 1\)</div>
+              \[
+              u^{th}_{i,1} - u^{ini}_{i} = y^{th}_{i,1} - w^{th}_{i,1}
+              \]
+              <div class="equation-caption">For \(t &gt; 1\)</div>
+              \[
+              u^{th}_{i,t} - u^{th}_{i,t-1} = y^{th}_{i,t} - w^{th}_{i,t}
+              \]
+              \[
+              y^{th}_{i,t} + w^{th}_{i,t} \le 1
+              \qquad
+              0 \le y^{th}_{i,t} \le 1
+              \qquad
+              w^{th}_{i,t} \in \{0,1\}
+              \]
+            </div>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">Hydro State Channeling</p>
+            <div class="equation-block">
+              \[
+              u^{hy}_{j,t} - u^{hy}_{j,t-1} = su^{hy}_{j,t} - sd^{hy}_{j,t}
+              \]
+              \[
+              su^{hy}_{j,t} + sd^{hy}_{j,t} \le 1
+              \qquad
+              su^{hy}_{j,t},\,sd^{hy}_{j,t} \in \{0,1\}
+              \]
+            </div>
+            <p class="method-note">
+              Hydro commitment currently uses binary startup and shutdown variables directly.
+            </p>
+          </article>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
             <p class="mini-label">Thermal Operating Limits</p>
             <div class="equation-block">
               <div class="equation-caption">LP</div>
@@ -369,6 +439,10 @@
               G^{th}_{i,t} \ge P^{min}_{i}\,u^{th}_{i,t}
               \]
             </div>
+            <p class="method-note">
+              The pure upper bound exists directly in the variable domain. Commitment-enabled
+              modes add minimum generation and unit-state coupling.
+            </p>
           </article>
 
           <article class="panel method-card">
@@ -390,6 +464,72 @@
               G^{hy}_{j,t} \le P^{max}_{j}\,u^{hy}_{j,t}
               \qquad
               G^{hy}_{j,t} \ge P^{min}_{j}\,u^{hy}_{j,t}
+              \]
+            </div>
+          </article>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Thermal Ramp Formulation</p>
+          <div class="equation-block">
+            \[
+            Y_{i,t} = \sum_{k=1}^{K_i^{up}} y^{th}_{i,t-k+1}
+            \qquad
+            TRUP_{i,t} = \sum_{k=1}^{K_i^{up}} a_{i,k}\,y^{th}_{i,t-k+1}
+            \]
+            \[
+            W_{i,t} = \sum_{k=1}^{K_i^{down}} w^{th}_{i,t+k}
+            \qquad
+            TRDN_{i,t} = \sum_{k=1}^{K_i^{down}} d_{i,K_i^{down}-k+1}\,w^{th}_{i,t+k}
+            \]
+            \[
+            G^{th}_{i,t} \ge P^{min}_{i}\left(u^{th}_{i,t} - Y_{i,t} - W_{i,t}\right) + TRUP_{i,t} + TRDN_{i,t}
+            \]
+            \[
+            G^{th}_{i,t} \le P^{max}_{i}\left(u^{th}_{i,t} - Y_{i,t} - W_{i,t}\right) + TRUP_{i,t} + TRDN_{i,t}
+            \]
+          </div>
+          <p class="method-note">
+            Startup and shutdown trajectories are read per thermal unit. Initial ramp states are
+            represented explicitly by <code>RupInic</code>, <code>RdownInic</code>, and
+            <code>Tinic</code>, with the remaining initial trajectory inferred from elapsed time in
+            state.
+          </p>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Thermal Minimum Up / Down</p>
+            <div class="equation-block">
+              \[
+              \sum_{s=t}^{t+\widehat{TON}_{i,t}-1} u^{th}_{i,s}
+              \ge
+              \widehat{TON}_{i,t}\left(u^{th}_{i,t} - u^{th}_{i,t-1}\right)
+              \]
+              \[
+              \sum_{s=t}^{t+\widehat{TOFF}_{i,t}-1} \left(1-u^{th}_{i,s}\right)
+              \ge
+              -\widehat{TOFF}_{i,t}\left(u^{th}_{i,t} - u^{th}_{i,t-1}\right)
+              \]
+            </div>
+            <p class="method-note">
+              The code also fixes the initial periods whenever the unit enters the horizon with
+              remaining minimum up or minimum down obligation.
+            </p>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">Hydro Minimum Up / Down</p>
+            <div class="equation-block">
+              \[
+              \sum_{s=t}^{t+\widehat{TON}^{hy}_{j,t}-1} u^{hy}_{j,s}
+              \ge
+              \widehat{TON}^{hy}_{j,t}\left(u^{hy}_{j,t} - u^{hy}_{j,t-1}\right)
+              \]
+              \[
+              \sum_{s=t}^{t+\widehat{TOFF}^{hy}_{j,t}-1} \left(1-u^{hy}_{j,s}\right)
+              \ge
+              -\widehat{TOFF}^{hy}_{j,t}\left(u^{hy}_{j,t} - u^{hy}_{j,t-1}\right)
               \]
             </div>
           </article>
@@ -436,6 +576,21 @@
           </article>
 
           <article class="panel method-card">
+            <p class="mini-label">Hydro Productivity and Turbining Limits</p>
+            <div class="equation-block">
+              \[
+              G^{hy}_{j,t} = prod_j \, Q_{j,t}
+              \qquad
+              0 \le Q_{j,t} \le Q^{max}_{j}
+              \qquad
+              S_{h,t} \ge 0
+              \]
+            </div>
+          </article>
+        </div>
+
+        <div class="method-grid">
+          <article class="panel method-card">
             <p class="mini-label">Directed Interchange Limits</p>
             <div class="equation-block">
               \[
@@ -445,6 +600,21 @@
             <p class="method-note">
               Limits are directional, so the bound from <code>s → r</code> may differ from
               <code>r → s</code>.
+            </p>
+          </article>
+
+          <article class="panel method-card">
+            <p class="mini-label">User-Defined Operational Limits</p>
+            <div class="equation-block">
+              \[
+              Linf_{u,x,t} \le X_{u,x,t} \le Lsup_{u,x,t}
+              \]
+            </div>
+            <p class="method-note">
+              The reader expands <code>OPER_REST_LIM</code> over its active horizon and validates
+              compatibility between plant type and variable type. Supported targets include
+              <code>GER</code>, <code>VERT</code>, <code>VOL</code>, <code>TURB</code>, and
+              <code>DEFLU = VERT + TURB</code>.
             </p>
           </article>
         </div>
@@ -528,11 +698,41 @@
             \qquad
             f_{l,t} \ge -F^{max}_{l}
             \]
+            \[
+            \sum_{i} \beta_{l,b(i)}\,G^{th}_{i,t}
+            + \sum_{j} \beta_{l,b(j)}\,G^{hy}_{j,t}
+            + \sum_{w} \beta_{l,b(w)}\,G^{w}_{w,t}
+            + \sum_{q} \beta_{l,b(q)}\,G^{q}_{q,t}
+            \le
+            F^{max}_{l} + \sum_{b}\beta_{l,b}\,D_{b,t}
+            \]
           </div>
           <p class="method-note">
             The flow expression is rewritten directly in terms of generation variables and the
             constant nodal demand shift, so only violated branch-period pairs produce additional
-            constraints.
+            constraints. If the network is infeasible after cuts are added, flow slack variables
+            are introduced with a large penalty and recorded in dedicated infeasibility outputs.
+          </p>
+        </div>
+
+        <div class="method-block panel">
+          <p class="mini-label">Slack-Based Infeasibility Handling</p>
+          <div class="equation-block">
+            \[
+            \text{flow cut upper} + \sigma^{flow,+}_{l,t} \le F_l^{max}
+            \qquad
+            \text{flow cut lower} - \sigma^{flow,-}_{l,t} \ge -F_l^{max}
+            \]
+            \[
+            X_{u,x,t} + \sigma^{lim,+}_{u,x,t} \le Lsup_{u,x,t}
+            \qquad
+            X_{u,x,t} - \sigma^{lim,-}_{u,x,t} \ge Linf_{u,x,t}
+            \]
+          </div>
+          <p class="method-note">
+            Whenever the constrained problem is infeasible, the simulation can rebuild the model
+            with explicit slack variables for network cuts and operational limits, penalize them in
+            the objective, and export structured infeasibility reports.
           </p>
         </div>
 
@@ -549,6 +749,11 @@
             <li>If new violations appear, fix the integer decisions and solve `LP-FIXED` iteratively.</li>
             <li>Stop when no additional flow violations remain.</li>
           </ol>
+          <p class="method-note">
+            When the network flag is disabled, the simulation runs without PTDF construction or
+            flow cuts. When it is enabled, the final reporting includes line flows, added cut
+            lines, network infeasibilities, and iterative process statistics.
+          </p>
         </div>
       </section>
 
@@ -635,11 +840,13 @@
         <div class="results-layout">
           <div class="panel result-list">
             <ul>
-              <li><strong>Hydro:</strong> volume, generation, turbining, and spillage by period</li>
-              <li><strong>Thermal:</strong> generation, on/off state, and residence times by period</li>
-              <li><strong>Network:</strong> line flow, line limit, and violation flags by period</li>
+              <li><strong>Hydro:</strong> unit and plant rows with volume, generation, turbining, and spillage</li>
+              <li><strong>Thermal:</strong> generation, on/off state, residence times, residual time, and residual cost</li>
+              <li><strong>Network:</strong> line flow, line limit, added cut lines, and violation flags</li>
               <li><strong>Wind:</strong> dispatched generation by period</li>
               <li><strong>Solar:</strong> dispatched generation by period</li>
+              <li><strong>Limits:</strong> expanded operational limits and limit infeasibility reports</li>
+              <li><strong>Process:</strong> iteration, objective, status, model size, and solve time per stage</li>
             </ul>
           </div>
           <div class="panel result-file">
@@ -648,6 +855,11 @@
 |-- resultado_hidreletricas.csv
 |-- resultado_termicas.csv
 |-- resultado_rede.csv
+|-- resultado_linhas_adicionadas.csv
+|-- resultado_rest_lim.csv
+|-- resultado_inviabilidade_rede.csv
+|-- resultado_inviabilidade_lim.csv
+|-- resultado_processo_iter.csv
 |-- resultado_eolicas.csv
 `-- resultado_solares.csv</pre>
           </div>
@@ -676,7 +888,9 @@
           <div class="panel code-panel wide">
             <p class="mini-label">Study config</p>
             <pre><code>{
-  "case_path": "../../examples/caso_base"
+  "case_path": "../../examples/caso_base",
+  "rede": 1,
+  "TON_Residual": 1
 }</code></pre>
           </div>
         </div>
