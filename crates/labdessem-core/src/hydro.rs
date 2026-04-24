@@ -17,7 +17,6 @@ pub struct HydroUnit {
     pub min_generation_mw: f64,
     pub max_generation_mw: f64,
     pub max_turbining_hm3: f64,
-    pub productivity_mw_per_hm3: f64,
     pub startup_trajectory_mw: Vec<f64>,
     pub shutdown_trajectory_mw: Vec<f64>,
     pub min_up_time: usize,
@@ -53,12 +52,6 @@ impl HydroUnit {
         if self.max_turbining_hm3 <= 0.0 {
             return Err(CoreError::validation(format!(
                 "hydro unit {:?} must have positive maximum turbining",
-                self.id
-            )));
-        }
-        if self.productivity_mw_per_hm3 < 0.0 {
-            return Err(CoreError::validation(format!(
-                "hydro unit {:?} has negative productivity",
                 self.id
             )));
         }
@@ -175,6 +168,35 @@ impl Reservoir {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct HydroFphaSegment {
+    pub segment: usize,
+    pub correction_factor: f64,
+    pub rhs: f64,
+    pub volume_coefficient: f64,
+    pub turbining_coefficient: f64,
+    pub lateral_flow_coefficient: f64,
+}
+
+impl HydroFphaSegment {
+    pub fn validate(&self, plant_id: HydroPlantId) -> Result<(), CoreError> {
+        if self.segment == 0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has FPHA segment zero",
+                plant_id
+            )));
+        }
+        if self.correction_factor < 0.0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative FPHA correction factor",
+                plant_id
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct HydroPlant {
     pub id: HydroPlantId,
     pub name: String,
@@ -182,9 +204,14 @@ pub struct HydroPlant {
     pub bus_id: BusId,
     pub upstream_plant_ids: Vec<HydroPlantId>,
     pub downstream_plant_id: Option<HydroPlantId>,
+    pub diversion_upstream_plant_ids: Vec<HydroPlantId>,
+    pub diversion_plant_id: Option<HydroPlantId>,
     pub reservoir: Reservoir,
     pub natural_inflow_hm3: Vec<f64>,
+    pub water_withdrawal_hm3: Vec<f64>,
     pub spillage_cost_per_hm3: f64,
+    pub turbining_cost_per_hm3: f64,
+    pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
 }
 
@@ -192,12 +219,6 @@ impl HydroPlant {
     pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
         if self.name.trim().is_empty() {
             return Err(CoreError::validation("hydro plant name cannot be empty"));
-        }
-        if self.groups.is_empty() {
-            return Err(CoreError::validation(format!(
-                "hydro plant {:?} must contain at least one group",
-                self.id
-            )));
         }
         if self.natural_inflow_hm3.len() != horizon {
             return Err(CoreError::validation(format!(
@@ -213,11 +234,34 @@ impl HydroPlant {
                 self.id
             )));
         }
+        if self.water_withdrawal_hm3.len() != horizon {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} withdrawal horizon mismatch: expected {}, found {}",
+                self.id,
+                horizon,
+                self.water_withdrawal_hm3.len()
+            )));
+        }
         if self.spillage_cost_per_hm3 < 0.0 {
             return Err(CoreError::validation(format!(
                 "hydro plant {:?} has negative spillage cost",
                 self.id
             )));
+        }
+        if self.turbining_cost_per_hm3 < 0.0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative turbining cost",
+                self.id
+            )));
+        }
+        if !self.groups.is_empty() && self.fpha_segments.is_empty() {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} must contain at least one FPHA segment",
+                self.id
+            )));
+        }
+        for segment in &self.fpha_segments {
+            segment.validate(self.id)?;
         }
 
         self.reservoir.validate(self.id)?;

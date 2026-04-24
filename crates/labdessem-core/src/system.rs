@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use crate::{
     error::CoreError,
     hydro::HydroPlant,
-    ids::{BranchId, BusId, HydroPlantId, SubmarketId, ThermalPlantId},
-    renewable::{SolarPlant, WindPlant},
+    ids::{BranchId, BusId, HydroPlantId, PumpingPlantId, SubmarketId, ThermalPlantId},
+    renewable::RenewablePlant,
     thermal::ThermalPlant,
 };
 
@@ -12,6 +12,10 @@ use crate::{
 pub struct StudyHorizon {
     pub periods: usize,
     pub period_duration_hours: f64,
+    pub original_periods: usize,
+    pub original_period_durations_hours: Vec<f64>,
+    pub internal_to_original_period: Vec<usize>,
+    pub internal_subperiod_index: Vec<usize>,
 }
 
 impl StudyHorizon {
@@ -26,8 +30,53 @@ impl StudyHorizon {
                 "study horizon period duration must be positive",
             ));
         }
+        if self.original_periods == 0 {
+            return Err(CoreError::validation(
+                "study horizon must contain at least one original period",
+            ));
+        }
+        if self.original_period_durations_hours.len() != self.original_periods {
+            return Err(CoreError::validation(
+                "study horizon original duration horizon mismatch",
+            ));
+        }
+        if self
+            .original_period_durations_hours
+            .iter()
+            .any(|duration| *duration <= 0.0)
+        {
+            return Err(CoreError::validation(
+                "study horizon original period durations must be positive",
+            ));
+        }
+        if self.internal_to_original_period.len() != self.periods
+            || self.internal_subperiod_index.len() != self.periods
+        {
+            return Err(CoreError::validation(
+                "study horizon internal period mapping mismatch",
+            ));
+        }
+        if self
+            .internal_to_original_period
+            .iter()
+            .any(|period| *period == 0 || *period > self.original_periods)
+        {
+            return Err(CoreError::validation(
+                "study horizon internal mapping references invalid original period",
+            ));
+        }
 
         Ok(())
+    }
+
+    pub fn internal_periods_for_original(&self, original_period: usize) -> Vec<usize> {
+        self.internal_to_original_period
+            .iter()
+            .enumerate()
+            .filter_map(|(internal_idx, mapped_period)| {
+                (*mapped_period == original_period).then_some(internal_idx)
+            })
+            .collect()
     }
 }
 
@@ -167,19 +216,69 @@ impl ResidualCost {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PumpingPlant {
+    pub id: PumpingPlantId,
+    pub name: String,
+    pub submarket_id: SubmarketId,
+    pub bus_id: BusId,
+    pub downstream_hydro_id: HydroPlantId,
+    pub upstream_hydro_id: HydroPlantId,
+    pub min_pumping_hm3: f64,
+    pub max_pumping_hm3: f64,
+    pub specific_consumption_mw_per_m3s: f64,
+}
+
+impl PumpingPlant {
+    pub fn validate(&self) -> Result<(), CoreError> {
+        if self.name.trim().is_empty() {
+            return Err(CoreError::validation("pumping plant name cannot be empty"));
+        }
+        if self.downstream_hydro_id == self.upstream_hydro_id {
+            return Err(CoreError::validation(format!(
+                "pumping plant {:?} cannot connect the same hydro plant as downstream and upstream",
+                self.id
+            )));
+        }
+        if self.min_pumping_hm3 < 0.0 || self.max_pumping_hm3 < 0.0 {
+            return Err(CoreError::validation(format!(
+                "pumping plant {:?} has negative pumping limit",
+                self.id
+            )));
+        }
+        if self.min_pumping_hm3 > self.max_pumping_hm3 {
+            return Err(CoreError::validation(format!(
+                "pumping plant {:?} has minimum pumping above maximum pumping",
+                self.id
+            )));
+        }
+        if self.specific_consumption_mw_per_m3s < 0.0 {
+            return Err(CoreError::validation(format!(
+                "pumping plant {:?} has negative specific consumption",
+                self.id
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationalLimitVariable {
     Generation,
     Spillage,
     Volume,
     Defluence,
     Turbining,
+    Diversion,
+    Pumping,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationalLimitTarget {
     ThermalPlant(ThermalPlantId),
     HydroPlant(HydroPlantId),
+    PumpingPlant(PumpingPlantId),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -238,9 +337,22 @@ impl OperationalLimit {
                 OperationalLimitVariable::Spillage
                 | OperationalLimitVariable::Volume
                 | OperationalLimitVariable::Defluence
-                | OperationalLimitVariable::Turbining,
+                | OperationalLimitVariable::Turbining
+                | OperationalLimitVariable::Diversion
+                | OperationalLimitVariable::Pumping,
             ) => Err(CoreError::validation(format!(
                 "thermal plant {} cannot define limit for {:?}",
+                self.plant_name, self.variable
+            ))),
+            (OperationalLimitTarget::HydroPlant(_), OperationalLimitVariable::Pumping) => {
+                Err(CoreError::validation(format!(
+                    "hydro plant {} cannot define limit for {:?}",
+                    self.plant_name, self.variable
+                )))
+            }
+            (OperationalLimitTarget::PumpingPlant(_), OperationalLimitVariable::Pumping) => Ok(()),
+            (OperationalLimitTarget::PumpingPlant(_), _) => Err(CoreError::validation(format!(
+                "pumping plant {} cannot define limit for {:?}",
                 self.plant_name, self.variable
             ))),
             _ => Ok(()),
@@ -273,6 +385,8 @@ impl InterchangeLimit {
 #[derive(Debug, Clone, PartialEq)]
 pub struct System {
     pub horizon: StudyHorizon,
+    pub thermal_unit_commitment_enabled: bool,
+    pub hydro_unit_commitment_enabled: bool,
     pub ton_residual_enabled: bool,
     pub residual_costs: Vec<ResidualCost>,
     pub submarkets: Vec<Submarket>,
@@ -282,8 +396,8 @@ pub struct System {
     pub branches: Vec<Branch>,
     pub thermal_plants: Vec<ThermalPlant>,
     pub hydro_plants: Vec<HydroPlant>,
-    pub wind_plants: Vec<WindPlant>,
-    pub solar_plants: Vec<SolarPlant>,
+    pub pumping_plants: Vec<PumpingPlant>,
+    pub renewable_plants: Vec<RenewablePlant>,
 }
 
 impl System {
@@ -322,12 +436,12 @@ impl System {
             "hydro plant ids must be unique",
         )?;
         validate_unique_ids(
-            self.wind_plants.iter().map(|entity| entity.id.0),
-            "wind plant ids must be unique",
+            self.pumping_plants.iter().map(|entity| entity.id.0),
+            "pumping plant ids must be unique",
         )?;
         validate_unique_ids(
-            self.solar_plants.iter().map(|entity| entity.id.0),
-            "solar plant ids must be unique",
+            self.renewable_plants.iter().map(|entity| entity.id.0),
+            "renewable plant ids must be unique",
         )?;
 
         for submarket in &self.submarkets {
@@ -465,6 +579,42 @@ impl System {
                     )));
                 }
             }
+
+            let mut seen_diversion_upstreams = HashSet::new();
+            for upstream in &plant.diversion_upstream_plant_ids {
+                if !seen_diversion_upstreams.insert(*upstream) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has duplicated diversion upstream reference {:?}",
+                        plant.id, upstream
+                    )));
+                }
+                if *upstream == plant.id {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} cannot point to itself as diversion upstream",
+                        plant.id
+                    )));
+                }
+                if !hydro_ids.contains(upstream) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} references unknown diversion upstream plant {:?}",
+                        plant.id, upstream
+                    )));
+                }
+            }
+            if let Some(diversion) = plant.diversion_plant_id {
+                if diversion == plant.id {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} cannot point to itself as diversion destination",
+                        plant.id
+                    )));
+                }
+                if !hydro_ids.contains(&diversion) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} references unknown diversion destination plant {:?}",
+                        plant.id, diversion
+                    )));
+                }
+            }
         }
 
         for plant in &self.hydro_plants {
@@ -497,26 +647,71 @@ impl System {
                     )));
                 }
             }
+
+            for upstream in &plant.diversion_upstream_plant_ids {
+                let upstream_plant = self
+                    .hydro_plants
+                    .iter()
+                    .find(|candidate| candidate.id == *upstream)
+                    .expect("diversion upstream hydro plant should exist after id validation");
+
+                if upstream_plant.diversion_plant_id != Some(plant.id) {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has inconsistent diversion upstream linkage with {:?}",
+                        plant.id, upstream
+                    )));
+                }
+            }
+
+            if let Some(diversion) = plant.diversion_plant_id {
+                let diversion_plant = self
+                    .hydro_plants
+                    .iter()
+                    .find(|candidate| candidate.id == diversion)
+                    .expect("diversion hydro plant should exist after id validation");
+
+                if !diversion_plant
+                    .diversion_upstream_plant_ids
+                    .contains(&plant.id)
+                {
+                    return Err(CoreError::validation(format!(
+                        "hydro plant {:?} has inconsistent diversion destination linkage with {:?}",
+                        plant.id, diversion
+                    )));
+                }
+            }
         }
 
-        for plant in &self.wind_plants {
-            plant.validate(self.horizon.periods)?;
+        for plant in &self.pumping_plants {
+            plant.validate()?;
             validate_bus_and_submarket_membership(
                 plant.id.0,
-                "wind plant",
+                "pumping plant",
                 plant.bus_id,
                 plant.submarket_id,
                 &self.buses,
                 &bus_ids,
                 &submarket_ids,
             )?;
+            if !hydro_ids.contains(&plant.downstream_hydro_id) {
+                return Err(CoreError::validation(format!(
+                    "pumping plant {:?} references unknown downstream hydro plant {:?}",
+                    plant.id, plant.downstream_hydro_id
+                )));
+            }
+            if !hydro_ids.contains(&plant.upstream_hydro_id) {
+                return Err(CoreError::validation(format!(
+                    "pumping plant {:?} references unknown upstream hydro plant {:?}",
+                    plant.id, plant.upstream_hydro_id
+                )));
+            }
         }
 
-        for plant in &self.solar_plants {
+        for plant in &self.renewable_plants {
             plant.validate(self.horizon.periods)?;
             validate_bus_and_submarket_membership(
                 plant.id.0,
-                "solar plant",
+                "renewable plant",
                 plant.bus_id,
                 plant.submarket_id,
                 &self.buses,
@@ -560,6 +755,24 @@ impl System {
                     if plant.name != limit.plant_name {
                         return Err(CoreError::validation(format!(
                             "operational limit plant name mismatch for hydro plant {:?}",
+                            plant_id
+                        )));
+                    }
+                }
+                OperationalLimitTarget::PumpingPlant(plant_id) => {
+                    let plant = self
+                        .pumping_plants
+                        .iter()
+                        .find(|candidate| candidate.id == plant_id)
+                        .ok_or_else(|| {
+                            CoreError::validation(format!(
+                                "operational limit references unknown pumping plant {:?}",
+                                plant_id
+                            ))
+                        })?;
+                    if plant.name != limit.plant_name {
+                        return Err(CoreError::validation(format!(
+                            "operational limit plant name mismatch for pumping plant {:?}",
                             plant_id
                         )));
                     }
@@ -625,21 +838,38 @@ fn validate_bus_and_submarket_membership(
 mod tests {
     use super::*;
     use crate::{
-        hydro::{HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
+        hydro::{HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
         ids::{
-            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
-            ThermalPlantId, ThermalUnitId, WindPlantId,
+            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, RenewablePlantId,
+            SubmarketId, ThermalPlantId, ThermalUnitId,
         },
-        renewable::{SolarPlant, WindPlant},
+        renewable::RenewablePlant,
         thermal::{ThermalInitialCondition, ThermalUnit},
     };
+
+    fn fpha_segments() -> Vec<HydroFphaSegment> {
+        vec![HydroFphaSegment {
+            segment: 1,
+            correction_factor: 1.0,
+            rhs: 0.0,
+            volume_coefficient: 0.0,
+            turbining_coefficient: 1.0,
+            lateral_flow_coefficient: 0.0,
+        }]
+    }
 
     fn valid_system() -> System {
         System {
             horizon: StudyHorizon {
                 periods: 2,
                 period_duration_hours: 1.0,
+                original_periods: 2,
+                original_period_durations_hours: vec![1.0, 1.0],
+                internal_to_original_period: vec![1, 2],
+                internal_subperiod_index: vec![1, 1],
             },
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             residual_costs: vec![],
             submarkets: vec![Submarket {
@@ -679,6 +909,7 @@ mod tests {
                         is_on: true,
                         generation_mw: 40.0,
                         time_in_state: 2,
+                        time_in_ramp: 2,
                         is_ramping_up: false,
                         is_ramping_down: false,
                     },
@@ -691,13 +922,18 @@ mod tests {
                 bus_id: BusId(1),
                 upstream_plant_ids: vec![],
                 downstream_plant_id: None,
+                diversion_upstream_plant_ids: vec![],
+                diversion_plant_id: None,
+                fpha_segments: fpha_segments(),
                 reservoir: Reservoir {
                     min_volume_hm3: 10.0,
                     max_volume_hm3: 100.0,
                     initial_volume_hm3: 50.0,
                 },
                 natural_inflow_hm3: vec![5.0, 6.0],
+                water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 1.0,
+                turbining_cost_per_hm3: 0.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-1".into(),
@@ -707,7 +943,6 @@ mod tests {
                         min_generation_mw: 10.0,
                         max_generation_mw: 80.0,
                         max_turbining_hm3: 40.0,
-                        productivity_mw_per_hm3: 2.0,
                         startup_trajectory_mw: vec![10.0, 30.0, 60.0],
                         shutdown_trajectory_mw: vec![60.0, 30.0, 10.0],
                         min_up_time: 1,
@@ -722,19 +957,13 @@ mod tests {
                     }],
                 }],
             }],
-            wind_plants: vec![WindPlant {
-                id: WindPlantId(1),
-                name: "EOL-1".into(),
+            pumping_plants: Vec::new(),
+            renewable_plants: vec![RenewablePlant {
+                id: RenewablePlantId(1),
+                name: "REN-1".into(),
                 submarket_id: SubmarketId(1),
                 bus_id: BusId(1),
-                available_generation_mw: vec![30.0, 25.0],
-            }],
-            solar_plants: vec![SolarPlant {
-                id: SolarPlantId(1),
-                name: "SOL-1".into(),
-                submarket_id: SubmarketId(1),
-                bus_id: BusId(1),
-                available_generation_mw: vec![10.0, 15.0],
+                available_generation_mw: vec![40.0, 40.0],
             }],
         }
     }
@@ -776,13 +1005,18 @@ mod tests {
             bus_id: BusId(1),
             upstream_plant_ids: vec![],
             downstream_plant_id: None,
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: fpha_segments(),
             reservoir: Reservoir {
                 min_volume_hm3: 5.0,
                 max_volume_hm3: 50.0,
                 initial_volume_hm3: 20.0,
             },
             natural_inflow_hm3: vec![2.0, 2.0],
+            water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
+            turbining_cost_per_hm3: 0.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),
@@ -792,7 +1026,6 @@ mod tests {
                     min_generation_mw: 5.0,
                     max_generation_mw: 30.0,
                     max_turbining_hm3: 15.0,
-                    productivity_mw_per_hm3: 2.0,
                     startup_trajectory_mw: vec![5.0, 15.0],
                     shutdown_trajectory_mw: vec![15.0, 5.0],
                     min_up_time: 1,
@@ -823,13 +1056,18 @@ mod tests {
             bus_id: BusId(1),
             upstream_plant_ids: vec![],
             downstream_plant_id: Some(HydroPlantId(1)),
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: fpha_segments(),
             reservoir: Reservoir {
                 min_volume_hm3: 5.0,
                 max_volume_hm3: 50.0,
                 initial_volume_hm3: 20.0,
             },
             natural_inflow_hm3: vec![2.0, 2.0],
+            water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
+            turbining_cost_per_hm3: 0.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),
@@ -839,7 +1077,6 @@ mod tests {
                     min_generation_mw: 5.0,
                     max_generation_mw: 30.0,
                     max_turbining_hm3: 15.0,
-                    productivity_mw_per_hm3: 2.0,
                     startup_trajectory_mw: vec![5.0, 15.0],
                     shutdown_trajectory_mw: vec![15.0, 5.0],
                     min_up_time: 1,

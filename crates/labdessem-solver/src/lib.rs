@@ -1,8 +1,8 @@
 use std::{collections::HashMap, error::Error, fmt, path::Path};
 
 use good_lp::{
-    Expression, ProblemVariables, Solution, SolverModel, Variable, constraint, default_solver,
-    variable,
+    DualValues, Expression, ProblemVariables, Solution, SolutionWithDual, SolverModel, Variable,
+    constraint, constraint::ConstraintReference, default_solver, variable,
 };
 use labdessem_io::IoError;
 use labdessem_model::{
@@ -23,7 +23,11 @@ impl fmt::Display for SolverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedSolveMode(mode) => {
-                write!(f, "solve mode {:?} is not supported by the current LP solver", mode)
+                write!(
+                    f,
+                    "solve mode {:?} is not supported by the current LP solver",
+                    mode
+                )
             }
             Self::UnknownVariable(name) => write!(f, "unknown variable in solver mapping: {name}"),
             Self::InfeasibleOrUnbounded(message) => write!(f, "{message}"),
@@ -53,13 +57,14 @@ impl From<IoError> for SolverError {
 pub struct SolveSummary {
     pub objective_value: f64,
     pub variable_values: HashMap<String, f64>,
+    pub constraint_duals: HashMap<String, f64>,
 }
 
 pub fn solve_model(model: &Model) -> Result<SolveSummary, SolverError> {
     match model.solve_mode {
         SolveMode::LinearProgramming => solve_problem(model, false),
-        SolveMode::MixedIntegerLinearProgramming
-        | SolveMode::LinearProgrammingWithFixedCommitment => solve_problem(model, true),
+        SolveMode::MixedIntegerLinearProgramming => solve_problem(model, true),
+        SolveMode::LinearProgrammingWithFixedCommitment => solve_problem(model, false),
     }
 }
 
@@ -89,13 +94,12 @@ fn solve_problem(model: &Model, enforce_binary_domains: bool) -> Result<SolveSum
     let mut variable_map = HashMap::<String, Variable>::new();
 
     for variable_definition in &all_variables {
-        let mut builder = if enforce_binary_domains
-            && variable_definition.domain == VariableDomain::Binary
-        {
-            variable().binary()
-        } else {
-            variable()
-        };
+        let mut builder =
+            if enforce_binary_domains && variable_definition.domain == VariableDomain::Binary {
+                variable().binary()
+            } else {
+                variable()
+            };
         let fixed_value = variable_definition.fixed_value;
 
         if let Some(fixed_value) = fixed_value {
@@ -113,15 +117,18 @@ fn solve_problem(model: &Model, enforce_binary_domains: bool) -> Result<SolveSum
 
     let objective = build_expression(&model.objective.terms, &variable_map)?;
     let mut problem = problem_variables.minimise(objective).using(default_solver);
+    let mut constraint_references = Vec::<(String, ConstraintReference)>::new();
 
     for linear_constraint in &model.constraints.linear_constraints {
-        problem = add_constraint(problem, linear_constraint, &variable_map)?;
+        let constraint_reference = add_constraint(&mut problem, linear_constraint, &variable_map)?;
+        constraint_references.push((linear_constraint.name.clone(), constraint_reference));
     }
 
-    let solution = problem.solve().map_err(|error| {
+    let mut solution = problem.solve().map_err(|error| {
         SolverError::InfeasibleOrUnbounded(format!("LP relaxation solve failed: {error}"))
     })?;
 
+    let objective_value = solution.eval(build_expression(&model.objective.terms, &variable_map)?);
     let mut variable_values = HashMap::new();
     for variable_definition in &all_variables {
         let variable = variable_map
@@ -129,30 +136,42 @@ fn solve_problem(model: &Model, enforce_binary_domains: bool) -> Result<SolveSum
             .ok_or_else(|| SolverError::UnknownVariable(variable_definition.name.clone()))?;
         variable_values.insert(variable_definition.name.clone(), solution.value(*variable));
     }
+    let constraint_duals = if enforce_binary_domains {
+        HashMap::new()
+    } else {
+        let dual_values = solution.compute_dual();
+        constraint_references
+            .into_iter()
+            .map(|(name, reference)| (name, dual_values.dual(reference)))
+            .collect()
+    };
 
     Ok(SolveSummary {
-        objective_value: solution.eval(build_expression(&model.objective.terms, &variable_map)?),
+        objective_value,
         variable_values,
+        constraint_duals,
     })
 }
 
 fn add_constraint<M: SolverModel>(
-    mut problem: M,
+    problem: &mut M,
     linear_constraint: &LinearConstraint,
     variable_map: &HashMap<String, Variable>,
-) -> Result<M, SolverError> {
+) -> Result<ConstraintReference, SolverError> {
     let expression = build_expression(&linear_constraint.terms, variable_map)?;
-    problem = match linear_constraint.sense {
-        ConstraintSense::Equal => problem.with(constraint!(expression == linear_constraint.rhs)),
+    let constraint_reference = match linear_constraint.sense {
+        ConstraintSense::Equal => {
+            problem.add_constraint(constraint!(expression == linear_constraint.rhs))
+        }
         ConstraintSense::LessOrEqual => {
-            problem.with(constraint!(expression <= linear_constraint.rhs))
+            problem.add_constraint(constraint!(expression <= linear_constraint.rhs))
         }
         ConstraintSense::GreaterOrEqual => {
-            problem.with(constraint!(expression >= linear_constraint.rhs))
+            problem.add_constraint(constraint!(expression >= linear_constraint.rhs))
         }
     };
 
-    Ok(problem)
+    Ok(constraint_reference)
 }
 
 fn build_expression<T>(
@@ -180,10 +199,11 @@ fn collect_variables(model: &Model) -> Vec<&labdessem_model::variables::Variable
     all.extend(variables.hydro_generation.iter());
     all.extend(variables.hydro_turbining.iter());
     all.extend(variables.hydro_spillage.iter());
+    all.extend(variables.hydro_diversion.iter());
+    all.extend(variables.pumping.iter());
     all.extend(variables.hydro_volume.iter());
     all.extend(variables.deficit.iter());
-    all.extend(variables.wind_generation.iter());
-    all.extend(variables.solar_generation.iter());
+    all.extend(variables.renewable_generation.iter());
     all.extend(variables.interchange.iter());
     all.extend(variables.thermal_commitment.iter());
     all.extend(variables.thermal_startup.iter());
@@ -229,30 +249,48 @@ mod tests {
 
     #[test]
     fn solves_lp_for_example_case() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../labdessem-io/study_config.json");
+        let config_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
 
         let result = solve_lp_from_config(config_path).expect("LP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
-        assert!(result.variable_values.contains_key("thermal_generation[p=UTE1,u=UTE1-1,t=1]"));
-        assert!(result.variable_values.contains_key("hydro_volume[p=UHE1,t=0]"));
+        assert!(
+            result
+                .variable_values
+                .keys()
+                .any(|name| name.starts_with("thermal_generation["))
+        );
+        assert!(
+            result
+                .variable_values
+                .keys()
+                .any(|name| name.starts_with("hydro_volume["))
+        );
+        assert!(
+            result
+                .constraint_duals
+                .keys()
+                .any(|name| name.starts_with("demand_balance["))
+        );
     }
 
     #[test]
     fn solves_milp_for_example_case() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../labdessem-io/study_config.json");
+        let config_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
 
         let result =
             solve_milp_from_config(config_path).expect("MILP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
-        let thermal_on = result
+        if let Some(thermal_on) = result
             .variable_values
-            .get("thermal_on[p=UTE1,u=UTE1-1,t=1]")
-            .copied()
-            .expect("thermal commitment should exist in MILP");
-        assert!(thermal_on == 0.0 || thermal_on == 1.0);
+            .iter()
+            .find_map(|(name, value)| name.starts_with("thermal_on[").then_some(*value))
+        {
+            assert!(thermal_on == 0.0 || thermal_on == 1.0);
+        }
+        assert!(result.constraint_duals.is_empty());
     }
 }

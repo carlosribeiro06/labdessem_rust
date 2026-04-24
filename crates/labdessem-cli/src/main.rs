@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
 use labdessem_io::{read_study_config, read_study_from_config};
-use labdessem_simulation::{run_iterative_simulation, write_results_csvs};
+use labdessem_simulation::{ExecutionOption, run_simulation, write_results_csvs};
 
 fn main() -> ExitCode {
     let config_path = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
@@ -21,6 +21,8 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
     println!("Lendo configuracao do estudo...");
     let config = read_study_config(config_path)?;
     println!("Caso selecionado: {}", config.case_path.display());
+    let execution_option = ExecutionOption::from_config_value(config.opcao_execucao)?;
+    println!("Opcao de execucao: {}", execution_option.description());
     println!(
         "Restricoes de rede: {}",
         if config.rede == 0 {
@@ -37,24 +39,40 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
             "ativado"
         }
     );
+    println!(
+        "Unit commitment termico: {}",
+        if config.uct == 0 {
+            "desativado"
+        } else {
+            "ativado"
+        }
+    );
+    println!(
+        "Unit commitment hidraulico: {}",
+        if config.uch == 0 {
+            "desativado"
+        } else {
+            "ativado"
+        }
+    );
 
     println!("Lendo dados de entrada...");
     let system = read_study_from_config(config_path)?;
 
     println!("Dados carregados com sucesso.");
     println!(
-        "Resumo do caso: {} submercados, {} barras, {} linhas, {} UTEs, {} UHEs, {} eolicas, {} solares",
+        "Resumo do caso: {} submercados, {} barras, {} linhas, {} UTEs, {} UHEs, {} elevatorias, {} renovaveis",
         system.submarkets.len(),
         system.buses.len(),
         system.branches.len(),
         system.thermal_plants.len(),
         system.hydro_plants.len(),
-        system.wind_plants.len(),
-        system.solar_plants.len()
+        system.pumping_plants.len(),
+        system.renewable_plants.len()
     );
     println!("Iniciando processo iterativo de resolucao...");
     let network_enabled = config.rede != 0;
-    let result = run_iterative_simulation(&system, network_enabled)?;
+    let result = run_simulation(&system, network_enabled, execution_option)?;
     let output_dir = config.case_path.join("RESULTADOS");
 
     println!("Gravando arquivos CSV de saida...");

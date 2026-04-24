@@ -43,22 +43,44 @@ impl Model {
 mod tests {
     use super::*;
     use labdessem_core::{
-        hydro::{HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir},
-        ids::{
-            BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
-            ThermalPlantId, ThermalUnitId, WindPlantId,
+        hydro::{
+            HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
         },
-        renewable::{SolarPlant, WindPlant},
-        system::{Bus, StudyHorizon, Submarket, System},
+        ids::{
+            BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
+            SubmarketId, ThermalPlantId, ThermalUnitId,
+        },
+        renewable::RenewablePlant,
+        system::{
+            Bus, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable, PumpingPlant,
+            StudyHorizon, Submarket, System,
+        },
         thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
+
+    fn fpha_segments() -> Vec<HydroFphaSegment> {
+        vec![HydroFphaSegment {
+            segment: 1,
+            correction_factor: 1.0,
+            rhs: 0.0,
+            volume_coefficient: 0.0,
+            turbining_coefficient: 2.5,
+            lateral_flow_coefficient: 0.0,
+        }]
+    }
 
     fn build_system() -> System {
         System {
             horizon: StudyHorizon {
                 periods: 2,
                 period_duration_hours: 1.0,
+                original_periods: 2,
+                original_period_durations_hours: vec![1.0, 1.0],
+                internal_to_original_period: vec![1, 2],
+                internal_subperiod_index: vec![1, 1],
             },
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             residual_costs: vec![],
             submarkets: vec![
@@ -128,6 +150,7 @@ mod tests {
                         is_on: true,
                         generation_mw: 20.0,
                         time_in_state: 1,
+                        time_in_ramp: 1,
                         is_ramping_up: false,
                         is_ramping_down: false,
                     },
@@ -140,13 +163,18 @@ mod tests {
                 bus_id: BusId(2),
                 upstream_plant_ids: vec![],
                 downstream_plant_id: None,
+                diversion_upstream_plant_ids: vec![],
+                diversion_plant_id: None,
+                fpha_segments: fpha_segments(),
                 reservoir: Reservoir {
                     min_volume_hm3: 1.0,
                     max_volume_hm3: 10.0,
                     initial_volume_hm3: 5.0,
                 },
                 natural_inflow_hm3: vec![1.0, 1.0],
+                water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 0.0,
+                turbining_cost_per_hm3: 0.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-1".into(),
@@ -156,7 +184,6 @@ mod tests {
                         min_generation_mw: 5.0,
                         max_generation_mw: 50.0,
                         max_turbining_hm3: 20.0,
-                        productivity_mw_per_hm3: 2.5,
                         startup_trajectory_mw: vec![5.0, 10.0],
                         shutdown_trajectory_mw: vec![10.0, 5.0],
                         min_up_time: 1,
@@ -171,20 +198,23 @@ mod tests {
                     }],
                 }],
             }],
-            wind_plants: vec![WindPlant {
-                id: WindPlantId(1),
-                name: "EOL-1".into(),
-                submarket_id: SubmarketId(1),
-                bus_id: BusId(1),
-                available_generation_mw: vec![10.0, 10.0],
-            }],
-            solar_plants: vec![SolarPlant {
-                id: SolarPlantId(1),
-                name: "SOL-1".into(),
-                submarket_id: SubmarketId(2),
-                bus_id: BusId(2),
-                available_generation_mw: vec![8.0, 7.0],
-            }],
+            pumping_plants: Vec::new(),
+            renewable_plants: vec![
+                RenewablePlant {
+                    id: RenewablePlantId(1),
+                    name: "REN-1".into(),
+                    submarket_id: SubmarketId(1),
+                    bus_id: BusId(1),
+                    available_generation_mw: vec![10.0, 10.0],
+                },
+                RenewablePlant {
+                    id: RenewablePlantId(2),
+                    name: "REN-2".into(),
+                    submarket_id: SubmarketId(2),
+                    bus_id: BusId(2),
+                    available_generation_mw: vec![8.0, 7.0],
+                },
+            ],
         }
     }
 
@@ -193,7 +223,13 @@ mod tests {
             horizon: StudyHorizon {
                 periods: 1,
                 period_duration_hours: 1.0,
+                original_periods: 1,
+                original_period_durations_hours: vec![1.0],
+                internal_to_original_period: vec![1],
+                internal_subperiod_index: vec![1],
             },
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             residual_costs: vec![],
             submarkets: vec![Submarket {
@@ -221,13 +257,18 @@ mod tests {
                     bus_id: BusId(1),
                     upstream_plant_ids: vec![],
                     downstream_plant_id: Some(HydroPlantId(3)),
+                    diversion_upstream_plant_ids: vec![],
+                    diversion_plant_id: None,
+                    fpha_segments: fpha_segments(),
                     reservoir: Reservoir {
                         min_volume_hm3: 0.0,
                         max_volume_hm3: 10.0,
                         initial_volume_hm3: 1.0,
                     },
                     natural_inflow_hm3: vec![0.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
+                    turbining_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(1),
                         name: "CJ-A".into(),
@@ -237,7 +278,6 @@ mod tests {
                             min_generation_mw: 1.0,
                             max_generation_mw: 10.0,
                             max_turbining_hm3: 5.0,
-                            productivity_mw_per_hm3: 2.0,
                             startup_trajectory_mw: vec![1.0],
                             shutdown_trajectory_mw: vec![1.0],
                             min_up_time: 1,
@@ -259,13 +299,18 @@ mod tests {
                     bus_id: BusId(1),
                     upstream_plant_ids: vec![],
                     downstream_plant_id: Some(HydroPlantId(3)),
+                    diversion_upstream_plant_ids: vec![],
+                    diversion_plant_id: None,
+                    fpha_segments: fpha_segments(),
                     reservoir: Reservoir {
                         min_volume_hm3: 0.0,
                         max_volume_hm3: 10.0,
                         initial_volume_hm3: 1.0,
                     },
                     natural_inflow_hm3: vec![0.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
+                    turbining_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(2),
                         name: "CJ-B".into(),
@@ -275,7 +320,6 @@ mod tests {
                             min_generation_mw: 1.0,
                             max_generation_mw: 10.0,
                             max_turbining_hm3: 5.0,
-                            productivity_mw_per_hm3: 2.0,
                             startup_trajectory_mw: vec![1.0],
                             shutdown_trajectory_mw: vec![1.0],
                             min_up_time: 1,
@@ -297,13 +341,18 @@ mod tests {
                     bus_id: BusId(1),
                     upstream_plant_ids: vec![HydroPlantId(1), HydroPlantId(2)],
                     downstream_plant_id: None,
+                    diversion_upstream_plant_ids: vec![],
+                    diversion_plant_id: None,
+                    fpha_segments: fpha_segments(),
                     reservoir: Reservoir {
                         min_volume_hm3: 0.0,
                         max_volume_hm3: 20.0,
                         initial_volume_hm3: 5.0,
                     },
                     natural_inflow_hm3: vec![3.0],
+                    water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
+                    turbining_cost_per_hm3: 0.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(3),
                         name: "CJ-C".into(),
@@ -313,7 +362,6 @@ mod tests {
                             min_generation_mw: 1.0,
                             max_generation_mw: 10.0,
                             max_turbining_hm3: 5.0,
-                            productivity_mw_per_hm3: 2.0,
                             startup_trajectory_mw: vec![1.0],
                             shutdown_trajectory_mw: vec![1.0],
                             min_up_time: 1,
@@ -329,8 +377,8 @@ mod tests {
                     }],
                 },
             ],
-            wind_plants: vec![],
-            solar_plants: vec![],
+            pumping_plants: Vec::new(),
+            renewable_plants: vec![],
         }
     }
 
@@ -351,7 +399,7 @@ mod tests {
         assert_eq!(model.constraints.interchange_limits().len(), 4);
         assert_eq!(model.constraints.hydro_turbining_limits().len(), 4);
         assert_eq!(model.constraints.hydro_spillage_nonnegativity().len(), 2);
-        assert_eq!(model.constraints.hydro_productivity().len(), 2);
+        assert_eq!(model.constraints.hydro_fpha().len(), 2);
         assert!(
             model
                 .constraints
@@ -379,7 +427,7 @@ mod tests {
             .map(|term| term.variable.as_str())
             .collect();
         assert!(term_names.contains(&"thermal_generation[p=UTE-1,u=GT-1,t=1]"));
-        assert!(term_names.contains(&"wind_generation[p=EOL-1,t=1]"));
+        assert!(term_names.contains(&"renewable_generation[p=REN-1,t=1]"));
         assert!(term_names.contains(&"interchange[from=S,to=SE,t=1]"));
         assert!(term_names.contains(&"interchange[from=SE,to=S,t=1]"));
         assert!(term_names.contains(&"deficit[submarket=SE,t=1]"));
@@ -425,6 +473,57 @@ mod tests {
         assert_eq!(model.variables.hydro_volume[0].lower_bound, 1.0);
         assert_eq!(model.variables.hydro_volume[0].upper_bound, Some(10.0));
         assert_eq!(model.variables.hydro_volume[0].fixed_value, Some(5.0));
+    }
+
+    #[test]
+    fn adds_pumping_to_demand_and_hydro_balances() {
+        let mut system = build_system_with_multiple_upstreams();
+        system.pumping_plants = vec![PumpingPlant {
+            id: PumpingPlantId(1),
+            name: "USIE-1".into(),
+            submarket_id: SubmarketId(1),
+            bus_id: BusId(1),
+            downstream_hydro_id: HydroPlantId(3),
+            upstream_hydro_id: HydroPlantId(1),
+            min_pumping_hm3: 0.0,
+            max_pumping_hm3: 3.6,
+            specific_consumption_mw_per_m3s: 0.5,
+        }];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        assert_eq!(model.variables.pumping.len(), 1);
+        assert_eq!(model.variables.pumping[0].name, "pumping[p=USIE-1,t=1]");
+
+        let demand = model.constraints.demand_balance()[0];
+        let pumping_in_demand = demand
+            .terms
+            .iter()
+            .find(|term| term.variable == "pumping[p=USIE-1,t=1]")
+            .expect("pumping should enter demand balance");
+        assert!((pumping_in_demand.coefficient + 0.5 / 0.0036).abs() < 1e-8);
+
+        let hydro_balances = model.constraints.hydro_balance();
+        let upstream_balance = hydro_balances
+            .iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-A,t=1]")
+            .expect("upstream hydro balance should exist");
+        assert!(
+            upstream_balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "pumping[p=USIE-1,t=1]" && term.coefficient == -1.0)
+        );
+
+        let downstream_balance = hydro_balances
+            .iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-C,t=1]")
+            .expect("downstream hydro balance should exist");
+        assert!(
+            downstream_balance
+                .terms
+                .iter()
+                .any(|term| term.variable == "pumping[p=USIE-1,t=1]" && term.coefficient == 1.0)
+        );
     }
 
     #[test]
@@ -479,10 +578,11 @@ mod tests {
             .terms
             .iter()
             .any(|term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == 1.0));
-        assert!(first
-            .terms
-            .iter()
-            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=0]" && term.coefficient == -1.0));
+        assert!(
+            first.terms.iter().any(
+                |term| term.variable == "hydro_volume[p=UHE-1,t=0]" && term.coefficient == -1.0
+            )
+        );
         assert!(first.terms.iter().any(|term| {
             term.variable == "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]" && term.coefficient == 1.0
         }));
@@ -494,10 +594,9 @@ mod tests {
                     && term.coefficient == 1.0)
         );
         assert!(
-            !first
-                .terms
-                .iter()
-                .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -1.0)
+            !first.terms.iter().any(
+                |term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -1.0
+            )
         );
     }
 
@@ -527,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn builds_hydro_turbining_spillage_and_productivity_constraints() {
+    fn builds_hydro_turbining_spillage_and_fpha_constraints() {
         let system = build_system();
         let model = Model::from_system(&system, SolveMode::LinearProgramming);
 
@@ -553,19 +652,19 @@ mod tests {
         );
         assert_eq!(spillage_nonnegative.rhs, 0.0);
 
-        let productivity = model
+        let fpha = model
             .constraints
-            .hydro_productivity()
+            .hydro_fpha()
             .into_iter()
-            .find(|constraint| constraint.name == "hydro_productivity[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
-            .expect("hydro productivity constraint should exist");
-        assert_eq!(productivity.sense, constraints::ConstraintSense::Equal);
-        assert!(productivity.terms.iter().any(|term| term.variable
+            .find(|constraint| constraint.name == "hydro_fpha[p=UHE-1,seg=1,t=1]")
+            .expect("hydro FPHA constraint should exist");
+        assert_eq!(fpha.sense, constraints::ConstraintSense::LessOrEqual);
+        assert!(fpha.terms.iter().any(|term| term.variable
             == "hydro_generation[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
             && term.coefficient == 1.0));
-        assert!(productivity.terms.iter().any(|term| term.variable
+        assert!(fpha.terms.iter().any(|term| term.variable
             == "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
-            && term.coefficient == -2.5));
+            && (term.coefficient + (2.5 / 0.0036)).abs() < 1e-9));
     }
 
     #[test]
@@ -600,6 +699,37 @@ mod tests {
                 .any(|term| term.variable == "hydro_spillage[p=UHE-B,t=1]"
                     && term.coefficient == -1.0)
         );
+    }
+
+    #[test]
+    fn adds_diversion_flows_to_hydro_balance() {
+        let mut system = build_system_with_multiple_upstreams();
+        system.hydro_plants[0].diversion_plant_id = Some(HydroPlantId(3));
+        system.hydro_plants[2].diversion_upstream_plant_ids = vec![HydroPlantId(1)];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        let diversion_destination_balance = model
+            .constraints
+            .hydro_balance()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-C,t=1]")
+            .expect("hydro balance with diversion upstream should exist");
+
+        assert!(diversion_destination_balance.terms.iter().any(|term| {
+            term.variable == "hydro_diversion[p=UHE-A,t=1]" && term.coefficient == -1.0
+        }));
+
+        let diversion_origin_balance = model
+            .constraints
+            .hydro_balance()
+            .into_iter()
+            .find(|constraint| constraint.name == "hydro_balance[p=UHE-A,t=1]")
+            .expect("hydro balance with diversion outflow should exist");
+
+        assert!(diversion_origin_balance.terms.iter().any(|term| {
+            term.variable == "hydro_diversion[p=UHE-A,t=1]" && term.coefficient == 1.0
+        }));
     }
 
     #[test]
@@ -640,6 +770,150 @@ mod tests {
     }
 
     #[test]
+    fn builds_volume_operational_limits_on_useful_volume() {
+        let mut system = build_system();
+        system.operational_limits = vec![OperationalLimit {
+            target: OperationalLimitTarget::HydroPlant(HydroPlantId(1)),
+            plant_name: "UHE-1".into(),
+            variable: OperationalLimitVariable::Volume,
+            start_period: 1,
+            end_period: 1,
+            lower_bound: Some(2.0),
+            upper_bound: Some(4.0),
+        }];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        let limits = model.constraints.operational_limits();
+
+        let lower = limits
+            .iter()
+            .find(|constraint| constraint.name == "operational_limit_lower[p=UHE-1,var=VOL,t=1]")
+            .expect("lower volume operational limit should exist");
+        assert_eq!(lower.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(lower.rhs, 3.0);
+
+        let upper = limits
+            .iter()
+            .find(|constraint| constraint.name == "operational_limit_upper[p=UHE-1,var=VOL,t=1]")
+            .expect("upper volume operational limit should exist");
+        assert_eq!(upper.sense, constraints::ConstraintSense::LessOrEqual);
+        assert_eq!(upper.rhs, 5.0);
+    }
+
+    #[test]
+    fn converts_flow_operational_limits_from_m3s_to_hm3() {
+        let mut system = build_system();
+        system.operational_limits = vec![OperationalLimit {
+            target: OperationalLimitTarget::HydroPlant(HydroPlantId(1)),
+            plant_name: "UHE-1".into(),
+            variable: OperationalLimitVariable::Turbining,
+            start_period: 1,
+            end_period: 1,
+            lower_bound: Some(100.0),
+            upper_bound: Some(200.0),
+        }];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        let limits = model.constraints.operational_limits();
+
+        let lower = limits
+            .iter()
+            .find(|constraint| constraint.name == "operational_limit_lower[p=UHE-1,var=TURB,t=1]")
+            .expect("lower turbining operational limit should exist");
+        assert!((lower.rhs - 0.36).abs() < 1e-10);
+
+        let upper = limits
+            .iter()
+            .find(|constraint| constraint.name == "operational_limit_upper[p=UHE-1,var=TURB,t=1]")
+            .expect("upper turbining operational limit should exist");
+        assert!((upper.rhs - 0.72).abs() < 1e-10);
+    }
+
+    #[test]
+    fn builds_pumping_operational_limits() {
+        let mut system = build_system();
+        system.pumping_plants = vec![PumpingPlant {
+            id: PumpingPlantId(1),
+            name: "USIE-1".into(),
+            submarket_id: SubmarketId(1),
+            bus_id: BusId(1),
+            downstream_hydro_id: HydroPlantId(1),
+            upstream_hydro_id: HydroPlantId(1),
+            min_pumping_hm3: 0.0,
+            max_pumping_hm3: 3.6,
+            specific_consumption_mw_per_m3s: 0.5,
+        }];
+        system.pumping_plants[0].upstream_hydro_id = HydroPlantId(999);
+        system.pumping_plants[0].downstream_hydro_id = HydroPlantId(1);
+        system.hydro_plants.push(HydroPlant {
+            id: HydroPlantId(999),
+            name: "UHE-UP".into(),
+            submarket_id: SubmarketId(1),
+            bus_id: BusId(1),
+            upstream_plant_ids: vec![],
+            downstream_plant_id: None,
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: fpha_segments(),
+            reservoir: Reservoir {
+                min_volume_hm3: 0.0,
+                max_volume_hm3: 10.0,
+                initial_volume_hm3: 1.0,
+            },
+            natural_inflow_hm3: vec![0.0, 0.0],
+            water_withdrawal_hm3: vec![0.0, 0.0],
+            spillage_cost_per_hm3: 0.0,
+            turbining_cost_per_hm3: 0.0,
+            groups: vec![HydroGroup {
+                id: HydroGroupId(1),
+                name: "CJ-1".into(),
+                units: vec![HydroUnit {
+                    id: HydroUnitId(1),
+                    name: "UG-1".into(),
+                    min_generation_mw: 0.0,
+                    max_generation_mw: 1.0,
+                    max_turbining_hm3: 1.0,
+                    startup_trajectory_mw: vec![],
+                    shutdown_trajectory_mw: vec![],
+                    min_up_time: 1,
+                    min_down_time: 1,
+                    startup_cost: 0.0,
+                    shutdown_cost: 0.0,
+                    initial_condition: HydroInitialCondition {
+                        is_on: false,
+                        generation_mw: 0.0,
+                        time_in_state: 1,
+                    },
+                }],
+            }],
+        });
+        system.operational_limits = vec![OperationalLimit {
+            target: OperationalLimitTarget::PumpingPlant(PumpingPlantId(1)),
+            plant_name: "USIE-1".into(),
+            variable: OperationalLimitVariable::Pumping,
+            start_period: 1,
+            end_period: 1,
+            lower_bound: None,
+            upper_bound: Some(100.0),
+        }];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+        let limit = model
+            .constraints
+            .operational_limits()
+            .into_iter()
+            .find(|constraint| constraint.name == "operational_limit_upper[p=USIE-1,var=QBOM,t=1]")
+            .expect("pumping operational limit should exist");
+        assert!((limit.rhs - 0.36).abs() < 1e-10);
+        assert!(
+            limit
+                .terms
+                .iter()
+                .any(|term| term.variable == "pumping[p=USIE-1,t=1]" && term.coefficient == 1.0)
+        );
+    }
+
+    #[test]
     fn builds_thermal_min_up_down_constraints_with_remaining_initial_on_time() {
         let mut system = build_system();
         system.horizon.periods = 4;
@@ -647,44 +921,49 @@ mod tests {
         system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0, 66.0];
         system.buses[0].demand_mw = vec![40.0, 42.0, 44.0, 46.0];
         system.buses[1].demand_mw = vec![60.0, 63.0, 66.0, 69.0];
-        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
-        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
+        system.renewable_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
+        system.renewable_plants[1].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0, 0.0];
         system.thermal_plants[0].units[0].min_up_time = 3;
         system.thermal_plants[0].units[0].min_down_time = 2;
         system.thermal_plants[0].units[0].initial_condition.is_on = true;
-        system.thermal_plants[0].units[0].initial_condition.time_in_state = 1;
+        system.thermal_plants[0].units[0]
+            .initial_condition
+            .time_in_state = 1;
 
         let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
         let thermal_limits = model.constraints.thermal_min_up_down();
 
-        assert!(thermal_limits
-            .iter()
-            .any(|constraint| constraint.name == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=1]"
-                && constraint.rhs == 1.0));
-        assert!(thermal_limits
-            .iter()
-            .any(|constraint| constraint.name == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=2]"
-                && constraint.rhs == 1.0));
+        assert!(thermal_limits.iter().any(|constraint| constraint.name
+            == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=1]"
+            && constraint.rhs == 1.0));
+        assert!(thermal_limits.iter().any(|constraint| constraint.name
+            == "thermal_initial_on_fix[p=UTE-1,u=GT-1,t=2]"
+            && constraint.rhs == 1.0));
 
         let first_ton = thermal_limits
             .iter()
             .find(|constraint| constraint.name == "thermal_min_up[p=UTE-1,u=GT-1,t=1]")
             .expect("first-period thermal minimum up constraint should exist");
-        assert_eq!(first_ton.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(
+            first_ton.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
         assert_eq!(first_ton.rhs, -3.0);
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -3.0));
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=2]" && term.coefficient == 1.0));
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=3]" && term.coefficient == 1.0));
+        assert!(
+            first_ton
+                .terms
+                .iter()
+                .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]"
+                    && term.coefficient == -3.0)
+        );
+        assert!(first_ton.terms.iter().any(|term| term.variable
+            == "thermal_on[p=UTE-1,u=GT-1,t=2]"
+            && term.coefficient == 1.0));
+        assert!(first_ton.terms.iter().any(|term| term.variable
+            == "thermal_on[p=UTE-1,u=GT-1,t=3]"
+            && term.coefficient == 1.0));
     }
 
     #[test]
@@ -695,44 +974,47 @@ mod tests {
         system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0, 66.0];
         system.buses[0].demand_mw = vec![40.0, 42.0, 44.0, 46.0];
         system.buses[1].demand_mw = vec![60.0, 63.0, 66.0, 69.0];
-        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
-        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
+        system.renewable_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0, 10.0];
+        system.renewable_plants[1].available_generation_mw = vec![8.0, 7.0, 6.0, 5.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0, 0.0];
         system.hydro_plants[0].groups[0].units[0].min_up_time = 3;
         system.hydro_plants[0].groups[0].units[0].min_down_time = 2;
-        system.hydro_plants[0].groups[0].units[0].initial_condition.is_on = true;
-        system.hydro_plants[0].groups[0].units[0].initial_condition.time_in_state = 1;
+        system.hydro_plants[0].groups[0].units[0]
+            .initial_condition
+            .is_on = true;
+        system.hydro_plants[0].groups[0].units[0]
+            .initial_condition
+            .time_in_state = 1;
 
         let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
         let hydro_limits = model.constraints.hydro_min_up_down();
 
-        assert!(hydro_limits
-            .iter()
-            .any(|constraint| constraint.name == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
-                && constraint.rhs == 1.0));
-        assert!(hydro_limits
-            .iter()
-            .any(|constraint| constraint.name == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
-                && constraint.rhs == 1.0));
+        assert!(hydro_limits.iter().any(|constraint| constraint.name
+            == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+            && constraint.rhs == 1.0));
+        assert!(hydro_limits.iter().any(|constraint| constraint.name
+            == "hydro_initial_on_fix[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+            && constraint.rhs == 1.0));
 
         let first_ton = hydro_limits
             .iter()
             .find(|constraint| constraint.name == "hydro_min_up[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
             .expect("first-period hydro minimum up constraint should exist");
-        assert_eq!(first_ton.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(
+            first_ton.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
         assert_eq!(first_ton.rhs, -3.0);
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=1]" && term.coefficient == -3.0));
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=2]" && term.coefficient == 1.0));
-        assert!(first_ton
-            .terms
-            .iter()
-            .any(|term| term.variable == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=3]" && term.coefficient == 1.0));
+        assert!(first_ton.terms.iter().any(|term| term.variable
+            == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
+            && term.coefficient == -3.0));
+        assert!(first_ton.terms.iter().any(|term| term.variable
+            == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
+            && term.coefficient == 1.0));
+        assert!(first_ton.terms.iter().any(|term| term.variable
+            == "hydro_on[p=UHE-1,g=CJ-1,u=UG-1,t=3]"
+            && term.coefficient == 1.0));
     }
 
     #[test]
@@ -743,9 +1025,10 @@ mod tests {
         system.submarkets[1].demand_mw = vec![60.0, 62.0, 64.0];
         system.buses[0].demand_mw = vec![40.0, 42.0, 44.0];
         system.buses[1].demand_mw = vec![60.0, 63.0, 66.0];
-        system.wind_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0];
-        system.solar_plants[0].available_generation_mw = vec![8.0, 7.0, 6.0];
+        system.renewable_plants[0].available_generation_mw = vec![10.0, 10.0, 10.0];
+        system.renewable_plants[1].available_generation_mw = vec![8.0, 7.0, 6.0];
         system.hydro_plants[0].natural_inflow_hm3 = vec![1.0, 1.0, 1.0];
+        system.hydro_plants[0].water_withdrawal_hm3 = vec![0.0, 0.0, 0.0];
         system.thermal_plants[0].units[0].startup_trajectory_mw = vec![20.0, 40.0];
         system.thermal_plants[0].units[0].shutdown_trajectory_mw = vec![40.0, 20.0];
 
@@ -758,41 +1041,41 @@ mod tests {
             .expect("first thermal transition constraint should exist");
         assert_eq!(first_transition.sense, constraints::ConstraintSense::Equal);
         assert_eq!(first_transition.rhs, 1.0);
-        assert!(first_transition
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
-        assert!(first_transition
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -1.0));
-        assert!(first_transition
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
+        assert!(first_transition.terms.iter().any(|term| term.variable
+            == "thermal_on[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == 1.0));
+        assert!(first_transition.terms.iter().any(|term| term.variable
+            == "thermal_startup[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == -1.0));
+        assert!(first_transition.terms.iter().any(|term| term.variable
+            == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == 1.0));
 
         let first_lower = ramps
             .iter()
             .find(|constraint| constraint.name == "thermal_ramp_lower[p=UTE-1,u=GT-1,t=1]")
             .expect("first thermal lower ramp constraint should exist");
-        assert_eq!(first_lower.sense, constraints::ConstraintSense::GreaterOrEqual);
+        assert_eq!(
+            first_lower.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
         assert_eq!(first_lower.rhs, 0.0);
-        assert!(first_lower
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_generation[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0));
-        assert!(first_lower
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -20.0));
-        assert!(first_lower
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 20.0));
-        assert!(first_lower
-            .terms
-            .iter()
-            .any(|term| term.variable == "thermal_startup[p=UTE-1,u=GT-1,t=1]" && term.coefficient == -20.0));
+        assert!(first_lower.terms.iter().any(|term| term.variable
+            == "thermal_generation[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == 1.0));
+        assert!(
+            first_lower
+                .terms
+                .iter()
+                .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]"
+                    && term.coefficient == -20.0)
+        );
+        assert!(first_lower.terms.iter().any(|term| term.variable
+            == "thermal_startup[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == 20.0));
+        assert!(first_lower.terms.iter().any(|term| term.variable
+            == "thermal_startup[p=UTE-1,u=GT-1,t=1]"
+            && term.coefficient == -20.0));
     }
 
     #[test]

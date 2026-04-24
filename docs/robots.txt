@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://labdessem-rs.dev/sitemap.xml

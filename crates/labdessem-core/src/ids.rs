@@ -19,5 +19,5 @@ define_id!(ThermalUnitId);
 define_id!(HydroPlantId);
 define_id!(HydroGroupId);
 define_id!(HydroUnitId);
-define_id!(WindPlantId);
-define_id!(SolarPlantId);
+define_id!(PumpingPlantId);
+define_id!(RenewablePlantId);
