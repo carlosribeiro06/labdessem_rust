@@ -73,6 +73,31 @@ impl IterationStage {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionOption {
+    Iterative,
+    SingleMilp,
+}
+
+impl ExecutionOption {
+    pub fn from_config_value(value: u8) -> Result<Self, SimulationError> {
+        match value {
+            1 => Ok(Self::Iterative),
+            2 => Ok(Self::SingleMilp),
+            other => Err(SimulationError::IterativeProcess(format!(
+                "opcao_execucao invalida: {other}. Use 1 para LP -> MILP -> LP-FIXED -> LP-CALC-CMO ou 2 para MILP unico"
+            ))),
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Iterative => "LP -> MILP -> LP-FIXED -> LP-CALC-CMO",
+            Self::SingleMilp => "MILP unico",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlowViolation {
     pub branch_id: BranchId,
@@ -144,8 +169,10 @@ pub struct OperationalLimitInfeasibilityRecord {
     pub period: usize,
     pub plant_code: usize,
     pub plant_name: String,
-    pub lower_violation_mw: f64,
-    pub upper_violation_mw: f64,
+    pub variable: OperationalLimitVariable,
+    pub unit: &'static str,
+    pub lower_violation: f64,
+    pub upper_violation: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -162,6 +189,24 @@ struct DcNetworkModel {
 }
 
 pub fn run_iterative_simulation(
+    system: &System,
+    network_enabled: bool,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    run_simulation(system, network_enabled, ExecutionOption::Iterative)
+}
+
+pub fn run_simulation(
+    system: &System,
+    network_enabled: bool,
+    execution_option: ExecutionOption,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    match execution_option {
+        ExecutionOption::Iterative => run_iterative_simulation_strategy(system, network_enabled),
+        ExecutionOption::SingleMilp => run_single_milp_simulation(system, network_enabled),
+    }
+}
+
+fn run_iterative_simulation_strategy(
     system: &System,
     network_enabled: bool,
 ) -> Result<IterativeSimulationResult, SimulationError> {
@@ -295,6 +340,77 @@ pub fn run_iterative_simulation(
         network_infeasibilities,
         operational_limit_infeasibilities,
     })
+}
+
+fn run_single_milp_simulation(
+    system: &System,
+    network_enabled: bool,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    let mut steps = Vec::new();
+    let mut network_infeasibilities = Vec::new();
+    let mut operational_limit_infeasibilities = Vec::new();
+
+    if network_enabled {
+        let dc_network = DcNetworkModel::from_system(system)?;
+        let accumulated_cuts = all_flow_constraints(system);
+        let (milp_summary, final_violations, _) = solve_stage(
+            system,
+            &dc_network,
+            SolveMode::MixedIntegerLinearProgramming,
+            &accumulated_cuts,
+            None,
+            IterationStage::MixedIntegerLinearProgramming,
+            1,
+            &mut steps,
+            &mut network_infeasibilities,
+            &mut operational_limit_infeasibilities,
+        )?;
+        let final_line_flows = compute_line_flows(system, &dc_network, &milp_summary);
+        let added_flow_cut_lines =
+            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+
+        return Ok(IterativeSimulationResult {
+            steps,
+            final_summary: milp_summary.clone(),
+            cmo_summary: milp_summary,
+            final_violations,
+            accumulated_flow_cuts: accumulated_cuts.len(),
+            final_line_flows,
+            added_flow_cut_lines,
+            network_infeasibilities,
+            operational_limit_infeasibilities,
+        });
+    }
+
+    let milp_summary = solve_stage_without_network(
+        system,
+        SolveMode::MixedIntegerLinearProgramming,
+        None,
+        IterationStage::MixedIntegerLinearProgramming,
+        1,
+        &mut steps,
+        &mut operational_limit_infeasibilities,
+    )?;
+
+    Ok(IterativeSimulationResult {
+        steps,
+        final_summary: milp_summary.clone(),
+        cmo_summary: milp_summary,
+        final_violations: Vec::new(),
+        accumulated_flow_cuts: 0,
+        final_line_flows: Vec::new(),
+        added_flow_cut_lines: Vec::new(),
+        network_infeasibilities: Vec::new(),
+        operational_limit_infeasibilities,
+    })
+}
+
+fn all_flow_constraints(system: &System) -> BTreeSet<FlowCutKey> {
+    (0..system.branches.len())
+        .flat_map(|branch_idx| {
+            (0..system.horizon.periods).map(move |period| FlowCutKey { branch_idx, period })
+        })
+        .collect()
 }
 
 fn run_simulation_without_network(
@@ -797,12 +913,14 @@ fn collect_operational_limit_infeasibilities(
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<OperationalLimitInfeasibilityRecord> {
-    let mut aggregated = BTreeMap::<(usize, usize, String), (f64, f64)>::new();
+    let mut aggregated =
+        BTreeMap::<(usize, usize, String, OperationalLimitVariable), (f64, f64)>::new();
 
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
             OperationalLimitTarget::ThermalPlant(id) => id.0,
             OperationalLimitTarget::HydroPlant(id) => id.0,
+            OperationalLimitTarget::PumpingPlant(id) => id.0,
         };
 
         for period in limit.start_period..=limit.end_period {
@@ -831,8 +949,12 @@ fn collect_operational_limit_infeasibilities(
                 continue;
             }
 
+            let lower_violation =
+                operational_limit_violation_for_output(system, limit.variable, lower_violation);
+            let upper_violation =
+                operational_limit_violation_for_output(system, limit.variable, upper_violation);
             let entry = aggregated
-                .entry((period, plant_code, limit.plant_name.clone()))
+                .entry((period, plant_code, limit.plant_name.clone(), limit.variable))
                 .or_insert((0.0, 0.0));
             entry.0 += lower_violation;
             entry.1 += upper_violation;
@@ -842,19 +964,50 @@ fn collect_operational_limit_infeasibilities(
     aggregated
         .into_iter()
         .map(
-            |((period, plant_code, plant_name), (lower_violation_mw, upper_violation_mw))| {
+            |((period, plant_code, plant_name, variable), (lower_violation, upper_violation))| {
                 OperationalLimitInfeasibilityRecord {
                     stage,
                     iteration,
                     period,
                     plant_code,
                     plant_name,
-                    lower_violation_mw,
-                    upper_violation_mw,
+                    variable,
+                    unit: operational_limit_output_unit(variable),
+                    lower_violation,
+                    upper_violation,
                 }
             },
         )
         .collect()
+}
+
+fn operational_limit_violation_for_output(
+    system: &System,
+    variable: OperationalLimitVariable,
+    violation: f64,
+) -> f64 {
+    match variable {
+        OperationalLimitVariable::Spillage
+        | OperationalLimitVariable::Defluence
+        | OperationalLimitVariable::Turbining
+        | OperationalLimitVariable::Diversion
+        | OperationalLimitVariable::Pumping => {
+            volume_hm3_to_flow_m3s(violation, system.horizon.period_duration_hours)
+        }
+        OperationalLimitVariable::Generation | OperationalLimitVariable::Volume => violation,
+    }
+}
+
+fn operational_limit_output_unit(variable: OperationalLimitVariable) -> &'static str {
+    match variable {
+        OperationalLimitVariable::Generation => "MW",
+        OperationalLimitVariable::Volume => "hm3",
+        OperationalLimitVariable::Spillage
+        | OperationalLimitVariable::Defluence
+        | OperationalLimitVariable::Turbining
+        | OperationalLimitVariable::Diversion
+        | OperationalLimitVariable::Pumping => "m3/s",
+    }
 }
 
 fn flow_terms_for_cut(
@@ -901,8 +1054,8 @@ fn flow_terms_for_cut(
         });
     }
 
-    for (entry_idx, entry) in model.indexing.wind_plant_entries.iter().enumerate() {
-        let plant = &system.wind_plants[entry.plant_idx];
+    for (entry_idx, entry) in model.indexing.renewable_plant_entries.iter().enumerate() {
+        let plant = &system.renewable_plants[entry.plant_idx];
         let Some(bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
             continue;
         };
@@ -911,24 +1064,7 @@ fn flow_terms_for_cut(
             continue;
         }
 
-        let variable = &model.variables.wind_generation[entry_idx * horizon + period];
-        terms.push(LinearTerm {
-            variable: variable.name.clone(),
-            coefficient,
-        });
-    }
-
-    for (entry_idx, entry) in model.indexing.solar_plant_entries.iter().enumerate() {
-        let plant = &system.solar_plants[entry.plant_idx];
-        let Some(bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
-            continue;
-        };
-        let coefficient = dc_network.ptdf_rows[branch_idx][*bus_pos];
-        if coefficient.abs() <= 1e-12 {
-            continue;
-        }
-
-        let variable = &model.variables.solar_generation[entry_idx * horizon + period];
+        let variable = &model.variables.renewable_generation[entry_idx * horizon + period];
         terms.push(LinearTerm {
             variable: variable.name.clone(),
             coefficient,
@@ -1130,30 +1266,14 @@ fn injections_by_period(
         }
     }
 
-    for plant in &system.wind_plants {
+    for plant in &system.renewable_plants {
         let Some(bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
             continue;
         };
 
         for period in 0..horizon {
             let variable_name =
-                renewable_generation_name("wind_generation", plant.name.as_str(), period);
-            injections[period][*bus_pos] += summary
-                .variable_values
-                .get(&variable_name)
-                .copied()
-                .unwrap_or(0.0);
-        }
-    }
-
-    for plant in &system.solar_plants {
-        let Some(bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
-            continue;
-        };
-
-        for period in 0..horizon {
-            let variable_name =
-                renewable_generation_name("solar_generation", plant.name.as_str(), period);
+                renewable_generation_name("renewable_generation", plant.name.as_str(), period);
             injections[period][*bus_pos] += summary
                 .variable_values
                 .get(&variable_name)
@@ -1428,8 +1548,7 @@ fn model_dimensions(model: &Model) -> (usize, usize) {
         + variables.pumping.len()
         + variables.hydro_volume.len()
         + variables.deficit.len()
-        + variables.wind_generation.len()
-        + variables.solar_generation.len()
+        + variables.renewable_generation.len()
         + variables.interchange.len()
         + variables.thermal_commitment.len()
         + variables.thermal_startup.len()
@@ -1477,26 +1596,7 @@ pub fn write_results_csvs(
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
         write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
     }
-    remove_obsolete_renewable_csvs(output_dir)?;
     write_renewable_csv(system, &result.final_summary, output_dir)?;
-
-    Ok(())
-}
-
-fn remove_obsolete_renewable_csvs(output_dir: &Path) -> Result<(), SimulationError> {
-    for file_name in ["resultado_eolicas.csv", "resultado_solares.csv"] {
-        let path = output_dir.join(file_name);
-        match fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(SimulationError::IterativeProcess(format!(
-                    "failed to remove obsolete output file {}: {error}",
-                    path.display()
-                )));
-            }
-        }
-    }
 
     Ok(())
 }
@@ -1539,7 +1639,7 @@ fn write_hydro_csv(
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
     let mut csv = csv_with_header(
-        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;GeracaoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
+        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
         &[
             ("Usina", "nome da usina hidreletrica"),
             (
@@ -1549,7 +1649,21 @@ fn write_hydro_csv(
             ("Unidade", "codigo da unidade; 99 indica agregado da usina"),
             ("Periodo", "periodo do horizonte de estudo"),
             ("VolumeHM3", "volume armazenado em hm3"),
+            ("VolumeUtilHM3", "volume util armazenado em hm3"),
+            ("VolumeUtilMaxHM3", "volume util maximo da usina em hm3"),
+            (
+                "VolumeUtilPct",
+                "volume util armazenado em percentual do volume util maximo",
+            ),
             ("GeracaoMW", "geracao hidreletrica em MW"),
+            (
+                "PmaxMW",
+                "potencia maxima cadastrada da unidade em MW; no agregado, soma das unidades",
+            ),
+            (
+                "GeracaoMaxPontoMW",
+                "capacidade maxima de geracao da usina com o volume do ponto de operacao, limitada por Pmax agregado e FPHA; preenchida apenas no agregado 99/99",
+            ),
             (
                 "StatusOn",
                 "fracao do periodo original em que a unidade ou agregado ficou ligado",
@@ -1560,6 +1674,14 @@ fn write_hydro_csv(
             ),
             ("TurbinamentoHM3", "turbinamento no periodo em hm3"),
             ("TurbinamentoM3s", "turbinamento medio no periodo em m3/s"),
+            (
+                "TurbinamentoMaxHM3",
+                "turbinamento maximo da unidade no periodo em hm3; no agregado, soma das unidades",
+            ),
+            (
+                "TurbinamentoMaxM3s",
+                "turbinamento maximo medio da unidade no periodo em m3/s; no agregado, soma das unidades",
+            ),
             ("VertimentoHM3", "vertimento no periodo em hm3"),
             ("VertimentoM3s", "vertimento medio no periodo em m3/s"),
             ("DesvioHM3", "vazao desviada no periodo em hm3"),
@@ -1612,6 +1734,14 @@ fn write_hydro_csv(
                 ))
                 .copied()
                 .unwrap_or(0.0);
+            let useful_volume_hm3 = volume - plant.reservoir.min_volume_hm3;
+            let max_useful_volume_hm3 =
+                plant.reservoir.max_volume_hm3 - plant.reservoir.min_volume_hm3;
+            let useful_volume_pct = if max_useful_volume_hm3.abs() <= 1e-8 {
+                0.0
+            } else {
+                100.0 * useful_volume_hm3 / max_useful_volume_hm3
+            };
             let spillage = sum_internal_values(&internal_periods, |period| {
                 summary
                     .variable_values
@@ -1651,6 +1781,22 @@ fn write_hydro_csv(
                     .unwrap_or(0.0)
             });
             let spillage_m3s = volume_hm3_to_flow_m3s(spillage, period_duration_hours);
+            let total_max_generation = plant
+                .groups
+                .iter()
+                .flat_map(|group| group.units.iter())
+                .map(|unit| unit.max_generation_mw)
+                .sum::<f64>();
+            let plant_generation_max_at_point =
+                average_internal_values(system, &internal_periods, |period| {
+                    hydro_generation_max_at_point_mw(
+                        system,
+                        summary,
+                        plant,
+                        period,
+                        total_max_generation,
+                    )
+                });
             let mut total_generation = 0.0;
             let mut total_turbining = 0.0;
             let mut total_status_fraction = 0.0;
@@ -1715,6 +1861,10 @@ fn write_hydro_csv(
                             .copied()
                             .unwrap_or(0.0)
                     });
+                    let unit_turbining_max_hm3 =
+                        unit.max_turbining_hm3 * internal_periods.len() as f64;
+                    let unit_turbining_max_m3s =
+                        volume_hm3_to_flow_m3s(unit_turbining_max_hm3, period_duration_hours);
                     let turbining_m3s = volume_hm3_to_flow_m3s(turbining, period_duration_hours);
                     total_generation += generation;
                     total_turbining += turbining;
@@ -1722,17 +1872,23 @@ fn write_hydro_csv(
                     unit_count += 1;
 
                     csv.push_str(&format!(
-                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
+                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};;{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                         plant.name,
                         group.id.0,
                         unit.id.0,
                         original_period,
                         volume,
+                        useful_volume_hm3,
+                        max_useful_volume_hm3,
+                        useful_volume_pct,
                         generation,
+                        unit.max_generation_mw,
                         status_on_fraction,
                         status_off_fraction,
                         turbining,
                         turbining_m3s,
+                        unit_turbining_max_hm3,
+                        unit_turbining_max_m3s,
                         spillage,
                         spillage_m3s,
                         diversion,
@@ -1752,6 +1908,15 @@ fn write_hydro_csv(
 
             let total_turbining_m3s =
                 volume_hm3_to_flow_m3s(total_turbining, period_duration_hours);
+            let total_turbining_max_hm3 = plant
+                .groups
+                .iter()
+                .flat_map(|group| group.units.iter())
+                .map(|unit| unit.max_turbining_hm3)
+                .sum::<f64>()
+                * internal_periods.len() as f64;
+            let total_turbining_max_m3s =
+                volume_hm3_to_flow_m3s(total_turbining_max_hm3, period_duration_hours);
             let aggregate_status_on = if unit_count == 0 {
                 0.0
             } else {
@@ -1759,15 +1924,22 @@ fn write_hydro_csv(
             };
             let aggregate_status_off = 1.0 - aggregate_status_on;
             csv.push_str(&format!(
-                "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
+                "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                 plant.name,
                 original_period,
                 volume,
+                useful_volume_hm3,
+                max_useful_volume_hm3,
+                useful_volume_pct,
                 total_generation,
+                total_max_generation,
+                plant_generation_max_at_point,
                 aggregate_status_on,
                 aggregate_status_off,
                 total_turbining,
                 total_turbining_m3s,
+                total_turbining_max_hm3,
+                total_turbining_max_m3s,
                 spillage,
                 spillage_m3s,
                 diversion,
@@ -1881,6 +2053,44 @@ fn hydro_total_turbining_hm3(
             })
         })
         .sum()
+}
+
+fn hydro_generation_max_at_point_mw(
+    system: &System,
+    summary: &SolveSummary,
+    plant: &labdessem_core::hydro::HydroPlant,
+    period: usize,
+    plant_max_generation_mw: f64,
+) -> f64 {
+    if plant.fpha_segments.is_empty() {
+        return plant_max_generation_mw;
+    }
+
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+    let volume = summary
+        .variable_values
+        .get(&hydro_volume_name(plant.name.as_str(), period + 1))
+        .copied()
+        .unwrap_or(0.0);
+    let max_turbining = plant
+        .groups
+        .iter()
+        .flat_map(|group| group.units.iter())
+        .map(|unit| unit.max_turbining_hm3)
+        .sum::<f64>();
+
+    let fpha_max_generation = plant
+        .fpha_segments
+        .iter()
+        .map(|segment| {
+            segment.correction_factor * segment.rhs
+                + segment.correction_factor * segment.volume_coefficient * volume
+                + segment.correction_factor * segment.turbining_coefficient / flow_conversion
+                    * max_turbining
+        })
+        .fold(f64::INFINITY, f64::min);
+
+    plant_max_generation_mw.min(fpha_max_generation).max(0.0)
 }
 
 fn write_process_iterations_csv(
@@ -2445,13 +2655,15 @@ fn write_operational_limit_infeasibility_csv(
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
     let mut csv = csv_with_header(
-        "Etapa;Iteracao;Periodo;CodigoUsina;NomeUsina;ViolacaoLinf;ViolacaoLsup",
+        "Etapa;Iteracao;Periodo;CodigoUsina;NomeUsina;Variavel;Unidade;ViolacaoLinf;ViolacaoLsup",
         &[
             ("Etapa", "etapa em que a violacao ocorreu"),
             ("Iteracao", "iteracao em que a violacao ocorreu"),
             ("Periodo", "periodo da violacao"),
             ("CodigoUsina", "codigo da usina associada ao limite"),
             ("NomeUsina", "nome da usina associada ao limite"),
+            ("Variavel", "variavel operacional violada"),
+            ("Unidade", "unidade das violacoes reportadas"),
             ("ViolacaoLinf", "violacao do limite inferior"),
             ("ViolacaoLsup", "violacao do limite superior"),
         ],
@@ -2459,14 +2671,16 @@ fn write_operational_limit_infeasibility_csv(
 
     for record in infeasibilities {
         csv.push_str(&format!(
-            "{};{};{};{};{};{:.6};{:.6}\n",
+            "{};{};{};{};{};{};{};{:.6};{:.6}\n",
             record.stage.label(),
             record.iteration,
             record.period,
             record.plant_code,
             record.plant_name,
-            record.lower_violation_mw,
-            record.upper_violation_mw
+            operational_limit_variable_label(record.variable),
+            record.unit,
+            record.lower_violation,
+            record.upper_violation
         ));
     }
 
@@ -2491,6 +2705,7 @@ fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<()
         let (plant_type, plant_code) = match limit.target {
             OperationalLimitTarget::ThermalPlant(id) => ("TERMICA", id.0),
             OperationalLimitTarget::HydroPlant(id) => ("HIDRAULICA", id.0),
+            OperationalLimitTarget::PumpingPlant(id) => ("ELEVATORIA", id.0),
         };
 
         let original_periods = (limit.start_period..=limit.end_period)
@@ -2549,7 +2764,7 @@ fn write_renewable_csv(
         ],
     );
 
-    for plant in &system.wind_plants {
+    for plant in &system.renewable_plants {
         let submarket_name = system
             .submarkets
             .iter()
@@ -2566,7 +2781,7 @@ fn write_renewable_csv(
                 summary
                     .variable_values
                     .get(&renewable_generation_name(
-                        "wind_generation",
+                        "renewable_generation",
                         plant.name.as_str(),
                         period,
                     ))
@@ -2797,6 +3012,8 @@ fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'sta
         OperationalLimitVariable::Volume => "VOL",
         OperationalLimitVariable::Defluence => "DEFLU",
         OperationalLimitVariable::Turbining => "TURB",
+        OperationalLimitVariable::Diversion => "QDES",
+        OperationalLimitVariable::Pumping => "QBOM",
     }
 }
 
@@ -2929,6 +3146,7 @@ mod tests {
                         is_on: false,
                         generation_mw: 0.0,
                         time_in_state: 1,
+                        time_in_ramp: 0,
                         is_ramping_up: false,
                         is_ramping_down: false,
                     },
@@ -2952,6 +3170,7 @@ mod tests {
                 natural_inflow_hm3: vec![100.0, 100.0],
                 water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 0.1,
+                turbining_cost_per_hm3: 0.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ1".into(),
@@ -2976,8 +3195,7 @@ mod tests {
                 }],
             }],
             pumping_plants: Vec::new(),
-            wind_plants: vec![],
-            solar_plants: vec![],
+            renewable_plants: vec![],
         }
     }
 

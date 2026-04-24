@@ -1,1 +1,354 @@
 PeriodoInicial;PeriodoFinal;CodigoUsina;NomeUsina;Variavel;Linf;Lsup
+I;F;108;Traicao; QBOM   ;     -     ;0
+I;F;109;Pedreira; QBOM   ;     -     ;0
+I;F;14; CACONDE      ;DEFLU;     -     ;600
+I;F;14; CACONDE      ;DEFLU;32;     -     
+I;F;16; A.S.OLIVEIRA  ;DEFLU;     -     ;550
+I;F;16; A.S.OLIVEIRA  ;DEFLU;19;     -     
+I;F;37; BARRA BONITA  ;DEFLU;     -     ;1300
+I;F;40; PROMISSAO     ;DEFLU;160;     -     
+I;F;40; PROMISSAO     ;DEFLU;     -     ;1400
+I;F;284; FERREIRA GOM  ;DEFLU;52.1;     -     
+I;F;185; BARRA BRAUNA  ;DEFLU;30;     -     
+I;F;249; OURINHOS      ;DEFLU;     -     ;2000
+25;48;103; FOZ CHAPECO   ;DEFLU;     -     ;1000
+I;F;110; ERNESTINA     ;DEFLU;     -     ;750
+I;F;111; PASSO REAL    ;DEFLU;     -     ;2400
+I;F;112; JACUI         ;DEFLU;     -     ;2400
+I;F;114; D. FRANCISCA  ;DEFLU;     -     ;1450
+I;F;114; D. FRANCISCA  ;DEFLU;100;     -     
+I;F;87; CANASTRA      ;DEFLU;0.25;     -     
+I;F;121; PARAIBUNA     ;DEFLU;     -     ;120
+I;F;121; PARAIBUNA     ;DEFLU;10;     -     
+I;F;46; P. PRIMAVERA  ;DEFLU;     -     ;24000
+I;F;46; P. PRIMAVERA  ;DEFLU;4600;     -     
+I;F;228; COLIDER       ;DEFLU;     -     ;1800
+I;F;73; JORDAO        ;DEFLU;10;     -     
+I;F;82; SALTO CAXIAS  ;DEFLU;     -     ;30000
+I;F;82; SALTO CAXIAS  ;DEFLU;200;     -     
+I;F;57; MAUA          ;DEFLU;     -     ;2400
+I;F;83; BAIXO IGUACU  ;DEFLU;350;     -     
+I;F;57; MAUA          ;DEFLU;58.8;     -     
+I;F;148; IRAPE         ;DEFLU;     -     ;2100
+I;F;192; GUILMAN-AMOR  ;DEFLU;     -     ;550
+I;F;193; SA CARVALHO   ;DEFLU;20;     -     
+I;F;193; SA CARVALHO   ;DEFLU;     -     ;550
+I;F;143; AIMORES       ;DEFLU;     -     ;7000
+I;F;24; EMBORCACAO    ;DEFLU;     -     ;5000
+I;F;1; CAMARGOS      ;DEFLU;34;     -     
+I;F;2; ITUTINGA      ;DEFLU;34;     -     
+I;F;2; ITUTINGA      ;DEFLU;     -     ;1170
+I;F;10; IGARAPAVA     ;DEFLU;     -     ;4500
+I;F;156; TRES MARIAS   ;DEFLU;150;     -     
+I;F;156; TRES MARIAS   ;DEFLU;150;     -     
+I;F;169; SOBRADINHO    ;DEFLU;800;     -     
+I;F;178; XINGO         ;DEFLU;1100;     -     
+I;F;162; QUEIMADO      ;DEFLU;8.8;     -     
+I;F;148; IRAPE         ;DEFLU;23.4;     -     
+I;F;10; IGARAPAVA     ;DEFLU;172;     -     
+I;F;28; CAPIM BRANC2  ;DEFLU;72;     -     
+I;F;1; CAMARGOS      ;DEFLU;     -     ;1000
+I;F;4; FUNIL-GRANDE  ;DEFLU;70;     -     
+I;F;143; AIMORES       ;DEFLU;80;     -     
+I;F;4; FUNIL-GRANDE  ;DEFLU;     -     ;1600
+I;F;162; QUEIMADO      ;DEFLU;     -     ;280
+I;F;134; SALTO GRANDE  ;DEFLU;12.71;     -     
+I;F;25; NOVA PONTE    ;DEFLU;55;     -     
+I;F;27; CAPIM BRANC1  ;DEFLU;72;     -     
+I;F;156; TRES MARIAS   ;DEFLU;     -     ;2000
+I;F;24; EMBORCACAO    ;DEFLU;48;     -     
+I;F;25; NOVA PONTE    ;DEFLU;     -     ;2732
+I;F;190; B. ESPERANCA  ;DEFLU;     -     ;1600
+I;F;190; B. ESPERANCA  ;DEFLU;240;     -     
+I;F;169; SOBRADINHO    ;DEFLU;     -     ;8000
+I;F;178; XINGO         ;DEFLU;     -     ;8000
+I;F;174; P.AFONSO 123  ;DEFLU;210;     -     
+I;F;178; XINGO         ;DEFLU;800;     -     
+I;F;169; SOBRADINHO    ;DEFLU;800;     -     
+I;F;139; CANDONGA      ;DEFLU;58;     -     
+I;F;135; P. ESTRELA    ;DEFLU;10;     -     
+I;F;135; P. ESTRELA    ;DEFLU;     -     ;2000
+I;F;29; CORUMBA IV    ;DEFLU;13.7;     -     
+I;F;204; CACH.CALDEIR  ;DEFLU;52.5;     -     
+I;F;144; MASCARENHAS   ;DEFLU;210;     -     
+I;F;261; LAJEADO       ;DEFLU;255;     -     
+I;F;277; BALBINA       ;DEFLU;     -     ;1400
+I;F;32; CACH.DOURADA  ;DEFLU;20;     -     
+I;F;32; CACH.DOURADA  ;DEFLU;     -     ;10000
+I;F;11; VOLTA GRANDE  ;DEFLU;     -     ;5000
+I;F;11; VOLTA GRANDE  ;DEFLU;178;     -     
+I;F;53; PARANAPANEMA  ;DEFLU;     -     ;1653
+I;F;26; MIRANDA       ;DEFLU;     -     ;3600
+I;F;9; JAGUARA       ;DEFLU;     -     ;4300
+I;F;77; SLT.SANTIAGO  ;DEFLU;     -     ;19000
+I;F;91; MACHADINHO    ;DEFLU;120;     -     
+I;F;9; JAGUARA       ;DEFLU;168;     -     
+I;F;267; ESTREITO TOC  ;DEFLU;744;     -     
+I;F;252; CANA BRAVA    ;DEFLU;90;     -     
+I;F;253; SAO SALVADOR  ;DEFLU;90;     -     
+I;F;26; MIRANDA       ;DEFLU;135;     -     
+I;F;92; ITA           ;DEFLU;150;     -     
+I;F;281; PONTE PEDRA   ;DEFLU;45;     -     
+I;F;78; SALTO OSORIO  ;DEFLU;60;     -     
+I;F;275; TUCURUI       ;DEFLU;2000;     -     
+I;F;102; PASSO S JOAO  ;DEFLU;43;     -     
+I;F;153; SAO DOMINGOS  ;DEFLU;102.22;     -     
+I;F;119; HENRY BORDEN  ;DEFLU;6;     -     
+I;F;118; BILLINGS      ;DEFLU;     -     ;0
+I;F;192; GUILMAN-AMOR  ;DEFLU;10;     -     
+I;F;257; PEIXE ANGIC   ;DEFLU;360;     -     
+I;F;103; FOZ CHAPECO   ;DEFLU;200;     -     
+I;F;95; QUEBRA QUEIX  ;DEFLU;110;     -     
+I;F;123; FUNIL         ;DEFLU;70;     -     
+I;F;30; CORUMBA I     ;DEFLU;120;     -     
+I;F;31; ITUMBIARA     ;DEFLU;     -     ;7000
+I;F;6; FURNAS        ;DEFLU;     -     ;4000
+I;F;7; M. DE MORAES  ;DEFLU;     -     ;4400
+I;F;8; ESTREITO      ;DEFLU;     -     ;4500
+I;F;12; P. COLOMBIA   ;DEFLU;     -     ;7000
+I;F;17; MARIMBONDO    ;DEFLU;     -     ;6000
+I;F;278; MANSO         ;DEFLU;     -     ;1550
+I;F;31; ITUMBIARA     ;DEFLU;70;     -     
+I;F;6; FURNAS        ;DEFLU;131;     -     
+I;F;7; M. DE MORAES  ;DEFLU;149;     -     
+I;F;8; ESTREITO      ;DEFLU;153;     -     
+I;F;12; P. COLOMBIA   ;DEFLU;189;     -     
+I;F;17; MARIMBONDO    ;DEFLU;312;     -     
+I;F;20; BATALHA       ;DEFLU;30.1;     -     
+I;F;120; JAGUARI       ;DEFLU;4;     -     
+I;F;120; JAGUARI       ;DEFLU;     -     ;60
+I;F;278; MANSO         ;DEFLU;80;     -     
+I;F;123; FUNIL         ;DEFLU;     -     ;700
+I;F;251; SERRA MESA    ;DEFLU;300;     -     
+I;F;101; SAO JOSE      ;DEFLU;43.8;     -     
+I;F;305; ITIQUIRA II   ;DEFLU;40;     -     
+I;F;285; JIRAU         ;DEFLU;3240;     -     
+I;F;122; SANTA BRANCA  ;DEFLU;     -     ;300
+I;F;124; LAJES         ;DEFLU;5.5;     -     
+I;F;133; P. PASSOS     ;DEFLU;120;     -     
+I;F;122; SANTA BRANCA  ;DEFLU;30;     -     
+I;F;133; P. PASSOS     ;DEFLU;     -     ;160
+I;F;154; ITAPEBI       ;DEFLU;40;     -     
+I;F;154; ITAPEBI       ;DEFLU;     -     ;660
+I;F;314; PIMENTAL      ;DEFLU;9861.22;10682.98
+I;F;251; SERRA MESA    ;DEFLU;100;     -     
+I;F;63; ROSANA        ;DEFLU;     -     ;24000
+I;F;46; P. PRIMAVERA  ;DEFLU;     -     ;24000
+I;F;49; CHAVANTES     ;DEFLU;85;     -     
+I;F;50; L.N. GARCEZ   ;DEFLU;127;     -     
+I;F;51; CANOAS II     ;DEFLU;130;     -     
+I;F;52; CANOAS I      ;DEFLU;137;     -     
+I;F;61; CAPIVARA      ;DEFLU;276;     -     
+I;F;62; TAQUARUCU     ;DEFLU;290;     -     
+I;F;63; ROSANA        ;DEFLU;     -     ;24000
+I;F;63; ROSANA        ;DEFLU;600;     -     
+I;F;47; A.A. LAYDNER  ;DEFLU;90;     -     
+I;F;49; CHAVANTES     ;DEFLU;125;     -     
+I;F;49; CHAVANTES     ;DEFLU;     -     ;460
+I;F;155; RETIRO BAIXO  ;DEFLU;27.67;     -     
+I;F;45; JUPIA         ;DEFLU;     -     ;16000
+I;F;34; I. SOLTEIRA   ;DEFLU;1450;     -     
+I;F;45; JUPIA         ;DEFLU;4000;     -     
+I;F;262; SALTO         ;DEFLU;29.13;     -     
+I;F;227; SINOP         ;DEFLU;173;     -     
+I;F;33; SAO SIMAO     ;DEFLU;     -     ;16000
+I;F;33; SAO SIMAO     ;DEFLU;450;     -     
+I;F;145; SUICA         ;DEFLU;1.7;     -     
+I;F;287; STO ANTONIO   ;DEFLU;3293;     -     
+I;F;88; SAO ROQUE     ;DEFLU;13.7;     -     
+I;F;189; P. CAVALO     ;DEFLU;     -     ;1500
+I;F;189; P. CAVALO     ;DEFLU;     -     ;42
+I;F;189; P. CAVALO     ;DEFLU;40;     -     
+I;F;126; PICADA        ;DEFLU;6.9;     -     
+I;F;241; SLT VERDINHO  ;DEFLU;29.13;     -     
+I;F;311; CACU          ;DEFLU;30;     -     
+I;F;312; B. COQUEIROS  ;DEFLU;30;     -     
+I;F;66; ITAIPU        ;DEFLU;7271;11046
+I;F;86; BARRA GRANDE  ;DEFLU;16;     -     
+I;F;314; PIMENTAL      ;DEFLU;5916;     -     
+I;F;314; PIMENTAL      ;DEFLU;4000;     -     
+I;F;125; STA CECILIA   ;DEFLU;71;71
+I;F;133; P. PASSOS     ;DEFLU;120;120
+I;F;180; TOCOS         ;DEFLU;0;0
+I;F;169; SOBRADINHO    ;DEFLU;     -     ;99999
+I;F;113; ITAUBA        ;DEFLU;     -     ;0
+I;F;180; TOCOS         ; QDES   ;0;25
+I;F;107; EDGARD SOUZA  ; QDES   ;     -     ;0
+I;F;73; JORDAO        ; QDES   ;0;67
+I;F;1; ANGRA 1       ;GER;460;460
+I;F;4; ST.CRUZ 34    ;GER;0;0
+I;F;12; CUIABA G CC   ;GER;0;490
+I;F;13; ANGRA 2       ;GER;1350;1350
+I;F;15; LINHARES      ;GER;0;240
+I;F;21; MARANHAO V    ;GER;0;     -     
+I;F;24; J.LACERDA C   ;GER;0;0
+I;F;25; J.LACERDA B   ;GER;220;220
+I;F;26; J.LACERDA A1  ;GER;40;     -     
+I;F;27; J.LACERDA A2  ;GER;100;110
+I;F;35; URUGUAIANA    ;GER;0;330
+I;F;36; MARANHAO IV   ;GER;0;     -     
+I;F;43; TERMOBAHIA    ;GER;165;170
+I;F;46; N.VENECIA 2   ;GER;0;265
+I;F;47; TERMORIO      ;GER;750;860
+I;F;48; ARAUCARIA     ;GER;0;484
+I;F;49; VIANA         ;GER;0;     -     
+I;F;52; CAMPINA GDE   ;GER;0;0
+I;F;53; GLOBAL I      ;GER;0;137
+I;F;54; JUIZ DE FORA  ;GER;84;87
+I;F;55; GLOBAL II     ;GER;0;137
+I;F;57; MARACANAU I   ;GER;0;0
+I;F;58; TERMOCEARA    ;GER;0;200
+I;F;60; NORTEFLU      ;GER;0;     -     
+I;F;62; SEROPEDICA    ;GER;360;360
+I;F;63; IBIRITE       ;GER;0;     -     
+I;F;64; CANOAS        ;GER;0;248.57
+I;F;67; TERMONE       ;GER;0;0
+I;F;68; TRES LAGOAS   ;GER;0;360
+I;F;69; TERMOPB       ;GER;0;0
+I;F;70; GERAMAR II    ;GER;0;159
+I;F;73; GERAMAR I     ;GER;0;159
+I;F;83; VALE DO ACU   ;GER;110;110
+I;F;86; ST.CRUZ NOVA  ;GER;0;500
+I;F;90; TERMOMACAE    ;GER;800;810
+I;F;96; TERMOPE       ;GER;0;550
+I;F;97; CUBATAO       ;GER;85;166
+I;F;98; PERNAMBU_III  ;GER;0;     -     
+I;F;106; ERB CANDEIAS  ;GER;0;12
+I;F;107; PAMPA SUL     ;GER;0;345
+I;F;108; XAVANTES      ;GER;0;0
+I;F;110; N.PIRATININ   ;GER;380;386
+I;F;116; PARNAIBA IV   ;GER;0;56
+I;F;137; GNA I         ;GER;0;1338.3
+I;F;140; MAUA 3        ;GER;264;264
+I;F;144; PETROLINA     ;GER;0;0
+I;F;146; STA VITORIA   ;GER;0;31
+I;F;147; PROSPERID. 1  ;GER;0;9
+I;F;149; SAO SEPE      ;GER;0;8
+I;F;151; POTIGUAR      ;GER;0;     -     
+I;F;152; TERMOCABO     ;GER;0;49
+I;F;153; DAIA          ;GER;0;0
+I;F;156; CANDIOTA 3    ;GER;320;350
+I;F;161; POTIGUAR III  ;GER;0;     -     
+I;F;162; PECEM II      ;GER;0;144
+I;F;163; P. PECEM II   ;GER;0;365
+I;F;167; P. PECEM I    ;GER;0;     -     
+I;F;170; SUAPE II      ;GER;0;381.26
+I;F;176; PORTO ITAQUI  ;GER;0;360
+I;F;182; PALMEIRAS GO  ;GER;0;0
+I;F;194; T.NORTE 2     ;GER;0;0
+I;F;201; APARECIDA     ;GER;95;120
+I;F;203; PORAQUE       ;GER;50;68
+I;F;204; JARAQUI       ;GER;50;63
+I;F;205; PIRARUCU      ;GER;66;67
+I;F;207; TUCUNARE      ;GER;66;67
+I;F;209; TAMBAQUI      ;GER;56;63
+I;F;211; BAIXADA FLU   ;GER;0;530
+I;F;212; MARANHAO III  ;GER;0;248
+I;F;223; PROSPERID. 3  ;GER;0;46
+I;F;224; P. SERGIPE I  ;GER;0;1593
+I;F;229; ONCA PINTADA  ;GER;30;50
+I;F;235; C. MURICY 2   ;GER;0;144
+I;F;236; MARLIM AZUL   ;GER;495;565
+I;F;238; GNA II        ;GER;0;     -     
+I;F;239; PARNAIBA V    ;GER;0;365
+I;F;241; PROSPERID. 2  ;GER;0;     -     
+I;F;245; KARKEY 013    ;GER;31;256
+I;F;246; KARKEY 019    ;GER;0;116
+I;F;248; PAULINIA      ;GER;0;0
+I;F;249; PORSUD I      ;GER;0;116
+I;F;250; PORSUD II     ;GER;0;78
+I;F;251; POVOACAO 1    ;GER;0;     -     
+I;F;253; VIANA 1       ;GER;0;37
+I;F;254; B. BONITA I   ;GER;0;0
+I;F;322; BBF BALIZA    ;GER;0;0
+I;F;323; BONFIM        ;GER;5;10
+I;F;324; CANTA         ;GER;5;10
+I;F;326; JAGUATIRICA   ;GER;0;126
+I;F;327; M.C. SUCUBA   ;GER;0;38
+I;F;328; PALMAPLAN     ;GER;0;     -     
+I;F;329; PAU RAINHA    ;GER;5;10
+I;F;330; SANTA LUZ     ;GER;5;10
+I;F;334; W ARJONA      ;GER;0;177
+I;F;383; ATLANTICO     ;GER;330;330
+I;F;434; W ARJONA 2    ;GER;0;0
+I;F;91; MACHADINHO    ;GER;220;380
+I;F;18; A. VERMELHA   ;TURB;800;     -     
+I;F;228; COLIDER       ;TURB;630;     -     
+I;F;115; G.P. SOUZA    ;TURB;2.4;     -     
+I;F;57; MAUA          ;TURB;     -     ;0
+I;F;119; HENRY BORDEN  ;TURB;     -     ;6
+I;F;229; TELES PIRES   ;TURB;390;     -     
+I;F;288; BELO MONTE    ;TURB;300;     -     
+I;F;178; XINGO         ;TURB;     -     ;1888
+I;F;89; GARIBALDI     ;TURB;116;     -     
+I;F;262; SALTO         ;TURB;79;     -     
+I;F;227; SINOP         ;TURB;413;     -     
+I;F;227; SINOP         ;TURB;1300;     -     
+I;F;33; SAO SIMAO     ;TURB;910;     -     
+I;F;287; STO ANTONIO   ;TURB;7104;     -     
+I;F;88; SAO ROQUE     ;TURB;56;     -     
+I;F;43; TRES IRMAOS   ;TURB;180;     -     
+I;F;48; PIRAJU        ;TURB;90;     -     
+I;F;91; MACHADINHO    ;TURB;250;     -     
+I;F;87; CANASTRA      ;TURB;     -     ;11.6
+I;F;278; MANSO         ;TURB;     -     ;271.92
+I;F;285; JIRAU         ;TURB;14014;     -     
+17;33;101; SAO JOSE      ;VERT;     -     ;9745
+I;F;126; PICADA        ;VERT;1;     -     
+I;F;46; P. PRIMAVERA  ;VERT;3;     -     
+I;F;46; P. PRIMAVERA  ;VERT;     -     ;38626
+I;F;37; BARRA BONITA  ;VERT;75;     -     
+I;F;40; PROMISSAO     ;VERT;160;     -     
+I;F;275; TUCURUI       ;VERT;     -     ;105212
+I;F;112; JACUI         ;VERT;30;     -     
+I;F;112; JACUI         ;VERT;     -     ;6926.47
+I;F;115; G.P. SOUZA    ;VERT;     -     ;140
+I;F;57; MAUA          ;VERT;18.8;     -     
+I;F;71; STA CLARA PR  ;VERT;6.47;     -     
+I;F;72; FUNDAO        ;VERT;6.92;     -     
+I;F;74; G.B. MUNHOZ   ;VERT;     -     ;0
+I;F;162; QUEIMADO      ;VERT;1;     -     
+I;F;143; AIMORES       ;VERT;16;     -     
+I;F;217; ROSAL         ;VERT;2.1;     -     
+I;F;27; CAPIM BRANC1  ;VERT;7;     -     
+I;F;27; CAPIM BRANC1  ;VERT;     -     ;880
+I;F;134; SALTO GRANDE  ;VERT;3.5;     -     
+I;F;97; CASTRO ALVES  ;VERT;17;     -     
+I;F;99; 14 DE JULHO   ;VERT;28.22;     -     
+I;F;98; MONTE CLARO   ;VERT;18.6;     -     
+I;F;215; SALTO PILAO   ;VERT;7.2;     -     
+I;F;175; P.AFONSO 4    ;VERT;     -     ;7500
+I;F;174; P.AFONSO 123  ;VERT;     -     ;14356
+I;F;195; JAURU         ;VERT;1;     -     
+I;F;286; STO ANT JARI  ;VERT;45;     -     
+I;F;90; CAMPOS NOVOS  ;VERT;     -     ;11167.5
+I;F;77; SLT.SANTIAGO  ;VERT;     -     ;17000
+I;F;9; JAGUARA       ;VERT;     -     ;12905
+I;F;26; MIRANDA       ;VERT;     -     ;6571
+I;F;276; RONDON II     ;VERT;8.5;     -     
+I;F;102; PASSO S JOAO  ;VERT;18;     -     
+I;F;153; SAO DOMINGOS  ;VERT;4.76;     -     
+I;F;192; GUILMAN-AMOR  ;VERT;0.8;     -     
+I;F;103; FOZ CHAPECO   ;VERT;75;     -     
+I;F;120; JAGUARI       ;VERT;     -     ;32
+I;F;12; P. COLOMBIA   ;VERT;     -     ;14222.22
+I;F;30; CORUMBA I     ;VERT;     -     ;5100
+I;F;8; ESTREITO      ;VERT;     -     ;10830
+I;F;196; GUAPORE       ;VERT;3;     -     
+I;F;181; SANTANA       ;VERT;     -     ;30
+I;F;47; A.A. LAYDNER  ;VERT;     -     ;0
+I;F;49; CHAVANTES     ;VERT;     -     ;0
+I;F;61; CAPIVARA      ;VERT;     -     ;0
+I;F;50; L.N. GARCEZ   ;VERT;     -     ;5638
+I;F;281; PONTE PEDRA   ;VERT;9.7;     -     
+I;F;89; GARIBALDI     ;VERT;13;     -     
+I;F;227; SINOP         ;VERT;     -     ;0
+I;F;287; STO ANTONIO   ;VERT;40;     -     
+I;F;127; SOBRAGI       ;VERT;2;     -     
+I;F;310; DARDANELOS    ;VERT;21;     -     
+I;F;228; COLIDER       ;VERT;     -     ;1600
+I;F;288; BELO MONTE    ;VERT;     -     ;0
+I;F;121; PARAIBUNA     ;VOL;1054.4;     -     
+I;F;122; SANTA BRANCA  ;VOL;123.2;     -     
+I;F;120; JAGUARI       ;VOL;396.5;     -     
+I;F;123; FUNIL         ;VOL;181.5;     -     

@@ -8,6 +8,7 @@ pub struct ThermalInitialCondition {
     pub is_on: bool,
     pub generation_mw: f64,
     pub time_in_state: usize,
+    pub time_in_ramp: usize,
     pub is_ramping_up: bool,
     pub is_ramping_down: bool,
 }
@@ -133,7 +134,7 @@ impl ThermalUnit {
             self.id,
             "startup",
             &self.startup_trajectory_mw,
-            self.initial_condition.time_in_state,
+            self.initial_condition.time_in_ramp,
             self.initial_condition.generation_mw,
         )
     }
@@ -143,7 +144,7 @@ impl ThermalUnit {
             self.id,
             "shutdown",
             &self.shutdown_trajectory_mw,
-            self.initial_condition.time_in_state,
+            self.initial_condition.time_in_ramp,
             self.initial_condition.generation_mw,
         )
     }
@@ -153,7 +154,7 @@ fn remaining_trajectory_from_time_in_state(
     unit_id: ThermalUnitId,
     trajectory_name: &str,
     trajectory: &[f64],
-    time_in_state: usize,
+    time_in_ramp: usize,
     generation_mw: f64,
 ) -> Result<Vec<f64>, CoreError> {
     if trajectory.is_empty() {
@@ -163,29 +164,29 @@ fn remaining_trajectory_from_time_in_state(
         )));
     }
 
-    if time_in_state == 0 {
+    if time_in_ramp == 0 {
         return Err(CoreError::validation(format!(
-            "thermal unit {:?} is marked in {} trajectory but has zero time in state",
+            "thermal unit {:?} is marked in {} trajectory but has zero initial ramp time",
             unit_id, trajectory_name
         )));
     }
 
-    if time_in_state > trajectory.len() {
+    if time_in_ramp > trajectory.len() {
         return Err(CoreError::validation(format!(
-            "thermal unit {:?} time in state {} exceeds {} trajectory length {}",
+            "thermal unit {:?} initial ramp time {} exceeds {} trajectory length {}",
             unit_id,
-            time_in_state,
+            time_in_ramp,
             trajectory_name,
             trajectory.len()
         )));
     }
 
-    let current_step_idx = time_in_state - 1;
+    let current_step_idx = time_in_ramp - 1;
     let expected_generation = trajectory[current_step_idx];
     if (expected_generation - generation_mw).abs() > 1e-6 {
         return Err(CoreError::validation(format!(
             "thermal unit {:?} initial generation {} is inconsistent with {} trajectory step {} ({})",
-            unit_id, generation_mw, trajectory_name, time_in_state, expected_generation
+            unit_id, generation_mw, trajectory_name, time_in_ramp, expected_generation
         )));
     }
 

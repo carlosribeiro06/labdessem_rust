@@ -1,1 +1,3666 @@
-Codigo;Nome;Submercado
+Codigo;Nome;Barra;Submercado
+1; 5G263  _MMGD ;0; SE      
+2; 5G266  _MMGD ;0; SE      
+3; 5G271  _MMGD ;0; SE      
+4; 5G272  _MMGD ;0; SE      
+5; 5G273  _MMGD ;0; SE      
+6; 5G274  _MMGD ;0; SE      
+7; 5G275  _MMGD ;0; SE      
+8; 5G276  _MMGD ;0; SE      
+9; A3CICL _Cicl ;0; SE      
+10; 5G281  _MMGD ;0; SE      
+11; 5G282  _MMGD ;0; SE      
+12; 5G285  _MMGD ;0; SE      
+13; 5G287  _MMGD ;0; SE      
+14; 5G288  _MMGD ;0; SE      
+15; 5G289  _MMGD ;0; SE      
+16; 5G293  _MMGD ;0; SE      
+17; 5G294  _MMGD ;0; SE      
+18; 5G295  _MMGD ;0; SE      
+19; 5G307  _MMGD ;0; SE      
+20; 5G309  _MMGD ;0; SE      
+21; 5G318  _MMGD ;0; SE      
+22; 5G321  _MMGD ;0; SE      
+23; 5G322  _MMGD ;0; SE      
+24; 5G337  _MMGD ;0; SE      
+25; 5G340  _MMGD ;0; SE      
+26; 5G342  _MMGD ;0; SE      
+27; 5G348  _MMGD ;0; SE      
+28; A2ALTO _ALTO ;0; SE      
+29; A2BPC  _Barr ;0; SE      
+30; A2BREA _BREJ ;0; SE      
+31; A2CEDR _CEDR ;0; SE      
+32; A2CGR  _CORR ;0; SE      
+33; A2FUIL _FUNI ;0; SE      
+34; 5G353  _MMGD ;0; SE      
+35; 5G362  _MMGD ;0; SE      
+36; 5G382  _MMGD ;0; SE      
+37; 5G392  _MMGD ;0; SE      
+38; 5G399  _MMGD ;0; SE      
+39; GTCUFG _CJGU ;0; SE      
+40; A6UDM  _CJ D ;0; SE      
+41; 5G759  _MMGD ;0; SE      
+42; 5G762  _MMGD ;0; SE      
+43; 5G764  _MMGD ;0; SE      
+44; 5G767  _MMGD ;0; SE      
+45; 5G768  _MMGD ;0; SE      
+46; 5G769  _MMGD ;0; SE      
+47; 5G772  _MMGD ;0; SE      
+48; 5G775  _MMGD ;0; SE      
+49; 5G776  _MMGD ;0; SE      
+50; 5G777  _MMGD ;0; SE      
+51; 5G778  _MMGD ;0; SE      
+52; 5G782  _MMGD ;0; SE      
+53; 5G783  _MMGD ;0; SE      
+54; 5G784  _MMGD ;0; SE      
+55; 5G786  _MMGD ;0; SE      
+56; 5G791  _MMGD ;0; SE      
+57; 5G796  _MMGD ;0; SE      
+58; 5G797  _MMGD ;0; SE      
+59; 5G798  _MMGD ;0; SE      
+60; 5G826  _MMGD ;0; S       
+61; 5G828  _MMGD ;0; S       
+62; 5G832  _MMGD ;0; S       
+63; 5G833  _MMGD ;0; S       
+64; 5G835  _MMGD ;0; S       
+65; 5G836  _MMGD ;0; S       
+66; 5G838  _MMGD ;0; S       
+67; 5G840  _MMGD ;0; S       
+68; 5G841  _MMGD ;0; S       
+69; 5G842  _MMGD ;0; S       
+70; 5G844  _MMGD ;0; S       
+71; 5G845  _MMGD ;0; S       
+72; 5G847  _MMGD ;0; S       
+73; D2JMF  _Artu ;0; S       
+74; 5G849  _MMGD ;0; S       
+75; 5G850  _MMGD ;0; S       
+76; 5G851  _MMGD ;0; S       
+77; 5G853  _MMGD ;0; S       
+78; 5G854  _MMGD ;0; S       
+79; 5G855  _MMGD ;0; S       
+80; 5G857  _MMGD ;0; S       
+81; 5G858  _MMGD ;0; S       
+82; 5G859  _MMGD ;0; S       
+83; 5G861  _MMGD ;0; S       
+84; 5G862  _MMGD ;0; S       
+85; 5G863  _MMGD ;0; S       
+86; 5G864  _MMGD ;0; S       
+87; 5G865  _MMGD ;0; S       
+88; 5G866  _MMGD ;0; S       
+89; 5G867  _MMGD ;0; S       
+90; 5G869  _MMGD ;0; S       
+91; 5G870  _MMGD ;0; S       
+92; 5G871  _MMGD ;0; S       
+93; 5G874  _MMGD ;0; S       
+94; 5G875  _MMGD ;0; S       
+95; 5G879  _MMGD ;0; S       
+96; 5G880  _MMGD ;0; S       
+97; 5G881  _MMGD ;0; S       
+98; 5G882  _MMGD ;0; S       
+99; 5G883  _MMGD ;0; S       
+100; 5G885  _MMGD ;0; S       
+101; 5G887  _MMGD ;0; S       
+102; 5G888  _MMGD ;0; S       
+103; 5G890  _MMGD ;0; S       
+104; 5G892  _MMGD ;0; S       
+105; 5G893  _MMGD ;0; S       
+106; 5G894  _MMGD ;0; S       
+107; 5G899  _MMGD ;0; S       
+108; 5G948  _MMGD ;0; S       
+109; D4MOIO _Moin ;0; S       
+110; D4OURO _Ouro ;0; S       
+111; D5TUPI _Tupi ;0; S       
+112; 5G967  _MMGD ;0; S       
+113; D4ALTG _Alto ;0; S       
+114; D4MARU _Maru ;0; S       
+115; COUHMP _PCH  ;0; S       
+116; 5G986  _MMGD ;0; S       
+117; D4NOVA _Nova ;0; S       
+118; D4TUBR _Tuba ;0; S       
+119; D5TUBA _Tuba ;0; S       
+120; 5G1014 _MMGD ;0; SE      
+121; 5G1019 _MMGD ;0; SE      
+122; 5G1023 _MMGD ;0; S       
+123; 5G1024 _MMGD ;0; S       
+124; 5G1035 _MMGD ;0; S       
+125; 5G1039 _MMGD ;0; S       
+126; 5G1042 _MMGD ;0; S       
+127; 5G1052 _MMGD ;0; S       
+128; 5G1062 _MMGD ;0; S       
+129; 5G1093 _MMGD ;0; SE      
+130; 5G1121 _MMGD ;0; SE      
+131; 5G1128 _MMGD ;0; SE      
+132; 5G1129 _MMGD ;0; SE      
+133; 5G1130 _MMGD ;0; SE      
+134; 5G1131 _MMGD ;0; SE      
+135; 5G1132 _MMGD ;0; SE      
+136; 5G1133 _MMGD ;0; SE      
+137; 5G1134 _MMGD ;0; SE      
+138; 5G1135 _MMGD ;0; SE      
+139; 5G1136 _MMGD ;0; SE      
+140; 5G1138 _MMGD ;0; SE      
+141; 5G1139 _MMGD ;0; SE      
+142; 5G1140 _MMGD ;0; SE      
+143; 5G1141 _MMGD ;0; S       
+144; 5G1142 _MMGD ;0; SE      
+145; 5G1144 _MMGD ;0; SE      
+146; 5G1145 _MMGD ;0; SE      
+147; 5G1146 _MMGD ;0; SE      
+148; 5G1147 _MMGD ;0; SE      
+149; 5G1148 _MMGD ;0; SE      
+150; 5G1182 _MMGD ;0; S       
+151; 5G1185 _MMGD ;0; S       
+152; 5G1187 _MMGD ;0; S       
+153; 5G1189 _MMGD ;0; S       
+154; 5G1195 _MMGD ;0; S       
+155; 5G1196 _MMGD ;0; S       
+156; 5G1197 _MMGD ;0; S       
+157; 5G1201 _MMGD ;0; S       
+158; 5G1205 _MMGD ;0; S       
+159; 5G1207 _MMGD ;0; S       
+160; 5G1208 _MMGD ;0; S       
+161; 5G1214 _MMGD ;0; S       
+162; 5G1220 _MMGD ;0; S       
+163; 5G1221 _MMGD ;0; S       
+164; 5G1226 _MMGD ;0; S       
+165; 5G1229 _MMGD ;0; S       
+166; 5G1232 _MMGD ;0; S       
+167; 5G1235 _MMGD ;0; S       
+168; 5G1240 _MMGD ;0; S       
+169; 5G1245 _MMGD ;0; S       
+170; 5G1251 _MMGD ;0; S       
+171; 5G1253 _MMGD ;0; S       
+172; 5G1266 _MMGD ;0; S       
+173; 5G1269 _MMGD ;0; S       
+174; 5G1271 _MMGD ;0; S       
+175; 5G1277 _MMGD ;0; S       
+176; 5G1279 _MMGD ;0; S       
+177; 5G1282 _MMGD ;0; S       
+178; 5G1284 _MMGD ;0; S       
+179; 5G1285 _MMGD ;0; S       
+180; BCPCPM _CJLA ;0; S       
+181; 5G1289 _MMGD ;0; S       
+182; 5G1290 _MMGD ;0; S       
+183; 5G1292 _MMGD ;0; S       
+184; 5G1295 _MMGD ;0; S       
+185; 5G1298 _MMGD ;0; S       
+186; 5G1304 _MMGD ;0; S       
+187; 5G1305 _MMGD ;0; S       
+188; 5G1306 _MMGD ;0; S       
+189; 5G1309 _MMGD ;0; S       
+190; 5G1310 _MMGD ;0; S       
+191; 5G1311 _MMGD ;0; S       
+192; 5G1314 _MMGD ;0; S       
+193; 5G1324 _MMGD ;0; S       
+194; 5G1328 _MMGD ;0; S       
+195; D3COOP _Coop ;0; S       
+196; 5G1331 _MMGD ;0; S       
+197; D3RFAP _REFA ;0; S       
+198; 5G1343 _MMGD ;0; S       
+199; D3MERC _Merc ;0; S       
+200; 3RUECI _CIDR ;0; S       
+201; 5G1352 _MMGD ;0; S       
+202; 5G1360 _MMGD ;0; S       
+203; 5G1362 _MMGD ;0; S       
+204; EFLBA  _CJLB ;0; S       
+205; EFLBA  _CJLB ;0; S       
+206; EFLBA  _CJLB ;0; S       
+207; D3SALT _Salt ;0; S       
+208; 5G1387 _MMGD ;0; S       
+209; 5G1388 _MMGD ;0; S       
+210; 5G1389 _MMGD ;0; S       
+211; 5G1393 _MMGD ;0; SE      
+212; 5G1397 _MMGD ;0; SE      
+213; 5G1398 _MMGD ;0; SE      
+214; 5G1399 _MMGD ;0; SE      
+215; 5G1474 _MMGD ;0; SE      
+216; 5G1477 _MMGD ;0; SE      
+217; 5G1478 _MMGD ;0; SE      
+218; 5G1480 _MMGD ;0; SE      
+219; 5G1481 _MMGD ;0; SE      
+220; A2ENER _ENER ;0; SE      
+221; A5UTVP _Bioe ;0; SE      
+222; 5G1484 _MMGD ;0; SE      
+223; 5G1485 _MMGD ;0; SE      
+224; 5G1486 _MMGD ;0; SE      
+225; 5G1487 _MMGD ;0; SE      
+226; 5G1488 _MMGD ;0; SE      
+227; 5G1489 _MMGD ;0; SE      
+228; 5G1491 _MMGD ;0; SE      
+229; 5G1492 _MMGD ;0; SE      
+230; 5G1493 _MMGD ;0; SE      
+231; A2CRIS _CRIS ;0; SE      
+232; A2LDAS _Luiz ;0; SE      
+233; A2NINH _NINH ;0; SE      
+234; A5REPI _REDE ;0; SE      
+235; 5G1506 _MMGD ;0; SE      
+236; 5G1508 _MMGD ;0; SE      
+237; 5G1509 _MMGD ;0; SE      
+238; 5G1510 _MMGD ;0; SE      
+239; 5G1512 _MMGD ;0; SE      
+240; 5G1513 _MMGD ;0; SE      
+241; 5G1516 _MMGD ;0; SE      
+242; 5G1519 _MMGD ;0; SE      
+243; 5G1521 _MMGD ;0; SE      
+244; 5G1524 _MMGD ;0; SE      
+245; 5G1526 _MMGD ;0; SE      
+246; 5G1527 _MMGD ;0; SE      
+247; 5G1528 _MMGD ;0; SE      
+248; 5G1532 _MMGD ;0; SE      
+249; A2ANTO _ANTO ;0; SE      
+250; A2CGR1 _COCA ;0; SE      
+251; A2CGR2 _COCA ;0; SE      
+252; 5G1533 _MMGD ;0; SE      
+253; 5G1536 _MMGD ;0; SE      
+254; A5SAOG _SAO  ;0; SE      
+255; 5G1538 _MMGD ;0; SE      
+256; 5G1539 _MMGD ;0; SE      
+257; 5G1540 _MMGD ;0; SE      
+258; 5G1541 _MMGD ;0; SE      
+259; 5G1542 _MMGD ;0; SE      
+260; 5G1543 _MMGD ;0; SE      
+261; 5G1544 _MMGD ;0; SE      
+262; 5G1546 _MMGD ;0; SE      
+263; 5G1548 _MMGD ;0; SE      
+264; 5G1549 _MMGD ;0; SE      
+265; 5G1550 _MMGD ;0; SE      
+266; 5G1551 _MMGD ;0; SE      
+267; 5G1552 _MMGD ;0; SE      
+268; 5G1553 _MMGD ;0; SE      
+269; 5G1554 _MMGD ;0; SE      
+270; 5G1555 _MMGD ;0; SE      
+271; 5G1556 _MMGD ;0; SE      
+272; 5G1557 _MMGD ;0; SE      
+273; 5G1558 _MMGD ;0; SE      
+274; 5G1561 _MMGD ;0; SE      
+275; 5G1564 _MMGD ;0; SE      
+276; 5G1565 _MMGD ;0; SE      
+277; A2CABC _CABO ;0; SE      
+278; A2CACA _CACH ;0; SE      
+279; A2FUMA _FUMA ;0; SE      
+280; A2FUNL _FUNI ;0; SE      
+281; A2FURQ _FURQ ;0; SE      
+282; A5SALT _SALT ;0; SE      
+283; A2GABR _GABR ;0; SE      
+284; 5G1570 _MMGD ;0; SE      
+285; A2FARA _FARI ;0; SE      
+286; A5PTGS _PITA ;0; SE      
+287; 5G1572 _MMGD ;0; SE      
+288; 5G1573 _MMGD ;0; SE      
+289; 5G1577 _MMGD ;0; SE      
+290; 5G1578 _MMGD ;0; SE      
+291; 5G1579 _MMGD ;0; SE      
+292; 5G1580 _MMGD ;0; SE      
+293; 5G1581 _MMGD ;0; SE      
+294; 5G1582 _MMGD ;0; SE      
+295; 5G1583 _MMGD ;0; SE      
+296; 5G1587 _MMGD ;0; SE      
+297; 5G1588 _MMGD ;0; SE      
+298; 5G1600 _MMGD ;0; SE      
+299; 5G1601 _MMGD ;0; SE      
+300; 5G1602 _MMGD ;0; SE      
+301; 5G1605 _MMGD ;0; SE      
+302; 5G1608 _MMGD ;0; SE      
+303; 5G1610 _MMGD ;0; SE      
+304; 5G1612 _MMGD ;0; SE      
+305; 5G1617 _MMGD ;0; SE      
+306; 5G1618 _MMGD ;0; SE      
+307; 5G1621 _MMGD ;0; SE      
+308; 5G1625 _MMGD ;0; SE      
+309; 5G1627 _MMGD ;0; SE      
+310; 5G1629 _MMGD ;0; SE      
+311; 5G1630 _MMGD ;0; SE      
+312; 5G1631 _MMGD ;0; SE      
+313; 5G1632 _MMGD ;0; SE      
+314; 5G1635 _MMGD ;0; SE      
+315; 5G1636 _MMGD ;0; SE      
+316; 5G1637 _MMGD ;0; SE      
+317; 5G1638 _MMGD ;0; SE      
+318; 5G1639 _MMGD ;0; SE      
+319; 5G1640 _MMGD ;0; SE      
+320; 5G1641 _MMGD ;0; SE      
+321; 5G1642 _MMGD ;0; SE      
+322; 5G1643 _MMGD ;0; SE      
+323; 5G1645 _MMGD ;0; SE      
+324; 5G1647 _MMGD ;0; SE      
+325; 5G1650 _MMGD ;0; SE      
+326; 5G1654 _MMGD ;0; SE      
+327; 5G1655 _MMGD ;0; SE      
+328; 5G1660 _MMGD ;0; SE      
+329; 5G1668 _MMGD ;0; SE      
+330; 5G1669 _MMGD ;0; SE      
+331; 5G1678 _MMGD ;0; SE      
+332; 5G1679 _MMGD ;0; SE      
+333; 5G1682 _MMGD ;0; SE      
+334; 5G1683 _MMGD ;0; SE      
+335; 5G1692 _MMGD ;0; SE      
+336; 5G1693 _MMGD ;0; SE      
+337; 5G1695 _MMGD ;0; SE      
+338; 5G1696 _MMGD ;0; SE      
+339; 5G1697 _MMGD ;0; SE      
+340; A3ARL  _AREA ;0; SE      
+341; A3FAG  _Fagu ;0; SE      
+342; A3PIB  _Piab ;0; SE      
+343; A3MBU1 _Maca ;0; SE      
+344; 5G1705 _MMGD ;0; SE      
+345; 5G1706 _MMGD ;0; SE      
+346; 5G1707 _MMGD ;0; SE      
+347; A3CALH _CALH ;0; SE      
+348; 5G1712 _MMGD ;0; SE      
+349; 5G1715 _MMGD ;0; SE      
+350; 5G1719 _MMGD ;0; SE      
+351; 5G1722 _MMGD ;0; SE      
+352; 5G1725 _MMGD ;0; SE      
+353; 5G1729 _MMGD ;0; SE      
+354; 5G1730 _MMGD ;0; SE      
+355; 5G1731 _MMGD ;0; SE      
+356; 5G1732 _MMGD ;0; SE      
+357; 5G1733 _MMGD ;0; SE      
+358; 5G1734 _MMGD ;0; SE      
+359; 5G1736 _MMGD ;0; SE      
+360; 5G1737 _MMGD ;0; SE      
+361; 5G1738 _MMGD ;0; SE      
+362; 5G1740 _MMGD ;0; SE      
+363; 5G1742 _MMGD ;0; SE      
+364; 5G1744 _MMGD ;0; SE      
+365; A3CANA _CANA ;0; SE      
+366; 5G1750 _MMGD ;0; SE      
+367; A3TUD  _TUDE ;0; SE      
+368; 5G1754 _MMGD ;0; SE      
+369; 5G1759 _MMGD ;0; SE      
+370; 5G1762 _MMGD ;0; SE      
+371; 5G1764 _MMGD ;0; SE      
+372; 5G1766 _MMGD ;0; SE      
+373; A3STRD _Sant ;0; SE      
+374; 5G1770 _MMGD ;0; SE      
+375; 5G1771 _MMGD ;0; SE      
+376; 5G1773 _MMGD ;0; SE      
+377; 5G1774 _MMGD ;0; SE      
+378; 5G1780 _MMGD ;0; SE      
+379; 5G1789 _MMGD ;0; SE      
+380; 5G1790 _MMGD ;0; SE      
+381; A3PIRA _PIRA ;0; SE      
+382; 5G1793 _MMGD ;0; SE      
+383; 5G1823 _MMGD ;0; S       
+384; 5G1825 _MMGD ;0; SE      
+385; 5G1841 _MMGD ;0; SE      
+386; 5G1842 _MMGD ;0; SE      
+387; 5G1843 _MMGD ;0; SE      
+388; 5G1844 _MMGD ;0; SE      
+389; 5G1845 _MMGD ;0; SE      
+390; 5G1846 _MMGD ;0; SE      
+391; 5G1847 _MMGD ;0; S       
+392; 5G1854 _MMGD ;0; SE      
+393; 5G1855 _MMGD ;0; SE      
+394; 5G1856 _MMGD ;0; SE      
+395; 5G1857 _MMGD ;0; SE      
+396; D1PAS  _PARA ;0; SE      
+397; D1REVH _RETI ;0; SE      
+398; D1UASU _Alto ;0; SE      
+399; D1BURI _Buri ;0; SE      
+400; D1UPPD _Port ;0; SE      
+401; 5G1886 _MMGD ;0; SE      
+402; 5G1891 _MMGD ;0; SE      
+403; 5G1892 _MMGD ;0; SE      
+404; VOVOT2 _CJT  ;0; SE      
+405; D3UBUG _Bugr ;0; S       
+406; D3UPIN _Pass ;0; S       
+407; D3UTOC _Toca ;0; S       
+408; 5G2053 _MMGD ;0; S       
+409; 5G2055 _MMGD ;0; S       
+410; 5G2056 _MMGD ;0; S       
+411; 5G2065 _MMGD ;0; S       
+412; D3ABNA _Abau ;0; S       
+413; D3ENER _Ener ;0; S       
+414; 5G2070 _MMGD ;0; S       
+415; 5G2079 _MMGD ;0; S       
+416; 5G2081 _MMGD ;0; S       
+417; 5G2083 _MMGD ;0; S       
+418; 5G2087 _MMGD ;0; S       
+419; D3BIOR _Biot ;0; S       
+420; D3CACH _Cach ;0; S       
+421; D3RINO _Rinc ;0; S       
+422; 5G2088 _MMGD ;0; S       
+423; 5G2090 _MMGD ;0; S       
+424; 5G2094 _MMGD ;0; S       
+425; 5G2099 _MMGD ;0; S       
+426; 5G2100 _MMGD ;0; SE      
+427; A6UGP  _Gavi ;0; SE      
+428; A4UAM  _Amer ;0; SE      
+429; A6USP  _Pinh ;0; SE      
+430; 5G2104 _MMGD ;0; SE      
+431; 5G2105 _MMGD ;0; SE      
+432; 5G2106 _MMGD ;0; SE      
+433; 5G2107 _MMGD ;0; SE      
+434; 5G2108 _MMGD ;0; SE      
+435; 5G2110 _MMGD ;0; SE      
+436; 5G2111 _MMGD ;0; SE      
+437; 5G2113 _MMGD ;0; SE      
+438; 5G2114 _MMGD ;0; SE      
+439; 5G2116 _MMGD ;0; SE      
+440; 5G2117 _MMGD ;0; SE      
+441; 5G2119 _MMGD ;0; SE      
+442; 5G2122 _MMGD ;0; SE      
+443; 5G2124 _MMGD ;0; SE      
+444; 5G2125 _MMGD ;0; SE      
+445; 5G2127 _MMGD ;0; SE      
+446; 5G2128 _MMGD ;0; SE      
+447; 5G2130 _MMGD ;0; SE      
+448; 5G2132 _MMGD ;0; SE      
+449; 5G2133 _MMGD ;0; SE      
+450; 5G2135 _MMGD ;0; SE      
+451; 5G2136 _MMGD ;0; SE      
+452; A4SAOI _SAO  ;0; SE      
+453; A4SAOM _SAO  ;0; SE      
+454; A6SMBI _Sao  ;0; SE      
+455; A6YSD  _SANT ;0; SE      
+456; 5G2138 _MMGD ;0; SE      
+457; 5G2139 _MMGD ;0; SE      
+458; 5G2140 _MMGD ;0; SE      
+459; 5G2142 _MMGD ;0; SE      
+460; 5G2143 _MMGD ;0; SE      
+461; 5G2145 _MMGD ;0; SE      
+462; 5G2146 _MMGD ;0; SE      
+463; 5G2147 _MMGD ;0; SE      
+464; 5G2149 _MMGD ;0; SE      
+465; 5G2150 _MMGD ;0; SE      
+466; A4LOBO _SALT ;0; SE      
+467; 5G2151 _MMGD ;0; SE      
+468; 5G2153 _MMGD ;0; SE      
+469; 5G2157 _MMGD ;0; SE      
+470; 5G2159 _MMGD ;0; SE      
+471; 5G2160 _MMGD ;0; SE      
+472; 5G2161 _MMGD ;0; SE      
+473; 5G2162 _MMGD ;0; SE      
+474; 5G2165 _MMGD ;0; SE      
+475; 5G2166 _MMGD ;0; SE      
+476; 5G2167 _MMGD ;0; SE      
+477; 5G2168 _MMGD ;0; SE      
+478; 5G2169 _MMGD ;0; SE      
+479; 5G2171 _MMGD ;0; SE      
+480; 5G2172 _MMGD ;0; SE      
+481; 5G2174 _MMGD ;0; SE      
+482; 5G2177 _MMGD ;0; SE      
+483; 5G2179 _MMGD ;0; SE      
+484; 5G2181 _MMGD ;0; SE      
+485; 5G2183 _MMGD ;0; SE      
+486; 5G2184 _MMGD ;0; SE      
+487; 5G2187 _MMGD ;0; SE      
+488; 5G2188 _MMGD ;0; SE      
+489; 5G2189 _MMGD ;0; SE      
+490; 5G2190 _MMGD ;0; SE      
+491; 5G2194 _MMGD ;0; SE      
+492; 5G2195 _MMGD ;0; SE      
+493; 5G2196 _MMGD ;0; SE      
+494; 5G2198 _MMGD ;0; SE      
+495; 5G2199 _MMGD ;0; SE      
+496; 5G2200 _MMGD ;0; SE      
+497; 5G2206 _MMGD ;0; SE      
+498; 5G2208 _MMGD ;0; SE      
+499; 5G2212 _MMGD ;0; SE      
+500; 5G2215 _MMGD ;0; SE      
+501; 5G2216 _MMGD ;0; SE      
+502; 5G2217 _MMGD ;0; SE      
+503; 5G2220 _MMGD ;0; SE      
+504; 5G2221 _MMGD ;0; SE      
+505; 5G2222 _MMGD ;0; SE      
+506; 5G2223 _MMGD ;0; SE      
+507; 5G2224 _MMGD ;0; SE      
+508; 5G2227 _MMGD ;0; SE      
+509; 5G2229 _MMGD ;0; SE      
+510; A4RHOI _RHOD ;0; SE      
+511; 5G2232 _MMGD ;0; SE      
+512; 5G2233 _MMGD ;0; SE      
+513; 5G2234 _MMGD ;0; SE      
+514; 5G2235 _MMGD ;0; SE      
+515; 5G2236 _MMGD ;0; SE      
+516; 5G2237 _MMGD ;0; SE      
+517; 5G2238 _MMGD ;0; SE      
+518; 5G2239 _MMGD ;0; SE      
+519; 5G2240 _MMGD ;0; SE      
+520; A4TANQ _TANQ ;0; SE      
+521; 5G2242 _MMGD ;0; SE      
+522; 5G2243 _MMGD ;0; SE      
+523; 5G2246 _MMGD ;0; SE      
+524; 5G2247 _MMGD ;0; SE      
+525; 5G2249 _MMGD ;0; SE      
+526; 5G2250 _MMGD ;0; SE      
+527; 5G2251 _MMGD ;0; SE      
+528; 5G2254 _MMGD ;0; SE      
+529; 5G2255 _MMGD ;0; SE      
+530; 5G2256 _MMGD ;0; SE      
+531; 5G2257 _MMGD ;0; SE      
+532; 5G2258 _MMGD ;0; SE      
+533; 5G2260 _MMGD ;0; SE      
+534; 5G2263 _MMGD ;0; SE      
+535; 5G2264 _MMGD ;0; SE      
+536; 5G2265 _MMGD ;0; SE      
+537; 5G2266 _MMGD ;0; SE      
+538; 5G2267 _MMGD ;0; SE      
+539; 5G2269 _MMGD ;0; SE      
+540; 5G2270 _MMGD ;0; SE      
+541; 5G2271 _MMGD ;0; SE      
+542; 5G2272 _MMGD ;0; SE      
+543; A4UBU  _Buri ;0; SE      
+544; 5G2273 _MMGD ;0; SE      
+545; 5G2274 _MMGD ;0; SE      
+546; A6USJ  _SAO  ;0; SE      
+547; A4UEC  _Eloy ;0; SE      
+548; 5G2277 _MMGD ;0; SE      
+549; 5G2279 _MMGD ;0; SE      
+550; 5G2280 _MMGD ;0; SE      
+551; 5G2281 _MMGD ;0; SE      
+552; 5G2283 _MMGD ;0; SE      
+553; 5G2284 _MMGD ;0; SE      
+554; 5G2285 _MMGD ;0; SE      
+555; 5G2286 _MMGD ;0; SE      
+556; 5G2287 _MMGD ;0; SE      
+557; 5G2288 _MMGD ;0; SE      
+558; 5G2290 _MMGD ;0; SE      
+559; 5G2292 _MMGD ;0; SE      
+560; 5G2293 _MMGD ;0; SE      
+561; 5G2294 _MMGD ;0; SE      
+562; 5G2295 _MMGD ;0; SE      
+563; 5G2296 _MMGD ;0; SE      
+564; 5G2298 _MMGD ;0; SE      
+565; KWBRCL _CJ B ;0; SE      
+566; 5G2299 _MMGD ;0; SE      
+567; 5G2300 _MMGD ;0; SE      
+568; A4SANC _SANT ;0; SE      
+569; A4SANN _SANT ;0; SE      
+570; 5G2304 _MMGD ;0; SE      
+571; 5G2305 _MMGD ;0; SE      
+572; 5G2307 _MMGD ;0; SE      
+573; 5G2308 _MMGD ;0; SE      
+574; 5G2309 _MMGD ;0; SE      
+575; 5G2310 _MMGD ;0; SE      
+576; 5G2311 _MMGD ;0; SE      
+577; 5G2312 _MMGD ;0; SE      
+578; A6YJC  _Sao  ;0; SE      
+579; 5G2314 _MMGD ;0; SE      
+580; 5G2315 _MMGD ;0; SE      
+581; 5G2316 _MMGD ;0; SE      
+582; 5G2318 _MMGD ;0; SE      
+583; 5G2319 _MMGD ;0; SE      
+584; 5G2320 _MMGD ;0; SE      
+585; 5G2322 _MMGD ;0; SE      
+586; 5G2324 _MMGD ;0; SE      
+587; A4CENT _Cent ;0; SE      
+588; 5G2326 _MMGD ;0; SE      
+589; 5G2327 _MMGD ;0; SE      
+590; 5G2328 _MMGD ;0; SE      
+591; 5G2329 _MMGD ;0; SE      
+592; 5G2330 _MMGD ;0; SE      
+593; 5G2331 _MMGD ;0; SE      
+594; 5G2332 _MMGD ;0; SE      
+595; 5G2333 _MMGD ;0; SE      
+596; 5G2334 _MMGD ;0; SE      
+597; 5G2335 _MMGD ;0; SE      
+598; 5G2336 _MMGD ;0; SE      
+599; 5G2337 _MMGD ;0; SE      
+600; 5G2338 _MMGD ;0; SE      
+601; 5G2339 _MMGD ;0; SE      
+602; 5G2340 _MMGD ;0; SE      
+603; 5G2341 _MMGD ;0; SE      
+604; 5G2342 _MMGD ;0; SE      
+605; 5G2343 _MMGD ;0; SE      
+606; 5G2344 _MMGD ;0; SE      
+607; 5G2345 _MMGD ;0; SE      
+608; 5G2346 _MMGD ;0; SE      
+609; 5G2347 _MMGD ;0; SE      
+610; 5G2348 _MMGD ;0; SE      
+611; 5G2351 _MMGD ;0; S       
+612; 5G2355 _MMGD ;0; S       
+613; 5G2356 _MMGD ;0; S       
+614; 5G2357 _MMGD ;0; S       
+615; 5G2358 _MMGD ;0; S       
+616; 5G2359 _MMGD ;0; S       
+617; 5G2361 _MMGD ;0; S       
+618; 5G2365 _MMGD ;0; S       
+619; 5G2378 _MMGD ;0; S       
+620; 5G2380 _MMGD ;0; S       
+621; 5G2381 _MMGD ;0; S       
+622; 5G2383 _MMGD ;0; S       
+623; 5G2384 _MMGD ;0; S       
+624; 5G2385 _MMGD ;0; S       
+625; 5G2386 _MMGD ;0; S       
+626; 5G2387 _MMGD ;0; S       
+627; 5G2388 _MMGD ;0; S       
+628; 5G2389 _MMGD ;0; S       
+629; 5G2392 _MMGD ;0; S       
+630; 5G2398 _MMGD ;0; S       
+631; 5G2400 _MMGD ;0; S       
+632; 5G2408 _MMGD ;0; S       
+633; 5G2412 _MMGD ;0; S       
+634; 5G2413 _MMGD ;0; S       
+635; 5G2414 _MMGD ;0; S       
+636; 5G2417 _MMGD ;0; S       
+637; 5G2418 _MMGD ;0; S       
+638; 5G2423 _MMGD ;0; S       
+639; 5G2429 _MMGD ;0; S       
+640; 5G2430 _MMGD ;0; S       
+641; 5G2431 _MMGD ;0; S       
+642; 5G2433 _MMGD ;0; S       
+643; 5G2436 _MMGD ;0; S       
+644; 5G2438 _MMGD ;0; S       
+645; 5G2442 _MMGD ;0; S       
+646; 5G2443 _MMGD ;0; S       
+647; 5G2445 _MMGD ;0; S       
+648; 5G2448 _MMGD ;0; S       
+649; 5G2450 _MMGD ;0; S       
+650; 5G2452 _MMGD ;0; S       
+651; 5G2454 _MMGD ;0; S       
+652; 5G2456 _MMGD ;0; S       
+653; 5G2457 _MMGD ;0; S       
+654; D2SNO  _USI  ;0; S       
+655; D2UJU  _UJU_ ;0; S       
+656; D2USIB _USI  ;0; S       
+657; 5G2465 _MMGD ;0; S       
+658; 5G2468 _MMGD ;0; S       
+659; 5G2469 _MMGD ;0; S       
+660; 5G2471 _MMGD ;0; S       
+661; 5G2473 _MMGD ;0; S       
+662; 5G2474 _MMGD ;0; S       
+663; 5G2479 _MMGD ;0; S       
+664; 5G2482 _MMGD ;0; S       
+665; 5G2483 _MMGD ;0; S       
+666; 5G2484 _MMGD ;0; S       
+667; 5G2486 _MMGD ;0; S       
+668; 5G2487 _MMGD ;0; S       
+669; 5G2488 _MMGD ;0; S       
+670; 5G2489 _MMGD ;0; S       
+671; 5G2490 _MMGD ;0; S       
+672; 5G2491 _MMGD ;0; S       
+673; 5G2497 _MMGD ;0; S       
+674; 5G2535 _MMGD ;0; SE      
+675; F1UPA  _Para ;0; SE      
+676; 5G2609 _MMGD ;0; SE      
+677; A1ARC  _Arac ;0; SE      
+678; 5G2613 _MMGD ;0; SE      
+679; 5G2614 _MMGD ;0; SE      
+680; 5G2615 _MMGD ;0; SE      
+681; 5G2620 _MMGD ;0; SE      
+682; 5G2622 _MMGD ;0; SE      
+683; A1STAF _Fran ;0; SE      
+684; A1USMF _Muni ;0; SE      
+685; A1USSI _Sao  ;0; SE      
+686; A1UTSJ _Sao  ;0; SE      
+687; A1UVSA _Vico ;0; SE      
+688; 5G2624 _MMGD ;0; SE      
+689; A1ZUCC _Zucc ;0; SE      
+690; 5G2626 _MMGD ;0; SE      
+691; A1CST  _CST_ ;0; SE      
+692; A1USOL _SOL_ ;0; SE      
+693; 5G2631 _MMGD ;0; SE      
+694; 5G2632 _MMGD ;0; SE      
+695; 5G2635 _MMGD ;0; SE      
+696; 5G2636 _MMGD ;0; SE      
+697; 5G2638 _MMGD ;0; SE      
+698; 5G2640 _MMGD ;0; SE      
+699; 5G2642 _MMGD ;0; SE      
+700; 5G2644 _MMGD ;0; SE      
+701; 5G2647 _MMGD ;0; SE      
+702; 5G2653 _MMGD ;0; SE      
+703; 5G2658 _MMGD ;0; SE      
+704; 5G2659 _MMGD ;0; SE      
+705; 5G2664 _MMGD ;0; SE      
+706; 5G2665 _MMGD ;0; SE      
+707; 5G2667 _MMGD ;0; SE      
+708; 5G2669 _MMGD ;0; SE      
+709; 5G2670 _MMGD ;0; SE      
+710; A1GRAA _Gram ;0; SE      
+711; 5G2671 _MMGD ;0; SE      
+712; A1USRB _Rio  ;0; SE      
+713; 5G2673 _MMGD ;0; SE      
+714; 5G2675 _MMGD ;0; SE      
+715; 5G2676 _MMGD ;0; SE      
+716; 5G2678 _MMGD ;0; SE      
+717; 5G2679 _MMGD ;0; SE      
+718; 5G2687 _MMGD ;0; SE      
+719; 5G2688 _MMGD ;0; SE      
+720; 5G2689 _MMGD ;0; SE      
+721; A1UPGA _Pedr ;0; SE      
+722; 5G2699 _MMGD ;0; SE      
+723; D4ALTI _Alto ;0; S       
+724; D4ARVO _Arvo ;0; S       
+725; D4PLAN _Plan ;0; S       
+726; 5G2707 _MMGD ;0; S       
+727; 5G2710 _MMGD ;0; S       
+728; 5G2711 _MMGD ;0; S       
+729; 5G2712 _MMGD ;0; S       
+730; 5G2713 _MMGD ;0; S       
+731; 5G2715 _MMGD ;0; S       
+732; 5G2717 _MMGD ;0; S       
+733; 5G2718 _MMGD ;0; S       
+734; 5G2722 _MMGD ;0; S       
+735; 5G2723 _MMGD ;0; S       
+736; 5G2724 _MMGD ;0; S       
+737; 5G2725 _MMGD ;0; S       
+738; 5G2729 _MMGD ;0; S       
+739; D4LAIR _Lair ;0; S       
+740; 5G2730 _MMGD ;0; S       
+741; 5G2731 _MMGD ;0; S       
+742; 5G2733 _MMGD ;0; S       
+743; D4BOAV _Boa  ;0; S       
+744; 5G2734 _MMGD ;0; S       
+745; 5G2737 _MMGD ;0; S       
+746; 5G2738 _MMGD ;0; S       
+747; 5G2745 _MMGD ;0; S       
+748; 5G2752 _MMGD ;0; S       
+749; 5G2754 _MMGD ;0; S       
+750; 5G2757 _MMGD ;0; S       
+751; 5G2760 _MMGD ;0; S       
+752; D4LACE _Lace ;0; S       
+753; 5G2765 _MMGD ;0; S       
+754; 5G2766 _MMGD ;0; S       
+755; 5G2768 _MMGD ;0; S       
+756; 5G2770 _MMGD ;0; S       
+757; 5G2771 _MMGD ;0; S       
+758; 5G2775 _MMGD ;0; S       
+759; 5G2777 _MMGD ;0; S       
+760; 5G2778 _MMGD ;0; S       
+761; 5G2780 _MMGD ;0; S       
+762; D4ILHA _Ilha ;0; S       
+763; D4RODI _Rode ;0; S       
+764; 5G2783 _MMGD ;0; S       
+765; 5G2784 _MMGD ;0; S       
+766; 5G2785 _MMGD ;0; S       
+767; 5G2786 _MMGD ;0; S       
+768; 5G2787 _MMGD ;0; S       
+769; 5G2788 _MMGD ;0; S       
+770; 5G2789 _MMGD ;0; S       
+771; 5G2799 _MMGD ;0; S       
+772; 5G2808 _MMGD ;0; S       
+773; 5G2810 _MMGD ;0; S       
+774; 5G2815 _MMGD ;0; S       
+775; 5G2818 _MMGD ;0; S       
+776; 5G2821 _MMGD ;0; S       
+777; 5G2822 _MMGD ;0; S       
+778; 5G2830 _MMGD ;0; S       
+779; 5G2831 _MMGD ;0; S       
+780; 5G2832 _MMGD ;0; S       
+781; 5G2834 _MMGD ;0; S       
+782; D5UPI  _Pira ;0; S       
+783; 5G2835 _MMGD ;0; S       
+784; 5G2839 _MMGD ;0; S       
+785; 5G2841 _MMGD ;0; S       
+786; 5G2842 _MMGD ;0; S       
+787; 5G2844 _MMGD ;0; S       
+788; 5G2847 _MMGD ;0; S       
+789; 5G2851 _MMGD ;0; S       
+790; 5G2852 _MMGD ;0; S       
+791; 5G2853 _MMGD ;0; S       
+792; D4CAPI _Capi ;0; S       
+793; D4NOVF _Nova ;0; S       
+794; D4RIOF _Rio  ;0; S       
+795; D4SANO _Sant ;0; S       
+796; 5G2855 _MMGD ;0; S       
+797; 5G2856 _MMGD ;0; S       
+798; 5G2858 _MMGD ;0; S       
+799; 5G2859 _MMGD ;0; S       
+800; D4RAMA _Rama ;0; S       
+801; 5G2866 _MMGD ;0; S       
+802; 5G2870 _MMGD ;0; S       
+803; 5G2872 _MMGD ;0; S       
+804; 5G2875 _MMGD ;0; S       
+805; 5G2877 _MMGD ;0; S       
+806; 5G2889 _MMGD ;0; S       
+807; 5G2892 _MMGD ;0; S       
+808; 5G2896 _MMGD ;0; S       
+809; D4BARN _Barr ;0; S       
+810; 5G2897 _MMGD ;0; S       
+811; A1USPD _Sao  ;0; SE      
+812; A1SJQ  _Sao  ;0; SE      
+813; 5G2908 _MMGD ;0; SE      
+814; A1CST  _CST_ ;0; SE      
+815; 5G2912 _MMGD ;0; SE      
+816; 5G2913 _MMGD ;0; SE      
+817; 5G2914 _MMGD ;0; SE      
+818; 5G2920 _MMGD ;0; SE      
+819; 5G2922 _MMGD ;0; SE      
+820; 5G2925 _MMGD ;0; SE      
+821; 5G2927 _MMGD ;0; SE      
+822; 5G2930 _MMGD ;0; SE      
+823; 5G2934 _MMGD ;0; SE      
+824; 5G2938 _MMGD ;0; SE      
+825; 5G2945 _MMGD ;0; SE      
+826; F1UPG  _Galh ;0; SE      
+827; F1UPS  _Sao  ;0; SE      
+828; 5G2948 _MMGD ;0; SE      
+829; 5G2950 _MMGD ;0; SE      
+830; 5G2951 _MMGD ;0; SE      
+831; 5G2954 _MMGD ;0; SE      
+832; 5G2960 _MMGD ;0; SE      
+833; 5G2961 _MMGD ;0; SE      
+834; 5G2966 _MMGD ;0; SE      
+835; 5G2967 _MMGD ;0; SE      
+836; 5G2969 _MMGD ;0; SE      
+837; 5G2974 _MMGD ;0; SE      
+838; 5G2975 _MMGD ;0; SE      
+839; 5G2977 _MMGD ;0; SE      
+840; 5G2980 _MMGD ;0; SE      
+841; F2JOFE _Jofe ;0; SE      
+842; 5G2983 _MMGD ;0; SE      
+843; CGUTCO _CODO ;0; SE      
+844; F2COOP _Coop ;0; SE      
+845; 5G2991 _MMGD ;0; SE      
+846; 5G2993 _MMGD ;0; SE      
+847; 5G2995 _MMGD ;0; SE      
+848; UCUTCI _CARA ;0; SE      
+849; 5G2998 _MMGD ;0; SE      
+850; 5G3000 _MMGD ;0; S       
+851; 5G3001 _MMGD ;0; S       
+852; 5G3015 _MMGD ;0; SE      
+853; 5G3028 _MMGD ;0; SE      
+854; 5G3031 _MMGD ;0; SE      
+855; 5G3065 _MMGD ;0; SE      
+856; 5G3079 _MMGD ;0; SE      
+857; 5G3080 _MMGD ;0; SE      
+858; A1SAOL _Sao  ;0; SE      
+859; 5G3088 _MMGD ;0; SE      
+860; A1LASA _Lasa ;0; SE      
+861; 5G3096 _MMGD ;0; SE      
+862; A1USAL _Alco ;0; SE      
+863; A4COLA _COLO ;0; SE      
+864; A4COLM _COLO ;0; SE      
+865; A4COLP _COLO ;0; SE      
+866; A4RUET _RUET ;0; SE      
+867; A6YMD  _Mand ;0; SE      
+868; A4NARD _NARD ;0; SE      
+869; A6UIN4 _USIN ;0; SE      
+870; 5G3117 _MMGD ;0; SE      
+871; 5G3128 _MMGD ;0; SE      
+872; 5G3130 _MMGD ;0; SE      
+873; 5G3131 _MMGD ;0; SE      
+874; 5G3133 _MMGD ;0; SE      
+875; 5G3138 _MMGD ;0; SE      
+876; 5G3140 _MMGD ;0; SE      
+877; 5G3148 _MMGD ;0; SE      
+878; A6BRPS _Bran ;0; SE      
+879; 5G3153 _MMGD ;0; SE      
+880; 5G3154 _MMGD ;0; SE      
+881; 5G3155 _MMGD ;0; SE      
+882; 5G3158 _MMGD ;0; SE      
+883; 5G3161 _MMGD ;0; SE      
+884; 5G3164 _MMGD ;0; SE      
+885; 5G3167 _MMGD ;0; SE      
+886; 5G3171 _MMGD ;0; SE      
+887; 5G3172 _MMGD ;0; SE      
+888; 5G3173 _MMGD ;0; SE      
+889; 5G3174 _MMGD ;0; SE      
+890; 5G3176 _MMGD ;0; SE      
+891; 5G3177 _MMGD ;0; SE      
+892; 5G3178 _MMGD ;0; SE      
+893; A6UFAU _UFA_ ;0; SE      
+894; 5G3189 _MMGD ;0; SE      
+895; 5G3190 _MMGD ;0; SE      
+896; 5G3191 _MMGD ;0; SE      
+897; 5G3192 _MMGD ;0; SE      
+898; 5G3193 _MMGD ;0; SE      
+899; 5G3194 _MMGD ;0; SE      
+900; 5G3195 _MMGD ;0; SE      
+901; 5G3196 _MMGD ;0; SE      
+902; 5G3197 _MMGD ;0; SE      
+903; 5G3198 _MMGD ;0; SE      
+904; 5G3302 _MMGD ;0; SE      
+905; 5G3304 _MMGD ;0; SE      
+906; 5G3305 _MMGD ;0; SE      
+907; A5UMP  _MIGU ;0; SE      
+908; A5USTC _SANT ;0; SE      
+909; 5G3308 _MMGD ;0; SE      
+910; 5G3309 _MMGD ;0; SE      
+911; 5G3310 _MMGD ;0; SE      
+912; 5G3311 _MMGD ;0; SE      
+913; 5G3313 _MMGD ;0; SE      
+914; 5G3314 _MMGD ;0; SE      
+915; 5G3316 _MMGD ;0; SE      
+916; 5G3317 _MMGD ;0; SE      
+917; 5G3322 _MMGD ;0; SE      
+918; A2GRAN _TULI ;0; SE      
+919; A5UCEB _JOAO ;0; SE      
+920; 5G3324 _MMGD ;0; SE      
+921; 5G3325 _MMGD ;0; SE      
+922; A2ANNA _ANNA ;0; SE      
+923; A5UGY  _Guar ;0; SE      
+924; A5PONT _IVAN ;0; SE      
+925; A5UIB3 _Ivan ;0; SE      
+926; A5UIBD _IVAN ;0; SE      
+927; A5ZETU _ZE T ;0; SE      
+928; 5G3339 _MMGD ;0; SE      
+929; 5G3340 _MMGD ;0; SE      
+930; 5G3403 _MMGD ;0; SE      
+931; 5G3404 _MMGD ;0; SE      
+932; 5G3408 _MMGD ;0; SE      
+933; 5G3409 _MMGD ;0; SE      
+934; 5G3411 _MMGD ;0; SE      
+935; 5G3414 _MMGD ;0; SE      
+936; 5G3415 _MMGD ;0; SE      
+937; 5G3423 _MMGD ;0; SE      
+938; 5G3427 _MMGD ;0; SE      
+939; VLARN  _CJF  ;0; SE      
+940; 5G3437 _MMGD ;0; SE      
+941; A4CDRP _Cdr  ;0; SE      
+942; 5G3444 _MMGD ;0; SE      
+943; 5G3445 _MMGD ;0; SE      
+944; 5G3447 _MMGD ;0; SE      
+945; 5G3455 _MMGD ;0; SE      
+946; A4SLS  _Sale ;0; SE      
+947; 5G3456 _MMGD ;0; SE      
+948; 5G3459 _MMGD ;0; SE      
+949; 5G3461 _MMGD ;0; SE      
+950; 5G3462 _MMGD ;0; SE      
+951; 5G3465 _MMGD ;0; SE      
+952; 5G3467 _MMGD ;0; SE      
+953; A4NEGR _NEGR ;0; SE      
+954; 5G3476 _MMGD ;0; SE      
+955; A4PTRQ _PETR ;0; SE      
+956; 5G3478 _MMGD ;0; SE      
+957; 5G3481 _MMGD ;0; SE      
+958; 5G3482 _MMGD ;0; SE      
+959; 5G3486 _MMGD ;0; SE      
+960; 5G3493 _MMGD ;0; SE      
+961; 5G3496 _MMGD ;0; SE      
+962; 5G3512 _MMGD ;0; SE      
+963; F2ENTR _Entr ;0; SE      
+964; 5G3576 _MMGD ;0; SE      
+965; 5G3579 _MMGD ;0; SE      
+966; 5G3580 _MMGD ;0; SE      
+967; 5G3585 _MMGD ;0; SE      
+968; 5G3586 _MMGD ;0; SE      
+969; A3SECR _SECR ;0; SE      
+970; 5G3592 _MMGD ;0; SE      
+971; 5G3593 _MMGD ;0; SE      
+972; 5G3594 _MMGD ;0; SE      
+973; 5G3595 _MMGD ;0; SE      
+974; 5G3596 _MMGD ;0; SE      
+975; 5G3597 _MMGD ;0; SE      
+976; 5G3599 _MMGD ;0; SE      
+977; 5G3601 _MMGD ;0; SE      
+978; 5G3602 _MMGD ;0; SE      
+979; 5G3603 _MMGD ;0; SE      
+980; 5G3604 _MMGD ;0; SE      
+981; 5G3605 _MMGD ;0; SE      
+982; 5G3607 _MMGD ;0; SE      
+983; 5G3608 _MMGD ;0; SE      
+984; 5G3609 _MMGD ;0; SE      
+985; 5G3611 _MMGD ;0; SE      
+986; 5G3612 _MMGD ;0; SE      
+987; 5G3613 _MMGD ;0; SE      
+988; 5G3617 _MMGD ;0; SE      
+989; 5G3619 _MMGD ;0; SE      
+990; 5G3620 _MMGD ;0; SE      
+991; 5G3621 _MMGD ;0; SE      
+992; 5G3622 _MMGD ;0; SE      
+993; 5G3626 _MMGD ;0; SE      
+994; 5G3627 _MMGD ;0; SE      
+995; 5G3628 _MMGD ;0; SE      
+996; 5G3632 _MMGD ;0; SE      
+997; 5G3638 _MMGD ;0; SE      
+998; 5G3639 _MMGD ;0; SE      
+999; 5G3640 _MMGD ;0; SE      
+1000; 5G3643 _MMGD ;0; SE      
+1001; 5G3644 _MMGD ;0; SE      
+1002; 5G3645 _MMGD ;0; SE      
+1003; 5G3647 _MMGD ;0; SE      
+1004; 5G3666 _MMGD ;0; SE      
+1005; 5G3676 _MMGD ;0; SE      
+1006; 5G3677 _MMGD ;0; SE      
+1007; 5G3678 _MMGD ;0; SE      
+1008; 5G3684 _MMGD ;0; SE      
+1009; 5G3686 _MMGD ;0; SE      
+1010; 5G3700 _MMGD ;0; SE      
+1011; 5G3702 _MMGD ;0; SE      
+1012; 5G3710 _MMGD ;0; SE      
+1013; 5G3715 _MMGD ;0; SE      
+1014; 5G3721 _MMGD ;0; SE      
+1015; 5G3727 _MMGD ;0; SE      
+1016; 5G3729 _MMGD ;0; SE      
+1017; 5G3730 _MMGD ;0; SE      
+1018; F1SAOB _Sao  ;0; SE      
+1019; 5G3738 _MMGD ;0; SE      
+1020; 5G3742 _MMGD ;0; SE      
+1021; 5G3745 _MMGD ;0; SE      
+1022; CGPHMO _PCH- ;0; SE      
+1023; 5G3754 _MMGD ;0; SE      
+1024; F2GAML _Game ;0; SE      
+1025; CGQXDA _QUEI ;0; SE      
+1026; 5G3760 _MMGD ;0; SE      
+1027; 5G3762 _MMGD ;0; SE      
+1028; 5G3769 _MMGD ;0; SE      
+1029; 5G3770 _MMGD ;0; SE      
+1030; F2SAOM _Sao  ;0; SE      
+1031; F2UPC  _S An ;0; SE      
+1032; 5G3773 _MMGD ;0; SE      
+1033; 5G3774 _MMGD ;0; SE      
+1034; 5G3775 _MMGD ;0; SE      
+1035; 5G3776 _MMGD ;0; SE      
+1036; F2TAMB _TAMB ;0; SE      
+1037; F2RENI _PCH  ;0; SE      
+1038; F2NGBI _NG B ;0; SE      
+1039; 5G3787 _MMGD ;0; SE      
+1040; 5G3789 _MMGD ;0; SE      
+1041; A3LAJE _LAJE ;0; SE      
+1042; 5G3801 _MMGD ;0; SE      
+1043; 5G3802 _MMGD ;0; SE      
+1044; 5G3803 _MMGD ;0; SE      
+1045; 5G3804 _MMGD ;0; SE      
+1046; 5G3805 _MMGD ;0; SE      
+1047; 5G3806 _MMGD ;0; SE      
+1048; 5G3808 _MMGD ;0; SE      
+1049; 5G3809 _MMGD ;0; SE      
+1050; 5G3810 _MMGD ;0; SE      
+1051; 5G3811 _MMGD ;0; SE      
+1052; 5G3812 _MMGD ;0; SE      
+1053; 5G3813 _MMGD ;0; SE      
+1054; 5G3814 _MMGD ;0; SE      
+1055; 5G3816 _MMGD ;0; SE      
+1056; 5G3817 _MMGD ;0; SE      
+1057; 5G3818 _MMGD ;0; SE      
+1058; 5G3819 _MMGD ;0; SE      
+1059; 5G3820 _MMGD ;0; SE      
+1060; 5G3822 _MMGD ;0; SE      
+1061; A4MOG  _MOGI ;0; SE      
+1062; 5G3824 _MMGD ;0; SE      
+1063; 5G3825 _MMGD ;0; SE      
+1064; 5G3826 _MMGD ;0; SE      
+1065; 5G3827 _MMGD ;0; SE      
+1066; 5G3828 _MMGD ;0; SE      
+1067; 5G3829 _MMGD ;0; SE      
+1068; 5G3830 _MMGD ;0; SE      
+1069; 5G3831 _MMGD ;0; SE      
+1070; 5G3832 _MMGD ;0; SE      
+1071; A4CRE  _LDC  ;0; SE      
+1072; A4PION _PION ;0; SE      
+1073; 5G3841 _MMGD ;0; SE      
+1074; 5G3842 _MMGD ;0; SE      
+1075; 5G3843 _MMGD ;0; SE      
+1076; 5G3845 _MMGD ;0; SE      
+1077; 5G3846 _MMGD ;0; SE      
+1078; 5G3847 _MMGD ;0; SE      
+1079; 5G3849 _MMGD ;0; SE      
+1080; 5G3850 _MMGD ;0; SE      
+1081; 5G3852 _MMGD ;0; SE      
+1082; 5G3854 _MMGD ;0; SE      
+1083; 5G3856 _MMGD ;0; SE      
+1084; 5G3857 _MMGD ;0; SE      
+1085; 5G3858 _MMGD ;0; SE      
+1086; 5G3861 _MMGD ;0; SE      
+1087; 5G3866 _MMGD ;0; SE      
+1088; 5G3867 _MMGD ;0; SE      
+1089; 5G3871 _MMGD ;0; SE      
+1090; 5G3874 _MMGD ;0; SE      
+1091; 5G3875 _MMGD ;0; SE      
+1092; 5G3876 _MMGD ;0; SE      
+1093; 5G3877 _MMGD ;0; SE      
+1094; 5G3878 _MMGD ;0; SE      
+1095; 5G3879 _MMGD ;0; SE      
+1096; 5G3880 _MMGD ;0; SE      
+1097; 5G3881 _MMGD ;0; SE      
+1098; 5G3882 _MMGD ;0; SE      
+1099; 5G3883 _MMGD ;0; SE      
+1100; 5G3885 _MMGD ;0; SE      
+1101; 5G3886 _MMGD ;0; SE      
+1102; 5G3887 _MMGD ;0; SE      
+1103; 5G3888 _MMGD ;0; SE      
+1104; 5G3889 _MMGD ;0; SE      
+1105; 5G3890 _MMGD ;0; SE      
+1106; 5G3891 _MMGD ;0; SE      
+1107; 5G3892 _MMGD ;0; SE      
+1108; 5G3893 _MMGD ;0; SE      
+1109; 5G3894 _MMGD ;0; SE      
+1110; 5G3895 _MMGD ;0; SE      
+1111; 5G3896 _MMGD ;0; SE      
+1112; 5G3897 _MMGD ;0; SE      
+1113; 5G3899 _MMGD ;0; SE      
+1114; 5G3901 _MMGD ;0; SE      
+1115; 5G3902 _MMGD ;0; SE      
+1116; 5G3903 _MMGD ;0; SE      
+1117; 5G3906 _MMGD ;0; SE      
+1118; VOVOT2 _CJT  ;0; SE      
+1119; 5G3908 _MMGD ;0; SE      
+1120; 5G3909 _MMGD ;0; SE      
+1121; 5G3910 _MMGD ;0; SE      
+1122; 5G3911 _MMGD ;0; SE      
+1123; INPIIN _CJ I ;0; SE      
+1124; 5G3915 _MMGD ;0; SE      
+1125; 5G3916 _MMGD ;0; SE      
+1126; 5G3917 _MMGD ;0; SE      
+1127; 5G3918 _MMGD ;0; SE      
+1128; 5G3919 _MMGD ;0; SE      
+1129; 5G3920 _MMGD ;0; SE      
+1130; 5G3921 _MMGD ;0; SE      
+1131; 5G3923 _MMGD ;0; SE      
+1132; 5G3924 _MMGD ;0; SE      
+1133; 5G3926 _MMGD ;0; SE      
+1134; 5G3927 _MMGD ;0; SE      
+1135; 5G3928 _MMGD ;0; SE      
+1136; 5G3930 _MMGD ;0; SE      
+1137; 5G3931 _MMGD ;0; SE      
+1138; 5G3932 _MMGD ;0; SE      
+1139; 5G3946 _MMGD ;0; SE      
+1140; 5G3948 _MMGD ;0; SE      
+1141; 5G3951 _MMGD ;0; SE      
+1142; 5G3952 _MMGD ;0; SE      
+1143; 5G3954 _MMGD ;0; SE      
+1144; 5G3957 _MMGD ;0; SE      
+1145; 5G3959 _MMGD ;0; SE      
+1146; CKUCO2 _COCA ;0; SE      
+1147; 5G3979 _MMGD ;0; SE      
+1148; 5G3982 _MMGD ;0; SE      
+1149; A6UTFR _FERR ;0; SE      
+1150; 5G3990 _MMGD ;0; SE      
+1151; A3SANT _SANT ;0; SE      
+1152; A3BNF  _BONF ;0; SE      
+1153; A3MSET _Mont ;0; SE      
+1154; A3PRC  _PARA ;0; SE      
+1155; 5G4001 _MMGD ;0; SE      
+1156; 5G4002 _MMGD ;0; SE      
+1157; 5G4003 _MMGD ;0; SE      
+1158; 5G4004 _MMGD ;0; SE      
+1159; 5G4005 _MMGD ;0; SE      
+1160; 5G4006 _MMGD ;0; SE      
+1161; 5G4007 _MMGD ;0; SE      
+1162; 5G4008 _MMGD ;0; SE      
+1163; 5G4009 _MMGD ;0; SE      
+1164; 5G4010 _MMGD ;0; SE      
+1165; 5G4011 _MMGD ;0; SE      
+1166; 5G4019 _MMGD ;0; SE      
+1167; 5G4020 _MMGD ;0; SE      
+1168; 5G4021 _MMGD ;0; SE      
+1169; 5G4022 _MMGD ;0; SE      
+1170; 5G4024 _MMGD ;0; SE      
+1171; 5G4025 _MMGD ;0; SE      
+1172; 5G4026 _MMGD ;0; SE      
+1173; 5G4029 _MMGD ;0; SE      
+1174; 5G4031 _MMGD ;0; SE      
+1175; A5PLAT _PLAN ;0; SE      
+1176; 5G4032 _MMGD ;0; SE      
+1177; A2AVGI _AVG  ;0; SE      
+1178; 5G4033 _MMGD ;0; SE      
+1179; 5G4034 _MMGD ;0; SE      
+1180; 5G4036 _MMGD ;0; SE      
+1181; 5G4037 _MMGD ;0; SE      
+1182; 5G4038 _MMGD ;0; SE      
+1183; 5G4041 _MMGD ;0; SE      
+1184; 5G4045 _MMGD ;0; SE      
+1185; 5G4048 _MMGD ;0; SE      
+1186; 5G4056 _MMGD ;0; SE      
+1187; 5G4057 _MMGD ;0; SE      
+1188; 5G4059 _MMGD ;0; SE      
+1189; 5G4060 _MMGD ;0; SE      
+1190; 5G4061 _MMGD ;0; SE      
+1191; 5G4062 _MMGD ;0; SE      
+1192; 5G4063 _MMGD ;0; SE      
+1193; BBUFPU _CJF  ;0; SE      
+1194; IYBST  _CJF  ;0; SE      
+1195; 5G4073 _MMGD ;0; SE      
+1196; 5G4074 _MMGD ;0; SE      
+1197; 5G4077 _MMGD ;0; SE      
+1198; 5G4080 _MMGD ;0; SE      
+1199; 5G4082 _MMGD ;0; SE      
+1200; 5G4084 _MMGD ;0; SE      
+1201; A2PACI _PACI ;0; SE      
+1202; 5G4088 _MMGD ;0; SE      
+1203; A5UTVT _Vale ;0; SE      
+1204; A5UVTD _Vale ;0; SE      
+1205; 5G4092 _MMGD ;0; SE      
+1206; 5G4099 _MMGD ;0; SE      
+1207; 5G4102 _MMGD ;0; SE      
+1208; 5G4111 _MMGD ;0; SE      
+1209; 5G4118 _MMGD ;0; SE      
+1210; 5G4133 _MMGD ;0; SE      
+1211; A4COLN _COLO ;0; SE      
+1212; A4SLZ  _Sao  ;0; SE      
+1213; A4PAUL _PAUL ;0; SE      
+1214; VAVACO _CJT  ;0; SE      
+1215; A4GUAO _GUAR ;0; SE      
+1216; A6UMOE _MOEM ;0; SE      
+1217; FIUFBR _CJFI ;0; SE      
+1218; A4SANJ _SAN  ;0; SE      
+1219; A6UCQP _Conq ;0; SE      
+1220; A4BAL  _BALD ;0; SE      
+1221; VOVOT2 _CJT  ;0; SE      
+1222; VOVOT2 _CJT  ;0; SE      
+1223; RAGASA _GASA ;0; SE      
+1224; 5G4171 _MMGD ;0; SE      
+1225; BYBIPE _CJBI ;0; SE      
+1226; A6UEDB _Eldo ;0; SE      
+1227; A4TERV _TERM ;0; SE      
+1228; 5G4219 _MMGD ;0; SE      
+1229; A4BARG _Barr ;0; SE      
+1230; A4BIOL _BIOL ;0; SE      
+1231; A4EQUA _EQUI ;0; SE      
+1232; A4EQUP _EQUI ;0; SE      
+1233; A4SANE _SANT ;0; SE      
+1234; 5G4226 _MMGD ;0; SE      
+1235; A4SANT _SANT ;0; SE      
+1236; A6YVR  _Vale ;0; SE      
+1237; 5G4231 _MMGD ;0; SE      
+1238; 5G4240 _MMGD ;0; SE      
+1239; 5G4243 _MMGD ;0; SE      
+1240; 5G4244 _MMGD ;0; SE      
+1241; 5G4250 _MMGD ;0; SE      
+1242; 5G4251 _MMGD ;0; SE      
+1243; 5G4253 _MMGD ;0; SE      
+1244; 5G4255 _MMGD ;0; SE      
+1245; 5G4259 _MMGD ;0; SE      
+1246; 5G4260 _MMGD ;0; SE      
+1247; 5G4265 _MMGD ;0; SE      
+1248; 5G4266 _MMGD ;0; SE      
+1249; 5G4269 _MMGD ;0; SE      
+1250; 5G4270 _MMGD ;0; SE      
+1251; 5G4271 _MMGD ;0; SE      
+1252; 5G4273 _MMGD ;0; SE      
+1253; 5G4274 _MMGD ;0; SE      
+1254; 5G4278 _MMGD ;0; SE      
+1255; A6UVA  _VIST ;0; SE      
+1256; A6UTUN _UNIV ;0; SE      
+1257; A6UGTA _CJ G ;0; SE      
+1258; 5G4294 _MMGD ;0; SE      
+1259; A6VIRC _VIRA ;0; SE      
+1260; A6VIRL _VIRA ;0; SE      
+1261; VAVACO _CJT  ;0; SE      
+1262; 5G4320 _MMGD ;0; SE      
+1263; 5G4322 _MMGD ;0; SE      
+1264; A2LGPR _LDC  ;0; SE      
+1265; 5G4327 _MMGD ;0; SE      
+1266; 5G4328 _MMGD ;0; SE      
+1267; 5G4329 _MMGD ;0; SE      
+1268; 5G4335 _MMGD ;0; SE      
+1269; 5G4336 _MMGD ;0; SE      
+1270; 5G4340 _MMGD ;0; SE      
+1271; 5G4344 _MMGD ;0; SE      
+1272; 5G4345 _MMGD ;0; SE      
+1273; EJCPIR _CJPI ;0; SE      
+1274; 5G4362 _MMGD ;0; SE      
+1275; 5G4363 _MMGD ;0; SE      
+1276; 5G4364 _MMGD ;0; SE      
+1277; EJCPIR _CJPI ;0; SE      
+1278; 5G4368 _MMGD ;0; SE      
+1279; 5G4369 _MMGD ;0; SE      
+1280; BBUFPU _CJF  ;0; SE      
+1281; A2MGWD _WD_0 ;0; SE      
+1282; 5G4373 _MMGD ;0; SE      
+1283; 5G4374 _MMGD ;0; SE      
+1284; 5G4377 _MMGD ;0; SE      
+1285; 5G4378 _MMGD ;0; SE      
+1286; 5G4379 _MMGD ;0; SE      
+1287; 5G4380 _MMGD ;0; SE      
+1288; 5G4381 _MMGD ;0; SE      
+1289; 5G4382 _MMGD ;0; SE      
+1290; 5G4386 _MMGD ;0; SE      
+1291; 5G4387 _MMGD ;0; SE      
+1292; 5G4388 _MMGD ;0; SE      
+1293; 5G4389 _MMGD ;0; SE      
+1294; 5G4390 _MMGD ;0; SE      
+1295; 5G4392 _MMGD ;0; SE      
+1296; 5G4394 _MMGD ;0; SE      
+1297; 5G4395 _MMGD ;0; SE      
+1298; F4PMPA _PCH  ;0; SE      
+1299; F4TERS _Grac ;0; SE      
+1300; PRPI   _CJPA ;0; SE      
+1301; PRPI   _CJPA ;0; SE      
+1302; PRPI   _CJPA ;0; SE      
+1303; PRPI   _CJPA ;0; SE      
+1304; 5G4469 _MMGD ;0; SE      
+1305; F4EGD  _Egid ;0; SE      
+1306; F4UATO _UTE  ;0; SE      
+1307; CTCFAZ _CJFA ;0; SE      
+1308; CTCFAZ _CJFA ;0; SE      
+1309; F4FAZN _FAZE ;0; SE      
+1310; 5G4513 _MMGD ;0; SE      
+1311; F4ARAG _ARAG ;0; SE      
+1312; F4ARAU _ARAG ;0; SE      
+1313; F4LAJ  _Laja ;0; SE      
+1314; 5G4533 _MMGD ;0; SE      
+1315; 5G4583 _MMGD ;0; SE      
+1316; F4INP  _Inpa ;0; SE      
+1317; F4STA  _PCH  ;0; SE      
+1318; F4SETE _PCH  ;0; SE      
+1319; CTPHLO _S.LO ;0; SE      
+1320; 5G4613 _MMGD ;0; SE      
+1321; 5G4623 _MMGD ;0; SE      
+1322; F4GERO _Enge ;0; SE      
+1323; F4MANT _Mant ;0; SE      
+1324; F4ROO  _Rond ;0; SE      
+1325; F4SM-0 _SM-0 ;0; SE      
+1326; F4SM-6 _SM-0 ;0; SE      
+1327; F4SONO _Sono ;0; SE      
+1328; F4STGB _Sant ;0; SE      
+1329; 5G4633 _MMGD ;0; SE      
+1330; 5G4637 _MMGD ;0; SE      
+1331; 5G4643 _MMGD ;0; SE      
+1332; F4CAMB _CAMB ;0; SE      
+1333; F4EMBA _EMBA ;0; SE      
+1334; F4GLOR _GLOR ;0; SE      
+1335; F4MESR _MEST ;0; SE      
+1336; F4PEQU _PCH  ;0; SE      
+1337; F4SANT _SANT ;0; SE      
+1338; F4SENA _PCH  ;0; SE      
+1339; F4SUCU _SUCU ;0; SE      
+1340; 5G4653 _MMGD ;0; SE      
+1341; 5G4663 _MMGD ;0; SE      
+1342; 5G4673 _MMGD ;0; SE      
+1343; 5G4690 _MMGD ;0; SE      
+1344; 5G4703 _MMGD ;0; SE      
+1345; 5G4713 _MMGD ;0; SE      
+1346; 5G4723 _MMGD ;0; SE      
+1347; 5G4733 _MMGD ;0; SE      
+1348; 5G4743 _MMGD ;0; SE      
+1349; F4CAS3 _Casc ;0; SE      
+1350; 5G4762 _MMGD ;0; SE      
+1351; 5G4763 _MMGD ;0; SE      
+1352; F4GALH _GALH ;0; SE      
+1353; 5G4770 _MMGD ;0; SE      
+1354; 5G4772 _MMGD ;0; SE      
+1355; 5G4793 _MMGD ;0; SE      
+1356; 5G4803 _MMGD ;0; SE      
+1357; F4SANN _PCH  ;0; SE      
+1358; 5G4807 _MMGD ;0; SE      
+1359; F4FIGU _FIGU ;0; SE      
+1360; F4INDI _Indi ;0; SE      
+1361; F4NOVA _Nova ;0; SE      
+1362; F4OMBR _Ombr ;0; SE      
+1363; F4SACO _PCH  ;0; SE      
+1364; F4SALT _PCH  ;0; SE      
+1365; F4UAJA _A Br ;0; SE      
+1366; 5G4823 _MMGD ;0; SE      
+1367; F4ITA  _UTE  ;0; SE      
+1368; F4JBD  _Juba ;0; SE      
+1369; 5G4833 _MMGD ;0; SE      
+1370; F4MARA _PCH  ;0; SE      
+1371; CTPHSA _SACR ;0; SE      
+1372; 5G4843 _MMGD ;0; SE      
+1373; F4REC  _Reca ;0; SE      
+1374; F4RIOA _CGH  ;0; SE      
+1375; 5G4845 _MMGD ;0; SE      
+1376; CTPHBO _BOCA ;0; SE      
+1377; F4BURI _BURI ;0; SE      
+1378; F4JUI1 _Jui  ;0; SE      
+1379; F4MASU _CGH  ;0; SE      
+1380; F4SAPE _Sape ;0; SE      
+1381; F4SLU1 _PCH  ;0; SE      
+1382; F4SLU2 _PCH  ;0; SE      
+1383; F4JBU  _Juba ;0; SE      
+1384; 5G4848 _MMGD ;0; SE      
+1385; 5G4853 _MMGD ;0; SE      
+1386; F4CRMJ _Cara ;0; SE      
+1387; 5G4863 _MMGD ;0; SE      
+1388; 5G4883 _MMGD ;0; SE      
+1389; 5G4893 _MMGD ;0; SE      
+1390; F4GAJA _GARG ;0; SE      
+1391; F4INXU _PCH  ;0; SE      
+1392; F4UBAR _BARU ;0; SE      
+1393; F4ARS  _ARS_ ;0; SE      
+1394; 5G4909 _MMGD ;0; SE      
+1395; 5G4933 _MMGD ;0; SE      
+1396; 5G4959 _MMGD ;0; SE      
+1397; 5G4963 _MMGD ;0; SE      
+1398; F4STM  _Salt ;0; SE      
+1399; F4SBU  _Salt ;0; SE      
+1400; F4SCU  _Salt ;0; SE      
+1401; 5G4973 _MMGD ;0; SE      
+1402; 5G4977 _MMGD ;0; SE      
+1403; F4FAX1 _Faxi ;0; SE      
+1404; F4FAX2 _Faxi ;0; SE      
+1405; F4GUAC _UTE  ;0; SE      
+1406; 5G4983 _MMGD ;0; SE      
+1407; F4BNO  _Brac ;0; SE      
+1408; F4BRD  _Brac ;0; SE      
+1409; F4BNO3 _BRAC ;0; SE      
+1410; 5G4992 _MMGD ;0; SE      
+1411; 5G4994 _MMGD ;0; SE      
+1412; F4BNO4 _BRAC ;0; SE      
+1413; CNLBI  _CJ L ;0; NE      
+1414; CQCUT  _CJ C ;0; NE      
+1415; CYBAB  _CJ B ;0; NE      
+1416; IGCTE  _CJCA ;0; NE      
+1417; 5G5073 _MMGD ;0; NE      
+1418; IDCAL1 _CJCA ;0; NE      
+1419; CQCUT  _CJ C ;0; NE      
+1420; EQ2ESSA_CJE  ;0; NE      
+1421; 5G5083 _MMGD ;0; NE      
+1422; 5G5093 _MMGD ;0; NE      
+1423; 5G5099 _MMGD ;0; NE      
+1424; 5G5113 _MMGD ;0; NE      
+1425; I1JITI _Jiti ;0; NE      
+1426; 5G5123 _MMGD ;0; NE      
+1427; I1CITE _CITE ;0; NE      
+1428; CLBSUL _CJEB ;0; NE      
+1429; CQCUT  _CJ C ;0; NE      
+1430; GSCPD  _CJCA ;0; NE      
+1431; 5G5132 _MMGD ;0; NE      
+1432; 5G5133 _MMGD ;0; NE      
+1433; 5G5158 _MMGD ;0; NE      
+1434; 5G5160 _MMGD ;0; NE      
+1435; 5G5166 _MMGD ;0; NE      
+1436; PFCAL  _CJ C ;0; NE      
+1437; 5G5183 _MMGD ;0; NE      
+1438; I1SJOS _Sao  ;0; NE      
+1439; 5G5193 _MMGD ;0; NE      
+1440; 5G5213 _MMGD ;0; NE      
+1441; 5G5243 _MMGD ;0; NE      
+1442; 5G5246 _MMGD ;0; NE      
+1443; I4SUPE _Sup. ;0; NE      
+1444; 5G5263 _MMGD ;0; NE      
+1445; 5G5273 _MMGD ;0; NE      
+1446; 5G5283 _MMGD ;0; NE      
+1447; ARCRL  _CJCR ;0; NE      
+1448; IAFSBA _CJ S ;0; NE      
+1449; MSFLO  _CJFV ;0; NE      
+1450; 5G5313 _MMGD ;0; NE      
+1451; 5G5314 _MMGD ;0; NE      
+1452; I1IPLA _Ipla ;0; NE      
+1453; MMRAL  _CJFV ;0; NE      
+1454; GEECVA _CTV_ ;0; NE      
+1455; CNLBI  _CJ L ;0; NE      
+1456; 5G5323 _MMGD ;0; NE      
+1457; 5G5333 _MMGD ;0; NE      
+1458; I1BOND _Bond ;0; NE      
+1459; 5G5343 _MMGD ;0; NE      
+1460; 5G5347 _MMGD ;0; NE      
+1461; I1UTAL _U-50 ;0; NE      
+1462; 5G5363 _MMGD ;0; NE      
+1463; MSFSA  _CJFA ;0; NE      
+1464; 5G5383 _MMGD ;0; NE      
+1465; 5G5393 _MMGD ;0; N       
+1466; 5G5402 _MMGD ;0; NE      
+1467; 5G5403 _MMGD ;0; NE      
+1468; I5SHOP _Shop ;0; NE      
+1469; 5G5406 _MMGD ;0; NE      
+1470; 5G5413 _MMGD ;0; NE      
+1471; 5G5423 _MMGD ;0; NE      
+1472; 5G5432 _MMGD ;0; NE      
+1473; 5G5433 _MMGD ;0; NE      
+1474; CLARD  _CJAR ;0; NE      
+1475; 5G5443 _MMGD ;0; NE      
+1476; 5G5453 _MMGD ;0; NE      
+1477; ALUEA1 _ALEG ;0; NE      
+1478; ALUEA2 _ALEG ;0; NE      
+1479; 5G5463 _MMGD ;0; NE      
+1480; BIAUD  _CJE  ;0; NE      
+1481; 5G5473 _MMGD ;0; NE      
+1482; 5G5475 _MMGD ;0; NE      
+1483; 5G5483 _MMGD ;0; NE      
+1484; I5ICAR _Icar ;0; NE      
+1485; 5G5492 _MMGD ;0; NE      
+1486; I7DELT _Delt ;0; NE      
+1487; I7PORD _Port ;0; NE      
+1488; I7PORO _Port ;0; NE      
+1489; I7PORT _Port ;0; NE      
+1490; I7PSAL _Pedr ;0; NE      
+1491; I7TESA _Test ;0; NE      
+1492; I7TEST _Test ;0; NE      
+1493; 5G5493 _MMGD ;0; NE      
+1494; 5G5496 _MMGD ;0; NE      
+1495; 5G5505 _MMGD ;0; NE      
+1496; 5G5506 _MMGD ;0; NE      
+1497; 5G5526 _MMGD ;0; N       
+1498; 5G5529 _MMGD ;0; N       
+1499; 5G5533 _MMGD ;0; N       
+1500; 5G5542 _MMGD ;0; N       
+1501; 5G5543 _MMGD ;0; N       
+1502; 5G5562 _MMGD ;0; N       
+1503; 5G5563 _MMGD ;0; N       
+1504; 5G5573 _MMGD ;0; NE      
+1505; 5G5578 _MMGD ;0; N       
+1506; 5G5583 _MMGD ;0; N       
+1507; MSCHP1 _CJCH ;0; NE      
+1508; 5G5603 _MMGD ;0; N       
+1509; BBTRA  _CJE  ;0; NE      
+1510; 5G5613 _MMGD ;0; NE      
+1511; GLCHP3 _CJCH ;0; NE      
+1512; 5G5623 _MMGD ;0; NE      
+1513; 5G5643 _MMGD ;0; NE      
+1514; 5G5653 _MMGD ;0; NE      
+1515; IASBAE _CJ E ;0; NE      
+1516; 5G5673 _MMGD ;0; NE      
+1517; 5G5677 _MMGD ;0; NE      
+1518; 5G5683 _MMGD ;0; NE      
+1519; 5G5693 _MMGD ;0; N       
+1520; SUUSUZ _SUZA ;0; N       
+1521; IYSDF  _CJF  ;0; NE      
+1522; 5G5703 _MMGD ;0; NE      
+1523; 5G5713 _MMGD ;0; NE      
+1524; 5G5723 _MMGD ;0; NE      
+1525; VIPARN _CJPA ;0; NE      
+1526; 5G5733 _MMGD ;0; NE      
+1527; 5G5737 _MMGD ;0; NE      
+1528; 5G5743 _MMGD ;0; NE      
+1529; CHCND  _CJE  ;0; NE      
+1530; SPUTCP _CSP_ ;0; NE      
+1531; 5G5757 _MMGD ;0; NE      
+1532; 5G5763 _MMGD ;0; NE      
+1533; 5G5786 _MMGD ;0; NE      
+1534; 5G5793 _MMGD ;0; NE      
+1535; 5G5798 _MMGD ;0; NE      
+1536; SPUTCP _CSP_ ;0; NE      
+1537; 5G5803 _MMGD ;0; NE      
+1538; BBASSV _UFV  ;0; NE      
+1539; NL5FGID_CJF  ;0; NE      
+1540; 5G5826 _MMGD ;0; NE      
+1541; 5G5838 _MMGD ;0; NE      
+1542; IYBRI  _CJF  ;0; NE      
+1543; 5G5843 _MMGD ;0; NE      
+1544; 5G5855 _MMGD ;0; NE      
+1545; 5G5856 _MMGD ;0; NE      
+1546; 5G5862 _MMGD ;0; NE      
+1547; 5G5863 _MMGD ;0; NE      
+1548; 5G5864 _MMGD ;0; NE      
+1549; 5G5873 _MMGD ;0; NE      
+1550; NLEMS2 _CJ M ;0; NE      
+1551; 5G5883 _MMGD ;0; NE      
+1552; 5G5893 _MMGD ;0; NE      
+1553; SGDLT  _CJDE ;0; N       
+1554; FBCHSD _CHAF ;0; NE      
+1555; VL4EMSD_CJE  ;0; NE      
+1556; 5G5904 _MMGD ;0; NE      
+1557; NLLDV  _CJ L ;0; NE      
+1558; 5G5907 _MMGD ;0; NE      
+1559; 5G5908 _MMGD ;0; NE      
+1560; 5G5911 _MMGD ;0; NE      
+1561; CQAVD  _CJ A ;0; NE      
+1562; CQSMN  _CJ S ;0; NE      
+1563; I2UFL  _Funi ;0; NE      
+1564; VL5ESMA_CJ S ;0; NE      
+1565; BFCSER _CJ O ;0; NE      
+1566; BFUFAL _CJ A ;0; NE      
+1567; VSLAV  _CJ L ;0; NE      
+1568; VIFLA  _CJ F ;0; NE      
+1569; 5G5944 _MMGD ;0; NE      
+1570; 5G5947 _MMGD ;0; NE      
+1571; C1SJP  _FVSJ ;0; NE      
+1572; 5G5963 _MMGD ;0; NE      
+1573; CLBSUL _CJEB ;0; NE      
+1574; 5G5974 _MMGD ;0; NE      
+1575; I2CACO _Cach ;0; NE      
+1576; I2CLN2 _Coli ;0; NE      
+1577; I2COLO _Coli ;0; NE      
+1578; VEUVCC _VERA ;0; NE      
+1579; 5G5983 _MMGD ;0; NE      
+1580; GEWND2 _CJBW ;0; NE      
+1581; 5G5993 _MMGD ;0; NE      
+1582; 5G5995 _MMGD ;0; NE      
+1583; CLCECV _CJCA ;0; NE      
+1584; 5G6003 _MMGD ;0; N       
+1585; 5G6013 _MMGD ;0; NE      
+1586; EQVCLE _CJSC ;0; NE      
+1587; MLEMAU _MALH ;0; NE      
+1588; IASBAE _CJ E ;0; NE      
+1589; EQVCLE _CJSC ;0; NE      
+1590; MMMSC  _CJE  ;0; NE      
+1591; IGUEMI _MIAS ;0; NE      
+1592; BWUERU _REI  ;0; NE      
+1593; BWUERT _REI  ;0; NE      
+1594; CLUEFO _FORM ;0; NE      
+1595; CLUEIC _ICAR ;0; NE      
+1596; MSABR  _CJE  ;0; NE      
+1597; MSABR  _CJE  ;0; NE      
+1598; EQSRO  _CJSR ;0; NE      
+1599; GSCPD  _CJCA ;0; NE      
+1600; VSJAN  _CJ J ;0; NE      
+1601; VL4EMSD_CJE  ;0; NE      
+1602; IDCA3  _CJCA ;0; NE      
+1603; RGITRU _CJIT ;0; NE      
+1604; BBUBN  _CJE  ;0; NE      
+1605; IYLRA  _CJE  ;0; NE      
+1606; BBE4CLA_CJE  ;0; NE      
+1607; NLMCS  _CJ M ;0; NE      
+1608; 5G6083 _MMGD ;0; NE      
+1609; VSBJL  _CJFO ;0; NE      
+1610; ARBJU  _CJFV ;0; NE      
+1611; NLHZT  _CJHO ;0; NE      
+1612; VLCNB  _CJCA ;0; NE      
+1613; AFPTM  _CJ P ;0; NE      
+1614; EQ2ESSA_CJE  ;0; NE      
+1615; CYBAB  _CJ B ;0; NE      
+1616; 5G6112 _MMGD ;0; NE      
+1617; BICEAD _CJPA ;0; NE      
+1618; CLJCDV _CJE  ;0; NE      
+1619; 3RCEBF _BAIX ;0; NE      
+1620; 5G6133 _MMGD ;0; NE      
+1621; NLCVNT _CJCU ;0; NE      
+1622; CLJCDV _CJE  ;0; NE      
+1623; GEWND1 _CJBW ;0; NE      
+1624; CLSCLA _CJSC ;0; NE      
+1625; IARIA  _CJRI ;0; NE      
+1626; CLMVNT _CJE  ;0; NE      
+1627; BFRENS _CJE  ;0; NE      
+1628; GLJCAB _CJE  ;0; NE      
+1629; CLCECV _CJCA ;0; NE      
+1630; CLJCCP _CJMA ;0; NE      
+1631; 5G6173 _MMGD ;0; NE      
+1632; IDCJCT _CJCA ;0; NE      
+1633; 5G6203 _MMGD ;0; NE      
+1634; NLSEAZ _CJSE ;0; NE      
+1635; UVUVNT _CJUV ;0; NE      
+1636; UVUVNT _CJUV ;0; NE      
+1637; NLMODL _CJMO ;0; NE      
+1638; 3N5EIGT_CJE  ;0; NE      
+1639; 3N4EPND_CJEP ;0; NE      
+1640; IGPND  _CJPE ;0; NE      
+1641; ARMRRI _CJCF ;0; NE      
+1642; NLDFN  _CJDE ;0; NE      
+1643; 5G6233 _MMGD ;0; NE      
+1644; NLSEAZ _CJSE ;0; NE      
+1645; IYASRA _CJE  ;0; NE      
+1646; 5G6255 _MMGD ;0; NE      
+1647; RGCABC _CJCA ;0; NE      
+1648; IY4FJZD_CJF  ;0; NE      
+1649; 3N4EPND_CJEP ;0; NE      
+1650; 3N4EPND_CJEP ;0; NE      
+1651; 3N4EPND_CJEP ;0; NE      
+1652; 3N4EPND_CJEP ;0; NE      
+1653; NLCCRI _CJE  ;0; NE      
+1654; SSSESE _CJPB ;0; NE      
+1655; SSSESE _CJPB ;0; NE      
+1656; SSSESE _CJPB ;0; NE      
+1657; IY4FJZD_CJF  ;0; NE      
+1658; 5G6317 _MMGD ;0; NE      
+1659; 3N5EIGT_CJE  ;0; NE      
+1660; VISDB  _CJ S ;0; NE      
+1661; 5G6332 _MMGD ;0; NE      
+1662; 5G6333 _MMGD ;0; NE      
+1663; 5G6342 _MMGD ;0; NE      
+1664; 5G6343 _MMGD ;0; NE      
+1665; 5G6353 _MMGD ;0; NE      
+1666; 5G6363 _MMGD ;0; NE      
+1667; 5G6364 _MMGD ;0; NE      
+1668; DSBMC  _CJE  ;0; NE      
+1669; VIVBA  _CJE  ;0; NE      
+1670; IGUEDP _CJ A ;0; NE      
+1671; IGUEMR _CJ M ;0; NE      
+1672; BBTRA  _CJE  ;0; NE      
+1673; BFIGP  _CJ I ;0; NE      
+1674; 5G6397 _MMGD ;0; N       
+1675; 5G6403 _MMGD ;0; N       
+1676; 5G6450 _MMGD ;0; N       
+1677; 5G6453 _MMGD ;0; N       
+1678; 5G6463 _MMGD ;0; N       
+1679; 5G6472 _MMGD ;0; N       
+1680; 5G6482 _MMGD ;0; N       
+1681; 5G6485 _MMGD ;0; N       
+1682; 5G6492 _MMGD ;0; N       
+1683; 5G6493 _MMGD ;0; N       
+1684; 5G6503 _MMGD ;0; NE      
+1685; 5G6523 _MMGD ;0; N       
+1686; 5G6534 _MMGD ;0; N       
+1687; 5G6536 _MMGD ;0; N       
+1688; 5G6542 _MMGD ;0; N       
+1689; IYCBS  _CJE  ;0; NE      
+1690; 5G6567 _MMGD ;0; N       
+1691; 5G6572 _MMGD ;0; N       
+1692; ARLAP  _CJFV ;0; NE      
+1693; 5G6580 _MMGD ;0; SE      
+1694; A4DELL _Dell ;0; SE      
+1695; 5G6581 _MMGD ;0; SE      
+1696; 5G6582 _MMGD ;0; SE      
+1697; A4RAFA _Rafa ;0; SE      
+1698; 5G6584 _MMGD ;0; SE      
+1699; 5G6585 _MMGD ;0; SE      
+1700; A4BROA _BROT ;0; SE      
+1701; A4BROT _BROT ;0; SE      
+1702; A6UTSC _Sant ;0; SE      
+1703; A6YOW  _Colo ;0; SE      
+1704; A6UDM  _CJ D ;0; SE      
+1705; A4CSPT _Cost ;0; SE      
+1706; A4CEVA _CEVA ;0; SE      
+1707; A4ANH2 _Anha ;0; SE      
+1708; A6YRT  _Reti ;0; SE      
+1709; A6YLM  _Palm ;0; SE      
+1710; 5G6601 _MMGD ;0; SE      
+1711; IYCBS  _CJE  ;0; NE      
+1712; UVUVNT _CJUV ;0; NE      
+1713; CHGPX  _CJE  ;0; NE      
+1714; 3NTBD  _CJ T ;0; NE      
+1715; CHGPX  _CJE  ;0; NE      
+1716; MSEBR  _CJCA ;0; NE      
+1717; MSCHP1 _CJCH ;0; NE      
+1718; VIPARN _CJPA ;0; NE      
+1719; RGITRU _CJIT ;0; NE      
+1720; ARMRRI _CJCF ;0; NE      
+1721; GLCHP3 _CJCH ;0; NE      
+1722; VL4EMSD_CJE  ;0; NE      
+1723; CLMVNT _CJE  ;0; NE      
+1724; GLCHP2 _CJCH ;0; NE      
+1725; GLCHP2 _CJCH ;0; NE      
+1726; VL4EMSD_CJE  ;0; NE      
+1727; VIPARN _CJPA ;0; NE      
+1728; AGFFDM _FLOR ;0; NE      
+1729; AGSTI  _CJSI ;0; NE      
+1730; 5G6662 _MMGD ;0; N       
+1731; 5G6664 _MMGD ;0; NE      
+1732; AU4ECNP_CJE  ;0; NE      
+1733; AU4ECNP_CJE  ;0; NE      
+1734; AU4ECNP_CJE  ;0; NE      
+1735; AU4ECNP_CJE  ;0; NE      
+1736; NL4ETAT_CJE  ;0; NE      
+1737; NLETAT _CJ E ;0; NE      
+1738; NLTBV  _CJFV ;0; NE      
+1739; VL4EMSD_CJE  ;0; NE      
+1740; CLCHE  _CJ P ;0; NE      
+1741; AU4ECNP_CJE  ;0; NE      
+1742; AU4ECNP_CJE  ;0; NE      
+1743; SGDLT  _CJDE ;0; N       
+1744; 5G6713 _MMGD ;0; N       
+1745; NLDFN  _CJDE ;0; NE      
+1746; 5G6721 _MMGD ;0; N       
+1747; IYASRA _CJE  ;0; NE      
+1748; IYASRA _CJE  ;0; NE      
+1749; NLMCS  _CJ M ;0; NE      
+1750; 3RCEBF _BAIX ;0; NE      
+1751; ARNVO  _CJF  ;0; NE      
+1752; ARNVO  _CJF  ;0; NE      
+1753; BBSSB  _CJF  ;0; NE      
+1754; VL5ESMA_CJ S ;0; NE      
+1755; BBE4CLA_CJE  ;0; NE      
+1756; ARJCAT _CJE  ;0; NE      
+1757; IAICR  _CJIC ;0; NE      
+1758; GEDREN _CJOL ;0; NE      
+1759; CQJCCO _CJBP ;0; NE      
+1760; IATBA  _CJTA ;0; NE      
+1761; MSFSA  _CJFA ;0; NE      
+1762; MSFSA  _CJFA ;0; NE      
+1763; VISDB  _CJ S ;0; NE      
+1764; IYSPD  _CJF  ;0; NE      
+1765; AFJDT  _CJ J ;0; NE      
+1766; IAICR  _CJIC ;0; NE      
+1767; 5G6797 _MMGD ;0; NE      
+1768; 5G6801 _MMGD ;0; SE      
+1769; 5G6822 _MMGD ;0; SE      
+1770; 5G6841 _MMGD ;0; SE      
+1771; 5G6842 _MMGD ;0; SE      
+1772; 5G6856 _MMGD ;0; SE      
+1773; 5G6869 _MMGD ;0; SE      
+1774; 5G6871 _MMGD ;0; SE      
+1775; 5G6881 _MMGD ;0; SE      
+1776; 5G6901 _MMGD ;0; SE      
+1777; 5G6917 _MMGD ;0; SE      
+1778; 5G6922 _MMGD ;0; SE      
+1779; 5G6931 _MMGD ;0; SE      
+1780; 5G6947 _MMGD ;0; N       
+1781; 5G6951 _MMGD ;0; SE      
+1782; 5G6952 _MMGD ;0; SE      
+1783; 5G6965 _MMGD ;0; SE      
+1784; 5G6975 _MMGD ;0; SE      
+1785; 5G6991 _MMGD ;0; SE      
+1786; 5G7004 _MMGD ;0; SE      
+1787; 5G7017 _MMGD ;0; SE      
+1788; 5G7029 _MMGD ;0; SE      
+1789; S1PTN  _CJF  ;0; NE      
+1790; 5G7071 _MMGD ;0; SE      
+1791; FGUV8  _VERD ;0; SE      
+1792; CGYPE  _PCH  ;0; SE      
+1793; 5G7086 _MMGD ;0; SE      
+1794; 5G7088 _MMGD ;0; SE      
+1795; 5G7090 _MMGD ;0; SE      
+1796; 5G7091 _MMGD ;0; SE      
+1797; F2USJT _Jata ;0; SE      
+1798; F2IRR  _Irar ;0; SE      
+1799; F2FAZV _FAZE ;0; SE      
+1800; F4FAZE _FAZE ;0; SE      
+1801; 5G7098 _MMGD ;0; SE      
+1802; FBCHSD _CHAF ;0; NE      
+1803; FBCHS  _CJ C ;0; NE      
+1804; FBCHS  _CJ C ;0; NE      
+1805; F2CAMB _Camb ;0; SE      
+1806; 5G7150 _MMGD ;0; SE      
+1807; NLFTAT _CJ S ;0; NE      
+1808; 5G7153 _MMGD ;0; SE      
+1809; 5G7154 _MMGD ;0; SE      
+1810; 5G7155 _MMGD ;0; SE      
+1811; 5G7156 _MMGD ;0; SE      
+1812; A2VALE _Vale ;0; SE      
+1813; A5VAPO _Vale ;0; SE      
+1814; ITUTIT _ITUI ;0; SE      
+1815; 5G7164 _MMGD ;0; SE      
+1816; 5G7169 _MMGD ;0; SE      
+1817; A4CERA _Cerr ;0; SE      
+1818; A6CERR _CERR ;0; SE      
+1819; A2DVPA _DVPA ;0; SE      
+1820; 5G7182 _MMGD ;0; NE      
+1821; 5G7183 _MMGD ;0; NE      
+1822; 5G7193 _MMGD ;0; NE      
+1823; BBTRA  _CJE  ;0; NE      
+1824; 5G7228 _MMGD ;0; N       
+1825; 5G7239 _MMGD ;0; N       
+1826; 5G7240 _MMGD ;0; N       
+1827; 5G7241 _MMGD ;0; N       
+1828; 5G7242 _MMGD ;0; N       
+1829; 5G7243 _MMGD ;0; N       
+1830; 5G7244 _MMGD ;0; N       
+1831; 5G7245 _MMGD ;0; N       
+1832; 5G7246 _MMGD ;0; N       
+1833; 5G7247 _MMGD ;0; N       
+1834; 5G7248 _MMGD ;0; N       
+1835; AU4ECNP_CJE  ;0; NE      
+1836; AU4ECNP_CJE  ;0; NE      
+1837; AU4ECNP_CJE  ;0; NE      
+1838; AU4ECNP_CJE  ;0; NE      
+1839; NTMEND _CJF  ;0; NE      
+1840; VLCAN  _CJ C ;0; NE      
+1841; NTMEND _CJF  ;0; NE      
+1842; VISSD  _CJ S ;0; NE      
+1843; VISSD  _CJ S ;0; NE      
+1844; VISSD  _CJ S ;0; NE      
+1845; A5SJTD _SAO  ;0; SE      
+1846; 5G7327 _MMGD ;0; SE      
+1847; 5G7334 _MMGD ;0; SE      
+1848; A5SANJ _SANT ;0; SE      
+1849; A5UTUG _UT U ;0; SE      
+1850; 5G7349 _MMGD ;0; SE      
+1851; 5G7353 _MMGD ;0; SE      
+1852; A2MCDM _Mach ;0; SE      
+1853; A2MTS  _META ;0; SE      
+1854; 5G7377 _MMGD ;0; SE      
+1855; 5G7379 _MMGD ;0; SE      
+1856; 5G7391 _MMGD ;0; SE      
+1857; 5G7393 _MMGD ;0; SE      
+1858; 5G7399 _MMGD ;0; SE      
+1859; 5G7400 _MMGD ;0; SE      
+1860; 5G7414 _MMGD ;0; SE      
+1861; 5G7415 _MMGD ;0; SE      
+1862; 5G7416 _MMGD ;0; SE      
+1863; 5G7417 _MMGD ;0; SE      
+1864; 5G7418 _MMGD ;0; SE      
+1865; A2JUA  _Jua_ ;0; SE      
+1866; 5G7419 _MMGD ;0; SE      
+1867; 5G7420 _MMGD ;0; SE      
+1868; 5G7421 _MMGD ;0; SE      
+1869; 5G7422 _MMGD ;0; SE      
+1870; 5G7423 _MMGD ;0; SE      
+1871; 5G7424 _MMGD ;0; SE      
+1872; 5G7426 _MMGD ;0; SE      
+1873; 5G7427 _MMGD ;0; SE      
+1874; 5G7428 _MMGD ;0; SE      
+1875; 5G7429 _MMGD ;0; SE      
+1876; 5G7430 _MMGD ;0; SE      
+1877; 5G7431 _MMGD ;0; SE      
+1878; 5G7432 _MMGD ;0; SE      
+1879; 5G7433 _MMGD ;0; SE      
+1880; VUJAI3 _CJF  ;0; SE      
+1881; EJCPIR _CJPI ;0; SE      
+1882; IYUFLS _CJF  ;0; SE      
+1883; 5G7471 _MMGD ;0; SE      
+1884; 5G7473 _MMGD ;0; SE      
+1885; 5G7475 _MMGD ;0; SE      
+1886; 5G7480 _MMGD ;0; SE      
+1887; 5G7482 _MMGD ;0; SE      
+1888; 5G7483 _MMGD ;0; SE      
+1889; 5G7485 _MMGD ;0; SE      
+1890; 5G7487 _MMGD ;0; SE      
+1891; 5G7490 _MMGD ;0; SE      
+1892; 5G7491 _MMGD ;0; SE      
+1893; A3SEBA _Sao  ;0; SE      
+1894; 5G7493 _MMGD ;0; SE      
+1895; 5G7494 _MMGD ;0; SE      
+1896; 5G7495 _MMGD ;0; SE      
+1897; 5G7496 _MMGD ;0; SE      
+1898; 5G7498 _MMGD ;0; SE      
+1899; 5G7501 _MMGD ;0; SE      
+1900; 5G7502 _MMGD ;0; SE      
+1901; 5G7503 _MMGD ;0; SE      
+1902; 5G7504 _MMGD ;0; SE      
+1903; 5G7505 _MMGD ;0; SE      
+1904; 5G7506 _MMGD ;0; SE      
+1905; 5G7508 _MMGD ;0; SE      
+1906; A3JUCA _Caju ;0; SE      
+1907; 5G7511 _MMGD ;0; SE      
+1908; 5G7521 _MMGD ;0; SE      
+1909; 5G7522 _MMGD ;0; SE      
+1910; 5G7531 _MMGD ;0; SE      
+1911; 5G7535 _MMGD ;0; SE      
+1912; 5G7537 _MMGD ;0; SE      
+1913; F4FOZD _Foz  ;0; SE      
+1914; F4FSB  _F&S  ;0; SE      
+1915; 5G7539 _MMGD ;0; SE      
+1916; 5G7540 _MMGD ;0; SE      
+1917; 5G7541 _MMGD ;0; SE      
+1918; 5G7542 _MMGD ;0; SE      
+1919; F4CANO _CANO ;0; SE      
+1920; 5G7546 _MMGD ;0; SE      
+1921; 5G7548 _MMGD ;0; SE      
+1922; 5G7549 _MMGD ;0; SE      
+1923; IYUFLS _CJF  ;0; SE      
+1924; IYSDC  _CJF  ;0; SE      
+1925; IYSDC  _CJF  ;0; SE      
+1926; 5G7605 _MMGD ;0; SE      
+1927; GVCJRV _CJT  ;0; SE      
+1928; EJUFD  _CJDR ;0; SE      
+1929; 5G7620 _MMGD ;0; SE      
+1930; A6UVAP _VALE ;0; SE      
+1931; 5G7625 _MMGD ;0; SE      
+1932; GTUFBH _CJBO ;0; SE      
+1933; GTUFBH _CJBO ;0; SE      
+1934; 5G7631 _MMGD ;0; SE      
+1935; 5G7632 _MMGD ;0; SE      
+1936; 5G7641 _MMGD ;0; SE      
+1937; 5G7662 _MMGD ;0; N       
+1938; IYSDC  _CJF  ;0; SE      
+1939; IYSDC  _CJF  ;0; SE      
+1940; A4GCA  _Guar ;0; SE      
+1941; A4GUCA _Guar ;0; SE      
+1942; A6VERT _VERT ;0; SE      
+1943; 5G7686 _MMGD ;0; SE      
+1944; 5G7688 _MMGD ;0; SE      
+1945; A4BIOE _Bioe ;0; SE      
+1946; 5G7695 _MMGD ;0; SE      
+1947; F4CAS2 _Casc ;0; SE      
+1948; F4GLIC _GLIC ;0; SE      
+1949; 5G7699 _MMGD ;0; SE      
+1950; F4BURT _Buri ;0; SE      
+1951; 5G7700 _MMGD ;0; SE      
+1952; 5G7705 _MMGD ;0; SE      
+1953; 5G7706 _MMGD ;0; SE      
+1954; 5G7708 _MMGD ;0; SE      
+1955; 5G7709 _MMGD ;0; SE      
+1956; 5G7710 _MMGD ;0; SE      
+1957; BEJAN  _CJ J ;0; SE      
+1958; BEJAN  _CJ J ;0; SE      
+1959; BEJAN  _CJ J ;0; SE      
+1960; BEJAN  _CJ J ;0; SE      
+1961; BEJAN  _CJ J ;0; SE      
+1962; BEJAN  _CJ J ;0; SE      
+1963; 5G7744 _MMGD ;0; SE      
+1964; AUSDJ  _CJ J ;0; SE      
+1965; AUSDJ  _CJ J ;0; SE      
+1966; AUSDJ  _CJ J ;0; SE      
+1967; AUSDJ  _CJ J ;0; SE      
+1968; 5G7768 _MMGD ;0; SE      
+1969; 5G7769 _MMGD ;0; SE      
+1970; F4INPA _Inpa ;0; SE      
+1971; F4PERD _Perd ;0; SE      
+1972; A2UBER _Uber ;0; SE      
+1973; EJVZPQ _CJ H ;0; SE      
+1974; EJVZPQ _CJ H ;0; SE      
+1975; 5G7800 _MMGD ;0; SE      
+1976; 5G7802 _MMGD ;0; SE      
+1977; 5G7804 _MMGD ;0; SE      
+1978; F4NOVI _Novo ;0; SE      
+1979; 5G7813 _MMGD ;0; SE      
+1980; 5G7814 _MMGD ;0; SE      
+1981; 5G7815 _MMGD ;0; SE      
+1982; VUPED  _CJ P ;0; SE      
+1983; EJCST3 _CJ C ;0; SE      
+1984; 3RPB   _CJ P ;0; SE      
+1985; IYBST  _CJF  ;0; SE      
+1986; 5G7893 _MMGD ;0; SE      
+1987; 5G7899 _MMGD ;0; SE      
+1988; NLEMS2 _CJ M ;0; NE      
+1989; IGTUC  _CJ T ;0; NE      
+1990; IYMTD  _CJF  ;0; NE      
+1991; SSARI  _CJ A ;0; NE      
+1992; MMRAL  _CJFV ;0; NE      
+1993; IGCAJ1 _CONJ ;0; NE      
+1994; IGCAJ1 _CONJ ;0; NE      
+1995; VSLAV  _CJ L ;0; NE      
+1996; C0BELM _Conj ;0; NE      
+1997; C0BELM _Conj ;0; NE      
+1998; C0BELM _Conj ;0; NE      
+1999; VSCIR  _CJ U ;0; NE      
+2000; AGSTI  _CJSI ;0; NE      
+2001; EQ5ESMB_CJ S ;0; NE      
+2002; EQ5ESMB_CJ S ;0; NE      
+2003; S3SERA _CJ S ;0; NE      
+2004; S3SEM  _CJ S ;0; NE      
+2005; 5G7945 _MMGD ;0; NE      
+2006; 5G7946 _MMGD ;0; NE      
+2007; 5G7947 _MMGD ;0; NE      
+2008; 5G7964 _MMGD ;0; N       
+2009; BBE4CLA_CJE  ;0; NE      
+2010; BBE4CLA_CJE  ;0; NE      
+2011; VLSDMC _CJ S ;0; NE      
+2012; FBLZA  _CJ L ;0; NE      
+2013; VSCIR  _CJ U ;0; NE      
+2014; EQRG3  _CJF  ;0; NE      
+2015; NL4ETAT_CJE  ;0; NE      
+2016; NLFVD  _CJ F ;0; NE      
+2017; SGDLT  _CJDE ;0; N       
+2018; SGDLT  _CJDE ;0; N       
+2019; SGDLT  _CJDE ;0; N       
+2020; 5G8018 _MMGD ;0; NE      
+2021; 5G8019 _MMGD ;0; NE      
+2022; 5G8020 _MMGD ;0; NE      
+2023; I1MARA _Mara ;0; NE      
+2024; 5G8022 _MMGD ;0; NE      
+2025; 5G8027 _MMGD ;0; NE      
+2026; 5G8029 _MMGD ;0; NE      
+2027; 5G8030 _MMGD ;0; NE      
+2028; 5G8031 _MMGD ;0; NE      
+2029; 5G8032 _MMGD ;0; NE      
+2030; 5G8033 _MMGD ;0; NE      
+2031; 5G8034 _MMGD ;0; NE      
+2032; 5G8035 _MMGD ;0; NE      
+2033; 5G8040 _MMGD ;0; N       
+2034; 5G8042 _MMGD ;0; N       
+2035; 5G8044 _MMGD ;0; NE      
+2036; 5G8045 _MMGD ;0; NE      
+2037; 5G8053 _MMGD ;0; NE      
+2038; 5G8054 _MMGD ;0; NE      
+2039; 5G8055 _MMGD ;0; NE      
+2040; 5G8063 _MMGD ;0; N       
+2041; BFIGP  _CJ I ;0; NE      
+2042; BFIGP  _CJ I ;0; NE      
+2043; BFIGP  _CJ I ;0; NE      
+2044; BFIGP  _CJ I ;0; NE      
+2045; BBUBN  _CJE  ;0; NE      
+2046; BBUBN  _CJE  ;0; NE      
+2047; IDC245 _CJCA ;0; NE      
+2048; EQ2ESSA_CJE  ;0; NE      
+2049; EQ2ESSA_CJE  ;0; NE      
+2050; A6GUAI _Guai ;0; SE      
+2051; EQ2ESSA_CJE  ;0; NE      
+2052; EQ2ESSA_CJE  ;0; NE      
+2053; CQJCCO _CJBP ;0; NE      
+2054; CQJCCO _CJBP ;0; NE      
+2055; MMMSC  _CJE  ;0; NE      
+2056; MMMSC  _CJE  ;0; NE      
+2057; MMMSC  _CJE  ;0; NE      
+2058; VISDB  _CJ S ;0; NE      
+2059; VIVBA  _CJE  ;0; NE      
+2060; VIFLA  _CJ F ;0; NE      
+2061; EQ5ESMB_CJ S ;0; NE      
+2062; DSJER  _CJ J ;0; NE      
+2063; 3REMVD _CJ M ;0; NE      
+2064; CVRDV  _CJ R ;0; NE      
+2065; CLGAM  _CJ G ;0; NE      
+2066; 5G8174 _MMGD ;0; N       
+2067; CHGPX  _CJE  ;0; NE      
+2068; 5G8230 _MMGD ;0; N       
+2069; CHGPX  _CJE  ;0; NE      
+2070; 5G8251 _MMGD ;0; N       
+2071; 5G8257 _MMGD ;0; N       
+2072; 5G8258 _MMGD ;0; N       
+2073; 5G8259 _MMGD ;0; N       
+2074; 5G8272 _MMGD ;0; N       
+2075; VITSN  _CJ T ;0; NE      
+2076; EQ5ESMB_CJ S ;0; NE      
+2077; 5G8296 _MMGD ;0; N       
+2078; FBCHN  _CJ C ;0; NE      
+2079; VSJAN  _CJ J ;0; NE      
+2080; UVSMG  _CJSM ;0; NE      
+2081; SGDLT  _CJDE ;0; N       
+2082; 5G8322 _MMGD ;0; N       
+2083; NLLDV  _CJ L ;0; NE      
+2084; NL5FGID_CJF  ;0; NE      
+2085; CVFLS  _CJ F ;0; NE      
+2086; RFMNR  _CJ M ;0; NE      
+2087; FBOIT  _CJ O ;0; NE      
+2088; FBOIT  _CJ O ;0; NE      
+2089; VLAB2  _CJ A ;0; NE      
+2090; 5G8351 _MMGD ;0; N       
+2091; 5G8354 _MMGD ;0; NE      
+2092; I7LUIN _Luiz ;0; NE      
+2093; I7LUIO _Luiz ;0; NE      
+2094; 5G8355 _MMGD ;0; NE      
+2095; 5G8356 _MMGD ;0; NE      
+2096; 5G8357 _MMGD ;0; NE      
+2097; NL5FGID_CJF  ;0; NE      
+2098; NL5FGID_CJF  ;0; NE      
+2099; NLCMR  _CJ C ;0; NE      
+2100; DSVSE  _CJ S ;0; NE      
+2101; CNTQN  _CJ T ;0; NE      
+2102; MMCTN  _CJE  ;0; NE      
+2103; CVBBS  _CJ B ;0; NE      
+2104; VICSDS _CJ S ;0; NE      
+2105; CNLBI  _CJ L ;0; NE      
+2106; VLSDMC _CJ S ;0; NE      
+2107; S3SERA _CJ S ;0; NE      
+2108; 5G8451 _MMGD ;0; N       
+2109; 5G8461 _MMGD ;0; N       
+2110; 5G8462 _MMGD ;0; N       
+2111; 5G8463 _MMGD ;0; N       
+2112; SSARI  _CJ A ;0; NE      
+2113; 3RCEBF _BAIX ;0; NE      
+2114; 3RCEBF _BAIX ;0; NE      
+2115; 5G8513 _MMGD ;0; N       
+2116; 5G8514 _MMGD ;0; N       
+2117; 5G8515 _MMGD ;0; N       
+2118; 5G8516 _MMGD ;0; N       
+2119; 5G8524 _MMGD ;0; N       
+2120; 5G8526 _MMGD ;0; N       
+2121; 5G8527 _MMGD ;0; N       
+2122; 5G8528 _MMGD ;0; N       
+2123; 5G8529 _MMGD ;0; N       
+2124; 5G8536 _MMGD ;0; N       
+2125; 5G8542 _MMGD ;0; N       
+2126; 5G8547 _MMGD ;0; N       
+2127; 5G8549 _MMGD ;0; N       
+2128; 5G8550 _MMGD ;0; N       
+2129; 5G8560 _MMGD ;0; N       
+2130; 5G8562 _MMGD ;0; N       
+2131; 5G8564 _MMGD ;0; N       
+2132; 5G8566 _MMGD ;0; N       
+2133; 5G8567 _MMGD ;0; N       
+2134; 5G8569 _MMGD ;0; N       
+2135; MSEBR  _CJCA ;0; NE      
+2136; 5G8580 _MMGD ;0; N       
+2137; EQSRO  _CJSR ;0; NE      
+2138; BIAUD  _CJE  ;0; NE      
+2139; CLSCLA _CJSC ;0; NE      
+2140; CLSCLA _CJSC ;0; NE      
+2141; GLJCAB _CJE  ;0; NE      
+2142; CLJCCP _CJMA ;0; NE      
+2143; NLCCRI _CJE  ;0; NE      
+2144; ARJCAT _CJE  ;0; NE      
+2145; CVFLS  _CJ F ;0; NE      
+2146; CLBSUL _CJEB ;0; NE      
+2147; CLBSUL _CJEB ;0; NE      
+2148; IGCTE  _CJCA ;0; NE      
+2149; GEWND1 _CJBW ;0; NE      
+2150; GEWND2 _CJBW ;0; NE      
+2151; A3UEGG _Garg ;0; SE      
+2152; 5G8709 _MMGD ;0; SE      
+2153; 5G8710 _MMGD ;0; NE      
+2154; 5G8711 _MMGD ;0; NE      
+2155; VISSD  _CJ S ;0; NE      
+2156; NLLDV  _CJ L ;0; NE      
+2157; NLLDV  _CJ L ;0; NE      
+2158; NLLDV  _CJ L ;0; NE      
+2159; NLLDV  _CJ L ;0; NE      
+2160; CHCND  _CJE  ;0; NE      
+2161; S3AFB  _CJ A ;0; NE      
+2162; 5G8762 _MMGD ;0; N       
+2163; VLMNV  _CJ M ;0; NE      
+2164; NL5FGID_CJF  ;0; NE      
+2165; EQRG3  _CJF  ;0; NE      
+2166; FBOIT  _CJ O ;0; NE      
+2167; IYBRI  _CJF  ;0; NE      
+2168; VL4EMSD_CJE  ;0; NE      
+2169; VITSN  _CJ T ;0; NE      
+2170; FBOIT  _CJ O ;0; NE      
+2171; FBOIT  _CJ O ;0; NE      
+2172; FBOIT  _CJ O ;0; NE      
+2173; VL5ESMA_CJ S ;0; NE      
+2174; AGACA  _CONJ ;0; NE      
+2175; 5G8823 _MMGD ;0; N       
+2176; 5G8824 _MMGD ;0; N       
+2177; 5G8826 _MMGD ;0; N       
+2178; 5G8830 _MMGD ;0; N       
+2179; 5G8861 _MMGD ;0; N       
+2180; CVRVE  _CJ R ;0; NE      
+2181; CQJDA  _CJ J ;0; NE      
+2182; RFMNR  _CJ M ;0; NE      
+2183; CVRDV  _CJ R ;0; NE      
+2184; CVRDV  _CJ R ;0; NE      
+2185; CVRDV  _CJ R ;0; NE      
+2186; AFUPTM _UFV  ;0; NE      
+2187; VL5ESMA_CJ S ;0; NE      
+2188; VL5ESMA_CJ S ;0; NE      
+2189; NL5FGID_CJF  ;0; NE      
+2190; MMRAL  _CJFV ;0; NE      
+2191; IGCAJ1 _CONJ ;0; NE      
+2192; IGCAJ1 _CONJ ;0; NE      
+2193; 3RMVS  _CJ M ;0; NE      
+2194; 3REMVD _CJ M ;0; NE      
+2195; MXFFUT _CJ F ;0; NE      
+2196; S3FSEM _CJ U ;0; NE      
+2197; VISVT  _CJ V ;0; NE      
+2198; 5G9001 _MMGD ;0; SE      
+2199; 5G9002 _MMGD ;0; SE      
+2200; 5G9003 _MMGD ;0; SE      
+2201; 5G9005 _MMGD ;0; SE      
+2202; 5G9007 _MMGD ;0; SE      
+2203; 5G9009 _MMGD ;0; SE      
+2204; 5G9011 _MMGD ;0; SE      
+2205; 5G9014 _MMGD ;0; SE      
+2206; 5G9020 _MMGD ;0; SE      
+2207; 5G9023 _MMGD ;0; SE      
+2208; 5G9027 _MMGD ;0; SE      
+2209; 5G9028 _MMGD ;0; SE      
+2210; 5G9029 _MMGD ;0; SE      
+2211; 5G9031 _MMGD ;0; SE      
+2212; 5G9036 _MMGD ;0; SE      
+2213; A3STOA _SANT ;0; SE      
+2214; 5G9048 _MMGD ;0; SE      
+2215; A6SANO _SANT ;0; SE      
+2216; 5G9054 _MMGD ;0; SE      
+2217; 5G9055 _MMGD ;0; SE      
+2218; 5G9057 _MMGD ;0; SE      
+2219; 5G9058 _MMGD ;0; SE      
+2220; A4SPDR _SAO  ;0; SE      
+2221; 5G9061 _MMGD ;0; SE      
+2222; 5G9062 _MMGD ;0; SE      
+2223; 5G9067 _MMGD ;0; SE      
+2224; 5G9068 _MMGD ;0; SE      
+2225; 5G9069 _MMGD ;0; SE      
+2226; 5G9070 _MMGD ;0; SE      
+2227; 5G9072 _MMGD ;0; SE      
+2228; 5G9073 _MMGD ;0; SE      
+2229; 5G9074 _MMGD ;0; SE      
+2230; 5G9075 _MMGD ;0; SE      
+2231; 5G9076 _MMGD ;0; SE      
+2232; 5G9077 _MMGD ;0; SE      
+2233; 5G9079 _MMGD ;0; SE      
+2234; 5G9080 _MMGD ;0; SE      
+2235; A2PARD _PARD ;0; SE      
+2236; 5G9081 _MMGD ;0; SE      
+2237; 5G9082 _MMGD ;0; SE      
+2238; 5G9083 _MMGD ;0; SE      
+2239; 5G9084 _MMGD ;0; SE      
+2240; 5G9085 _MMGD ;0; SE      
+2241; 5G9086 _MMGD ;0; SE      
+2242; 5G9087 _MMGD ;0; SE      
+2243; 5G9089 _MMGD ;0; SE      
+2244; 5G9090 _MMGD ;0; SE      
+2245; 5G9094 _MMGD ;0; SE      
+2246; 5G9095 _MMGD ;0; SE      
+2247; A2CRAO _Cach ;0; SE      
+2248; QESCAB _CJSC ;0; SE      
+2249; DVUTDC _DECA ;0; SE      
+2250; RAUTIP _IPAU ;0; SE      
+2251; GVCJRV _CJT  ;0; SE      
+2252; IYUEXG _XANG ;0; S       
+2253; 5G9195 _MMGD ;0; S       
+2254; 5G9201 _MMGD ;0; S       
+2255; 5G9203 _MMGD ;0; S       
+2256; 5G9204 _MMGD ;0; S       
+2257; 5G9205 _MMGD ;0; S       
+2258; 5G9206 _MMGD ;0; S       
+2259; 5G9207 _MMGD ;0; S       
+2260; 5G9208 _MMGD ;0; S       
+2261; 5G9209 _MMGD ;0; S       
+2262; 5G9210 _MMGD ;0; S       
+2263; 5G9211 _MMGD ;0; S       
+2264; 5G9214 _MMGD ;0; S       
+2265; 5G9216 _MMGD ;0; S       
+2266; 5G9217 _MMGD ;0; S       
+2267; BMBCMO _CJBO ;0; S       
+2268; BMBCMO _CJBO ;0; S       
+2269; 5G9232 _MMGD ;0; S       
+2270; 5G9236 _MMGD ;0; S       
+2271; 5G9241 _MMGD ;0; S       
+2272; 5G9244 _MMGD ;0; S       
+2273; 5G9246 _MMGD ;0; S       
+2274; 5G9258 _MMGD ;0; S       
+2275; 5G9260 _MMGD ;0; S       
+2276; 5G9261 _MMGD ;0; S       
+2277; D3UPIR _Pira ;0; S       
+2278; 5G9264 _MMGD ;0; S       
+2279; 5G9269 _MMGD ;0; S       
+2280; 5G9270 _MMGD ;0; S       
+2281; 5G9276 _MMGD ;0; S       
+2282; 5G9279 _MMGD ;0; S       
+2283; 5G9281 _MMGD ;0; S       
+2284; 5G9282 _MMGD ;0; S       
+2285; 5G9284 _MMGD ;0; S       
+2286; 5G9285 _MMGD ;0; S       
+2287; 5G9303 _MMGD ;0; S       
+2288; 5G9305 _MMGD ;0; S       
+2289; BCPCPM _CJLA ;0; S       
+2290; BCPCPM _CJLA ;0; S       
+2291; 5G9321 _MMGD ;0; S       
+2292; 5G9324 _MMGD ;0; S       
+2293; 5G9327 _MMGD ;0; S       
+2294; 5G9331 _MMGD ;0; S       
+2295; 5G9332 _MMGD ;0; S       
+2296; 5G9334 _MMGD ;0; S       
+2297; 5G9339 _MMGD ;0; S       
+2298; D2UTZP _Sant ;0; S       
+2299; 5G9359 _MMGD ;0; S       
+2300; TBUTBE _BERN ;0; S       
+2301; 5G9366 _MMGD ;0; S       
+2302; 5G9367 _MMGD ;0; S       
+2303; 5G9368 _MMGD ;0; S       
+2304; 5G9369 _MMGD ;0; S       
+2305; 5G9370 _MMGD ;0; S       
+2306; 5G9373 _MMGD ;0; S       
+2307; 5G9377 _MMGD ;0; S       
+2308; 5G9388 _MMGD ;0; S       
+2309; 5G9390 _MMGD ;0; S       
+2310; 5G9391 _MMGD ;0; S       
+2311; 5G9400 _MMGD ;0; S       
+2312; 5G9401 _MMGD ;0; S       
+2313; 5G9402 _MMGD ;0; S       
+2314; 5G9403 _MMGD ;0; S       
+2315; 5G9404 _MMGD ;0; S       
+2316; 5G9405 _MMGD ;0; S       
+2317; 5G9406 _MMGD ;0; S       
+2318; D2SANA _Sant ;0; S       
+2319; 5G9408 _MMGD ;0; S       
+2320; 5G9409 _MMGD ;0; S       
+2321; 5G9413 _MMGD ;0; S       
+2322; 5G9416 _MMGD ;0; S       
+2323; 5G9418 _MMGD ;0; S       
+2324; 5G9419 _MMGD ;0; S       
+2325; 5G9425 _MMGD ;0; S       
+2326; 5G9426 _MMGD ;0; S       
+2327; 5G9428 _MMGD ;0; S       
+2328; RLCACU _CACU ;0; SE      
+2329; QCQUIR _CJQU ;0; SE      
+2330; QCQUIR _CJQU ;0; SE      
+2331; KDCJCD _CJ C ;0; SE      
+2332; TREDEI _CJED ;0; SE      
+2333; S1PTN  _CJF  ;0; NE      
+2334; VLSDMC _CJ S ;0; NE      
+2335; G1JP   _ALTO ;0; N       
+2336; VICSDS _CJ S ;0; NE      
+2337; FBCHN  _CJ C ;0; NE      
+2338; FUUHAT _PCH  ;0; SE      
+2339; NLCMR  _CJ C ;0; NE      
+2340; A4CTCA _CANA ;0; SE      
+2341; A4CTCO _Coca ;0; SE      
+2342; A4MARA _Mara ;0; SE      
+2343; A6UTQT _QUAT ;0; SE      
+2344; 5G9530 _MMGD ;0; S       
+2345; 5G9531 _MMGD ;0; S       
+2346; 5G9535 _MMGD ;0; S       
+2347; 5G9548 _MMGD ;0; S       
+2348; 5G9550 _MMGD ;0; S       
+2349; 5G9551 _MMGD ;0; S       
+2350; 5G9558 _MMGD ;0; S       
+2351; D3JBAR _Jose ;0; S       
+2352; D3RS15 _RS-1 ;0; S       
+2353; 5G9570 _MMGD ;0; S       
+2354; ODCRBR _CJRB ;0; SE      
+2355; 5G9591 _MMGD ;0; S       
+2356; 5G9592 _MMGD ;0; S       
+2357; 5G9593 _MMGD ;0; S       
+2358; D4SALS _Salt ;0; S       
+2359; A6YBV  _Ibit ;0; SE      
+2360; A4BFM  _Usin ;0; SE      
+2361; A6BIOG _Biog ;0; SE      
+2362; A6UTPD _Da P ;0; SE      
+2363; RABBIO _BARR ;0; SE      
+2364; 5G9651 _MMGD ;0; S       
+2365; 5G9653 _MMGD ;0; S       
+2366; 5G9655 _MMGD ;0; S       
+2367; D3IGRE _Igre ;0; S       
+2368; 5G9657 _MMGD ;0; S       
+2369; 5G9659 _MMGD ;0; S       
+2370; 5G9660 _MMGD ;0; S       
+2371; 5G9678 _MMGD ;0; S       
+2372; AAAM2  _Aman ;0; SE      
+2373; AAUTAM _AMAN ;0; SE      
+2374; A4PLAN _Plan ;0; SE      
+2375; 5G9689 _MMGD ;0; S       
+2376; 5G9692 _MMGD ;0; S       
+2377; 5G9694 _MMGD ;0; S       
+2378; 5G9703 _MMGD ;0; S       
+2379; 5G9704 _MMGD ;0; S       
+2380; 5G9705 _MMGD ;0; S       
+2381; 5G9713 _MMGD ;0; S       
+2382; 5G9717 _MMGD ;0; S       
+2383; D4LINH _Linh ;0; S       
+2384; 5G9721 _MMGD ;0; S       
+2385; ESECC4 _CJE  ;0; S       
+2386; 5G9751 _MMGD ;0; S       
+2387; 5G9756 _MMGD ;0; S       
+2388; D2CAVR _Cave ;0; S       
+2389; KCUPAG _Port ;0; SE      
+2390; KCUPG2 _Port ;0; SE      
+2391; KCCHR  _Unid ;0; SE      
+2392; KCUTIC _Iaco ;0; SE      
+2393; KCCAO  _CJCH ;0; SE      
+2394; KCCAO  _CJCH ;0; SE      
+2395; KCUTNA _Nard ;0; SE      
+2396; KJATAI _UTE  ;0; SE      
+2397; 5G9781 _MMGD ;0; S       
+2398; 5G9782 _MMGD ;0; S       
+2399; D3BOAV _Boa  ;0; S       
+2400; KCCAO  _CJCH ;0; SE      
+2401; PCUTCM _CMPC ;0; S       
+2402; 5G9823 _MMGD ;0; S       
+2403; 5G9837 _MMGD ;0; S       
+2404; EIVIA3 _CJVI ;0; S       
+2405; EIVIA3 _CJVI ;0; S       
+2406; D4JOAO _Joao ;0; S       
+2407; 5G9913 _MMGD ;0; S       
+2408; 5G9914 _MMGD ;0; S       
+2409; 5G9915 _MMGD ;0; SE      
+2410; 5G9917 _MMGD ;0; S       
+2411; 5G9918 _MMGD ;0; S       
+2412; 5G9921 _MMGD ;0; S       
+2413; 5G9923 _MMGD ;0; S       
+2414; 5G9925 _MMGD ;0; S       
+2415; 5G9937 _MMGD ;0; S       
+2416; 5G9962 _MMGD ;0; S       
+2417; 5G9971 _MMGD ;0; SE      
+2418; D4BARO _Barr ;0; S       
+2419; 5G9975 _MMGD ;0; S       
+2420; D4RION _Rio  ;0; S       
+2421; D4RIOO _Rio  ;0; S       
+2422; D5SNMR _Sant ;0; S       
+2423; D5VOLT _Volt ;0; S       
+2424; 5G9980 _MMGD ;0; S       
+2425; 5G9983 _MMGD ;0; S       
+2426; KBUTKC _KLAB ;0; S       
+2427; 5G10007_MMGD ;0; S       
+2428; IYSVPA _CJE  ;0; S       
+2429; 5G10016_MMGD ;0; S       
+2430; ATMRO2 _CJMA ;0; S       
+2431; ATMRO2 _CJMA ;0; S       
+2432; ATMRO2 _CJMA ;0; S       
+2433; 5G10022_MMGD ;0; S       
+2434; 5G10024_MMGD ;0; S       
+2435; 5G10029_MMGD ;0; S       
+2436; 5G10049_MMGD ;0; S       
+2437; 5G10102_MMGD ;0; SE      
+2438; EFLBA  _CJLB ;0; S       
+2439; EFLBA  _CJLB ;0; S       
+2440; EFLBA  _CJLB ;0; S       
+2441; IYSVPA _CJE  ;0; S       
+2442; MTQ69  _CJQU ;0; S       
+2443; CFCEAT _CJAT ;0; S       
+2444; ADUEAD _CJAG ;0; S       
+2445; OBQ138 _CJQU ;0; S       
+2446; D3FAZD _Faze ;0; S       
+2447; D3FAZE _Faze ;0; S       
+2448; D3FAZN _Faze ;0; S       
+2449; D3PARQ _Parq ;0; S       
+2450; BJUEBJ _CJBO ;0; S       
+2451; 5G10142_MMGD ;0; S       
+2452; BCPCPM _CJLA ;0; S       
+2453; 5G10170_MMGD ;0; S       
+2454; 5G10181_MMGD ;0; S       
+2455; KCCAO  _CJCH ;0; SE      
+2456; 5G10211_MMGD ;0; S       
+2457; 5G10219_MMGD ;0; S       
+2458; 5G10220_MMGD ;0; S       
+2459; 5G10234_MMGD ;0; SE      
+2460; 5G10237_MMGD ;0; S       
+2461; NOUTIN _UTE  ;0; S       
+2462; 5G10265_MMGD ;0; S       
+2463; 5G10266_MMGD ;0; S       
+2464; 5G10267_MMGD ;0; S       
+2465; D2LUCI _Luci ;0; S       
+2466; 5G10291_MMGD ;0; SE      
+2467; 5G10292_MMGD ;0; SE      
+2468; 5G10313_MMGD ;0; S       
+2469; 5G10319_MMGD ;0; S       
+2470; 5G10328_MMGD ;0; SE      
+2471; 5G10329_MMGD ;0; S       
+2472; KBUTKC _KLAB ;0; S       
+2473; 5G10379_MMGD ;0; S       
+2474; 5G10380_MMGD ;0; SE      
+2475; D1SUZR _SUZA ;0; SE      
+2476; D1CERR _Cerr ;0; SE      
+2477; D1LAGU _Lagu ;0; SE      
+2478; ESCNG  _CJE  ;0; S       
+2479; ESCNG  _CJE  ;0; S       
+2480; ESCNG  _CJE  ;0; S       
+2481; 5G10482_MMGD ;0; S       
+2482; 5G10511_MMGD ;0; S       
+2483; 5G10517_MMGD ;0; S       
+2484; 5G10522_MMGD ;0; S       
+2485; 5G10525_MMGD ;0; S       
+2486; 5G10530_MMGD ;0; S       
+2487; 5G10533_MMGD ;0; S       
+2488; 5G10542_MMGD ;0; S       
+2489; 5G10545_MMGD ;0; S       
+2490; 5G10554_MMGD ;0; S       
+2491; 5G10561_MMGD ;0; S       
+2492; 5G10572_MMGD ;0; S       
+2493; 5G10575_MMGD ;0; S       
+2494; 5G10591_MMGD ;0; S       
+2495; 5G10597_MMGD ;0; S       
+2496; 5G10602_MMGD ;0; S       
+2497; 5G10605_MMGD ;0; S       
+2498; 5G10608_MMGD ;0; S       
+2499; 5G10613_MMGD ;0; S       
+2500; 5G10629_MMGD ;0; S       
+2501; 5G10638_MMGD ;0; S       
+2502; 5G10639_MMGD ;0; S       
+2503; 5G10732_MMGD ;0; S       
+2504; D4JASP _Jasp ;0; S       
+2505; 5G40044_MMGD ;0; S       
+2506; 5G40045_MMGD ;0; S       
+2507; 5G40107_MMGD ;0; S       
+2508; 5G40504_MMGD ;0; SE      
+2509; 5G40608_MMGD ;0; SE      
+2510; 5G40705_MMGD ;0; SE      
+2511; 5G40722_MMGD ;0; SE      
+2512; 5G40724_MMGD ;0; SE      
+2513; 5G40729_MMGD ;0; SE      
+2514; 5G40747_MMGD ;0; SE      
+2515; 5G40781_MMGD ;0; SE      
+2516; 5G40782_MMGD ;0; SE      
+2517; 5G40788_MMGD ;0; SE      
+2518; A5SERR _SERR ;0; SE      
+2519; 5G41865_MMGD ;0; SE      
+2520; NLEMS2 _CJ M ;0; NE      
+2521; NLEMS2 _CJ M ;0; NE      
+2522; BBSAG  _CJE  ;0; NE      
+2523; BBSAG  _CJE  ;0; NE      
+2524; BBSAG  _CJE  ;0; NE      
+2525; BBSAG  _CJE  ;0; NE      
+2526; BFUFAL _CJ A ;0; NE      
+2527; EJSDA1 _CJE  ;0; SE      
+2528; EJSDA1 _CJE  ;0; SE      
+2529; VLSDMC _CJ S ;0; NE      
+2530; VLSDMC _CJ S ;0; NE      
+2531; VISLDF5_CJ U ;0; NE      
+2532; NLOUR  _CJ O ;0; NE      
+2533; NLOUR  _CJ O ;0; NE      
+2534; EQBRD  _CJF  ;0; NE      
+2535; NLOUR  _CJ O ;0; NE      
+2536; S1FMRG _CJF  ;0; NE      
+2537; S1FMRG _CJF  ;0; NE      
+2538; S1FMRG _CJF  ;0; NE      
+2539; S1FMRG _CJF  ;0; NE      
+2540; 5G44632_MMGD ;0; N       
+2541; 5G44633_MMGD ;0; N       
+2542; 5G44644_MMGD ;0; N       
+2543; 5G44645_MMGD ;0; N       
+2544; 5G44646_MMGD ;0; N       
+2545; 5G44647_MMGD ;0; N       
+2546; 5G44648_MMGD ;0; N       
+2547; 5G44659_MMGD ;0; N       
+2548; DSBMC  _CJE  ;0; NE      
+2549; IGTUC  _CJ T ;0; NE      
+2550; IGTUC  _CJ T ;0; NE      
+2551; IYBRI  _CJF  ;0; NE      
+2552; DSVSE  _CJ S ;0; NE      
+2553; VISPC  _CJF  ;0; NE      
+2554; IYLRA  _CJE  ;0; NE      
+2555; IYVST1 _CJF  ;0; SE      
+2556; 3N5EIGT_CJE  ;0; NE      
+2557; 3N5EIGT_CJE  ;0; NE      
+2558; 3N5EIGT_CJE  ;0; NE      
+2559; 3N5EIGT_CJE  ;0; NE      
+2560; EJVZP  _CJF  ;0; SE      
+2561; 5G44856_MMGD ;0; SE      
+2562; 3REMVD _CJ M ;0; NE      
+2563; DSJER  _CJ J ;0; NE      
+2564; CQJDA  _CJ J ;0; NE      
+2565; NLVSR  _CJ V ;0; NE      
+2566; NLVSR  _CJ V ;0; NE      
+2567; NLVSR  _CJ V ;0; NE      
+2568; NLVSR  _CJ V ;0; NE      
+2569; 5G44981_MMGD ;0; SE      
+2570; VISVT  _CJ V ;0; NE      
+2571; VISVT  _CJ V ;0; NE      
+2572; VISVT  _CJ V ;0; NE      
+2573; VLSDMC _CJ S ;0; NE      
+2574; VSLAV  _CJ L ;0; NE      
+2575; NLVSR  _CJ V ;0; NE      
+2576; NLVSR  _CJ V ;0; NE      
+2577; IYLRA  _CJE  ;0; NE      
+2578; IYLRA  _CJE  ;0; NE      
+2579; CVUMR  _CJ U ;0; NE      
+2580; GTUFBH _CJBO ;0; SE      
+2581; GTUFBH _CJBO ;0; SE      
+2582; VUARX  _CJ A ;0; SE      
+2583; A2GUIA _GUIM ;0; SE      
+2584; B3FSA  _CJ F ;0; SE      
+2585; B3UJAI _CJF  ;0; SE      
+2586; BBASO  _CJF  ;0; NE      
+2587; DSVSE  _CJ S ;0; NE      
+2588; DSVSE  _CJ S ;0; NE      
+2589; CVBBS  _CJ B ;0; NE      
+2590; CVBBS  _CJ B ;0; NE      
+2591; CVBBS  _CJ B ;0; NE      
+2592; 3RPB   _CJ P ;0; SE      
+2593; 3RPB   _CJ P ;0; SE      
+2594; VS5FRGV_CJF  ;0; NE      
+2595; VINHZ  _CJE  ;0; NE      
+2596; VIARP  _CJE  ;0; NE      
+2597; MMCTN  _CJE  ;0; NE      
+2598; IYLRA  _CJE  ;0; NE      
+2599; CVBBC  _CJE  ;0; NE      
+2600; CVBBC  _CJE  ;0; NE      
+2601; VICSDS _CJ S ;0; NE      
+2602; VIANE  _CJ A ;0; NE      
+2603; VIANE  _CJ A ;0; NE      
+2604; VLAPA  _CJF  ;0; NE      
+2605; 5G45338_MMGD ;0; N       
+2606; IAFSBA _CJ S ;0; NE      
+2607; C0LINS _CFV  ;0; NE      
+2608; 5G45379_MMGD ;0; SE      
+2609; 5G45383_MMGD ;0; SE      
+2610; 5G45385_MMGD ;0; SE      
+2611; 5G45386_MMGD ;0; SE      
+2612; 5G45388_MMGD ;0; SE      
+2613; 5G45419_MMGD ;0; SE      
+2614; 5G45422_MMGD ;0; SE      
+2615; 5G45425_MMGD ;0; SE      
+2616; 5G45440_MMGD ;0; SE      
+2617; 5G45443_MMGD ;0; SE      
+2618; 5G45444_MMGD ;0; SE      
+2619; 5G45469_MMGD ;0; SE      
+2620; 5G45470_MMGD ;0; N       
+2621; MMKW2W _CJE  ;0; NE      
+2622; 5G45481_MMGD ;0; SE      
+2623; MXFFUT _CJ F ;0; NE      
+2624; MXFFUT _CJ F ;0; NE      
+2625; MXFFUT _CJ F ;0; NE      
+2626; CVRVE  _CJ R ;0; NE      
+2627; CVRVE  _CJ R ;0; NE      
+2628; CVRVE  _CJ R ;0; NE      
+2629; NLVSR  _CJ V ;0; NE      
+2630; NLVSR  _CJ V ;0; NE      
+2631; 5G45664_MMGD ;0; SE      
+2632; EJPR4  _CJF  ;0; SE      
+2633; EJPR4  _CJF  ;0; SE      
+2634; EJPR4  _CJF  ;0; SE      
+2635; EJPR4  _CJF  ;0; SE      
+2636; IGCAJ1 _CONJ ;0; NE      
+2637; IGCAJ1 _CONJ ;0; NE      
+2638; IGCAJ1 _CONJ ;0; NE      
+2639; CNTQN  _CJ T ;0; NE      
+2640; 5G45927_MMGD ;0; SE      
+2641; 5G45928_MMGD ;0; SE      
+2642; VLSDMC _CJ S ;0; NE      
+2643; VLSDMC _CJ S ;0; NE      
+2644; EJVZPQ _CJ H ;0; SE      
+2645; EJVZPQ _CJ H ;0; SE      
+2646; 5G46087_MMGD ;0; N       
+2647; NLOUR  _CJ O ;0; NE      
+2648; NLOUR  _CJ O ;0; NE      
+2649; T1SODA _CJF  ;0; NE      
+2650; NTMEND _CJF  ;0; NE      
+2651; NTMEND _CJF  ;0; NE      
+2652; S34FICO_CJF  ;0; NE      
+2653; 5G46212_MMGD ;0; SE      
+2654; 5G46213_MMGD ;0; SE      
+2655; 5G46214_MMGD ;0; SE      
+2656; 5G46219_MMGD ;0; SE      
+2657; 5G46228_MMGD ;0; SE      
+2658; 5G46229_MMGD ;0; SE      
+2659; 5G46238_MMGD ;0; SE      
+2660; 5G46240_MMGD ;0; SE      
+2661; 5G46246_MMGD ;0; N       
+2662; 5G46249_MMGD ;0; N       
+2663; 5G46251_MMGD ;0; N       
+2664; AUSDP1 _UFV  ;0; NE      
+2665; VLAB2  _CJ A ;0; NE      
+2666; VIPARN _CJPA ;0; NE      
+2667; VINHZ  _CJE  ;0; NE      
+2668; VINHZ  _CJE  ;0; NE      
+2669; VINHZ  _CJE  ;0; NE      
+2670; VLMNV  _CJ M ;0; NE      
+2671; CMJSNU _CJF  ;0; SE      
+2672; CVUMR  _CJ U ;0; NE      
+2673; 5G46493_MMGD ;0; SE      
+2674; 5G46494_MMGD ;0; SE      
+2675; 3RMVS  _CJ M ;0; NE      
+2676; 5G46516_MMGD ;0; SE      
+2677; 5G46517_MMGD ;0; SE      
+2678; 3REMVD _CJ M ;0; NE      
+2679; VISLDF5_CJ U ;0; NE      
+2680; VIARP  _CJE  ;0; NE      
+2681; VIARP  _CJE  ;0; NE      
+2682; VIARP  _CJE  ;0; NE      
+2683; VLDRC  _CJF  ;0; SE      
+2684; VLDRC  _CJF  ;0; SE      
+2685; VLDRC  _CJF  ;0; SE      
+2686; VLDRC  _CJF  ;0; SE      
+2687; VICSDS _CJ S ;0; NE      
+2688; VISLDF5_CJ U ;0; NE      
+2689; P1SPP  _CJF  ;0; NE      
+2690; CV4FBBC_CJF  ;0; NE      
+2691; NLOUR  _CJ O ;0; NE      
+2692; D3ABRA _Abra ;0; S       
+2693; D3MORR _Morr ;0; S       
+2694; D3SANL _Sant ;0; S       
+2695; D4PHII _Pinh ;0; S       
+2696; D4RFRN _Rio  ;0; S       
+2697; D5TEOD _Teod ;0; S       
+2698; D4ALTF _Alto ;0; S       
+2699; D4INTE _Inte ;0; S       
+2700; D4MEDI _Medi ;0; S       
+2701; D5UGA  _Garc ;0; S       
+2702; D5USSB _Sao  ;0; S       
+2703; D4RAFA _Rafa ;0; S       
+2704; D4JACU _Jacu ;0; S       
+2705; D5PING _Ping ;0; S       
+2706; D4AGUT _Agut ;0; S       
+2707; D4SAOS _Sao  ;0; S       
+2708; D4SAOV _Sao  ;0; S       
+2709; D4RUDF _RUDO ;0; S       
+2710; D4SATB _Salt ;0; S       
+2711; CIPTCI _MADE ;0; S       
+2712; D4RIOI _Rio  ;0; S       
+2713; D4PARQ _Parq ;0; S       
+2714; D4PINH _Pinh ;0; S       
+2715; D5LAJE _Laje ;0; S       
+2716; D5RANC _Ranc ;0; S       
+2717; D4BARR _Barr ;0; S       
+2718; D4BOMR _Bom  ;0; S       
+2719; D4INCO _Indi ;0; S       
+2720; D4LAME _Lamb ;0; S       
+2721; D4MACU _Macu ;0; S       
+2722; D4PARI _Pari ;0; S       
+2723; D4RIOD _Rio  ;0; S       
+2724; D4RONI _Rond ;0; S       
+2725; D5MOGA _Moga ;0; S       
+2726; D5URT  _Rio  ;0; S       
+2727; D4ANTU _Antu ;0; S       
+2728; D4CAMB _Camb ;0; S       
+2729; D4ESTU _Estr ;0; S       
+2730; D4GAR  _Gari ;0; S       
+2731; D4PITO _Pito ;0; S       
+2732; D5WILL _Will ;0; S       
+2733; D4BRAN _Bran ;0; S       
+2734; D4LAMI _Lami ;0; S       
+2735; D4IT2A _ITAP ;0; S       
+2736; D4ITAO _Itap ;0; S       
+2737; D4ITAP _Itap ;0; S       
+2738; D5SNIO _Sant ;0; S       
+2739; D5UBO  _Brac ;0; S       
+2740; D4AGUD _Agud ;0; S       
+2741; D4BARD _Barr ;0; S       
+2742; D4MARO _Mari ;0; S       
+2743; D4SANA _Sant ;0; S       
+2744; D4SAOC _Sao  ;0; S       
+2745; D4SAOF _Sao  ;0; S       
+2746; D5SPES _Spes ;0; S       
+2747; D5UIS  _Ivo  ;0; S       
+2748; D4IBIR _Ibir ;0; S       
+2749; D5UMS  _Mafr ;0; S       
+2750; D4ITAA _Itaj ;0; S       
+2751; D4AGUA _Agua ;0; S       
+2752; D4ALTB _Alto ;0; S       
+2753; D4ALTE _Alto ;0; S       
+2754; D4ALTO _Alto ;0; S       
+2755; D4LIBE _LIBE ;0; S       
+2756; D5USM  _Sant ;0; S       
+2757; D5USL  _Sao  ;0; S       
+2758; D4ADOP _Ado  ;0; S       
+2759; D5MBS1 _Maro ;0; S       
+2760; D5MBS2 _Maro ;0; S       
+2761; D5UPY  _Pery ;0; S       
+2762; D4BAND _Band ;0; S       
+2763; D4BELM _Belm ;0; S       
+2764; D4BESD _Barr ;0; S       
+2765; D4BURR _Burr ;0; S       
+2766; D4CORA _Cora ;0; S       
+2767; D4DETO _Deto ;0; S       
+2768; D4FLOR _Flor ;0; S       
+2769; D4GARC _Garc ;0; S       
+2770; D4JASP _Jasp ;0; S       
+2771; D4LMBI _Lamb ;0; S       
+2772; D4MARA _Mari ;0; S       
+2773; D4PARA _Para ;0; S       
+2774; D4PRAT _Prat ;0; S       
+2775; D4RONC _Ronc ;0; S       
+2776; D4SALT _Salt ;0; S       
+2777; D4SAOD _Sao  ;0; S       
+2778; D4SAOJ _Sao  ;0; S       
+2779; D4VENT _Vent ;0; S       
+2780; D5ENER _Ener ;0; S       
+2781; D5WRFT _Wass ;0; S       
+2782; D4HELE _Hele ;0; S       
+2783; D4KARL _Karl ;0; S       
+2784; D4APAR _Apar ;0; S       
+2785; D4BARI _Barr ;0; S       
+2786; D4HBRE _H Br ;0; S       
+2787; D4SERR _Serr ;0; S       
+2788; D4BRUN _Brun ;0; S       
+2789; D4BRUO _Brun ;0; S       
+2790; D4CURT _Curt ;0; S       
+2791; D4GED  _G &  ;0; S       
+2792; D4HEID _Heid ;0; S       
+2793; D4HORS _Hors ;0; S       
+2794; D4RIOA _Rio  ;0; S       
+2795; D4RUDL _Rudo ;0; S       
+2796; D4BERT _Bert ;0; S       
+2797; D4FIGU _Figu ;0; S       
+2798; D4SANP _Sant ;0; S       
+2799; D5USO  _Salt ;0; S       
+2800; D4RIOR _Rio  ;0; S       
+2801; D5MOVE _Move ;0; S       
+2802; D5URVE _Rio  ;0; S       
+2803; D5UVAI _Uvai ;0; S       
+2804; D4RIOL _Rio  ;0; S       
+2805; D4RPS2 _Rio  ;0; S       
+2806; D4INVD _Inve ;0; S       
+2807; D4BARA _Barr ;0; S       
+2808; D4COQU _Coqu ;0; S       
+2809; D4FART _Fart ;0; S       
+2810; D4PANG _Ange ;0; S       
+2811; D4SANT _Sant ;0; S       
+2812; D4VEOL _Veol ;0; S       
+2813; D4MEGA _MEGA ;0; S       
+2814; D5UPS  _Palm ;0; S       
+2815; D5URC  _Cedr ;0; S       
+2816; D4BERE _Bern ;0; S       
+2817; D5UCLA _Lage ;0; S       
+2818; D5UCS  _Cave ;0; S       
+2819; D4ARRI _Arro ;0; S       
+2820; D4DAPD _DAS  ;0; S       
+2821; D4DONA _Dona ;0; S       
+2822; D4ESTR _Estr ;0; S       
+2823; D4FELZ _Forc ;0; S       
+2824; D4SANE _Sant ;0; S       
+2825; D5URP  _Rio  ;0; S       
+2826; D4CAJ  _Caju ;0; S       
+2827; D4ERNE _Erne ;0; S       
+2828; D4HACK _Hack ;0; S       
+2829; D4LONT _Lont ;0; S       
+2830; D4PASS _Pass ;0; S       
+2831; D4PCHE _Pach ;0; S       
+2832; D5SPVE _Salt ;0; S       
+2833; D5XAVA _Xava ;0; S       
+2834; D4RODE _Rode ;0; S       
+2835; D4SANL _Sant ;0; S       
+2836; D4BAGU _Barr ;0; S       
+2837; D4FAXI _Faxi ;0; S       
+2838; D4RIOM _Rio  ;0; S       
+2839; D5POSR _Pont ;0; S       
+2840; D5UCR  _Cels ;0; S       
+2841; D4SALG _Salt ;0; S       
+2842; D4APOL _Apol ;0; S       
+2843; D4BOSS _Boss ;0; S       
+2844; D4CASA _Casa ;0; S       
+2845; D4FRAS _Fras ;0; S       
+2846; D4RIOS _Rio  ;0; S       
+2847; D2SALP _Salt ;0; S       
+2848; F6ALTD _Alto ;0; SE      
+2849; F6ALTU _Alto ;0; SE      
+2850; F6CACO _CACH ;0; SE      
+2851; F6FIGU _UHE  ;0; SE      
+2852; F6KAPA _Kapa ;0; SE      
+2853; F6SAOJ _SAO  ;0; SE      
+2854; F6UAGC _Ange ;0; SE      
+2855; F6UALF _Alta ;0; SE      
+2856; F6UMBE _Mont ;0; SE      
+2857; F6URBR _Rio  ;0; SE      
+2858; F6USAL _Sald ;0; SE      
+2859; F6USLD _Sant ;0; SE      
+2860; A2BIOA _BIO  ;0; SE      
+2861; A2BIOE _BIOE ;0; SE      
+2862; A2LUZI _SANT ;0; SE      
+2863; A5PIED _PIED ;0; SE      
+2864; A5POCS _POCO ;0; SE      
+2865; A5SMRS _Salt ;0; SE      
+2866; A2CACE _CACH ;0; SE      
+2867; A2ILH  _ILHE ;0; SE      
+2868; A2LAVR _LAVR ;0; SE      
+2869; A2CFLO _CAMP ;0; SE      
+2870; A2COCF _CORU ;0; SE      
+2871; A5CRDO _Cerr ;0; SE      
+2872; A5UTF  _FRUT ;0; SE      
+2873; A5TAPU _TAPU ;0; SE      
+2874; A2MALA _MALA ;0; SE      
+2875; A5CENT _C.E. ;0; SE      
+2876; A5UBLD _UBER ;0; SE      
+2877; A5SANH _SANT ;0; SE      
+2878; A2FCR  _FCR  ;0; SE      
+2879; A5BRSU _Bris ;0; SE      
+2880; A2ITA1 _Ita  ;0; SE      
+2881; A2ITA2 _Ita  ;0; SE      
+2882; A2MRTN _Mart ;0; SE      
+2883; A5PISS _PISS ;0; SE      
+2884; A5SEL  _SELE ;0; SE      
+2885; A2DOUR _DOUR ;0; SE      
+2886; A5VALI _VALI ;0; SE      
+2887; A2CJRU _Caju ;0; SE      
+2888; A2GFNT _Gafa ;0; SE      
+2889; A2CAQ  _CAQU ;0; SE      
+2890; A2JULI _JULI ;0; SE      
+2891; A2DIV  _DIVI ;0; SE      
+2892; A5SAMB _SAMB ;0; SE      
+2893; A5TOTA _TOTA ;0; SE      
+2894; A5UTT  _BAMB ;0; SE      
+2895; A2CORN _Coro ;0; SE      
+2896; A5DOUT _Dout ;0; SE      
+2897; A5RACO _RACO ;0; SE      
+2898; A5SMRT _Sant ;0; SE      
+2899; A2GUIM _GUIM ;0; SE      
+2900; A5UHLA _LAGE ;0; SE      
+2901; A5PIAU _Piau ;0; SE      
+2902; A2ATER _ALTE ;0; SE      
+2903; A2FLOE _FLOR ;0; SE      
+2904; A2MUCU _MUCU ;0; SE      
+2905; A2ECO  _ECO  ;0; SE      
+2906; A2CARD _CARA ;0; SE      
+2907; A2CAEV _Volt ;0; SE      
+2908; A2MAC  _CACH ;0; SE      
+2909; A2PAJO _PAI  ;0; SE      
+2910; A2ALGA _ALGA ;0; SE      
+2911; A2DEL  _DELT ;0; SE      
+2912; A2BOAI _BOA  ;0; SE      
+2913; A2ALAG _Alag ;0; SE      
+2914; A2COG1 _CONG ;0; SE      
+2915; A2COG2 _CONG ;0; SE      
+2916; A5PIRB _PIRA ;0; SE      
+2917; A5RIBE _RIBE ;0; SE      
+2918; A2BVT  _BOA  ;0; SE      
+2919; A2FLOR _FLOR ;0; SE      
+2920; A2HPOR _HENR ;0; SE      
+2921; A5PLEM _PAES ;0; SE      
+2922; A5POSS _POSS ;0; SE      
+2923; A5XICA _Xica ;0; SE      
+2924; A2ANJO _ANJO ;0; SE      
+2925; A2BOMJ _BOM  ;0; SE      
+2926; A2BREC _BREC ;0; SE      
+2927; A2BRIT _BRIT ;0; SE      
+2928; A5PONQ _PONT ;0; SE      
+2929; A5UPQ1 _PONT ;0; SE      
+2930; A5UPQ2 _NOVA ;0; SE      
+2931; A5VERM _VERM ;0; SE      
+2932; A2CORO _CORO ;0; SE      
+2933; A2MATA _MATA ;0; SE      
+2934; A5UNB  _UNAI ;0; SE      
+2935; A5USIR _USIP ;0; SE      
+2936; A2ANIL _Anil ;0; SE      
+2937; A2OLV  _OLIV ;0; SE      
+2938; A2JASL _Joas ;0; SE      
+2939; A2PCNC _Paci ;0; SE      
+2940; A5MRML _Marm ;0; SE      
+2941; A5SANN _SANT ;0; SE      
+2942; A5PETI _Peti ;0; SE      
+2943; A2AREI _AREI ;0; SE      
+2944; A2CHAL _Chal ;0; SE      
+2945; A5PIPC _PIPO ;0; SE      
+2946; A5SMDR _Sumi ;0; SE      
+2947; A2INHA _INHA ;0; SE      
+2948; A2CARG _CARA ;0; SE      
+2949; A2DIVI _DIVI ;0; SE      
+2950; A2DURA _DURA ;0; SE      
+2951; A2FARI _FARI ;0; SE      
+2952; A5SAOJ _SAO  ;0; SE      
+2953; A5VARI _VARG ;0; SE      
+2954; A5VARZ _VARZ ;0; SE      
+2955; A5PRUN _Para ;0; SE      
+2956; A2MCDM _Mach ;0; SE      
+2957; A2AGRO _AGRO ;0; SE      
+2958; A2JDD  _JOAO ;0; SE      
+2959; A5POL  _Paio ;0; SE      
+2960; A5SBRD _Sao  ;0; SE      
+2961; A2BRAC _BRAC ;0; SE      
+2962; A5RPDR _Rio  ;0; SE      
+2963; A5TRON _Tron ;0; SE      
+2964; A2CHBR _CACH ;0; SE      
+2965; A2CTRJ _CTR  ;0; SE      
+2966; A2MOVD _MONT ;0; SE      
+2967; A2ASJA _ASJA ;0; SE      
+2968; A2CARE _CARN ;0; SE      
+2969; A2KCK  _CORU ;0; SE      
+2970; A5USIN _USIN ;0; SE      
+2971; A2DNRT _Dona ;0; SE      
+2972; A2DORE _DORE ;0; SE      
+2973; A2FORT _FORT ;0; SE      
+2974; A2JACA _JACA ;0; SE      
+2975; A5SENH _SENH ;0; SE      
+2976; A2CENR _CENT ;0; SE      
+2977; A2ASJS _ASJA ;0; SE      
+2978; A2JCTG _Jacu ;0; SE      
+2979; A2OURO _OURO ;0; SE      
+2980; A2DONA _DONA ;0; SE      
+2981; A2ESPR _ESPR ;0; SE      
+2982; A5SANE _SANT ;0; SE      
+2983; A2JOAF _JOAO ;0; SE      
+2984; A2PCFD _Poco ;0; SE      
+2985; A5PEDA _PEDA ;0; SE      
+2986; A5SERN _SERR ;0; SE      
+2987; A5USIA _USIN ;0; SE      
+2988; A5SCN  _SANT ;0; SE      
+2989; D4RCHP _Rio  ;0; S       
+2990; D4SAOM _Sao  ;0; S       
+2991; D5TREZ _Trez ;0; S       
+2992; D5VJL  _Varg ;0; S       
+2993; D5WIGG _Wigg ;0; S       
+2994; D3LINH _Linh ;0; S       
+2995; D3SEDE _Sede ;0; S       
+2996; D3FORM _Form ;0; S       
+2997; D3LINH _Linh ;0; S       
+2998; D3RAST _Rast ;0; S       
+2999; I2SALV _Salv ;0; NE      
+3000; I2AERO _Aero ;0; NE      
+3001; I2CAND _Cand ;0; NE      
+3002; I2SANL _Sant ;0; NE      
+3003; I2UPE  _Pedr ;0; NE      
+3004; I2SUZA _Suza ;0; NE      
+3005; I2CACO _Cach ;0; NE      
+3006; I2CLN2 _Coli ;0; NE      
+3007; I2COLO _Coli ;0; NE      
+3008; I3VERD _Verd ;0; NE      
+3009; I3BURI _Buri ;0; NE      
+3010; I3PALM _Palm ;0; NE      
+3011; I3EVB2 _Vent ;0; NE      
+3012; I3EVB4 _Vent ;0; NE      
+3013; I3EVB8 _Vent ;0; NE      
+3014; I3ASSU _Assu ;0; NE      
+3015; I3PREI _Pres ;0; NE      
+3016; I3ATF  _Alto ;0; NE      
+3017; I3GALV _Galv ;0; NE      
+3018; I3SIGR _Siti ;0; NE      
+3019; I3BOAS _Boa  ;0; NE      
+3020; I3DOID _Doid ;0; NE      
+3021; I3LGR  _Lago ;0; NE      
+3022; I3PIAB _PIAB ;0; NE      
+3023; I3PIAR _Piar ;0; NE      
+3024; I3PTF  _Port ;0; NE      
+3025; I3RIPR _Riac ;0; NE      
+3026; I3SIRI _Siri ;0; NE      
+3027; I3SUCU _Sucu ;0; NE      
+3028; I3TAPU _TAPU ;0; NE      
+3029; I3PDR3 _Pedr ;0; NE      
+3030; I3PEDD _Pedr ;0; NE      
+3031; I3PEDO _Pedr ;0; NE      
+3032; I3PEDR _Pedr ;0; NE      
+3033; I3SOBO _Sobr ;0; NE      
+3034; I3UTAG _Agro ;0; NE      
+3035; D3BIOE _Biot ;0; S       
+3036; D3CGT  _Cara ;0; S       
+3037; D2ENXA _Enxa ;0; S       
+3038; D2RIOD _Rio  ;0; S       
+3039; D2SALS _Salt ;0; S       
+3040; D2SCUR _Salt ;0; S       
+3041; D2TRES _Tres ;0; S       
+3042; D2BOAV _Boa  ;0; S       
+3043; D2CABE _CABE ;0; S       
+3044; D2CACH _Cach ;0; S       
+3045; D2CRIS _Cris ;0; S       
+3046; D2ITAG _Itag ;0; S       
+3047; D2PEDR _Pedr ;0; S       
+3048; D2RIOC _Rio  ;0; S       
+3049; D2BAIT _Bait ;0; S       
+3050; D2PARD _Pard ;0; S       
+3051; D2RIOB _Rio  ;0; S       
+3052; D2CONF _Conf ;0; S       
+3053; D2ECOL _Ecol ;0; S       
+3054; D2TAGU _Tagu ;0; S       
+3055; D2PADO _Pado ;0; S       
+3056; D2BELA _Bela ;0; S       
+3057; D2GENE _Gene ;0; S       
+3058; D2JACA _Jaca ;0; S       
+3059; D2VILA _Vila ;0; S       
+3060; D2MOIN _Moin ;0; S       
+3061; D2CVAL _C.VA ;0; S       
+3062; D2CHOP _Chop ;0; S       
+3063; D2SAOL _Sao  ;0; S       
+3064; D2SAOP _Sao  ;0; S       
+3065; D2VITO _Vito ;0; S       
+3066; D2SAOF _Sao  ;0; S       
+3067; D2DEST _Dest ;0; S       
+3068; D2UUSA _Usac ;0; S       
+3069; D2CANT _Cant ;0; S       
+3070; D2FAZE _Faze ;0; S       
+3071; D2MEL  _Meli ;0; S       
+3072; D2BIOC _Bio  ;0; S       
+3073; D2GEOE _Geo  ;0; S       
+3074; D2USAC _Usac ;0; S       
+3075; D2OURO _Ouro ;0; S       
+3076; D2JACR _Jaca ;0; S       
+3077; D2UFL  _UFL_ ;0; S       
+3078; D2APC  _Apuc ;0; S       
+3079; D2UTBG _Tiba ;0; S       
+3080; D2CHAM _Cham ;0; S       
+3081; D2GNA  _Guar ;0; S       
+3082; D2CURI _Curi ;0; S       
+3083; D2CAST _Cast ;0; S       
+3084; D2PULO _Pulo ;0; S       
+3085; D2CALD _Cald ;0; S       
+3086; D2NOVA _Nova ;0; S       
+3087; D2PESQ _Pesq ;0; S       
+3088; D2VELH _Velh ;0; S       
+3089; D2MARU _Maru ;0; S       
+3090; D2SANU _Sant ;0; S       
+3091; D2STCL _Salt ;0; S       
+3092; D2ULUD _Lude ;0; S       
+3093; D2CONT _Cont ;0; S       
+3094; D2CORO _Coro ;0; S       
+3095; D2DASP _Das  ;0; S       
+3096; D2EOLI _Eoli ;0; S       
+3097; D2ROND _Rond ;0; S       
+3098; D2VICT _Vict ;0; S       
+3099; D4EOLI _Eoli ;0; S       
+3100; D2CAV  _Cave ;0; S       
+3101; D2CAVE _Cave ;0; S       
+3102; D2CAVN _Cave ;0; S       
+3103; D2COBR _Cobr ;0; S       
+3104; D2DALB _Dalb ;0; S       
+3105; D2BARR _Barr ;0; S       
+3106; D2CANH _Canh ;0; S       
+3107; D2COVO _Covo ;0; S       
+3108; D2DRJ  _Deri ;0; S       
+3109; D2FNP  _Fund ;0; S       
+3110; D2FORQ _Forq ;0; S       
+3111; D2INVE _Inve ;0; S       
+3112; D2PSCL _Sant ;0; S       
+3113; D2REIN _Rein ;0; S       
+3114; D2TIGR _Tigr ;0; S       
+3115; D2MOU  _Mour ;0; S       
+3116; D2SALN _Salt ;0; S       
+3117; D2SALT _Salt ;0; S       
+3118; D2PGI  _Pita ;0; S       
+3119; D2SJR  _Sao  ;0; S       
+3120; D2NOVO _Novo ;0; S       
+3121; D2SVU  _Salt ;0; S       
+3122; D2BAND _Band ;0; S       
+3123; D3CAXA _Caxa ;0; S       
+3124; D3MAMB _MAMB ;0; S       
+3125; I4FERR _Ferr ;0; NE      
+3126; I4FILI _Fili ;0; NE      
+3127; I4INDU _Indu ;0; NE      
+3128; I4STEB _Ster ;0; NE      
+3129; I4STER _Ster ;0; NE      
+3130; I4UBFO _Baia ;0; NE      
+3131; I4UESV _Esti ;0; NE      
+3132; I5MEL0 _Mel  ;0; NE      
+3133; I4ARAT _Arat ;0; NE      
+3134; I4ARMA _Arma ;0; NE      
+3135; I4MIAS _Mias ;0; NE      
+3136; I4SOLA _Sola ;0; NE      
+3137; I4ARIZ _Ariz ;0; NE      
+3138; I4PARQ _Parq ;0; NE      
+3139; I4PARU _Parq ;0; NE      
+3140; I4UERF _RN 1 ;0; NE      
+3141; A4UCP  _Capa ;0; SE      
+3142; A6USA  _Sant ;0; SE      
+3143; A6USMO _MONJ ;0; SE      
+3144; A4UDO  _Dour ;0; SE      
+3145; A4UCH  _Chib ;0; SE      
+3146; A6ZANI _ZANI ;0; SE      
+3147; A4JACA _Jaca ;0; SE      
+3148; A6UTS  _Tres ;0; SE      
+3149; A6ULE  _Lenc ;0; SE      
+3150; A4CLE  _CLEA ;0; SE      
+3151; A4ESTR _ESTE ;0; SE      
+3152; A4GALV _GALV ;0; SE      
+3153; A4LQUE _LUIZ ;0; SE      
+3154; A4PRCC _Pira ;0; SE      
+3155; A6UES  _Esme ;0; SE      
+3156; A4BBU  _BURI ;0; SE      
+3157; A4GUAT _GUAT ;0; SE      
+3158; A4PITN _PITA ;0; SE      
+3159; A6USMB _MB_4 ;0; SE      
+3160; A4CAJU _CAJU ;0; SE      
+3161; A4ITVA _ITAI ;0; SE      
+3162; A4BORT _BORT ;0; SE      
+3163; A4SER  _USIN ;0; SE      
+3164; A4IACA _IACA ;0; SE      
+3165; A4LVN  _LAVR ;0; SE      
+3166; A4SJO  _SAO  ;0; SE      
+3167; A4TURV _TURV ;0; SE      
+3168; A4DRTI _DR.T ;0; SE      
+3169; A4PINH _PINH ;0; SE      
+3170; A4SAOS _SAO  ;0; SE      
+3171; A4RIOD _RIO  ;0; SE      
+3172; A4SANL _SANT ;0; SE      
+3173; A4EGBF _CENT ;0; SE      
+3174; A4MACA _MACA ;0; SE      
+3175; A4SAOL _Sao  ;0; SE      
+3176; A6USIS _USIN ;0; SE      
+3177; A4UBV  _BOA  ;0; SE      
+3178; A6PONT _Pont ;0; SE      
+3179; A4FURA _FURL ;0; SE      
+3180; A4RIOP _RIO  ;0; SE      
+3181; A6URN  _RIO  ;0; SE      
+3182; D3PASS _Pass ;0; S       
+3183; A2ANT2 _WALT ;0; SE      
+3184; A2JOSE _JOSE ;0; SE      
+3185; A2PDRE _PADR ;0; SE      
+3186; A5PEAJ _PEDR ;0; SE      
+3187; A5UBMM _UBIR ;0; SE      
+3188; A1ILHA _Ilha ;0; SE      
+3189; A1USJU _Jucu ;0; SE      
+3190; A1MILA _Mila ;0; SE      
+3191; A1SLUZ _Sant ;0; SE      
+3192; A1USFR _Frut ;0; SE      
+3193; A1KINK _Kink ;0; SE      
+3194; A1GRAM _Gram ;0; SE      
+3195; A1MAQS _Maqs ;0; SE      
+3196; A1FM4  _Fuma ;0; SE      
+3197; A1USAG _Aleg ;0; SE      
+3198; A1DALL _Dall ;0; SE      
+3199; A4ISB  _Isab ;0; SE      
+3200; A4TREM _Trem ;0; SE      
+3201; A4NOBI _N O  ;0; SE      
+3202; A4SAOJ _SAO  ;0; SE      
+3203; A4IRAC _Irac ;0; SE      
+3204; A4RPIN _RIBE ;0; SE      
+3205; A6UMOG _Mogi ;0; SE      
+3206; A4SJOS _SAO  ;0; SE      
+3207; A4OURO _OURO ;0; SE      
+3208; A6CASA _Casa ;0; SE      
+3209; A4SADE _SANT ;0; SE      
+3210; A4APIA _APIA ;0; SE      
+3211; D3COLR _Colo ;0; S       
+3212; D3MATC _Mata ;0; S       
+3213; I5BBR  _Parq ;0; NE      
+3214; I5FRC  _Foz  ;0; NE      
+3215; I5UPRJ _Eoli ;0; NE      
+3216; I5EOLI _Eoli ;0; NE      
+3217; I5LGMO _Lago ;0; NE      
+3218; I5QUIX _Quix ;0; NE      
+3219; I5UPRJ _Eoli ;0; NE      
+3220; I5TAUA _Taua ;0; NE      
+3221; I5DUNA _Duna ;0; NE      
+3222; I5PRU  _Eoli ;0; NE      
+3223; I5TAIA _Taib ;0; NE      
+3224; I5TAIB _Taib ;0; NE      
+3225; I5ICAR _Icar ;0; NE      
+3226; A3BOMJ _BOM  ;0; SE      
+3227; A3VEN  _Come ;0; SE      
+3228; A3RIOB _RIO  ;0; SE      
+3229; A3POCO _Poco ;0; SE      
+3230; A3CHV  _Chav ;0; SE      
+3231; A3ECL  _Eucl ;0; SE      
+3232; A3PEDR _PEDR ;0; SE      
+3233; A3TOB  _Tomb ;0; SE      
+3234; A3ANDO _ANDO ;0; SE      
+3235; A4PIRO _PIRA ;0; SE      
+3236; A4RSG  _Rasg ;0; SE      
+3237; A4TECP _TECI ;0; SE      
+3238; A4SAOO _SAO  ;0; SE      
+3239; A2MALE _MAUR ;0; SE      
+3240; A2NOM  _NOVA ;0; SE      
+3241; A2ANTI _ANTO ;0; SE      
+3242; A2GLO  _GLOR ;0; SE      
+3243; A2MIRD _MIRA ;0; SE      
+3244; A5SANT _SANT ;0; SE      
+3245; A5UOJB _ORME ;0; SE      
+3246; A2LIME _LIME ;0; SE      
+3247; A5PIRP _PIRA ;0; SE      
+3248; A5UCDO _CORO ;0; SE      
+3249; A2ITU  _ITUE ;0; SE      
+3250; A2CAAL _CACH ;0; SE      
+3251; A2INGA _INGA ;0; SE      
+3252; A2INGM _INGA ;0; SE      
+3253; A5ROGR _ROCA ;0; SE      
+3254; A5SIMO _SIMO ;0; SE      
+3255; A5SINC _SINC ;0; SE      
+3256; A5UBMB _BENJ ;0; SE      
+3257; A5UNEB _NEBL ;0; SE      
+3258; A2MAO  _MATI ;0; SE      
+3259; A5UERV _ERVA ;0; SE      
+3260; D1COT  _Veto ;0; SE      
+3261; AAUTAG _ANGE ;0; SE      
+3262; D1SANT _SANT ;0; SE      
+3263; D1UMAI _Ener ;0; SE      
+3264; D1INPA _Inpa ;0; SE      
+3265; D1PASS _PASS ;0; SE      
+3266; D1SJD  _Sao  ;0; SE      
+3267; D1SJU  _Sao  ;0; SE      
+3268; D1UTMV _Mont ;0; SE      
+3269; M2UCAA _CAAR ;0; SE      
+3270; D1MIM1 _A Ch ;0; SE      
+3271; D1VERD _VERD ;0; SE      
+3272; D1VERE _VERD ;0; SE      
+3273; D1BELA _BELA ;0; SE      
+3274; D1CXH  _Coxi ;0; SE      
+3275; D1PONT _PONT ;0; SE      
+3276; D1COGE _Corr ;0; SE      
+3277; D1COST _COST ;0; SE      
+3278; D1LAJE _LAJE ;0; SE      
+3279; D1PLT  _Plan ;0; SE      
+3280; D1LARC _LAR  ;0; SE      
+3281; F4AQUA _AQUA ;0; SE      
+3282; M1RBRT _RBRI ;0; SE      
+3283; F4DES  _DESI ;0; SE      
+3284; F4DONA _DONA ;0; SE      
+3285; F4NOID _PCH  ;0; SE      
+3286; F4SALO _PCH  ;0; SE      
+3287; F4TOX  _S Do ;0; SE      
+3288; F4ALTO _ALTO ;0; SE      
+3289; F4ARA  _Alto ;0; SE      
+3290; F4CACH _CACH ;0; SE      
+3291; F4DUAP _Dual ;0; SE      
+3292; BTPHPA _PARA ;0; SE      
+3293; F4ARIP _ARIP ;0; SE      
+3294; F4CONS _CONS ;0; SE      
+3295; F4MART _UTE  ;0; SE      
+3296; F4CARM _CARA ;0; SE      
+3297; F4CUL  _Culu ;0; SE      
+3298; F4POX  _Poxo ;0; SE      
+3299; F4PRI  _Prim ;0; SE      
+3300; F4APA  _Al P ;0; SE      
+3301; F4COPA _Copa ;0; SE      
+3302; F4DIAA _PCH  ;0; SE      
+3303; F4BAAL _BARR ;0; SE      
+3304; F4COPR _COPR ;0; SE      
+3305; F4DUAL _Dual ;0; SE      
+3306; F4NOVO _NOVO ;0; SE      
+3307; F4RIOD _PCH  ;0; SE      
+3308; F4JUIN _PCH  ;0; SE      
+3309; F4CHQ  _CONR ;0; SE      
+3310; F4MAX0 _MAX- ;0; SE      
+3311; F4ESPE _ESPE ;0; SE      
+3312; F4MARG _CGH  ;0; SE      
+3313; F4MEST _MIRA ;0; SE      
+3314; F4RIOP _PCH  ;0; SE      
+3315; F4NOVM _PCH  ;0; SE      
+3316; I4ASJA _Asja ;0; NE      
+3317; I4FER2 _Ferr ;0; NE      
+3318; I4POLA _Polp ;0; NE      
+3319; I4POLP _Polp ;0; NE      
+3320; I4ALBA _Alba ;0; NE      
+3321; I4ATLA _Atla ;0; NE      
+3322; I4CAMU _Camu ;0; NE      
+3323; I4CARA _Cara ;0; NE      
+3324; I4COEH _Coel ;0; NE      
+3325; I4COEL _Coel ;0; NE      
+3326; I4COEO _Coel ;0; NE      
+3327; I4COES _Coel ;0; NE      
+3328; I4JAPU _Japu ;0; NE      
+3329; I4MATA _Mata ;0; NE      
+3330; I4MILL _Mill ;0; NE      
+3331; I4MIRI _Miri ;0; NE      
+3332; I4MONT _Mont ;0; NE      
+3333; I4PRES _Pres ;0; NE      
+3334; I4VITO _Vito ;0; NE      
+3335; I5ANGI _Angi ;0; NE      
+3336; I5CURE _Cure ;0; NE      
+3337; I5LAGA _Lago ;0; NE      
+3338; I5MALT _Malt ;0; NE      
+3339; I5RIOD _Rio  ;0; NE      
+3340; I5RIOO _Rio  ;0; NE      
+3341; I1GIAS _Gias ;0; NE      
+3342; I1TABU _Tabu ;0; NE      
+3343; I4CANO _Cano ;0; NE      
+3344; I4EDRC _Edr  ;0; NE      
+3345; I4LAGO _Lago ;0; NE      
+3346; F6CACH _CACH ;0; SE      
+3347; F6CASD _Cast ;0; SE      
+3348; F6CAST _Marg ;0; SE      
+3349; F6CASU _Rio  ;0; SE      
+3350; F6CBX  _Cabi ;0; SE      
+3351; F6CBX2 _Cabi ;0; SE      
+3352; F6CCTA _Casc ;0; SE      
+3353; F6CHUP _CHUP ;0; SE      
+3354; F6RIOV _Rio  ;0; SE      
+3355; F6UCCB _CACH ;0; SE      
+3356; F6UMAR _MARC ;0; SE      
+3357; F6UMNV _Mart ;0; SE      
+3358; F6UCFI _Cesa ;0; SE      
+3359; F6UPRI _Prim ;0; SE      
+3360; D4SAD1 _Salt ;0; S       
+3361; D4SALE _Salt ;0; S       
+3362; F6CANA _CANA ;0; SE      
+3363; F6JAMA _JAMA ;0; SE      
+3364; F6SANT _S. C ;0; SE      
+3365; I2BARR _Barr ;0; NE      
+3366; I2CAMP _Camp ;0; NE      
+3367; I2IOLA _Iola ;0; NE      
+3368; I2SAOJ _Sao  ;0; NE      
+3369; I2TAQU _Taqu ;0; NE      
+3370; I2BARR _Barr ;0; NE      
+3371; I2FERR _Ferr ;0; NE      
+3372; I2SAOJ _Sao  ;0; NE      
+3373; I2TAQU _Taqu ;0; NE      
+3374; F7LAJE _LAJE ;0; N       
+3375; F7AGL  _Agua ;0; N       
+3376; F7AREI _AREI ;0; N       
+3377; F7ATR  _AGRO ;0; N       
+3378; F7BAGA _BAGA ;0; N       
+3379; F7DIAA _DIAC ;0; N       
+3380; F7DIAO _DIAN ;0; N       
+3381; F7ISAM _ISAM ;0; N       
+3382; F7MANU _Manu ;0; N       
+3383; F7PONT _PONT ;0; N       
+3384; F7SOBR _SOBR ;0; N       
+3385; F7TAGU _TAGU ;0; N       
+3386; I1BENB _BEN  ;0; NE      
+3387; I1CAET _Biof ;0; NE      
+3388; I1UGPA _Gust ;0; NE      
+3389; I1ORIE _Orie ;0; NE      
+3390; I1SRGR _Serr ;0; NE      
+3391; F2DIAM _Diam ;0; SE      
+3392; F1RIAC _RIAC ;0; SE      
+3393; F1SANT _SANT ;0; SE      
+3394; F1SED3 _SANT ;0; SE      
+3395; F1UMA  _Mamb ;0; SE      
+3396; F1USD  _Sao  ;0; SE      
+3397; F2CEMA _CEM  ;0; SE      
+3398; F2GSA  _Goia ;0; SE      
+3399; F2URO  _Roch ;0; SE      
+3400; F2PIRA _PIRA ;0; SE      
+3401; F2RB1  _CGH  ;0; SE      
+3402; F2RB2  _Rio  ;0; SE      
+3403; F2GOIN _GOIA ;0; SE      
+3404; F2JLM  _Espl ;0; SE      
+3405; F1GAME _Game ;0; SE      
+3406; F1TAM1 _Tamb ;0; SE      
+3407; A2GOID _GOIA ;0; SE      
+3408; A2NAUR _NOVA ;0; SE      
+3409; F2LAGO _LAGO ;0; SE      
+3410; F2TLSA _LAGO ;0; SE      
+3411; F2ALIA _Alia ;0; SE      
+3412; F2SERR _SERR ;0; SE      
+3413; F3DVMS _Dvm  ;0; N       
+3414; F3GUSN _GUSA ;0; N       
+3415; F3VIEN _VIEN ;0; N       
+3416; F5FLOR _FLOR ;0; N       
+3417; I7SERT _Sert ;0; NE      
+3418; I7SOBA _Sobr ;0; NE      
+3419; I7CVAP _Comv ;0; NE      
+3420; D3RIOA _Rio  ;0; S       
+3421; D3RIOP _Rio  ;0; S       
+3422; A3AREA _AREA ;0; SE      
+3423; A3BRAC _BRAC ;0; SE      
+3424; A3NOVA _Nova ;0; SE      
+3425; A3JRJR _RJR_ ;0; SE      
+3426; A3MELL _MELL ;0; SE      
+3427; A3SERN _Serr ;0; SE      
+3428; A3VIST _VIST ;0; SE      
+3429; A3QUIL _Quil ;0; SE      
+3430; I1FAZE _Faze ;0; NE      
+3431; I1FERR _Ferr ;0; NE      
+3432; I1MODA _Moda ;0; NE      
+3433; I1PINC _Pinc ;0; NE      
+3434; I1MARI _Mari ;0; NE      
+3435; I1PAMS _Pame ;0; NE      
+3436; I1PEDE _Pe d ;0; NE      
+3437; I1GIND _Gind ;0; NE      
+3438; I1GRVT _Grav ;0; NE      
+3439; I1HUMA _Huma ;0; NE      
+3440; I1LUIZ _Luiz ;0; NE      
+3441; I1MAND _Mand ;0; NE      
+3442; I1PAUS _Pau  ;0; NE      
+3443; I1PEDA _Pedr ;0; NE      
+3444; I1SNTM _Sant ;0; NE      
+3445; I1UTJB _JB_4 ;0; NE      
+3446; I1UTPR _Pira ;0; NE      
+3447; I1XAVA _Xava ;0; NE      
+3448; I1VENO _Veno ;0; NE      
+3449; I1ASJA _Asja ;0; NE      
+3450; I1IPOJ _Ipoj ;0; NE      
+3451; I1FEDE _Fede ;0; NE      
+3452; I1SOLA _Sola ;0; NE      
+3453; I1SOLR _Sola ;0; NE      
+3454; I1OURB _Ouro ;0; NE      
+3455; I1OURO _Ouro ;0; NE      
+3456; I1MARV _Mara ;0; NE      
+3457; I1OLHO _Cent ;0; NE      
+3458; I1PIRA _Pira ;0; NE      
+3459; I1QUAT _Quat ;0; NE      
+3460; D3ALBM _Alba ;0; S       
+3461; D3APEK _Ape  ;0; S       
+3462; D3PASO _PASS ;0; S       
+3463; D3CAAL _CAAL ;0; S       
+3464; D3SVA  _SVA_ ;0; S       
+3465; D3BRAG _Brag ;0; S       
+3466; D3CAAY _Caa  ;0; S       
+3467; D3CARS _Carl ;0; S       
+3468; D3CBEV _Carl ;0; S       
+3469; D3CTBA _Casc ;0; S       
+3470; D3FERR _Ferr ;0; S       
+3471; D3FRED _Fred ;0; S       
+3472; D3GRVL _Linh ;0; S       
+3473; D3GUAR _Guar ;0; S       
+3474; D3MOIN _Moin ;0; S       
+3475; D3RFOR _Rio  ;0; S       
+3476; D3TAMB _Tamb ;0; S       
+3477; D3TOCD _Toca ;0; S       
+3478; D3YGTP _Marc ;0; S       
+3479; D3UIVA _Ivai ;0; S       
+3480; D3DAMN _Dona ;0; S       
+3481; D3CADR _Caca ;0; S       
+3482; D3COTP _Coti ;0; S       
+3483; D3LHEM _Linh ;0; S       
+3484; D3SAOD _Sao  ;0; S       
+3485; D3UDLH _Da I ;0; S       
+3486; D3UGPR _Guap ;0; S       
+3487; D3UJAR _Jara ;0; S       
+3488; D3ITAQ _Itaq ;0; S       
+3489; D3UIJI _Ijui ;0; S       
+3490; D3BELA _Bela ;0; S       
+3491; D3BURI _Buri ;0; S       
+3492; D3SANA _Sant ;0; S       
+3493; D3SATN _Sant ;0; S       
+3494; D3UCAP _Capi ;0; S       
+3495; D3UERN _Erne ;0; S       
+3496; D3FURN _Furn ;0; S       
+3497; D3FORQ _Forq ;0; S       
+3498; D3SBER _Sao  ;0; S       
+3499; D3UESM _Esme ;0; S       
+3500; D3UFOR _Forq ;0; S       
+3501; D3RINC _Rinc ;0; S       
+3502; D3CHIM _Chim ;0; S       
+3503; D3JARD _Jard ;0; S       
+3504; D3MGRD _Morr ;0; S       
+3505; D3SANT _Sant ;0; S       
+3506; D3TRAB _Trab ;0; S       
+3507; D3USAL _Salt ;0; S       
+3508; D3GALP _Galo ;0; S       
+3509; D3CRV  _Criu ;0; S       
+3510; D3PALN _Pala ;0; S       
+3511; D3SMAR _Rio  ;0; S       
+3512; D3FORE _Fore ;0; S       
+3513; D3PALO _Palo ;0; S       
+3514; D3QUDE _Queb ;0; S       
+3515; D3APES _Ape  ;0; S       
+3516; D3MADE _Made ;0; S       
+3517; D3PICA _Pica ;0; S       
+3518; D3UHER _Herv ;0; S       
+3519; D3CAXI _Caxi ;0; S       
+3520; D3DONA _Dona ;0; S       
+3521; D3CAZU _Cazu ;0; S       
+3522; D3UAND _Ando ;0; S       
+3523; D3AUTO _Auto ;0; S       
+3524; D3BOAF _Boa  ;0; S       
+3525; D3SANN _Sant ;0; S       
+3526; D3SAOP _Sao  ;0; S       
+3527; A1TABO _Tabo ;0; SE      
+3528; A1CACH _Cach ;0; SE      
+3529; A1CACE _Cach ;0; SE      
+3530; A1NICC _Nicc ;0; SE      
+3531; A1SANA _Sant ;0; SE      
+3532; EQBRD  _CJF  ;0; NE      
+3533; 5G47266_MMGD ;0; NE      
+3534; D3PCTS _PCT  ;0; S       
+3535; I2BAHI _Bahi ;0; NE      
+3536; A6UJA  _Jagu ;0; SE      
+3537; A6USG  _Salt ;0; SE      
+3538; A6USO  _Soco ;0; SE      
+3539; A4SAOR _SAO  ;0; SE      
+3540; A4FEIO _FEIX ;0; SE      
+3541; A4VEOL _Veol ;0; SE      
+3542; A4ITAT _ITAT ;0; SE      
+3543; A4PGO  _Port ;0; SE      
+3544; A4MARV _Marv ;0; SE      
+3545; A1JOAO _Joao ;0; SE      
+3546; A4SDR  _Sodr ;0; SE      
+3547; A4CACH _CACH ;0; SE      
+3548; A4MINE _Mine ;0; SE      
+3549; A4COB  _Coru ;0; SE      
+3550; A4LOB  _Lobo ;0; SE      
+3551; A4SVAL _SAO  ;0; SE      
+3552; A4SJOQ _SAO  ;0; SE      
+3553; A4BATI _BATI ;0; SE      
+3554; A4JOFL _JORD ;0; SE      
+3555; A4PILR _PILA ;0; SE      
+3556; I5MUCU _Mucu ;0; NE      
+3557; A3SAOG _Sao  ;0; SE      
+3558; A4BANE _BAND ;0; SE      
+3559; A3HANS _Hans ;0; SE      
+3560; A3XAVI _XAVI ;0; SE      
+3561; A4FART _Fart ;0; SE      
+3562; A4CATN _Cata ;0; SE      
+3563; A4CITR _CITR ;0; SE      
+3564; A4SDO  _SAO  ;0; SE      
+3565; A4VALO _Valo ;0; SE      
+3566; A4CACN _CACH ;0; SE      
+3567; A4LIMO _LIMO ;0; SE      
+3568; A2CAMU _CAMB ;0; SE      
+3569; A4LARA _LARA ;0; SE      
+3570; A4QUAT _QUAT ;0; SE      
+3571; A6ULUC _LUCE ;0; SE      
+3572; A4AGUA _AGUA ;0; SE      
+3573; A4TARM _TARU ;0; SE      
+3574; A4PARP _PARI ;0; SE      
+3575; F7COR  _CORU ;0; N       
+3576; F7LAGE _LAGE ;0; N       
+3577; F7PEDR _PEDR ;0; N       
+3578; F7SOLM _SOL  ;0; N       
+3579; I1BGMT _Mari ;0; NE      
+3580; I1CORR _Coru ;0; NE      
+3581; I1CVWE _CVW  ;0; NE      
+3582; I1SHOP _Shop ;0; NE      
+3583; F2PERO _Pero ;0; SE      
+3584; F2PERR _Pero ;0; SE      
+3585; F2PERA _Pero ;0; SE      
+3586; F2PERL _Pero ;0; SE      
+3587; F2PPRT _PONT ;0; SE      
+3588; A3CASA _CASC ;0; SE      
+3589; A3SERA _SERR ;0; SE      
+3590; I1TECP _Itae ;0; NE      
+3591; I1PETR _Petr ;0; NE      
+3592; I7LUIG _Luiz ;0; NE      
+3593; BBSAR  _CJE  ;0; NE      
+3594; D3BIOT _Biot ;0; S       
+3595; BBSAR  _CJE  ;0; NE      
+3596; BBSAR  _CJE  ;0; NE      
+3597; BBSAR  _CJE  ;0; NE      
+3598; BBSAR  _CJE  ;0; NE      
+3599; BBSAR  _CJE  ;0; NE      
+3600; 5G47401_MMGD ;0; SE      
+3601; BBASO  _CJF  ;0; NE      
+3602; BBASO  _CJF  ;0; NE      
+3603; BBASO  _CJF  ;0; NE      
+3604; BBASO  _CJF  ;0; NE      
+3605; BBASO  _CJF  ;0; NE      
+3606; VISSDB _CJF  ;0; NE      
+3607; CV5ETGS_CJE  ;0; NE      
+3608; IYMTD  _CJF  ;0; NE      
+3609; IYMTD  _CJF  ;0; NE      
+3610; IYMTD  _CJF  ;0; NE      
+3611; 5G47582_MMGD ;0; NE      
+3612; 5G47583_MMGD ;0; NE      
+3613; CVBBC  _CJE  ;0; NE      
+3614; CVBBC  _CJE  ;0; NE      
+3615; VL5ESMA_CJ S ;0; NE      
+3616; VL5ESMA_CJ S ;0; NE      
+3617; CV4FBBS_CJF  ;0; NE      
+3618; CV4FBBS_CJF  ;0; NE      
+3619; 5G47656_MMGD ;0; NE      
+3620; 5G47657_MMGD ;0; NE      
+3621; 5G47670_MMGD ;0; NE      
+3622; A1BRAM _Bram ;0; SE      
+3623; A4ELGI _Elgi ;0; SE      
+3624; D2PORM _Porm ;0; S       
+3625; A4ZODI _Zodi ;0; SE      
+3626; D3DACO _Daco ;0; S       
+3627; 5G47849_MMGD ;0; SE      
+3628; 5G47850_MMGD ;0; SE      
+3629; 5G47851_MMGD ;0; SE      
+3630; 5G47858_MMGD ;0; SE      
+3631; 5G47859_MMGD ;0; SE      
+3632; A4BAZA _Baza ;0; SE      
+3633; 5G47875_MMGD ;0; SE      
+3634; 5G47878_MMGD ;0; SE      
+3635; 5G47917_MMGD ;0; N       
+3636; 5G47918_MMGD ;0; N       
+3637; A4REDE _Rede ;0; SE      
+3638; A4REDZ _Rede ;0; SE      
+3639; DSMRRC _CJF  ;0; NE      
+3640; 5G47977_MMGD ;0; SE      
+3641; F4SAFR _Safr ;0; SE      
+3642; C0LINS _CFV  ;0; NE      
+3643; VS5FRGV_CJF  ;0; NE      
+3644; IY3FIRE_CJF  ;0; NE      
+3645; 5G48124_MMGD ;0; SE      
+3646; 5G48127_MMGD ;0; SE      
+3647; 5G48128_MMGD ;0; SE      
+3648; 5G48131_MMGD ;0; SE      
+3649; 5G48135_MMGD ;0; SE      
+3650; CV5ETGS_CJE  ;0; NE      
+3651; CV5ETGS_CJE  ;0; NE      
+3652; CV5ETGS_CJE  ;0; NE      
+3653; CV5ETGS_CJE  ;0; NE      
+3654; CV5ETGS_CJE  ;0; NE      
+3655; CV5ETGS_CJE  ;0; NE      
+3656; CV5ETGS_CJE  ;0; NE      
+3657; 5G48200_MMGD ;0; SE      
+3658; 5G48201_MMGD ;0; SE      
+3659; 5G48364_MMGD ;0; N       
+3660; A3FRA  _Fran ;0; SE      
+3661; 5G48426_MMGD ;0; SE      
+3662; 5G48430_MMGD ;0; SE      
+3663; 5G48447_MMGD ;0; SE      
+3664; 5G48485_MMGD ;0; SE      
+3665; 5G48542_MMGD ;0; N       

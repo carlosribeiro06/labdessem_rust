@@ -210,6 +210,7 @@ pub struct HydroPlant {
     pub natural_inflow_hm3: Vec<f64>,
     pub water_withdrawal_hm3: Vec<f64>,
     pub spillage_cost_per_hm3: f64,
+    pub turbining_cost_per_hm3: f64,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
 }
@@ -241,15 +242,15 @@ impl HydroPlant {
                 self.water_withdrawal_hm3.len()
             )));
         }
-        if self.water_withdrawal_hm3.iter().any(|value| *value < 0.0) {
-            return Err(CoreError::validation(format!(
-                "hydro plant {:?} has negative water withdrawal",
-                self.id
-            )));
-        }
         if self.spillage_cost_per_hm3 < 0.0 {
             return Err(CoreError::validation(format!(
                 "hydro plant {:?} has negative spillage cost",
+                self.id
+            )));
+        }
+        if self.turbining_cost_per_hm3 < 0.0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative turbining cost",
                 self.id
             )));
         }

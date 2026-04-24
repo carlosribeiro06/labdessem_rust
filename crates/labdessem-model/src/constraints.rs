@@ -50,6 +50,9 @@ impl ConstraintSet {
             indexing, variables, system,
         ));
         linear_constraints.extend(build_hydro_fpha_constraints(system, indexing, variables));
+        linear_constraints.extend(build_hydro_generation_turbining_coupling_constraints(
+            system, indexing, variables,
+        ));
         linear_constraints.extend(build_operational_limit_constraints(
             system, indexing, variables,
         ));
@@ -188,6 +191,17 @@ impl ConstraintSet {
         self.linear_constraints
             .iter()
             .filter(|constraint| constraint.name.starts_with("hydro_fpha["))
+            .collect()
+    }
+
+    pub fn hydro_generation_turbining_coupling(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| {
+                constraint
+                    .name
+                    .starts_with("hydro_generation_turbining_coupling[")
+            })
             .collect()
     }
 
@@ -496,6 +510,53 @@ fn build_hydro_fpha_constraints(
         .collect()
 }
 
+fn build_hydro_generation_turbining_coupling_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+    let mut constraints = Vec::new();
+
+    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
+        let plant = &system.hydro_plants[entry.plant_idx];
+        let group = &plant.groups[entry.group_idx];
+        let unit = &group.units[entry.unit_idx];
+        let max_productivity = plant
+            .fpha_segments
+            .iter()
+            .map(|segment| {
+                segment.correction_factor * segment.turbining_coefficient / flow_conversion
+            })
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .fold(0.0, f64::max);
+
+        if max_productivity <= 0.0 {
+            continue;
+        }
+
+        for period in 0..horizon {
+            let generation = &variables.hydro_generation[entry_idx * horizon + period];
+            let turbining = &variables.hydro_turbining[entry_idx * horizon + period];
+            constraints.push(LinearConstraint {
+                name: format!(
+                    "hydro_generation_turbining_coupling[p={},g={},u={},t={}]",
+                    plant.name,
+                    group.name,
+                    unit.name,
+                    display_period(period)
+                ),
+                terms: vec![term(generation, 1.0), term(turbining, -max_productivity)],
+                sense: ConstraintSense::LessOrEqual,
+                rhs: 0.0,
+            });
+        }
+    }
+
+    constraints
+}
+
 fn build_operational_limit_constraints(
     system: &System,
     indexing: &Indexing,
@@ -510,6 +571,7 @@ fn build_operational_limit_constraints(
                 operational_limit_terms(system, indexing, variables, limit, period, horizon);
 
             if let Some(lower_bound) = limit.lower_bound {
+                let rhs = operational_limit_rhs(system, limit, lower_bound);
                 constraints.push(LinearConstraint {
                     name: format!(
                         "operational_limit_lower[p={},var={},t={}]",
@@ -519,11 +581,12 @@ fn build_operational_limit_constraints(
                     ),
                     terms: terms.clone(),
                     sense: ConstraintSense::GreaterOrEqual,
-                    rhs: lower_bound,
+                    rhs,
                 });
             }
 
             if let Some(upper_bound) = limit.upper_bound {
+                let rhs = operational_limit_rhs(system, limit, upper_bound);
                 constraints.push(LinearConstraint {
                     name: format!(
                         "operational_limit_upper[p={},var={},t={}]",
@@ -533,13 +596,41 @@ fn build_operational_limit_constraints(
                     ),
                     terms: terms.clone(),
                     sense: ConstraintSense::LessOrEqual,
-                    rhs: upper_bound,
+                    rhs,
                 });
             }
         }
     }
 
     constraints
+}
+
+fn operational_limit_rhs(
+    system: &System,
+    limit: &labdessem_core::system::OperationalLimit,
+    informed_bound: f64,
+) -> f64 {
+    match limit.variable {
+        OperationalLimitVariable::Volume => {
+            let OperationalLimitTarget::HydroPlant(plant_id) = limit.target else {
+                return informed_bound;
+            };
+            let plant = system
+                .hydro_plants
+                .iter()
+                .find(|plant| plant.id == plant_id)
+                .expect("validated hydro plant should exist");
+            informed_bound + plant.reservoir.min_volume_hm3
+        }
+        OperationalLimitVariable::Spillage
+        | OperationalLimitVariable::Defluence
+        | OperationalLimitVariable::Turbining
+        | OperationalLimitVariable::Diversion
+        | OperationalLimitVariable::Pumping => {
+            flow_m3s_to_hm3(informed_bound, system.horizon.period_duration_hours)
+        }
+        OperationalLimitVariable::Generation => informed_bound,
+    }
 }
 
 fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
@@ -549,6 +640,8 @@ fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'sta
         OperationalLimitVariable::Volume => "VOL",
         OperationalLimitVariable::Defluence => "DEFLU",
         OperationalLimitVariable::Turbining => "TURB",
+        OperationalLimitVariable::Diversion => "QDES",
+        OperationalLimitVariable::Pumping => "QBOM",
     }
 }
 
@@ -649,8 +742,34 @@ fn operational_limit_terms(
             ));
             terms
         }
+        (OperationalLimitTarget::HydroPlant(plant_id), OperationalLimitVariable::Diversion) => {
+            let plant_entry_idx = indexing
+                .hydro_plant_entries
+                .iter()
+                .position(|entry| system.hydro_plants[entry.plant_idx].id == plant_id)
+                .expect("validated hydro plant should exist");
+            vec![term(
+                &variables.hydro_diversion[plant_entry_idx * horizon + period],
+                1.0,
+            )]
+        }
+        (OperationalLimitTarget::PumpingPlant(plant_id), OperationalLimitVariable::Pumping) => {
+            let plant_entry_idx = indexing
+                .pumping_plant_entries
+                .iter()
+                .position(|entry| system.pumping_plants[entry.plant_idx].id == plant_id)
+                .expect("validated pumping plant should exist");
+            vec![term(
+                &variables.pumping[plant_entry_idx * horizon + period],
+                1.0,
+            )]
+        }
         _ => unreachable!("validated operational limits should be compatible with target"),
     }
+}
+
+fn flow_m3s_to_hm3(flow_m3s: f64, period_duration_hours: f64) -> f64 {
+    flow_m3s * period_duration_hours * 0.0036
 }
 
 fn demand_balance_terms(
@@ -677,16 +796,9 @@ fn demand_balance_terms(
         }
     }
 
-    for (entry_idx, entry) in indexing.wind_plant_entries.iter().enumerate() {
+    for (entry_idx, entry) in indexing.renewable_plant_entries.iter().enumerate() {
         if entry.submarket_idx == submarket_idx {
-            let variable = &variables.wind_generation[entry_idx * horizon + period];
-            terms.push(term(variable, 1.0));
-        }
-    }
-
-    for (entry_idx, entry) in indexing.solar_plant_entries.iter().enumerate() {
-        if entry.submarket_idx == submarket_idx {
-            let variable = &variables.solar_generation[entry_idx * horizon + period];
+            let variable = &variables.renewable_generation[entry_idx * horizon + period];
             terms.push(term(variable, 1.0));
         }
     }

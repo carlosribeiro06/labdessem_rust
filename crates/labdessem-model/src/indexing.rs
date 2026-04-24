@@ -45,15 +45,13 @@ pub struct Indexing {
     pub hydro_plant_entries: Vec<HydroPlantIndex>,
     pub thermal_unit_entries: Vec<ThermalUnitIndex>,
     pub hydro_unit_entries: Vec<HydroUnitIndex>,
-    pub wind_plant_entries: Vec<RenewablePlantIndex>,
-    pub solar_plant_entries: Vec<RenewablePlantIndex>,
+    pub renewable_plant_entries: Vec<RenewablePlantIndex>,
     pub pumping_plant_entries: Vec<PumpingPlantIndex>,
     pub interchange_entries: Vec<InterchangeIndex>,
     pub submarket_ids: Vec<SubmarketId>,
     pub thermal_units: usize,
     pub hydro_units: usize,
-    pub wind_plants: usize,
-    pub solar_plants: usize,
+    pub renewable_plants: usize,
     pub pumping_plants: usize,
     pub buses: usize,
     pub submarkets: usize,
@@ -119,18 +117,8 @@ impl Indexing {
             })
             .collect::<Vec<_>>();
 
-        let wind_plant_entries = system
-            .wind_plants
-            .iter()
-            .enumerate()
-            .map(|(plant_idx, plant)| RenewablePlantIndex {
-                plant_idx,
-                submarket_idx: submarket_position(&submarket_ids, plant.submarket_id),
-            })
-            .collect::<Vec<_>>();
-
-        let solar_plant_entries = system
-            .solar_plants
+        let renewable_plant_entries = system
+            .renewable_plants
             .iter()
             .enumerate()
             .map(|(plant_idx, plant)| RenewablePlantIndex {
@@ -166,16 +154,14 @@ impl Indexing {
         Self {
             thermal_units: thermal_unit_entries.len(),
             hydro_units: hydro_unit_entries.len(),
-            wind_plants: wind_plant_entries.len(),
-            solar_plants: solar_plant_entries.len(),
+            renewable_plants: renewable_plant_entries.len(),
             pumping_plants: pumping_plant_entries.len(),
             buses: system.buses.len(),
             submarkets: system.submarkets.len(),
             hydro_plant_entries,
             thermal_unit_entries,
             hydro_unit_entries,
-            wind_plant_entries,
-            solar_plant_entries,
+            renewable_plant_entries,
             pumping_plant_entries,
             interchange_entries,
             submarket_ids,

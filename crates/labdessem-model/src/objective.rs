@@ -66,6 +66,15 @@ impl Objective {
             }
         }
 
+        for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
+            let plant = &system.hydro_plants[entry.plant_idx];
+
+            for period in 0..horizon {
+                let turbining = &variables.hydro_turbining[entry_idx * horizon + period];
+                terms.push(term(turbining, plant.turbining_cost_per_hm3));
+            }
+        }
+
         for (entry_idx, interchange) in indexing.interchange_entries.iter().enumerate() {
             let from = system.submarkets[interchange.from_submarket_idx].id;
             let to = system.submarkets[interchange.to_submarket_idx].id;

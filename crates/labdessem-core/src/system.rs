@@ -4,7 +4,7 @@ use crate::{
     error::CoreError,
     hydro::HydroPlant,
     ids::{BranchId, BusId, HydroPlantId, PumpingPlantId, SubmarketId, ThermalPlantId},
-    renewable::{SolarPlant, WindPlant},
+    renewable::RenewablePlant,
     thermal::ThermalPlant,
 };
 
@@ -263,19 +263,22 @@ impl PumpingPlant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationalLimitVariable {
     Generation,
     Spillage,
     Volume,
     Defluence,
     Turbining,
+    Diversion,
+    Pumping,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationalLimitTarget {
     ThermalPlant(ThermalPlantId),
     HydroPlant(HydroPlantId),
+    PumpingPlant(PumpingPlantId),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -334,9 +337,22 @@ impl OperationalLimit {
                 OperationalLimitVariable::Spillage
                 | OperationalLimitVariable::Volume
                 | OperationalLimitVariable::Defluence
-                | OperationalLimitVariable::Turbining,
+                | OperationalLimitVariable::Turbining
+                | OperationalLimitVariable::Diversion
+                | OperationalLimitVariable::Pumping,
             ) => Err(CoreError::validation(format!(
                 "thermal plant {} cannot define limit for {:?}",
+                self.plant_name, self.variable
+            ))),
+            (OperationalLimitTarget::HydroPlant(_), OperationalLimitVariable::Pumping) => {
+                Err(CoreError::validation(format!(
+                    "hydro plant {} cannot define limit for {:?}",
+                    self.plant_name, self.variable
+                )))
+            }
+            (OperationalLimitTarget::PumpingPlant(_), OperationalLimitVariable::Pumping) => Ok(()),
+            (OperationalLimitTarget::PumpingPlant(_), _) => Err(CoreError::validation(format!(
+                "pumping plant {} cannot define limit for {:?}",
                 self.plant_name, self.variable
             ))),
             _ => Ok(()),
@@ -381,8 +397,7 @@ pub struct System {
     pub thermal_plants: Vec<ThermalPlant>,
     pub hydro_plants: Vec<HydroPlant>,
     pub pumping_plants: Vec<PumpingPlant>,
-    pub wind_plants: Vec<WindPlant>,
-    pub solar_plants: Vec<SolarPlant>,
+    pub renewable_plants: Vec<RenewablePlant>,
 }
 
 impl System {
@@ -425,12 +440,8 @@ impl System {
             "pumping plant ids must be unique",
         )?;
         validate_unique_ids(
-            self.wind_plants.iter().map(|entity| entity.id.0),
-            "wind plant ids must be unique",
-        )?;
-        validate_unique_ids(
-            self.solar_plants.iter().map(|entity| entity.id.0),
-            "solar plant ids must be unique",
+            self.renewable_plants.iter().map(|entity| entity.id.0),
+            "renewable plant ids must be unique",
         )?;
 
         for submarket in &self.submarkets {
@@ -696,24 +707,11 @@ impl System {
             }
         }
 
-        for plant in &self.wind_plants {
+        for plant in &self.renewable_plants {
             plant.validate(self.horizon.periods)?;
             validate_bus_and_submarket_membership(
                 plant.id.0,
-                "wind plant",
-                plant.bus_id,
-                plant.submarket_id,
-                &self.buses,
-                &bus_ids,
-                &submarket_ids,
-            )?;
-        }
-
-        for plant in &self.solar_plants {
-            plant.validate(self.horizon.periods)?;
-            validate_bus_and_submarket_membership(
-                plant.id.0,
-                "solar plant",
+                "renewable plant",
                 plant.bus_id,
                 plant.submarket_id,
                 &self.buses,
@@ -757,6 +755,24 @@ impl System {
                     if plant.name != limit.plant_name {
                         return Err(CoreError::validation(format!(
                             "operational limit plant name mismatch for hydro plant {:?}",
+                            plant_id
+                        )));
+                    }
+                }
+                OperationalLimitTarget::PumpingPlant(plant_id) => {
+                    let plant = self
+                        .pumping_plants
+                        .iter()
+                        .find(|candidate| candidate.id == plant_id)
+                        .ok_or_else(|| {
+                            CoreError::validation(format!(
+                                "operational limit references unknown pumping plant {:?}",
+                                plant_id
+                            ))
+                        })?;
+                    if plant.name != limit.plant_name {
+                        return Err(CoreError::validation(format!(
+                            "operational limit plant name mismatch for pumping plant {:?}",
                             plant_id
                         )));
                     }
@@ -824,10 +840,10 @@ mod tests {
     use crate::{
         hydro::{HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
         ids::{
-            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SolarPlantId, SubmarketId,
-            ThermalPlantId, ThermalUnitId, WindPlantId,
+            BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, RenewablePlantId,
+            SubmarketId, ThermalPlantId, ThermalUnitId,
         },
-        renewable::{SolarPlant, WindPlant},
+        renewable::RenewablePlant,
         thermal::{ThermalInitialCondition, ThermalUnit},
     };
 
@@ -893,6 +909,7 @@ mod tests {
                         is_on: true,
                         generation_mw: 40.0,
                         time_in_state: 2,
+                        time_in_ramp: 2,
                         is_ramping_up: false,
                         is_ramping_down: false,
                     },
@@ -916,6 +933,7 @@ mod tests {
                 natural_inflow_hm3: vec![5.0, 6.0],
                 water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 1.0,
+                turbining_cost_per_hm3: 0.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-1".into(),
@@ -940,19 +958,12 @@ mod tests {
                 }],
             }],
             pumping_plants: Vec::new(),
-            wind_plants: vec![WindPlant {
-                id: WindPlantId(1),
-                name: "EOL-1".into(),
+            renewable_plants: vec![RenewablePlant {
+                id: RenewablePlantId(1),
+                name: "REN-1".into(),
                 submarket_id: SubmarketId(1),
                 bus_id: BusId(1),
-                available_generation_mw: vec![30.0, 25.0],
-            }],
-            solar_plants: vec![SolarPlant {
-                id: SolarPlantId(1),
-                name: "SOL-1".into(),
-                submarket_id: SubmarketId(1),
-                bus_id: BusId(1),
-                available_generation_mw: vec![10.0, 15.0],
+                available_generation_mw: vec![40.0, 40.0],
             }],
         }
     }
@@ -1005,6 +1016,7 @@ mod tests {
             natural_inflow_hm3: vec![2.0, 2.0],
             water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
+            turbining_cost_per_hm3: 0.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),
@@ -1055,6 +1067,7 @@ mod tests {
             natural_inflow_hm3: vec![2.0, 2.0],
             water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
+            turbining_cost_per_hm3: 0.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),

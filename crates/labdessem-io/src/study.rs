@@ -13,10 +13,10 @@ use labdessem_core::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
     },
     ids::{
-        BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, SubmarketId,
-        ThermalPlantId, ThermalUnitId, WindPlantId,
+        BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
+        SubmarketId, ThermalPlantId, ThermalUnitId,
     },
-    renewable::{SolarPlant, WindPlant},
+    renewable::RenewablePlant,
     system::{
         Branch, Bus, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
         OperationalLimitVariable, PumpingPlant, ResidualCost, StudyHorizon, Submarket, System,
@@ -30,6 +30,7 @@ use crate::error::IoError;
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct StudyConfig {
     pub case_path: PathBuf,
+    pub opcao_execucao: u8,
     pub rede: u8,
     #[serde(rename = "UCT")]
     pub uct: u8,
@@ -175,7 +176,7 @@ fn read_study_from_path_with_options(
         horizon.period_duration_hours,
         network_enabled,
     )?;
-    let (wind_plants, solar_plants) = build_renewables(
+    let renewable_plants = build_renewables(
         &renewable_catalog_rows,
         &renewable_operation_rows,
         &submarkets,
@@ -186,6 +187,7 @@ fn read_study_from_path_with_options(
         &operational_limit_rows,
         &thermal_plants,
         &hydro_plants,
+        &pumping_plants,
         &horizon,
     )?;
 
@@ -203,8 +205,7 @@ fn read_study_from_path_with_options(
         thermal_plants,
         hydro_plants,
         pumping_plants,
-        wind_plants,
-        solar_plants,
+        renewable_plants,
     };
 
     system.validate()?;
@@ -473,6 +474,35 @@ fn build_thermal_plants(
                 } else {
                     Vec::new()
                 };
+                let initial_condition = if thermal_unit_commitment_enabled {
+                    ThermalInitialCondition {
+                        is_on: row.status_inic != 0,
+                        generation_mw: row.ger_inic,
+                        time_in_state: hours_to_periods(
+                            row.tinic,
+                            period_duration_hours,
+                            "Tinic",
+                            plant_name,
+                        )?,
+                        time_in_ramp: hours_to_periods(
+                            row.trampa_inic,
+                            period_duration_hours,
+                            "TRampaInic",
+                            plant_name,
+                        )?,
+                        is_ramping_up: row.rup_inic != 0,
+                        is_ramping_down: row.rdown_inic != 0,
+                    }
+                } else {
+                    ThermalInitialCondition {
+                        is_on: false,
+                        generation_mw: 0.0,
+                        time_in_state: 0,
+                        time_in_ramp: 0,
+                        is_ramping_up: false,
+                        is_ramping_down: false,
+                    }
+                };
 
                 units.push(ThermalUnit {
                     id: ThermalUnitId(row.unidade),
@@ -496,18 +526,7 @@ fn build_thermal_plants(
                     startup_cost: row.custo_partida,
                     shutdown_cost: row.custo_desliga,
                     variable_cost_per_mwh: row.cvu,
-                    initial_condition: ThermalInitialCondition {
-                        is_on: row.status_inic != 0,
-                        generation_mw: row.ger_inic,
-                        time_in_state: hours_to_periods(
-                            row.tinic,
-                            period_duration_hours,
-                            "Tinic",
-                            plant_name,
-                        )?,
-                        is_ramping_up: row.rup_inic != 0,
-                        is_ramping_down: row.rdown_inic != 0,
-                    },
+                    initial_condition,
                 });
             }
 
@@ -759,6 +778,7 @@ fn build_hydro_plants(
                 natural_inflow_hm3,
                 water_withdrawal_hm3,
                 spillage_cost_per_hm3: row.penal_vert,
+                turbining_cost_per_hm3: row.penal_turb,
                 fpha_segments,
                 groups,
             })
@@ -824,7 +844,7 @@ fn build_renewables(
     submarkets: &[Submarket],
     horizon: &StudyHorizon,
     network_enabled: bool,
-) -> Result<(Vec<WindPlant>, Vec<SolarPlant>), IoError> {
+) -> Result<Vec<RenewablePlant>, IoError> {
     let mut generation_by_plant = HashMap::<usize, Vec<f64>>::new();
 
     for row in operation_rows {
@@ -836,13 +856,13 @@ fn build_renewables(
         }
     }
 
-    let wind_plants = catalog_rows
+    let renewable_plants = catalog_rows
         .iter()
         .map(|row| {
             let name = row.nome.trim().to_string();
             let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
-            Ok(WindPlant {
-                id: WindPlantId(row.codigo),
+            Ok(RenewablePlant {
+                id: RenewablePlantId(row.codigo),
                 name: name.clone(),
                 submarket_id,
                 bus_id: BusId(bus_id_or_dummy(
@@ -859,7 +879,7 @@ fn build_renewables(
         })
         .collect::<Result<Vec<_>, IoError>>()?;
 
-    Ok((wind_plants, Vec::new()))
+    Ok(renewable_plants)
 }
 
 fn build_residual_costs(rows: &[ResidualCostRow]) -> Vec<ResidualCost> {
@@ -875,6 +895,7 @@ fn build_operational_limits(
     rows: &[OperationalLimitRow],
     thermal_plants: &[ThermalPlant],
     hydro_plants: &[HydroPlant],
+    pumping_plants: &[PumpingPlant],
     horizon: &StudyHorizon,
 ) -> Result<Vec<OperationalLimit>, IoError> {
     rows.iter()
@@ -912,13 +933,17 @@ fn build_operational_limits(
             let variable = parse_operational_limit_variable(&row.variavel)?;
             let lower_bound = parse_optional_bound(&row.linf, "Linf")?;
             let upper_bound = parse_optional_bound(&row.lsup, "Lsup")?;
+            let plant_name = row.nome_usina.trim();
 
             let thermal_match = thermal_plants
                 .iter()
-                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == row.nome_usina);
+                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
             let hydro_match = hydro_plants
                 .iter()
-                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == row.nome_usina);
+                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
+            let pumping_match = pumping_plants
+                .iter()
+                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
 
             let target = match variable {
                 OperationalLimitVariable::Generation => {
@@ -932,16 +957,38 @@ fn build_operational_limits(
                         (Some(_), Some(_)) => {
                             return Err(IoError::invalid_data(format!(
                                 "operational limit for {} is ambiguous between thermal and hydro generation",
-                                row.nome_usina
+                                plant_name
                             )));
                         }
                         (None, None) => {
                             return Err(IoError::invalid_data(format!(
                                 "unknown plant {} ({}) in OPER_REST_LIM.csv",
-                                row.nome_usina, row.codigo_usina
+                                plant_name, row.codigo_usina
                             )));
                         }
                     }
+                }
+                OperationalLimitVariable::Pumping => {
+                    if let Some(thermal) = thermal_match {
+                        return Err(IoError::invalid_data(format!(
+                            "thermal plant {} cannot define restriction for variable {}",
+                            thermal.name, row.variavel
+                        )));
+                    }
+                    if let Some(hydro) = hydro_match {
+                        return Err(IoError::invalid_data(format!(
+                            "hydro plant {} cannot define restriction for variable {}",
+                            hydro.name, row.variavel
+                        )));
+                    }
+
+                    let pumping = pumping_match.ok_or_else(|| {
+                        IoError::invalid_data(format!(
+                            "unknown pumping plant {} ({}) in OPER_REST_LIM.csv",
+                            plant_name, row.codigo_usina
+                        ))
+                    })?;
+                    OperationalLimitTarget::PumpingPlant(pumping.id)
                 }
                 _ => {
                     if let Some(thermal) = thermal_match {
@@ -954,7 +1001,7 @@ fn build_operational_limits(
                     let hydro = hydro_match.ok_or_else(|| {
                         IoError::invalid_data(format!(
                             "unknown hydro plant {} ({}) in OPER_REST_LIM.csv",
-                            row.nome_usina, row.codigo_usina
+                            plant_name, row.codigo_usina
                         ))
                     })?;
                     OperationalLimitTarget::HydroPlant(hydro.id)
@@ -963,7 +1010,7 @@ fn build_operational_limits(
 
             Ok(OperationalLimit {
                 target,
-                plant_name: row.nome_usina.clone(),
+                plant_name: plant_name.to_string(),
                 variable,
                 start_period,
                 end_period,
@@ -1001,7 +1048,7 @@ fn parse_restriction_period(value: &str, horizon: usize, is_start: bool) -> Resu
 
 fn parse_optional_bound(value: &str, field_name: &str) -> Result<Option<f64>, IoError> {
     let trimmed = value.trim();
-    if trimmed.is_empty() {
+    if trimmed.is_empty() || trimmed == "-" {
         return Ok(None);
     }
 
@@ -1020,6 +1067,8 @@ fn parse_operational_limit_variable(value: &str) -> Result<OperationalLimitVaria
         "VOL" => Ok(OperationalLimitVariable::Volume),
         "DEFLU" => Ok(OperationalLimitVariable::Defluence),
         "TURB" => Ok(OperationalLimitVariable::Turbining),
+        "QDES" => Ok(OperationalLimitVariable::Diversion),
+        "QBOM" => Ok(OperationalLimitVariable::Pumping),
         other => Err(IoError::invalid_data(format!(
             "unknown operational limit variable '{other}' in OPER_REST_LIM.csv"
         ))),
@@ -1630,6 +1679,8 @@ struct ThermalUnitRow {
     status_inic: usize,
     #[serde(rename = "Tinic")]
     tinic: f64,
+    #[serde(rename = "TRampaInic")]
+    trampa_inic: f64,
     #[serde(rename = "RupInic")]
     rup_inic: usize,
     #[serde(rename = "RdownInic")]
@@ -1684,6 +1735,8 @@ struct HydroPlantRow {
     submercado: String,
     #[serde(rename = "PenalVert")]
     penal_vert: f64,
+    #[serde(rename = "PenalTurb")]
+    penal_turb: f64,
 }
 
 #[derive(Debug)]

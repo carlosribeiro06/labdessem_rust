@@ -1,0 +1,855 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Manual De Desenvolvimento Do LabDessem Rust</title><style>body{font-family:Segoe UI,Arial,sans-serif;max-width:980px;margin:40px auto;padding:0 24px;line-height:1.55;color:#1f2937}h1,h2,h3{color:#0f172a}h1{font-size:30px}h2{font-size:22px;margin-top:30px;border-bottom:1px solid #cbd5e1;padding-bottom:6px}h3{font-size:18px;margin-top:22px}code{background:#f1f5f9;padding:2px 4px;border-radius:4px}pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}ul,ol{margin:10px 0 10px 24px}p{margin:10px 0}hr{border:none;border-top:1px solid #cbd5e1;margin:24px 0}a{color:#0369a1;text-decoration:none}</style></head><body>
+<h1>Manual De Desenvolvimento Do LabDessem Rust</h1>
+<h2>1. Objetivo deste manual</h2>
+<p>Este manual foi escrito para servir como guia pr&#195;&#161;tico de manuten&#195;&#167;&#195;&#163;o e evolu&#195;&#167;&#195;&#163;o do projeto <code>labdessem_rust</code>, especialmente para quem ainda n&#195;&#163;o tem muita familiaridade com Rust.</p>
+<p>O foco aqui n&#195;&#163;o &#195;&#169; explicar teoria de otimiza&#195;&#167;&#195;&#163;o em abstrato, mas sim mostrar:</p>
+<ul>
+<li>como o c&#195;&#179;digo est&#195;&#161; organizado;</li>
+<li>por onde os dados entram;</li>
+<li>como o modelo matem&#195;&#161;tico &#195;&#169; montado;</li>
+<li>como adicionar uma nova vari&#195;&#161;vel;</li>
+<li>como adicionar uma nova restri&#195;&#167;&#195;&#163;o;</li>
+<li>como alterar a fun&#195;&#167;&#195;&#163;o objetivo;</li>
+<li>como incluir novas leituras de arquivos de entrada;</li>
+<li>como expor os resultados em arquivos de sa&#195;&#173;da;</li>
+<li>quais boas pr&#195;&#161;ticas seguir para n&#195;&#163;o quebrar a estrutura existente.</li>
+</ul>
+<p>Este texto foi pensado para ser usado como um manual de trabalho. A ideia &#195;&#169; que voc&#195;&#170; consiga abrir o arquivo, localizar a se&#195;&#167;&#195;&#163;o relevante e seguir um roteiro seguro.</p>
+<hr>
+<h2>2. Vis&#195;&#163;o geral da arquitetura</h2>
+<p>O projeto est&#195;&#161; dividido em crates com responsabilidades bem definidas:</p>
+<h3>`crates/labdessem-core`</h3>
+<p>Camada de dom&#195;&#173;nio. Define as estruturas centrais do problema:</p>
+<ul>
+<li><code>System</code></li>
+<li><code>StudyHorizon</code></li>
+<li><code>Submarket</code></li>
+<li><code>Bus</code></li>
+<li><code>Branch</code></li>
+<li><code>ThermalPlant</code>, <code>ThermalUnit</code></li>
+<li><code>HydroPlant</code>, <code>HydroGroup</code>, <code>HydroUnit</code>, <code>Reservoir</code></li>
+<li><code>PumpingPlant</code></li>
+<li><code>WindPlant</code>, <code>SolarPlant</code></li>
+<li>limites operativos, custos residuais, ids tipados</li>
+</ul>
+<p>Tamb&#195;&#169;m concentra valida&#195;&#167;&#195;&#181;es estruturais do sistema.</p>
+<p>Arquivo central:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/system.rs">system.rs</a></li>
+</ul>
+<p>Arquivos importantes:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/thermal.rs">thermal.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/hydro.rs">hydro.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/renewable.rs">renewable.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/ids.rs">ids.rs</a></li>
+</ul>
+<h3>`crates/labdessem-io`</h3>
+<p>Camada de leitura e tradu&#195;&#167;&#195;&#163;o dos arquivos de entrada para <code>System</code>.</p>
+<p>Responsabilidades:</p>
+<ul>
+<li>ler <code>study_config.json</code>;</li>
+<li>ler arquivos <code>CAD/*.csv</code> e <code>OPER/*.csv</code>;</li>
+<li>converter unidades;</li>
+<li>montar horizonte;</li>
+<li>construir objetos do dom&#195;&#173;nio;</li>
+<li>validar coer&#195;&#170;ncia b&#195;&#161;sica dos dados lidos.</li>
+</ul>
+<p>Arquivo central:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-io/src/study.rs">study.rs</a></li>
+</ul>
+<h3>`crates/labdessem-model`</h3>
+<p>Camada de formula&#195;&#167;&#195;&#163;o matem&#195;&#161;tica.</p>
+<p>Responsabilidades:</p>
+<ul>
+<li>criar &#195;&#173;ndices internos;</li>
+<li>declarar vari&#195;&#161;veis;</li>
+<li>montar restri&#195;&#167;&#195;&#181;es lineares;</li>
+<li>montar a fun&#195;&#167;&#195;&#163;o objetivo.</li>
+</ul>
+<p>Arquivos centrais:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/lib.rs">lib.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/indexing.rs">indexing.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/variables.rs">variables.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/constraints.rs">constraints.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/objective.rs">objective.rs</a></li>
+</ul>
+<h3>`crates/labdessem-solver`</h3>
+<p>Camada de interface com o solver <code>good_lp</code>.</p>
+<p>Responsabilidades:</p>
+<ul>
+<li>transformar a estrutura do <code>Model</code> em vari&#195;&#161;veis do solver;</li>
+<li>converter restri&#195;&#167;&#195;&#181;es e objetivo para express&#195;&#181;es lineares;</li>
+<li>resolver LP ou MILP;</li>
+<li>coletar valores primais;</li>
+<li>coletar duais em problemas LP.</li>
+</ul>
+<p>Arquivo central:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-solver/src/lib.rs">lib.rs</a></li>
+</ul>
+<h3>`crates/labdessem-simulation`</h3>
+<p>Camada de orquestra&#195;&#167;&#195;&#163;o do processo de resolu&#195;&#167;&#195;&#163;o e gera&#195;&#167;&#195;&#163;o de resultados.</p>
+<p>Responsabilidades:</p>
+<ul>
+<li>escolher a estrat&#195;&#169;gia de execu&#195;&#167;&#195;&#163;o;</li>
+<li>rodar LP, MILP, LP-FIXED e LP-CALC-CMO;</li>
+<li>construir cortes de rede quando aplic&#195;&#161;vel;</li>
+<li>tratar folgas de inviabilidade;</li>
+<li>consolidar sa&#195;&#173;das CSV.</li>
+</ul>
+<p>Arquivo central:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-simulation/src/lib.rs">lib.rs</a></li>
+</ul>
+<h3>`crates/labdessem-cli`</h3>
+<p>Ponto de entrada do programa.</p>
+<p>Responsabilidades:</p>
+<ul>
+<li>ler a configura&#195;&#167;&#195;&#163;o;</li>
+<li>chamar a leitura do caso;</li>
+<li>disparar a simula&#195;&#167;&#195;&#163;o;</li>
+<li>escrever resultados.</li>
+</ul>
+<p>Arquivo:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-cli/src/main.rs">main.rs</a></li>
+</ul>
+<hr>
+<h2>3. Fluxo completo do programa</h2>
+<p>O fluxo principal &#195;&#169;:</p>
+<p>1. O <code>labdessem-cli</code> l&#195;&#170; o <code>study_config.json</code>.</p>
+<p>2. O <code>labdessem-io</code> l&#195;&#170; todos os arquivos do caso e monta um <code>System</code>.</p>
+<p>3. O <code>System</code> &#195;&#169; validado.</p>
+<p>4. O <code>labdessem-model</code> transforma o <code>System</code> em:</p>
+<p>   - <code>Indexing</code></p>
+<p>   - <code>Variables</code></p>
+<p>   - <code>ConstraintSet</code></p>
+<p>   - <code>Objective</code></p>
+<p>5. O <code>labdessem-solver</code> resolve o problema.</p>
+<p>6. O <code>labdessem-simulation</code> usa a solu&#195;&#167;&#195;&#163;o para:</p>
+<p>   - rodar itera&#195;&#167;&#195;&#181;es adicionais, quando necess&#195;&#161;rio;</p>
+<p>   - calcular fluxos;</p>
+<p>   - calcular duais;</p>
+<p>   - gerar arquivos de sa&#195;&#173;da.</p>
+<p>Se voc&#195;&#170; quiser implementar algo novo, quase sempre a modifica&#195;&#167;&#195;&#163;o passa por uma ou mais das seguintes camadas:</p>
+<ul>
+<li><code>core</code>: quando surge um novo dado estrutural;</li>
+<li><code>io</code>: quando surge um novo arquivo, nova coluna ou nova convers&#195;&#163;o;</li>
+<li><code>model</code>: quando surge vari&#195;&#161;vel, restri&#195;&#167;&#195;&#163;o ou termo da FOB;</li>
+<li><code>simulation</code>: quando surge nova l&#195;&#179;gica de execu&#195;&#167;&#195;&#163;o ou nova sa&#195;&#173;da.</li>
+</ul>
+<hr>
+<h2>4. Como pensar a estrutura do c&#195;&#179;digo</h2>
+<p>Uma regra pr&#195;&#161;tica muito importante:</p>
+<ul>
+<li><code>core</code> representa o mundo do problema;</li>
+<li><code>io</code> traduz o mundo externo para o <code>core</code>;</li>
+<li><code>model</code> traduz o <code>core</code> para o modelo matem&#195;&#161;tico;</li>
+<li><code>solver</code> resolve;</li>
+<li><code>simulation</code> interpreta o resultado e gera relat&#195;&#179;rios.</li>
+</ul>
+<p>Em outras palavras:</p>
+<ul>
+<li>n&#195;&#163;o coloque l&#195;&#179;gica de leitura de CSV em <code>model</code>;</li>
+<li>n&#195;&#163;o coloque regra de solver em <code>io</code>;</li>
+<li>n&#195;&#163;o coloque nome de arquivo de sa&#195;&#173;da em <code>core</code>;</li>
+<li>n&#195;&#163;o coloque regra de neg&#195;&#179;cio estrutural dentro do CLI.</li>
+</ul>
+<p>Isso ajuda muito a manter o projeto compreens&#195;&#173;vel.</p>
+<hr>
+<h2>5. Tipos fundamentais que voc&#195;&#170; precisa entender</h2>
+<h3>`System`</h3>
+<p>&#195;‰ o objeto mestre do caso.</p>
+<p>Ele cont&#195;&#169;m:</p>
+<ul>
+<li>horizonte;</li>
+<li>submercados;</li>
+<li>barras;</li>
+<li>linhas;</li>
+<li>t&#195;&#169;rmicas;</li>
+<li>hidrel&#195;&#169;tricas;</li>
+<li>renov&#195;&#161;veis;</li>
+<li>elevat&#195;&#179;rias;</li>
+<li>limites operativos;</li>
+<li>custos residuais;</li>
+<li>flags de UC.</li>
+</ul>
+<p>Se uma nova modelagem precisa existir no problema, normalmente alguma parte dela precisa aparecer em <code>System</code>.</p>
+<h3>`Indexing`</h3>
+<p>Como as plantas podem ter v&#195;&#161;rias unidades e o horizonte tem muitos per&#195;&#173;odos, o modelo trabalha com vetores lineares.</p>
+<p>O <code>Indexing</code> guarda o mapeamento entre:</p>
+<ul>
+<li>posi&#195;&#167;&#195;&#163;o no vetor;</li>
+<li>planta;</li>
+<li>unidade;</li>
+<li>grupo;</li>
+<li>submercado;</li>
+<li>per&#195;&#173;odo.</li>
+</ul>
+<p>Sempre que voc&#195;&#170; criar uma vari&#195;&#161;vel indexada por unidade, planta ou submercado, confira se o <code>Indexing</code> j&#195;&#161; possui uma entrada adequada. Se n&#195;&#163;o possuir, ele pode precisar ser ampliado.</p>
+<h3>`Variables`</h3>
+<p>&#195;‰ o cat&#195;&#161;logo de vari&#195;&#161;veis matem&#195;&#161;ticas do modelo.</p>
+<p>Cada vari&#195;&#161;vel tem:</p>
+<ul>
+<li><code>name</code></li>
+<li><code>lower_bound</code></li>
+<li><code>upper_bound</code></li>
+<li><code>domain</code></li>
+<li><code>fixed_value</code></li>
+</ul>
+<p>As vari&#195;&#161;veis s&#195;&#163;o armazenadas em vetores por fam&#195;&#173;lia:</p>
+<ul>
+<li><code>thermal_generation</code></li>
+<li><code>hydro_generation</code></li>
+<li><code>hydro_turbining</code></li>
+<li><code>hydro_spillage</code></li>
+<li><code>hydro_volume</code></li>
+<li><code>thermal_commitment</code></li>
+<li><code>thermal_startup</code></li>
+<li><code>thermal_shutdown</code></li>
+<li>etc.</li>
+</ul>
+<h3>`LinearConstraint`</h3>
+<p>Cada restri&#195;&#167;&#195;&#163;o &#195;&#169; guardada como:</p>
+<ul>
+<li><code>name</code></li>
+<li><code>terms: Vec&lt;LinearTerm&gt;</code></li>
+<li><code>sense</code></li>
+<li><code>rhs</code></li>
+</ul>
+<p>Um <code>LinearTerm</code> tem:</p>
+<ul>
+<li><code>variable</code></li>
+<li><code>coefficient</code></li>
+</ul>
+<p>Ou seja, o modelo &#195;&#169; explicitamente montado como &#195;&#161;lgebra linear.</p>
+<h3>`Objective`</h3>
+<p>A fun&#195;&#167;&#195;&#163;o objetivo &#195;&#169; s&#195;&#179; uma lista de <code>ObjectiveTerm</code>, cada um com:</p>
+<ul>
+<li>nome da vari&#195;&#161;vel;</li>
+<li>coeficiente.</li>
+</ul>
+<hr>
+<h2>6. Conven&#195;&#167;&#195;&#181;es importantes do projeto</h2>
+<h3>6.1 Conven&#195;&#167;&#195;&#163;o de nomes</h3>
+<p>Os nomes das vari&#195;&#161;veis seguem uma estrutura leg&#195;&#173;vel. Exemplos:</p>
+<ul>
+<li><code>thermal_generation[p=Termorio,u=6,t=1]</code></li>
+<li><code>hydro_generation[p=CAMARGOS,g=1,u=2,t=3]</code></li>
+<li><code>hydro_volume[p=CAMARGOS,t=0]</code></li>
+</ul>
+<p>Ao criar vari&#195;&#161;veis novas, mantenha o padr&#195;&#163;o:</p>
+<ul>
+<li>prefixo descritivo;</li>
+<li>&#195;&#173;ndices nomeados;</li>
+<li>per&#195;&#173;odo expl&#195;&#173;cito quando aplic&#195;&#161;vel.</li>
+</ul>
+<p>Isso ajuda muito:</p>
+<ul>
+<li>na leitura de logs;</li>
+<li>na depura&#195;&#167;&#195;&#163;o;</li>
+<li>nos testes;</li>
+<li>na interpreta&#195;&#167;&#195;&#163;o de solu&#195;&#167;&#195;&#181;es.</li>
+</ul>
+<h3>6.2 Unidade f&#195;&#173;sica</h3>
+<p>Antes de implementar qualquer coisa, defina com clareza:</p>
+<ul>
+<li>em que unidade o dado entra;</li>
+<li>em que unidade a vari&#195;&#161;vel vive internamente;</li>
+<li>em que unidade a restri&#195;&#167;&#195;&#163;o foi escrita;</li>
+<li>em que unidade a sa&#195;&#173;da ser&#195;&#161; impressa.</li>
+</ul>
+<p>Grande parte dos erros em modelos hidroenerg&#195;&#169;ticos nasce de inconsist&#195;&#170;ncia dimensional.</p>
+<h3>6.3 Uma &#195;&#186;nica unidade interna por conceito</h3>
+<p>Se poss&#195;&#173;vel, escolha uma unidade interna &#195;&#186;nica para cada conceito.</p>
+<p>Exemplos do projeto atual:</p>
+<ul>
+<li>turbinamento interno: <code>hm3 por per&#195;&#173;odo</code></li>
+<li>vertimento interno: <code>hm3 por per&#195;&#173;odo</code></li>
+<li>aflu&#195;&#170;ncia lida em <code>m3/s</code>, mas convertida para <code>hm3 por per&#195;&#173;odo</code></li>
+<li>gera&#195;&#167;&#195;&#163;o: <code>MW</code></li>
+<li>custo t&#195;&#169;rmico vari&#195;&#161;vel: <code>R$/MWh</code></li>
+<li>penalidade hidr&#195;&#161;ulica de turbinamento/vertimento: <code>R$/hm3</code></li>
+</ul>
+<p>N&#195;&#163;o fique alternando unidade interna no meio da modelagem.</p>
+<h3>6.4 Valida&#195;&#167;&#195;&#163;o cedo</h3>
+<p>Se um dado inv&#195;&#161;lido puder ser detectado na leitura, detecte na leitura.</p>
+<p>Exemplos:</p>
+<ul>
+<li>nome de usina inexistente;</li>
+<li>limite operacional aplicado a vari&#195;&#161;vel incompat&#195;&#173;vel com o tipo da usina;</li>
+<li>rampa inicial marcada sem trajet&#195;&#179;ria;</li>
+<li>volume inicial fora dos limites;</li>
+<li>submercado inexistente.</li>
+</ul>
+<p>Isso evita erros silenciosos mais adiante.</p>
+<hr>
+<h2>7. Como adicionar uma nova vari&#195;&#161;vel</h2>
+<p>Esta &#195;&#169; uma das tarefas mais comuns.</p>
+<h3>7.1 Perguntas que voc&#195;&#170; deve responder antes</h3>
+<p>Antes de codar, responda:</p>
+<p>1. Essa vari&#195;&#161;vel representa o qu&#195;&#170;?</p>
+<p>2. Ela pertence a qual entidade?</p>
+<p>   - usina</p>
+<p>   - unidade</p>
+<p>   - grupo</p>
+<p>   - submercado</p>
+<p>   - barra</p>
+<p>   - linha</p>
+<p>3. Ela &#195;&#169; indexada no tempo?</p>
+<p>4. Ela &#195;&#169; cont&#195;&#173;nua ou bin&#195;&#161;ria?</p>
+<p>5. Quais s&#195;&#163;o os limites inferior e superior?</p>
+<p>6. Ela precisa aparecer em arquivo de sa&#195;&#173;da?</p>
+<p>7. Ela participa de restri&#195;&#167;&#195;&#181;es?</p>
+<p>8. Ela participa da fun&#195;&#167;&#195;&#163;o objetivo?</p>
+<p>9. Ela precisa de leitura de dado de entrada?</p>
+<h3>7.2 Passos pr&#195;&#161;ticos</h3>
+<p>#### Passo 1. Criar ou adaptar o dado estrutural em <code>core</code></p>
+<p>Se a nova vari&#195;&#161;vel depende de um novo par&#195;&#162;metro, acrescente esse par&#195;&#162;metro na estrutura adequada em <code>labdessem-core</code>.</p>
+<p>Exemplos:</p>
+<ul>
+<li>um novo limite t&#195;&#169;cnico de unidade t&#195;&#169;rmica;</li>
+<li>um novo custo hidr&#195;&#161;ulico;</li>
+<li>uma nova vaz&#195;&#163;o m&#195;&#161;xima;</li>
+<li>uma nova rela&#195;&#167;&#195;&#163;o entre plantas.</li>
+</ul>
+<p>Onde olhar:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/thermal.rs">thermal.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/hydro.rs">hydro.rs</a></li>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/system.rs">system.rs</a></li>
+</ul>
+<p>Depois, ajuste a valida&#195;&#167;&#195;&#163;o da estrutura.</p>
+<p>#### Passo 2. Ler o dado em <code>labdessem-io</code></p>
+<p>Se a vari&#195;&#161;vel precisa de informa&#195;&#167;&#195;&#163;o nova dos arquivos:</p>
+<ul>
+<li>adicione coluna na <code>struct</code> que representa a linha CSV;</li>
+<li>use <code>#[serde(rename = &quot;...&quot;)]</code>;</li>
+<li>converta a unidade, se necess&#195;&#161;rio;</li>
+<li>carregue o valor para dentro do objeto do <code>core</code>.</li>
+</ul>
+<p>Onde olhar:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-io/src/study.rs">study.rs</a></li>
+</ul>
+<p>Exemplo mental:</p>
+<pre><code>
+#[serde(rename = &quot;NovaColuna&quot;)]
+novo_campo: f64,
+</code></pre>
+<p>#### Passo 3. Verificar se o <code>Indexing</code> j&#195;&#161; suporta a entidade</p>
+<p>Se a vari&#195;&#161;vel &#195;&#169;:</p>
+<ul>
+<li>por unidade t&#195;&#169;rmica: provavelmente <code>thermal_unit_entries</code> basta;</li>
+<li>por unidade hidr&#195;&#161;ulica: provavelmente <code>hydro_unit_entries</code> basta;</li>
+<li>por usina hidr&#195;&#161;ulica: provavelmente <code>hydro_plant_entries</code> basta;</li>
+<li>por usina elevat&#195;&#179;ria: provavelmente <code>pumping_plant_entries</code> basta;</li>
+<li>por submercado: use <code>system.submarkets</code>;</li>
+<li>por par de submercados e per&#195;&#173;odo: use <code>interchange_entries</code>.</li>
+</ul>
+<p>Se a nova indexa&#195;&#167;&#195;&#163;o n&#195;&#163;o existir, amplie <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/indexing.rs">indexing.rs</a>.</p>
+<p>#### Passo 4. Declarar a vari&#195;&#161;vel em <code>Variables</code></p>
+<p>Em <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/variables.rs">variables.rs</a>:</p>
+<p>1. adicione um novo campo no <code>struct Variables</code>;</p>
+<p>2. construa o vetor em <code>Variables::for_system</code>;</p>
+<p>3. defina nome, bounds, dom&#195;&#173;nio e valor fixo;</p>
+<p>4. adicione a vari&#195;&#161;vel em <code>collect_variables</code> no solver.</p>
+<p>Exemplo conceitual:</p>
+<pre><code>
+pub new_variable: Vec&lt;Variable&gt;,
+</code></pre>
+<p>e depois:</p>
+<pre><code>
+let new_variable = indexing
+    .algum_indice
+    .iter()
+    .flat_map(|entry| {
+        (0..horizon).map(move |period| Variable {
+            name: format!(&quot;new_variable[p={},t={}]&quot;, ...),
+            lower_bound: 0.0,
+            upper_bound: None,
+            domain: VariableDomain::Continuous,
+            fixed_value: None,
+        })
+    })
+    .collect();
+</code></pre>
+<p>#### Passo 5. Incluir a vari&#195;&#161;vel no solver</p>
+<p>Em <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-solver/src/lib.rs">labdessem-solver/src/lib.rs</a>, a fun&#195;&#167;&#195;&#163;o <code>collect_variables</code> precisa conhecer a nova fam&#195;&#173;lia.</p>
+<p>Se voc&#195;&#170; esquecer isso, o solver n&#195;&#163;o ver&#195;&#161; a vari&#195;&#161;vel.</p>
+<p>#### Passo 6. Usar a vari&#195;&#161;vel em restri&#195;&#167;&#195;&#181;es ou na FOB</p>
+<p>Depois de criada, ela ainda n&#195;&#163;o faz nada sozinha.</p>
+<p>Voc&#195;&#170; precisa:</p>
+<ul>
+<li>coloc&#195;&#161;-la em restri&#195;&#167;&#195;&#181;es, se for o caso;</li>
+<li>coloc&#195;&#161;-la no objetivo, se for o caso;</li>
+<li>talvez imprimi-la em sa&#195;&#173;das.</li>
+</ul>
+<p>#### Passo 7. Adicionar teste</p>
+<p>No m&#195;&#173;nimo, adicione um teste que verifique:</p>
+<ul>
+<li>que a vari&#195;&#161;vel foi criada;</li>
+<li>que nome e bounds est&#195;&#163;o corretos;</li>
+<li>que a contagem de vari&#195;&#161;veis mudou como esperado.</li>
+</ul>
+<p>Os testes do <code>labdessem-model</code> s&#195;&#163;o o lugar mais natural para isso.</p>
+<hr>
+<h2>8. Como adicionar uma nova restri&#195;&#167;&#195;&#163;o</h2>
+<h3>8.1 Passo conceitual</h3>
+<p>Antes de implementar, escreva a restri&#195;&#167;&#195;&#163;o matematicamente.</p>
+<p>Fa&#195;&#167;a quest&#195;&#163;o de deixar claro:</p>
+<ul>
+<li>qual &#195;&#169; o &#195;&#173;ndice da restri&#195;&#167;&#195;&#163;o;</li>
+<li>quais vari&#195;&#161;veis entram;</li>
+<li>em que unidade est&#195;&#161; o lado esquerdo;</li>
+<li>em que unidade est&#195;&#161; o lado direito;</li>
+<li>se &#195;&#169; <code>=</code>, <code>&lt;=</code> ou <code>&gt;=</code>.</li>
+</ul>
+<p>Nunca implemente a restri&#195;&#167;&#195;&#163;o primeiro e entenda depois.</p>
+<h3>8.2 Onde colocar</h3>
+<p>As restri&#195;&#167;&#195;&#181;es lineares ficam em:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/constraints.rs">constraints.rs</a></li>
+</ul>
+<p>O padr&#195;&#163;o do projeto &#195;&#169;:</p>
+<p>1. criar uma fun&#195;&#167;&#195;&#163;o <code>build_..._constraints</code>;</p>
+<p>2. fazer essa fun&#195;&#167;&#195;&#163;o retornar <code>Vec&lt;LinearConstraint&gt;</code>;</p>
+<p>3. registrar a fun&#195;&#167;&#195;&#163;o dentro de <code>ConstraintSet::for_system</code>.</p>
+<h3>8.3 Modelo de implementa&#195;&#167;&#195;&#163;o</h3>
+<p>Uma restri&#195;&#167;&#195;&#163;o t&#195;&#173;pica &#195;&#169; montada assim:</p>
+<pre><code>
+constraints.push(LinearConstraint {
+    name: format!(&quot;nome_da_restricao[...]&quot;),
+    terms: vec![
+        term(&amp;variavel_1, coef_1),
+        term(&amp;variavel_2, coef_2),
+    ],
+    sense: ConstraintSense::LessOrEqual,
+    rhs: valor_rhs,
+});
+</code></pre>
+<h3>8.4 Checklist para uma nova restri&#195;&#167;&#195;&#163;o</h3>
+<p>Quando for criar uma restri&#195;&#167;&#195;&#163;o, verifique:</p>
+<p>1. Os coeficientes est&#195;&#163;o em unidade compat&#195;&#173;vel?</p>
+<p>2. O <code>rhs</code> est&#195;&#161; na mesma unidade do lado esquerdo?</p>
+<p>3. Os &#195;&#173;ndices est&#195;&#163;o corretos?</p>
+<p>4. O nome da restri&#195;&#167;&#195;&#163;o identifica bem a entidade e o per&#195;&#173;odo?</p>
+<p>5. A restri&#195;&#167;&#195;&#163;o deve existir em LP, MILP e LP-FIXED, ou s&#195;&#179; em alguns modos?</p>
+<p>6. Ela depende de alguma flag, como <code>UCT</code>, <code>UCH</code> ou <code>rede</code>?</p>
+<p>7. Ela precisa de folga em caso de inviabilidade?</p>
+<h3>8.5 Controle por modo de resolu&#195;&#167;&#195;&#163;o</h3>
+<p>No projeto, algumas restri&#195;&#167;&#195;&#181;es s&#195;&#179; entram quando o modo &#195;&#169; MILP ou LP com compromisso fixo.</p>
+<p>Isso &#195;&#169; controlado em <code>ConstraintSet::for_system</code>.</p>
+<p>Exemplo:</p>
+<ul>
+<li>restri&#195;&#167;&#195;&#181;es de UC t&#195;&#169;rmico s&#195;&#179; entram se:</li>
+</ul>
+<p>  - o <code>solve_mode</code> for adequado;</p>
+<p>  - e <code>system.thermal_unit_commitment_enabled</code> for verdadeiro.</p>
+<p>Se sua nova restri&#195;&#167;&#195;&#163;o depende de uma l&#195;&#179;gica semelhante, siga o mesmo padr&#195;&#163;o.</p>
+<h3>8.6 Restri&#195;&#167;&#195;&#181;es com nomes auxiliares</h3>
+<p>Se quiser que a restri&#195;&#167;&#195;&#163;o seja mais f&#195;&#161;cil de encontrar depois, padronize o prefixo.</p>
+<p>Exemplos existentes:</p>
+<ul>
+<li><code>demand_balance[...]</code></li>
+<li><code>hydro_balance[...]</code></li>
+<li><code>hydro_fpha[...]</code></li>
+<li><code>thermal_min_up[...]</code></li>
+<li><code>thermal_ramp_...</code></li>
+</ul>
+<p>Isso ajuda:</p>
+<ul>
+<li>a depurar;</li>
+<li>a calcular duais;</li>
+<li>a criar filtros em testes;</li>
+<li>a buscar a restri&#195;&#167;&#195;&#163;o no relat&#195;&#179;rio.</li>
+</ul>
+<hr>
+<h2>9. Como modificar a fun&#195;&#167;&#195;&#163;o objetivo</h2>
+<p>A FOB fica em:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/objective.rs">objective.rs</a></li>
+</ul>
+<p>O padr&#195;&#163;o &#195;&#169; simples:</p>
+<p>1. percorra os &#195;&#173;ndices relevantes;</p>
+<p>2. recupere a vari&#195;&#161;vel;</p>
+<p>3. empurre um <code>ObjectiveTerm</code>.</p>
+<p>Exemplo conceitual:</p>
+<pre><code>
+terms.push(term(variavel, coeficiente));
+</code></pre>
+<h3>9.1 Sempre confira a unidade do coeficiente</h3>
+<p>Exemplos do projeto:</p>
+<ul>
+<li>gera&#195;&#167;&#195;&#163;o t&#195;&#169;rmica:</li>
+</ul>
+<p>  - vari&#195;&#161;vel em MW</p>
+<p>  - custo em R$/MWh</p>
+<p>  - precisa multiplicar pela dura&#195;&#167;&#195;&#163;o do per&#195;&#173;odo em horas</p>
+<ul>
+<li>vertimento hidr&#195;&#161;ulico:</li>
+</ul>
+<p>  - vari&#195;&#161;vel em hm3 por per&#195;&#173;odo</p>
+<p>  - custo em R$/hm3</p>
+<p>  - n&#195;&#163;o precisa multiplicar por dura&#195;&#167;&#195;&#163;o</p>
+<ul>
+<li>turbinamento hidr&#195;&#161;ulico:</li>
+</ul>
+<p>  - vari&#195;&#161;vel em hm3 por per&#195;&#173;odo</p>
+<p>  - custo em R$/hm3</p>
+<p>  - n&#195;&#163;o precisa multiplicar por dura&#195;&#167;&#195;&#163;o</p>
+<p>Essa parte &#195;&#169; cr&#195;&#173;tica. Antes de editar a FOB, fa&#195;&#167;a a an&#195;&#161;lise dimensional explicitamente.</p>
+<h3>9.2 Cuidado com dupla contagem</h3>
+<p>Ao adicionar um termo de custo:</p>
+<ul>
+<li>confira se a vari&#195;&#161;vel j&#195;&#161; aparece em outro termo;</li>
+<li>confira se voc&#195;&#170; est&#195;&#161; penalizando por usina e por unidade ao mesmo tempo sem querer;</li>
+<li>confira se uma penalidade de agrega&#195;&#167;&#195;&#163;o j&#195;&#161; est&#195;&#161; impl&#195;&#173;cita em outra parte.</li>
+</ul>
+<h3>9.3 Cuidado com termos s&#195;&#179; v&#195;&#161;lidos em alguns modos</h3>
+<p>Custos de partida e desligamento, por exemplo, s&#195;&#179; fazem sentido quando h&#195;&#161; UC.</p>
+<p>Se o termo depende de bin&#195;&#161;ria, condicione pela flag apropriada.</p>
+<hr>
+<h2>10. Como adicionar um novo dado de entrada</h2>
+<p>H&#195;&#161; dois cen&#195;&#161;rios.</p>
+<h3>10.1 Nova coluna em arquivo existente</h3>
+<p>Passos:</p>
+<p>1. localizar a <code>struct</code> que representa a linha do CSV;</p>
+<p>2. adicionar o campo com <code>serde(rename = &quot;...&quot;)</code>;</p>
+<p>3. usar o campo na montagem do objeto final;</p>
+<p>4. validar o valor.</p>
+<h3>10.2 Novo arquivo</h3>
+<p>Passos:</p>
+<p>1. criar uma <code>struct</code> para as linhas;</p>
+<p>2. usar <code>read_csv(...)</code> ou fun&#195;&#167;&#195;&#163;o especializada;</p>
+<p>3. chamar a leitura em <code>read_study_from_path_with_options</code>;</p>
+<p>4. passar as linhas para a fun&#195;&#167;&#195;&#163;o construtora relevante;</p>
+<p>5. transformar o dado em algo do <code>System</code>.</p>
+<h3>10.3 Quando criar fun&#195;&#167;&#195;&#163;o especializada</h3>
+<p>Use fun&#195;&#167;&#195;&#163;o especializada em vez de <code>read_csv</code> simples quando:</p>
+<ul>
+<li>o arquivo tem layout menos convencional;</li>
+<li>h&#195;&#161; cabe&#195;&#167;alhos n&#195;&#163;o triviais;</li>
+<li>h&#195;&#161; mais de uma tabela no mesmo arquivo;</li>
+<li>existe l&#195;&#179;gica de interpreta&#195;&#167;&#195;&#163;o mais rica.</li>
+</ul>
+<p>Exemplos no projeto:</p>
+<ul>
+<li>leitura de trajet&#195;&#179;rias;</li>
+<li>leitura de renov&#195;&#161;veis;</li>
+<li>leitura de FPHA.</li>
+</ul>
+<hr>
+<h2>11. Como adicionar um novo arquivo de sa&#195;&#173;da</h2>
+<p>Os arquivos de sa&#195;&#173;da ficam em:</p>
+<ul>
+<li><a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-simulation/src/lib.rs">labdessem-simulation/src/lib.rs</a></li>
+</ul>
+<p>O padr&#195;&#163;o usado hoje &#195;&#169;:</p>
+<p>1. criar uma fun&#195;&#167;&#195;&#163;o <code>write_..._csv</code>;</p>
+<p>2. usar <code>csv_with_header(...)</code>;</p>
+<p>3. montar as linhas com <code>format!</code>;</p>
+<p>4. chamar <code>write_csv_file(...)</code>;</p>
+<p>5. registrar a escrita dentro de <code>write_results_csvs</code>.</p>
+<h3>11.1 Boas pr&#195;&#161;ticas para sa&#195;&#173;da</h3>
+<ul>
+<li>descreva bem cada coluna no cabe&#195;&#167;alho;</li>
+<li>n&#195;&#163;o misture unidades numa mesma coluna;</li>
+<li>se houver mistura poss&#195;&#173;vel, adicione coluna <code>Unidade</code>;</li>
+<li>use nomes consistentes com o modelo;</li>
+<li>para valores agregados, deixe isso claro;</li>
+<li>para valores por usina, n&#195;&#163;o repita como se fossem por unidade.</li>
+</ul>
+<h3>11.2 Armadilha comum</h3>
+<p>&#195;‰ muito f&#195;&#161;cil errar o n&#195;&#186;mero de placeholders no <code>format!</code>.</p>
+<p>Depois de editar sa&#195;&#173;das:</p>
+<ul>
+<li>rode <code>cargo fmt</code>;</li>
+<li>rode <code>cargo check -p labdessem-cli</code>.</li>
+</ul>
+<hr>
+<h2>12. Como adicionar uma nova vari&#195;&#161;vel dual ou novo relat&#195;&#179;rio dual</h2>
+<p>Os duais v&#195;&#170;m do LP, n&#195;&#163;o do MILP.</p>
+<p>Se voc&#195;&#170; quiser usar duais:</p>
+<p>1. identifique qual restri&#195;&#167;&#195;&#163;o gera o dual desejado;</p>
+<p>2. garanta que esse dual est&#195;&#161; sendo coletado em <code>SolveSummary</code>;</p>
+<p>3. use o <code>LP-CALC-CMO</code> ou outro LP adequado para calcular o relat&#195;&#179;rio;</p>
+<p>4. recupere o dual pelo nome da restri&#195;&#167;&#195;&#163;o.</p>
+<p>Exemplo do projeto:</p>
+<ul>
+<li><code>PiDemanda</code></li>
+<li><code>PiBalHidr</code></li>
+</ul>
+<p>Se a restri&#195;&#167;&#195;&#163;o tiver nome ruim, esse tipo de relat&#195;&#179;rio fica muito mais dif&#195;&#173;cil. Por isso o nome da restri&#195;&#167;&#195;&#163;o importa.</p>
+<hr>
+<h2>13. Como depurar uma implementa&#195;&#167;&#195;&#163;o nova</h2>
+<h3>13.1 Estrat&#195;&#169;gia recomendada</h3>
+<p>Siga esta ordem:</p>
+<p>1. validar leitura;</p>
+<p>2. validar estrutura em <code>System</code>;</p>
+<p>3. validar cria&#195;&#167;&#195;&#163;o da vari&#195;&#161;vel;</p>
+<p>4. validar cria&#195;&#167;&#195;&#163;o da restri&#195;&#167;&#195;&#163;o;</p>
+<p>5. validar montagem da FOB;</p>
+<p>6. validar sa&#195;&#173;da.</p>
+<p>N&#195;&#163;o tente depurar tudo ao mesmo tempo.</p>
+<h3>13.2 Ferramentas &#195;&#186;teis</h3>
+<ul>
+<li><code>cargo check -p labdessem-cli</code></li>
+<li><code>cargo test -p labdessem-model</code></li>
+<li><code>rg &quot;texto&quot;</code> para localizar nomes de vari&#195;&#161;veis/restri&#195;&#167;&#195;&#181;es</li>
+</ul>
+<h3>13.3 Depura&#195;&#167;&#195;&#163;o por inspe&#195;&#167;&#195;&#163;o textual</h3>
+<p>Este projeto favorece muito a depura&#195;&#167;&#195;&#163;o por nomes:</p>
+<ul>
+<li>procure a vari&#195;&#161;vel pelo nome;</li>
+<li>procure a restri&#195;&#167;&#195;&#163;o pelo prefixo;</li>
+<li>confira se a fam&#195;&#173;lia foi adicionada em <code>collect_variables</code>;</li>
+<li>confira se a fun&#195;&#167;&#195;&#163;o construtora foi chamada em <code>ConstraintSet::for_system</code>.</li>
+</ul>
+<hr>
+<h2>14. Como adicionar testes de forma &#195;&#186;til</h2>
+<p>Os melhores testes para este projeto costumam ser:</p>
+<h3>14.1 Teste de montagem de vari&#195;&#161;vel</h3>
+<p>Verifica:</p>
+<ul>
+<li>quantidade de vari&#195;&#161;veis;</li>
+<li>bounds;</li>
+<li>dom&#195;&#173;nio;</li>
+<li>nome.</li>
+</ul>
+<h3>14.2 Teste de montagem de restri&#195;&#167;&#195;&#163;o</h3>
+<p>Verifica:</p>
+<ul>
+<li>se a restri&#195;&#167;&#195;&#163;o existe;</li>
+<li>se o nome est&#195;&#161; correto;</li>
+<li>se os coeficientes est&#195;&#163;o corretos;</li>
+<li>se o <code>rhs</code> est&#195;&#161; correto;</li>
+<li>se a rela&#195;&#167;&#195;&#163;o <code>&lt;=</code>, <code>&gt;=</code> ou <code>=</code> est&#195;&#161; certa.</li>
+</ul>
+<h3>14.3 Teste de leitura</h3>
+<p>Verifica:</p>
+<ul>
+<li>se o caso &#195;&#169; lido com sucesso;</li>
+<li>se campos novos foram populados;</li>
+<li>se erros de entrada s&#195;&#163;o detectados.</li>
+</ul>
+<h3>14.4 Teste de regress&#195;&#163;o funcional</h3>
+<p>Quando uma mudan&#195;&#167;a corrige um bug importante, escreva um teste pequeno que capture exatamente aquele bug.</p>
+<hr>
+<h2>15. Roteiro completo para implementar uma nova vari&#195;&#161;vel</h2>
+<p>Aqui vai um roteiro operacional resumido.</p>
+<h3>Exemplo gen&#195;&#169;rico</h3>
+<p>Suponha que voc&#195;&#170; queira criar uma nova vari&#195;&#161;vel cont&#195;&#173;nua <code>x[p,t]</code>.</p>
+<p>#### Etapa A. Dom&#195;&#173;nio</p>
+<p>1. Pergunte se <code>x</code> precisa de novos par&#195;&#162;metros no <code>System</code>.</p>
+<p>2. Se sim, adicione em <code>core</code>.</p>
+<p>3. Valide esses par&#195;&#162;metros.</p>
+<p>#### Etapa B. Entrada</p>
+<p>1. Adicione coluna ou arquivo em <code>io</code>.</p>
+<p>2. Leia o dado.</p>
+<p>3. Converta unidade.</p>
+<p>4. Passe para o <code>System</code>.</p>
+<p>#### Etapa C. Modelagem</p>
+<p>1. Decida a indexa&#195;&#167;&#195;&#163;o.</p>
+<p>2. Adicione o campo em <code>Variables</code>.</p>
+<p>3. Construa o vetor em <code>Variables::for_system</code>.</p>
+<p>4. Adicione em <code>collect_variables</code>.</p>
+<p>#### Etapa D. Restri&#195;&#167;&#195;&#181;es</p>
+<p>1. Escreva a matem&#195;&#161;tica.</p>
+<p>2. Crie <code>build_x_constraints</code>.</p>
+<p>3. Registre em <code>ConstraintSet::for_system</code>.</p>
+<p>#### Etapa E. Objetivo</p>
+<p>1. Se <code>x</code> participa da FOB, acrescente em <code>Objective::for_system</code>.</p>
+<p>2. Confira a unidade do coeficiente.</p>
+<p>#### Etapa F. Sa&#195;&#173;da</p>
+<p>1. Se <code>x</code> deve ser relatada, adicione em <code>write_..._csv</code>.</p>
+<p>2. Descreva a coluna.</p>
+<p>#### Etapa G. Testes</p>
+<p>1. teste de leitura;</p>
+<p>2. teste de vari&#195;&#161;vel;</p>
+<p>3. teste de restri&#195;&#167;&#195;&#163;o;</p>
+<p>4. teste de compila&#195;&#167;&#195;&#163;o.</p>
+<hr>
+<h2>16. Roteiro completo para implementar uma nova restri&#195;&#167;&#195;&#163;o</h2>
+<h3>Exemplo gen&#195;&#169;rico</h3>
+<p>Suponha uma restri&#195;&#167;&#195;&#163;o:</p>
+<p>\[</p>
+<p>\sum a_j x_j \le b</p>
+<p>\]</p>
+<p>Passos:</p>
+<p>1. Liste todas as vari&#195;&#161;veis envolvidas.</p>
+<p>2. Descubra como localizar cada uma dentro de <code>Variables</code>.</p>
+<p>3. Descubra qual &#195;&#173;ndice usar em <code>Indexing</code>.</p>
+<p>4. Crie uma fun&#195;&#167;&#195;&#163;o <code>build_nome_da_restricao_constraints</code>.</p>
+<p>5. Monte <code>terms</code>.</p>
+<p>6. Escolha <code>ConstraintSense</code>.</p>
+<p>7. Defina <code>rhs</code>.</p>
+<p>8. D&#195;&#170; um nome rastre&#195;&#161;vel.</p>
+<p>9. Registre a fun&#195;&#167;&#195;&#163;o no construtor do conjunto de restri&#195;&#167;&#195;&#181;es.</p>
+<p>10. Crie teste que verifique pelo menos um caso.</p>
+<hr>
+<h2>17. Roteiro completo para modificar a FOB</h2>
+<p>Passos:</p>
+<p>1. escreva o novo termo matematicamente;</p>
+<p>2. fa&#195;&#167;a a an&#195;&#161;lise dimensional;</p>
+<p>3. localize a vari&#195;&#161;vel correta;</p>
+<p>4. defina o coeficiente correto;</p>
+<p>5. veja se depende do modo de resolu&#195;&#167;&#195;&#163;o;</p>
+<p>6. implemente em <code>objective.rs</code>;</p>
+<p>7. valide se n&#195;&#163;o houve dupla contagem;</p>
+<p>8. rode <code>cargo check</code>.</p>
+<hr>
+<h2>18. Como lidar com flags de configura&#195;&#167;&#195;&#163;o</h2>
+<p>As flags do <code>study_config.json</code> s&#195;&#163;o lidas em <code>StudyConfig</code>.</p>
+<p>Exemplos atuais:</p>
+<ul>
+<li><code>rede</code></li>
+<li><code>UCT</code></li>
+<li><code>UCH</code></li>
+<li><code>TON_Residual</code></li>
+<li><code>opcao_execucao</code></li>
+</ul>
+<p>Se voc&#195;&#170; criar uma nova funcionalidade opcional:</p>
+<p>1. adicione o campo em <code>StudyConfig</code>;</p>
+<p>2. repasse a flag para <code>read_study_from_path_with_options</code>, se necess&#195;&#161;rio;</p>
+<p>3. registre a decis&#195;&#163;o no ponto apropriado:</p>
+<p>   - leitura</p>
+<p>   - montagem de modelo</p>
+<p>   - simula&#195;&#167;&#195;&#163;o</p>
+<p>   - sa&#195;&#173;da</p>
+<p>Boas pr&#195;&#161;ticas:</p>
+<ul>
+<li>use <code>u8</code> como j&#195;&#161; est&#195;&#161; no padr&#195;&#163;o atual;</li>
+<li>interprete <code>0</code> como desligado e <code>1</code> como ligado;</li>
+<li>valide valores fora do esperado se fizer sentido.</li>
+</ul>
+<hr>
+<h2>19. Boas pr&#195;&#161;ticas de programa&#195;&#167;&#195;&#163;o espec&#195;&#173;ficas para este projeto</h2>
+<h3>19.1 Prefira fun&#195;&#167;&#195;&#181;es pequenas e nomeadas</h3>
+<p>Se uma l&#195;&#179;gica cresce, extraia para uma fun&#195;&#167;&#195;&#163;o com nome claro.</p>
+<p>Ruim:</p>
+<ul>
+<li>uma fun&#195;&#167;&#195;&#163;o gigante com dezenas de responsabilidades.</li>
+</ul>
+<p>Bom:</p>
+<ul>
+<li><code>build_hydro_fpha_constraints</code></li>
+<li><code>build_operational_limits</code></li>
+<li><code>write_cmosist_csv</code></li>
+</ul>
+<h3>19.2 Mantenha a regra de neg&#195;&#179;cio pr&#195;&#179;xima da camada certa</h3>
+<ul>
+<li>valida&#195;&#167;&#195;&#163;o estrutural em <code>core</code></li>
+<li>parsing em <code>io</code></li>
+<li>formula&#195;&#167;&#195;&#163;o em <code>model</code></li>
+<li>execu&#195;&#167;&#195;&#163;o em <code>simulation</code></li>
+</ul>
+<h3>19.3 Evite n&#195;&#186;meros m&#195;&#161;gicos</h3>
+<p>Se surgir um fator importante, documente.</p>
+<p>Exemplo bom j&#195;&#161; existente:</p>
+<ul>
+<li><code>0.0036 * duracao_horas</code> para converter <code>m3/s</code> em <code>hm3 por per&#195;&#173;odo</code></li>
+</ul>
+<h3>19.4 Nomeie as coisas de forma rastre&#195;&#161;vel</h3>
+<p>Um bom nome economiza horas de depura&#195;&#167;&#195;&#163;o.</p>
+<p>Se a vari&#195;&#161;vel &#195;&#169; por usina, n&#195;&#163;o d&#195;&#170; nome que pare&#195;&#167;a por unidade.</p>
+<p>Se o valor &#195;&#169; agregado, deixe expl&#195;&#173;cito.</p>
+<h3>19.5 Fa&#195;&#167;a an&#195;&#161;lise dimensional sempre</h3>
+<p>Pergunte:</p>
+<ul>
+<li>o lado esquerdo da restri&#195;&#167;&#195;&#163;o est&#195;&#161; em qu&#195;&#170;?</li>
+<li>o lado direito est&#195;&#161; em qu&#195;&#170;?</li>
+<li>o coeficiente converte ou apenas pondera?</li>
+</ul>
+<h3>19.6 Valide logo ap&#195;&#179;s ler</h3>
+<p>Quanto mais cedo um erro for pego, melhor.</p>
+<h3>19.7 N&#195;&#163;o esconda comportamento importante</h3>
+<p>Se uma convers&#195;&#163;o for cr&#195;&#173;tica, deixe o nome claro e, se necess&#195;&#161;rio, documente no c&#195;&#179;digo.</p>
+<h3>19.8 Preserve consist&#195;&#170;ncia de padr&#195;&#163;o</h3>
+<p>Se o projeto j&#195;&#161; usa:</p>
+<ul>
+<li>fun&#195;&#167;&#195;&#181;es <code>build_...</code></li>
+<li><code>write_..._csv</code></li>
+<li>nomes de vari&#195;&#161;vel com &#195;&#173;ndices nomeados</li>
+</ul>
+<p>continue no mesmo estilo.</p>
+<hr>
+<h2>20. Erros comuns ao evoluir o projeto</h2>
+<p>1. Adicionar par&#195;&#162;metro no CSV e esquecer de coloc&#195;&#161;-lo no <code>System</code>.</p>
+<p>2. Adicionar vari&#195;&#161;vel em <code>Variables</code> e esquecer em <code>collect_variables</code>.</p>
+<p>3. Criar restri&#195;&#167;&#195;&#163;o mas esquecer de cham&#195;&#161;-la em <code>ConstraintSet::for_system</code>.</p>
+<p>4. Misturar unidade de entrada com unidade interna.</p>
+<p>5. Repetir valor agregado em linha de unidade e induzir interpreta&#195;&#167;&#195;&#163;o errada.</p>
+<p>6. Esquecer de tratar flags <code>UCT</code>, <code>UCH</code> ou <code>rede</code>.</p>
+<p>7. Usar nome de restri&#195;&#167;&#195;&#163;o ruim e depois n&#195;&#163;o conseguir recuperar dual.</p>
+<p>8. Alterar sa&#195;&#173;da sem atualizar o cabe&#195;&#167;alho descritivo.</p>
+<p>9. Fazer mudan&#195;&#167;a estrutural sem adicionar teste m&#195;&#173;nimo.</p>
+<hr>
+<h2>21. Fluxo de trabalho recomendado para mudan&#195;&#167;as reais</h2>
+<p>Para cada mudan&#195;&#167;a, siga este processo:</p>
+<p>1. escreva a matem&#195;&#161;tica;</p>
+<p>2. defina a unidade de cada termo;</p>
+<p>3. identifique em quais crates a mudan&#195;&#167;a toca;</p>
+<p>4. fa&#195;&#167;a a altera&#195;&#167;&#195;&#163;o estrutural no <code>core</code>, se necess&#195;&#161;ria;</p>
+<p>5. ajuste a leitura em <code>io</code>;</p>
+<p>6. ajuste vari&#195;&#161;veis, restri&#195;&#167;&#195;&#181;es e objetivo em <code>model</code>;</p>
+<p>7. ajuste solver, se necess&#195;&#161;rio;</p>
+<p>8. ajuste simula&#195;&#167;&#195;&#163;o e sa&#195;&#173;das;</p>
+<p>9. rode <code>cargo fmt</code>;</p>
+<p>10. rode <code>cargo check -p labdessem-cli</code>;</p>
+<p>11. rode testes relevantes;</p>
+<p>12. s&#195;&#179; depois valide o caso real.</p>
+<hr>
+<h2>22. Comandos &#195;&#186;teis</h2>
+<p>Na raiz do projeto:</p>
+<pre><code>
+cargo fmt
+cargo check -p labdessem-cli
+cargo test -p labdessem-model
+</code></pre>
+<p>Para localizar rapidamente algo:</p>
+<pre><code>
+rg &quot;hydro_fpha&quot; crates
+rg &quot;thermal_generation&quot; crates
+rg &quot;write_.*csv&quot; crates/labdessem-simulation/src/lib.rs
+</code></pre>
+<p>Para rodar o programa:</p>
+<pre><code>
+cargo run -p labdessem-cli
+</code></pre>
+<hr>
+<h2>23. Sugest&#195;&#163;o pr&#195;&#161;tica de leitura para quem vai manter o c&#195;&#179;digo</h2>
+<p>Se voc&#195;&#170; quiser entender o projeto de forma progressiva, esta ordem ajuda bastante:</p>
+<p>1. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-cli/src/main.rs">crates/labdessem-cli/src/main.rs</a></p>
+<p>2. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-io/src/study.rs">crates/labdessem-io/src/study.rs</a></p>
+<p>3. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-core/src/system.rs">crates/labdessem-core/src/system.rs</a></p>
+<p>4. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/lib.rs">crates/labdessem-model/src/lib.rs</a></p>
+<p>5. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/indexing.rs">crates/labdessem-model/src/indexing.rs</a></p>
+<p>6. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/variables.rs">crates/labdessem-model/src/variables.rs</a></p>
+<p>7. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/constraints.rs">crates/labdessem-model/src/constraints.rs</a></p>
+<p>8. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-model/src/objective.rs">crates/labdessem-model/src/objective.rs</a></p>
+<p>9. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-solver/src/lib.rs">crates/labdessem-solver/src/lib.rs</a></p>
+<p>10. <a href="C:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-simulation/src/lib.rs">crates/labdessem-simulation/src/lib.rs</a></p>
+<hr>
+<h2>24. Fechamento</h2>
+<p>Se voc&#195;&#170; quiser implementar algo novo sem assist&#195;&#170;ncia, a regra de ouro &#195;&#169;:</p>
+<p>1. defina a matem&#195;&#161;tica;</p>
+<p>2. defina as unidades;</p>
+<p>3. descubra a camada certa;</p>
+<p>4. fa&#195;&#167;a a altera&#195;&#167;&#195;&#163;o m&#195;&#173;nima necess&#195;&#161;ria em cada crate;</p>
+<p>5. valide cedo;</p>
+<p>6. teste sempre.</p>
+<p>Este projeto j&#195;&#161; est&#195;&#161; organizado de um jeito que favorece evolu&#195;&#167;&#195;&#163;o incremental. O segredo &#195;&#169; respeitar a separa&#195;&#167;&#195;&#163;o entre leitura, dom&#195;&#173;nio, formula&#195;&#167;&#195;&#163;o, solu&#195;&#167;&#195;&#163;o e relat&#195;&#179;rio.</p>
+<p>Se no futuro voc&#195;&#170; quiser expandir este manual, os melhores pr&#195;&#179;ximos t&#195;&#179;picos seriam:</p>
+<ul>
+<li>tutorial de implementa&#195;&#167;&#195;&#163;o de um caso completo de nova vari&#195;&#161;vel;</li>
+<li>tutorial de nova restri&#195;&#167;&#195;&#163;o de UC;</li>
+<li>tutorial de novo relat&#195;&#179;rio dual;</li>
+<li>checklist de revis&#195;&#163;o antes de merge;</li>
+<li>padr&#195;&#181;es de commit e versionamento.</li>
+</ul>
+</body></html>

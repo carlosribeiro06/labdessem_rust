@@ -26,8 +26,7 @@ pub struct Variables {
     pub pumping: Vec<Variable>,
     pub hydro_volume: Vec<Variable>,
     pub deficit: Vec<Variable>,
-    pub wind_generation: Vec<Variable>,
-    pub solar_generation: Vec<Variable>,
+    pub renewable_generation: Vec<Variable>,
     pub interchange: Vec<Variable>,
     pub thermal_commitment: Vec<Variable>,
     pub thermal_startup: Vec<Variable>,
@@ -204,33 +203,14 @@ impl Variables {
             })
             .collect();
 
-        let wind_generation = indexing
-            .wind_plant_entries
+        let renewable_generation = indexing
+            .renewable_plant_entries
             .iter()
             .flat_map(|entry| {
-                let plant = &system.wind_plants[entry.plant_idx];
+                let plant = &system.renewable_plants[entry.plant_idx];
                 (0..horizon).map(move |period| Variable {
                     name: format!(
-                        "wind_generation[p={},t={}]",
-                        plant.name,
-                        display_period(period)
-                    ),
-                    lower_bound: 0.0,
-                    upper_bound: Some(plant.available_generation_mw[period]),
-                    domain: VariableDomain::Continuous,
-                    fixed_value: None,
-                })
-            })
-            .collect();
-
-        let solar_generation = indexing
-            .solar_plant_entries
-            .iter()
-            .flat_map(|entry| {
-                let plant = &system.solar_plants[entry.plant_idx];
-                (0..horizon).map(move |period| Variable {
-                    name: format!(
-                        "solar_generation[p={},t={}]",
+                        "renewable_generation[p={},t={}]",
                         plant.name,
                         display_period(period)
                     ),
@@ -396,8 +376,7 @@ impl Variables {
             pumping,
             hydro_volume,
             deficit,
-            wind_generation,
-            solar_generation,
+            renewable_generation,
             interchange,
             thermal_commitment,
             thermal_startup,

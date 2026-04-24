@@ -203,8 +203,7 @@ fn collect_variables(model: &Model) -> Vec<&labdessem_model::variables::Variable
     all.extend(variables.pumping.iter());
     all.extend(variables.hydro_volume.iter());
     all.extend(variables.deficit.iter());
-    all.extend(variables.wind_generation.iter());
-    all.extend(variables.solar_generation.iter());
+    all.extend(variables.renewable_generation.iter());
     all.extend(variables.interchange.iter());
     all.extend(variables.thermal_commitment.iter());
     all.extend(variables.thermal_startup.iter());
