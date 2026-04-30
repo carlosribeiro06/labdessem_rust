@@ -73,9 +73,6 @@ impl ConstraintSet {
                 linear_constraints.extend(build_hydro_commitment_channeling_constraints(
                     system, indexing, variables,
                 ));
-                linear_constraints.extend(build_hydro_min_up_down_constraints(
-                    system, indexing, variables,
-                ));
             }
         }
 
@@ -144,17 +141,6 @@ impl ConstraintSet {
                         .name
                         .starts_with("thermal_startup_shutdown_exclusive[")
                     || constraint.name.starts_with("thermal_ramp_")
-            })
-            .collect()
-    }
-
-    pub fn hydro_min_up_down(&self) -> Vec<&LinearConstraint> {
-        self.linear_constraints
-            .iter()
-            .filter(|constraint| {
-                constraint.name.starts_with("hydro_min_up[")
-                    || constraint.name.starts_with("hydro_min_down[")
-                    || constraint.name.starts_with("hydro_initial_")
             })
             .collect()
     }
@@ -1209,150 +1195,6 @@ fn build_thermal_min_up_down_constraints(
                     name: format!(
                         "thermal_min_down[p={},u={},t={}]",
                         plant.name,
-                        unit.name,
-                        display_period(period)
-                    ),
-                    terms: min_down_terms,
-                    sense: ConstraintSense::LessOrEqual,
-                    rhs: min_down_window as f64,
-                });
-            }
-        }
-    }
-
-    constraints
-}
-
-fn build_hydro_min_up_down_constraints(
-    system: &System,
-    indexing: &Indexing,
-    variables: &Variables,
-) -> Vec<LinearConstraint> {
-    let horizon = system.horizon.periods;
-    let mut constraints = Vec::new();
-
-    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
-        let plant = &system.hydro_plants[entry.plant_idx];
-        let group = &plant.groups[entry.group_idx];
-        let unit = &group.units[entry.unit_idx];
-        let initial_on = unit.initial_condition.is_on;
-        let initial_status = if initial_on { 1.0 } else { 0.0 };
-
-        let remaining_on = if initial_on {
-            unit.min_up_time
-                .saturating_sub(unit.initial_condition.time_in_state)
-        } else {
-            0
-        };
-        let remaining_off = if !initial_on {
-            unit.min_down_time
-                .saturating_sub(unit.initial_condition.time_in_state)
-        } else {
-            0
-        };
-
-        for period in 0..remaining_on.min(horizon) {
-            let on = &variables.hydro_commitment[entry_idx * horizon + period];
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "hydro_initial_on_fix[p={},g={},u={},t={}]",
-                    plant.name,
-                    group.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(on, 1.0)],
-                sense: ConstraintSense::Equal,
-                rhs: 1.0,
-            });
-        }
-
-        for period in 0..remaining_off.min(horizon) {
-            let on = &variables.hydro_commitment[entry_idx * horizon + period];
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "hydro_initial_off_fix[p={},g={},u={},t={}]",
-                    plant.name,
-                    group.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(on, 1.0)],
-                sense: ConstraintSense::Equal,
-                rhs: 0.0,
-            });
-        }
-
-        for period in 0..horizon {
-            let min_up_window = unit.min_up_time.min(horizon - period);
-            let mut min_up_terms = Vec::new();
-            for ts in period..(period + min_up_window) {
-                let on = &variables.hydro_commitment[entry_idx * horizon + ts];
-                min_up_terms.push(term(on, 1.0));
-            }
-            let current_on = &variables.hydro_commitment[entry_idx * horizon + period];
-            min_up_terms.push(term(current_on, -(min_up_window as f64)));
-
-            if period == 0 {
-                constraints.push(LinearConstraint {
-                    name: format!(
-                        "hydro_min_up[p={},g={},u={},t={}]",
-                        plant.name,
-                        group.name,
-                        unit.name,
-                        display_period(period)
-                    ),
-                    terms: min_up_terms,
-                    sense: ConstraintSense::GreaterOrEqual,
-                    rhs: -(min_up_window as f64) * initial_status,
-                });
-            } else {
-                let previous_on = &variables.hydro_commitment[entry_idx * horizon + period - 1];
-                min_up_terms.push(term(previous_on, min_up_window as f64));
-                constraints.push(LinearConstraint {
-                    name: format!(
-                        "hydro_min_up[p={},g={},u={},t={}]",
-                        plant.name,
-                        group.name,
-                        unit.name,
-                        display_period(period)
-                    ),
-                    terms: min_up_terms,
-                    sense: ConstraintSense::GreaterOrEqual,
-                    rhs: 0.0,
-                });
-            }
-
-            let min_down_window = unit.min_down_time.min(horizon - period);
-            let mut min_down_terms = Vec::new();
-            for ts in period..(period + min_down_window) {
-                let on = &variables.hydro_commitment[entry_idx * horizon + ts];
-                min_down_terms.push(term(on, 1.0));
-            }
-            let current_on = &variables.hydro_commitment[entry_idx * horizon + period];
-            min_down_terms.push(term(current_on, -(min_down_window as f64)));
-
-            if period == 0 {
-                constraints.push(LinearConstraint {
-                    name: format!(
-                        "hydro_min_down[p={},g={},u={},t={}]",
-                        plant.name,
-                        group.name,
-                        unit.name,
-                        display_period(period)
-                    ),
-                    terms: min_down_terms,
-                    sense: ConstraintSense::LessOrEqual,
-                    rhs: (min_down_window as f64) * (1.0 - initial_status),
-                });
-            } else {
-                let previous_on = &variables.hydro_commitment[entry_idx * horizon + period - 1];
-                min_down_terms.push(term(previous_on, min_down_window as f64));
-                constraints.push(LinearConstraint {
-                    name: format!(
-                        "hydro_min_down[p={},g={},u={},t={}]",
-                        plant.name,
-                        group.name,
                         unit.name,
                         display_period(period)
                     ),

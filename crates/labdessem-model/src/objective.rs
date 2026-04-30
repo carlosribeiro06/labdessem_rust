@@ -127,20 +127,6 @@ impl Objective {
                 }
             }
 
-            if system.hydro_unit_commitment_enabled {
-                for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
-                    let plant = &system.hydro_plants[entry.plant_idx];
-                    let group = &plant.groups[entry.group_idx];
-                    let unit = &group.units[entry.unit_idx];
-
-                    for period in 0..horizon {
-                        let startup = &variables.hydro_startup[entry_idx * horizon + period];
-                        let shutdown = &variables.hydro_shutdown[entry_idx * horizon + period];
-                        terms.push(term(startup, unit.startup_cost));
-                        terms.push(term(shutdown, unit.shutdown_cost));
-                    }
-                }
-            }
         }
 
         Self {

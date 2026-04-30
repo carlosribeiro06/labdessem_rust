@@ -696,8 +696,6 @@ fn apply_commitment_fixes(model: &mut Model, source: &SolveSummary) {
         &mut model.variables.thermal_startup,
         &mut model.variables.thermal_shutdown,
         &mut model.variables.hydro_commitment,
-        &mut model.variables.hydro_startup,
-        &mut model.variables.hydro_shutdown,
     ];
 
     for variables in variable_vectors {
@@ -1554,8 +1552,6 @@ fn model_dimensions(model: &Model) -> (usize, usize) {
         + variables.thermal_startup.len()
         + variables.thermal_shutdown.len()
         + variables.hydro_commitment.len()
-        + variables.hydro_startup.len()
-        + variables.hydro_shutdown.len()
         + variables.network_flow_slack.len()
         + variables.operational_limit_slack.len();
 
@@ -3180,12 +3176,6 @@ mod tests {
                         min_generation_mw: 0.0,
                         max_generation_mw: 200.0,
                         max_turbining_hm3: 500.0,
-                        startup_trajectory_mw: vec![10.0],
-                        shutdown_trajectory_mw: vec![10.0],
-                        min_up_time: 1,
-                        min_down_time: 1,
-                        startup_cost: 0.0,
-                        shutdown_cost: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 0.0,
