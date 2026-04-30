@@ -180,12 +180,13 @@ pub struct HydroPlant {
     pub water_withdrawal_hm3: Vec<f64>,
     pub spillage_cost_per_hm3: f64,
     pub turbining_cost_per_hm3: f64,
+    pub specific_productivity_mw_per_m3s: f64,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
 }
 
 impl HydroPlant {
-    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
+    pub fn validate(&self, horizon: usize, fpha_enabled: bool) -> Result<(), CoreError> {
         if self.name.trim().is_empty() {
             return Err(CoreError::validation("hydro plant name cannot be empty"));
         }
@@ -223,9 +224,22 @@ impl HydroPlant {
                 self.id
             )));
         }
-        if !self.groups.is_empty() && self.fpha_segments.is_empty() {
+        if self.specific_productivity_mw_per_m3s < 0.0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative specific productivity",
+                self.id
+            )));
+        }
+        if fpha_enabled && !self.groups.is_empty() && self.fpha_segments.is_empty() {
             return Err(CoreError::validation(format!(
                 "hydro plant {:?} must contain at least one FPHA segment",
+                self.id
+            )));
+        }
+        if !fpha_enabled && !self.groups.is_empty() && self.specific_productivity_mw_per_m3s <= 0.0
+        {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} must contain positive specific productivity when FPHA is disabled",
                 self.id
             )));
         }

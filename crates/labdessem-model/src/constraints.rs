@@ -49,10 +49,16 @@ impl ConstraintSet {
         linear_constraints.extend(build_hydro_spillage_nonnegativity_constraints(
             indexing, variables, system,
         ));
-        linear_constraints.extend(build_hydro_fpha_constraints(system, indexing, variables));
-        linear_constraints.extend(build_hydro_generation_turbining_coupling_constraints(
-            system, indexing, variables,
-        ));
+        if system.fpha_enabled {
+            linear_constraints.extend(build_hydro_fpha_constraints(system, indexing, variables));
+            linear_constraints.extend(build_hydro_generation_turbining_coupling_constraints(
+                system, indexing, variables,
+            ));
+        } else {
+            linear_constraints.extend(build_hydro_productivity_constraints(
+                system, indexing, variables,
+            ));
+        }
         linear_constraints.extend(build_operational_limit_constraints(
             system, indexing, variables,
         ));
@@ -188,6 +194,13 @@ impl ConstraintSet {
                     .name
                     .starts_with("hydro_generation_turbining_coupling[")
             })
+            .collect()
+    }
+
+    pub fn hydro_productivity(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| constraint.name.starts_with("hydro_productivity["))
             .collect()
     }
 
@@ -541,6 +554,52 @@ fn build_hydro_generation_turbining_coupling_constraints(
     }
 
     constraints
+}
+
+fn build_hydro_productivity_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let horizon = system.horizon.periods;
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+
+    indexing
+        .hydro_plant_entries
+        .iter()
+        .flat_map(|entry| {
+            let plant = &system.hydro_plants[entry.plant_idx];
+            let productivity_per_hm3 = plant.specific_productivity_mw_per_m3s / flow_conversion;
+
+            (0..horizon).map(move |period| {
+                let mut terms = Vec::new();
+
+                for (unit_entry_idx, unit_entry) in indexing.hydro_unit_entries.iter().enumerate() {
+                    if unit_entry.plant_idx == entry.plant_idx {
+                        terms.push(term(
+                            &variables.hydro_generation[unit_entry_idx * horizon + period],
+                            1.0,
+                        ));
+                        terms.push(term(
+                            &variables.hydro_turbining[unit_entry_idx * horizon + period],
+                            -productivity_per_hm3,
+                        ));
+                    }
+                }
+
+                LinearConstraint {
+                    name: format!(
+                        "hydro_productivity[p={},t={}]",
+                        plant.name,
+                        display_period(period)
+                    ),
+                    terms,
+                    sense: ConstraintSense::Equal,
+                    rhs: 0.0,
+                }
+            })
+        })
+        .collect()
 }
 
 fn build_operational_limit_constraints(

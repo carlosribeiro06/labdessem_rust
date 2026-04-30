@@ -1,2 +1,3 @@
 CodigoUTE;NomeUTE;Unidade;Pmin;Pmax;Ton;Toff;GerInic;StatusInic;Tinic;RupInic;RdownInic;TRampaInic;CVU;CustoPartida;CustoDesliga;Barra;Submercado
-1;UTE1;1;0;500;1;1;0;0;10;0;0;0;100;0;0;3;Fic2
+47; TERMORIO     ;6;523;672;82;48;0;0;2394;0;0;0;407.34;0;0;7;Fic1
+90; TERMOMACAE   ;14;560;630;6;6;0;0;648.5;0;0;0;931.56;0;0;1;Fic1

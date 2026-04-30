@@ -82,6 +82,7 @@ mod tests {
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
+            fpha_enabled: true,
             residual_costs: vec![],
             submarkets: vec![
                 Submarket {
@@ -175,6 +176,7 @@ mod tests {
                 water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
+                specific_productivity_mw_per_m3s: 1.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-1".into(),
@@ -225,6 +227,7 @@ mod tests {
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
+            fpha_enabled: true,
             residual_costs: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
@@ -263,6 +266,7 @@ mod tests {
                     water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     turbining_cost_per_hm3: 0.0,
+                    specific_productivity_mw_per_m3s: 1.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(1),
                         name: "CJ-A".into(),
@@ -299,6 +303,7 @@ mod tests {
                     water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     turbining_cost_per_hm3: 0.0,
+                    specific_productivity_mw_per_m3s: 1.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(2),
                         name: "CJ-B".into(),
@@ -335,6 +340,7 @@ mod tests {
                     water_withdrawal_hm3: vec![0.0],
                     spillage_cost_per_hm3: 0.0,
                     turbining_cost_per_hm3: 0.0,
+                    specific_productivity_mw_per_m3s: 1.0,
                     groups: vec![HydroGroup {
                         id: HydroGroupId(3),
                         name: "CJ-C".into(),
@@ -383,6 +389,24 @@ mod tests {
                 .contains(&"linearized_network_flow")
         );
         assert!(model.constraints.names().contains(&"unit_commitment"));
+    }
+
+    #[test]
+    fn switches_hydro_formulation_when_fpha_is_disabled() {
+        let mut system = build_system();
+        system.fpha_enabled = false;
+        system.hydro_plants[0].fpha_segments.clear();
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        assert_eq!(model.constraints.hydro_fpha().len(), 0);
+        assert_eq!(
+            model
+                .constraints
+                .hydro_generation_turbining_coupling()
+                .len(),
+            0
+        );
+        assert_eq!(model.constraints.hydro_productivity().len(), 2);
     }
 
     #[test]
@@ -839,6 +863,7 @@ mod tests {
             water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 0.0,
             turbining_cost_per_hm3: 0.0,
+            specific_productivity_mw_per_m3s: 1.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(1),
                 name: "CJ-1".into(),
@@ -1064,6 +1089,5 @@ mod tests {
             .find(|term| term.variable == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]")
             .expect("thermal shutdown cost should exist");
         assert_eq!(thermal_shutdown.coefficient, 5.0);
-
     }
 }

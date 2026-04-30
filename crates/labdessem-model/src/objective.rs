@@ -112,21 +112,30 @@ impl Objective {
                                     .then_some(residual_cost.cmo_per_mwh)
                             });
                             if let Some(cmo_per_mwh) = cmo {
-                                let residual_generation_mw = thermal_post_horizon_generation(unit);
-                                let residual_cost_per_mwh =
-                                    (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0);
-                                terms.push(term(
-                                    startup,
-                                    residual_generation_mw
-                                        * residual_cost_per_mwh
-                                        * period_duration_hours,
-                                ));
+                                let startup_residual_cost =
+                                    thermal_startup_residual_cost_for_period(
+                                        system,
+                                        unit,
+                                        period,
+                                        cmo_per_mwh,
+                                    );
+                                terms.push(term(startup, startup_residual_cost));
+
+                                if period + 1 == horizon {
+                                    let on =
+                                        &variables.thermal_commitment[entry_idx * horizon + period];
+                                    let shutdown_residual_cost = thermal_shutdown_residual_cost(
+                                        unit,
+                                        cmo_per_mwh,
+                                        period_duration_hours,
+                                    );
+                                    terms.push(term(on, shutdown_residual_cost));
+                                }
                             }
                         }
                     }
                 }
             }
-
         }
 
         Self {
@@ -136,15 +145,39 @@ impl Objective {
     }
 }
 
-fn thermal_post_horizon_generation(unit: &labdessem_core::thermal::ThermalUnit) -> f64 {
-    let startup_sum: f64 = unit.startup_trajectory_mw.iter().sum();
+fn thermal_startup_residual_cost_for_period(
+    system: &System,
+    unit: &labdessem_core::thermal::ThermalUnit,
+    startup_period: usize,
+    cmo_per_mwh: f64,
+) -> f64 {
+    let residual_profile = thermal_startup_residual_profile(unit);
+    let periods_inside_horizon = system.horizon.periods.saturating_sub(startup_period);
+    let residual_mw_sum: f64 = residual_profile
+        [periods_inside_horizon.min(residual_profile.len())..]
+        .iter()
+        .sum();
+    residual_mw_sum
+        * (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0)
+        * system.horizon.period_duration_hours
+}
+
+fn thermal_startup_residual_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
+    let mut profile = unit.startup_trajectory_mw.clone();
     let steady_periods = unit
         .min_up_time
         .saturating_sub(unit.startup_trajectory_mw.len());
-    let steady_sum = steady_periods as f64 * unit.min_generation_mw;
-    let shutdown_sum: f64 = unit.shutdown_trajectory_mw.iter().sum();
+    profile.extend(std::iter::repeat_n(unit.min_generation_mw, steady_periods));
+    profile
+}
 
-    startup_sum + steady_sum + shutdown_sum
+fn thermal_shutdown_residual_cost(
+    unit: &labdessem_core::thermal::ThermalUnit,
+    cmo_per_mwh: f64,
+    period_duration_hours: f64,
+) -> f64 {
+    let shutdown_mw_sum: f64 = unit.shutdown_trajectory_mw.iter().sum();
+    shutdown_mw_sum * (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0) * period_duration_hours
 }
 
 fn term(variable: &Variable, coefficient: f64) -> ObjectiveTerm {

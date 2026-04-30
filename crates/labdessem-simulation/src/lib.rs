@@ -1658,7 +1658,7 @@ fn write_hydro_csv(
             ),
             (
                 "GeracaoMaxPontoMW",
-                "capacidade maxima de geracao da usina com o volume do ponto de operacao, limitada por Pmax agregado e FPHA; preenchida apenas no agregado 99/99",
+                "capacidade maxima de geracao da usina com o volume do ponto de operacao, limitada por Pmax agregado e pela formulacao hidraulica ativa; preenchida apenas no agregado 99/99",
             ),
             (
                 "StatusOn",
@@ -2058,22 +2058,27 @@ fn hydro_generation_max_at_point_mw(
     period: usize,
     plant_max_generation_mw: f64,
 ) -> f64 {
-    if plant.fpha_segments.is_empty() {
-        return plant_max_generation_mw;
-    }
-
     let flow_conversion = system.horizon.period_duration_hours * 0.0036;
-    let volume = summary
-        .variable_values
-        .get(&hydro_volume_name(plant.name.as_str(), period + 1))
-        .copied()
-        .unwrap_or(0.0);
     let max_turbining = plant
         .groups
         .iter()
         .flat_map(|group| group.units.iter())
         .map(|unit| unit.max_turbining_hm3)
         .sum::<f64>();
+
+    if !system.fpha_enabled || plant.fpha_segments.is_empty() {
+        let generation_from_productivity =
+            plant.specific_productivity_mw_per_m3s / flow_conversion * max_turbining;
+        return plant_max_generation_mw
+            .min(generation_from_productivity)
+            .max(0.0);
+    }
+
+    let volume = summary
+        .variable_values
+        .get(&hydro_volume_name(plant.name.as_str(), period + 1))
+        .copied()
+        .unwrap_or(0.0);
 
     let fpha_max_generation = plant
         .fpha_segments
@@ -2188,7 +2193,7 @@ fn write_thermal_csv(
     let residual_enabled = system.ton_residual_enabled;
     let mut csv = if residual_enabled {
         csv_with_header(
-            "Usina;Unidade;Periodo;GeracaoMW;CVU;StatusOn;StatusOff;TempoPermanenciaOn;TempoPermanenciaOff;TempoResidualHoras;CustoResidual",
+            "Usina;Unidade;Periodo;GeracaoMW;CVU;StatusOn;StatusOff;TempoPermanenciaOn;TempoPermanenciaOff;TempoResidualHoras;CustoResidual;CustoResidualIncremental",
             &[
                 ("Usina", "nome da usina termica"),
                 ("Unidade", "codigo da unidade; 99 indica agregado da usina"),
@@ -2210,9 +2215,16 @@ fn write_thermal_csv(
                 ),
                 (
                     "TempoResidualHoras",
-                    "tempo de permanencia fora do horizonte em horas",
+                    "tempo residual fora do horizonte em horas caso a unidade acione no inicio do periodo",
                 ),
-                ("CustoResidual", "custo total fora do horizonte em R$"),
+                (
+                    "CustoResidual",
+                    "custo residual fora do horizonte em R$ caso a unidade acione no inicio do periodo",
+                ),
+                (
+                    "CustoResidualIncremental",
+                    "custo residual incremental fora do horizonte em R$ caso a unidade acione no inicio do periodo, usando max(CVU - CMO, 0)",
+                ),
             ],
         )
     } else {
@@ -2249,6 +2261,7 @@ fn write_thermal_csv(
         let mut aggregated_status = vec![false; system.horizon.periods];
         let mut aggregated_residual_hours = vec![0.0; system.horizon.original_periods];
         let mut aggregated_residual_cost = vec![0.0; system.horizon.original_periods];
+        let mut aggregated_residual_incremental_cost = vec![0.0; system.horizon.original_periods];
         let average_unit_cvu = if plant.units.is_empty() {
             0.0
         } else {
@@ -2259,7 +2272,7 @@ fn write_thermal_csv(
                 .sum::<f64>()
                 / plant.units.len() as f64
         };
-        let residual_cost_per_mwh = if residual_enabled {
+        let residual_cmo_per_mwh = if residual_enabled {
             system.residual_costs.iter().find_map(|residual_cost| {
                 (residual_cost.submarket_id == plant.submarket_id)
                     .then_some(residual_cost.cmo_per_mwh)
@@ -2267,7 +2280,6 @@ fn write_thermal_csv(
         } else {
             None
         };
-
         for unit in &plant.units {
             let statuses = (0..system.horizon.periods)
                 .map(|period| {
@@ -2325,12 +2337,18 @@ fn write_thermal_csv(
                     .last()
                     .copied()
                     .unwrap_or(original_period - 1);
-                let (residual_hours, residual_cost) =
-                    if let Some(cmo_per_mwh) = residual_cost_per_mwh {
-                        average_residual_output_values(system, unit, &internal_periods, cmo_per_mwh)
-                    } else {
-                        (0.0, 0.0)
-                    };
+                let (residual_hours, residual_cost, residual_incremental_cost) = if residual_enabled {
+                    thermal_period_residual_output_values(
+                        system,
+                        summary,
+                        plant.name.as_str(),
+                        unit,
+                        &internal_periods,
+                        residual_cmo_per_mwh,
+                    )
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
 
                 let original_idx = original_period - 1;
                 aggregated_generation[original_idx] += generation;
@@ -2341,6 +2359,7 @@ fn write_thermal_csv(
                 }
                 aggregated_residual_hours[original_idx] += residual_hours;
                 aggregated_residual_cost[original_idx] += residual_cost;
+                aggregated_residual_incremental_cost[original_idx] += residual_incremental_cost;
 
                 unit_outputs.push((
                     original_period,
@@ -2353,6 +2372,7 @@ fn write_thermal_csv(
                     times_off[last_internal_period],
                     residual_hours,
                     residual_cost,
+                    residual_incremental_cost,
                 ));
             }
         }
@@ -2384,12 +2404,13 @@ fn write_thermal_csv(
                 time_off,
                 residual_hours,
                 residual_cost,
+                residual_incremental_cost,
             ) in &unit_outputs
             {
                 if *row_original_period == original_period {
                     if residual_enabled {
                         csv.push_str(&format!(
-                            "{};{};{};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6}\n",
+                            "{};{};{};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6};{:.6}\n",
                             plant.name,
                             unit_id,
                             original_period,
@@ -2400,7 +2421,8 @@ fn write_thermal_csv(
                             time_on,
                             time_off,
                             residual_hours,
-                            residual_cost
+                            residual_cost,
+                            residual_incremental_cost
                         ));
                     } else {
                         csv.push_str(&format!(
@@ -2430,7 +2452,7 @@ fn write_thermal_csv(
             let status_off_fraction = 1.0 - status_on_fraction;
             if residual_enabled {
                 csv.push_str(&format!(
-                    "{};99;{};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6}\n",
+                    "{};99;{};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6};{:.6}\n",
                     plant.name,
                     original_period,
                     aggregated_generation[original_idx],
@@ -2440,7 +2462,8 @@ fn write_thermal_csv(
                     agg_times_on[last_internal_period],
                     agg_times_off[last_internal_period],
                     aggregated_residual_hours[original_idx],
-                    aggregated_residual_cost[original_idx]
+                    aggregated_residual_cost[original_idx],
+                    aggregated_residual_incremental_cost[original_idx]
                 ));
             } else {
                 csv.push_str(&format!(
@@ -2461,56 +2484,54 @@ fn write_thermal_csv(
     write_csv_file(output_dir.join("resultado_termicas.csv"), csv)
 }
 
-fn average_residual_output_values(
+fn thermal_period_residual_output_values(
     system: &System,
+    _summary: &SolveSummary,
+    _plant_name: &str,
     unit: &labdessem_core::thermal::ThermalUnit,
     periods: &[usize],
-    cmo_per_mwh: f64,
-) -> (f64, f64) {
+    residual_cmo_per_mwh: Option<f64>,
+) -> (f64, f64, f64) {
     if periods.is_empty() {
-        return (0.0, 0.0);
+        return (0.0, 0.0, 0.0);
     }
 
-    let (hours, cost) = periods.iter().fold((0.0, 0.0), |acc, period| {
-        let values = thermal_residual_output_values(system, unit, *period, cmo_per_mwh);
-        (acc.0 + values.0, acc.1 + values.1)
-    });
-
-    (hours / periods.len() as f64, cost / periods.len() as f64)
+    thermal_startup_residual_output_values(system, unit, periods[0], residual_cmo_per_mwh)
 }
 
-fn thermal_residual_output_values(
+fn thermal_startup_residual_output_values(
     system: &System,
     unit: &labdessem_core::thermal::ThermalUnit,
     startup_period: usize,
-    cmo_per_mwh: f64,
-) -> (f64, f64) {
-    let residual_profile = thermal_post_horizon_profile(unit);
+    residual_cmo_per_mwh: Option<f64>,
+) -> (f64, f64, f64) {
+    let residual_profile = thermal_startup_residual_profile(unit);
     let periods_inside_horizon = system.horizon.periods.saturating_sub(startup_period);
     let residual_steps = residual_profile
         .len()
         .saturating_sub(periods_inside_horizon);
 
     if residual_steps == 0 {
-        return (0.0, 0.0);
+        return (0.0, 0.0, 0.0);
     }
 
     let residual_mw_sum: f64 = residual_profile[periods_inside_horizon..].iter().sum();
     let residual_hours = residual_steps as f64 * system.horizon.period_duration_hours;
-    let residual_cost = residual_mw_sum
-        * (unit.variable_cost_per_mwh - cmo_per_mwh).max(0.0)
+    let residual_cost =
+        residual_mw_sum * unit.variable_cost_per_mwh * system.horizon.period_duration_hours;
+    let residual_incremental_cost = residual_mw_sum
+        * (unit.variable_cost_per_mwh - residual_cmo_per_mwh.unwrap_or(0.0)).max(0.0)
         * system.horizon.period_duration_hours;
 
-    (residual_hours, residual_cost)
+    (residual_hours, residual_cost, residual_incremental_cost)
 }
 
-fn thermal_post_horizon_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
+fn thermal_startup_residual_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
     let mut profile = unit.startup_trajectory_mw.clone();
     let steady_periods = unit
         .min_up_time
         .saturating_sub(unit.startup_trajectory_mw.len());
     profile.extend(std::iter::repeat_n(unit.min_generation_mw, steady_periods));
-    profile.extend(unit.shutdown_trajectory_mw.iter().copied());
     profile
 }
 
@@ -3080,6 +3101,7 @@ mod tests {
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
+            fpha_enabled: true,
             residual_costs: vec![],
             submarkets: vec![
                 Submarket {
@@ -3167,6 +3189,7 @@ mod tests {
                 water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 0.1,
                 turbining_cost_per_hm3: 0.0,
+                specific_productivity_mw_per_m3s: 1.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ1".into(),

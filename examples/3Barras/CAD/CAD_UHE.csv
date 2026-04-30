@@ -1,3 +1,3 @@
-Codigo;Nome;VolInic;Vmin;Vmax;Tipo;Jusante;Montante;Posto;Submercado;PenalVert
-1;UHE1;200;100;500;RV;UHE2;-;1;1;0.1
-2;UHE2;200;100;500;RV;-;UHE1;2;2;0.1
+Codigo;Nome;VolInic;Vmin;Vmax;Tipo;Jusante;Desvio;Submercado;PenalVert;PenalTurb;ProdEsp;Turbina;Perda
+1;UHE1;200;100;500;RV;2;-;Fic1;0.1;0.3;1;Kaplan;0
+2;UHE2;200;100;500;RV;-;-;Fic2;0.1;0.3;1;Kaplan;0

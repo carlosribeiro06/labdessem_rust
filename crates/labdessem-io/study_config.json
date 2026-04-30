@@ -1,8 +1,9 @@
 {
-  "case_path": "../../examples/caso_sin_sem_rede",
-  "opcao_execucao": 2,
-  "rede": 0,
-  "UCT": 0,
+  "case_path": "../../examples/24Barras",
+  "opcao_execucao": 1,
+  "rede": 1,
+  "UCT": 1,
   "UCH": 0,
-  "TON_Residual": 0
+  "TON_Residual": 0,
+  "FPHA": 0
 }

@@ -133,7 +133,7 @@
           <p class="eyebrow">Despacho hidrotermico em Rust</p>
           <h1>
             Um modelo de otimizacao para
-            <span>UC termico, hidraulicas com FPHA, rede DC, renovaveis e bombeamento</span>
+            <span>UC termico, hidraulicas com FPHA ou produtibilidade, rede DC, renovaveis e bombeamento</span>
           </h1>
           <p class="hero-text">
             O LabDessem Rust e um workspace de desenvolvimento para estudos de despacho
@@ -155,7 +155,7 @@
           </div>
           <ul class="hero-pills">
             <li>LP / MILP / LP-Fixed / LP-Calc-CMO</li>
-            <li>FPHA por cortes</li>
+            <li>FPHA por cortes ou produtibilidade especifica</li>
             <li>PTDF e cortes de fluxo</li>
             <li>CSV + JSON</li>
           </ul>
@@ -565,9 +565,11 @@
         </div>
 
         <div class="method-block panel">
-          <p class="mini-label">FPHA - funcao de producao hidraulica aproximada</p>
+          <p class="mini-label">Formulacao de geracao hidraulica</p>
           <div class="equation-block">
             \[
+            \text{se } FPHA = 1:
+            \qquad
             \sum_{g,j \in h} G^{hy}_{h,g,j,t}
             \le
             Fcor_{h,k}
@@ -584,13 +586,25 @@
             \qquad
             G^{hy}_{h,g,j,t} \le \rho^{max}_h Q_{h,g,j,t}
             \]
+            \[
+            \text{se } FPHA = 0:
+            \qquad
+            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
+            =
+            ProdEsp_h \, q^{m3/s}_{h,t}
+            \qquad
+            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
+            \le \sum_{g,j \in h} Pmax_{h,g,j}
+            \]
           </div>
           <p class="method-note">
-            A geracao hidraulica e limitada pelos cortes de <code>OPER_FPHA</code>, pela
-            capacidade agregada das unidades da usina e pela relacao superior
-            \(G^{hy}_{h,g,j,t} \le \rho^{max}_h Q_{h,g,j,t}\), que impede geracao positiva sem
-            turbinamento. A coluna <code>GeracaoMaxPontoMW</code> na saida e calculada por usina a
-            partir do volume do ponto de operacao, da FPHA e da soma dos <code>Pmax</code>.
+            Com <code>FPHA = 1</code>, o modelo le <code>OPER_FPHA</code> e usa cortes por usina,
+            volume final, turbinamento e vertimento, alem do acoplamento superior que impede
+            geracao positiva sem turbinamento. Com <code>FPHA = 0</code>, o modelo ignora
+            <code>OPER_FPHA</code> e passa a usar a produtibilidade especifica da usina para ligar
+            geracao agregada e turbinamento agregado. A coluna
+            <code>GeracaoMaxPontoMW</code> na saida e calculada por usina a partir do volume do
+            ponto de operacao, da formulacao hidraulica ativa e da soma dos <code>Pmax</code>.
           </p>
         </div>
 

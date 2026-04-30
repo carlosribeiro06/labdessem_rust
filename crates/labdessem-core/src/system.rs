@@ -388,6 +388,7 @@ pub struct System {
     pub thermal_unit_commitment_enabled: bool,
     pub hydro_unit_commitment_enabled: bool,
     pub ton_residual_enabled: bool,
+    pub fpha_enabled: bool,
     pub residual_costs: Vec<ResidualCost>,
     pub submarkets: Vec<Submarket>,
     pub interchange_limits: Vec<InterchangeLimit>,
@@ -534,7 +535,7 @@ impl System {
         let hydro_ids: HashSet<_> = self.hydro_plants.iter().map(|entity| entity.id).collect();
 
         for plant in &self.hydro_plants {
-            plant.validate(self.horizon.periods)?;
+            plant.validate(self.horizon.periods, self.fpha_enabled)?;
             validate_bus_and_submarket_membership(
                 plant.id.0,
                 "hydro plant",
@@ -871,6 +872,7 @@ mod tests {
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
+            fpha_enabled: true,
             residual_costs: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
@@ -934,6 +936,7 @@ mod tests {
                 water_withdrawal_hm3: vec![0.0, 0.0],
                 spillage_cost_per_hm3: 1.0,
                 turbining_cost_per_hm3: 0.0,
+                specific_productivity_mw_per_m3s: 1.0,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-1".into(),
@@ -1011,6 +1014,7 @@ mod tests {
             water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
             turbining_cost_per_hm3: 0.0,
+            specific_productivity_mw_per_m3s: 1.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),
@@ -1056,6 +1060,7 @@ mod tests {
             water_withdrawal_hm3: vec![0.0, 0.0],
             spillage_cost_per_hm3: 1.0,
             turbining_cost_per_hm3: 0.0,
+            specific_productivity_mw_per_m3s: 1.0,
             groups: vec![HydroGroup {
                 id: HydroGroupId(2),
                 name: "CJ-2".into(),
