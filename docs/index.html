@@ -8,6 +8,7 @@
     name="description"
     content="Site tecnico do LabDessem Rust com navegacao por paginas para metodologia, arquitetura, execucao e resultados."
   >
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
   <link rel="canonical" href="https://labdessem-rs.dev/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="LabDessem Rust">
@@ -68,34 +69,37 @@
         <a href="./metodologia.html">Metodologia</a>
         <a href="./execucao.html">Execucao</a>
         <a href="./resultados.html">Resultados</a>
+        <a
+          class="nav-link-external"
+          href="https://github.com/carlosribeiro06/labdessem_rust"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub
+        </a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Despacho hidrotermico em Rust</p>
+          <div class="hero-topmark">
+            <img class="hero-logo-large" src="./logo.svg" alt="Logo LabDessem Rust">
+            <p class="hero-badge">v0.4.0</p>
+          </div>
           <h1>
-            Navegue pelo modelo com
-            <span>paginas tecnicas dedicadas</span>
+            Infraestrutura aberta para
+            <span>despacho hidrotermico</span>
           </h1>
-          <p class="hero-text">
-            O site do LabDessem Rust agora foi organizado como documentacao navegavel:
-            arquitetura do workspace, formulacao matematica, modos de execucao, relatorios
-            CSV e orientacoes de uso em paginas separadas.
+          <p class="hero-subtitle">
+            Modelo de otimizacao em Rust para compromisso termico, operacao hidraulica com FPHA
+            opcional, rede DC, renovaveis, elevatorias e relatorios tecnicos rastreaveis.
           </p>
+          <div class="command-pill"><span class="prompt">$</span><span>cargo run -p labdessem-cli</span></div>
           <div class="hero-actions">
-            <a class="button button-primary" href="./metodologia.html">Abrir metodologia</a>
-            <a class="button button-secondary" href="./execucao.html">Ver execucao</a>
-            <a class="button button-secondary" href="./resultados.html">Explorar saidas</a>
-            <a
-              class="button button-github"
-              href="https://github.com/carlosribeiro06/labdessem_rust"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub Repository
-            </a>
+            <a class="button button-primary" href="./metodologia.html">Metodologia</a>
+            <a class="button button-secondary" href="./execucao.html">Execucao</a>
+            <a class="button button-secondary" href="./resultados.html">Resultados</a>
           </div>
           <ul class="hero-pills">
             <li>UC termico</li>

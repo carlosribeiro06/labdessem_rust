@@ -1,10 +1,22 @@
-<p align="center">
-  <img src="docs/logo.svg" alt="LabDessem Rust logo" width="96">
-</p>
+<div align="center">
+  <img src="docs/logo.svg" alt="LabDessem Rust logo" width="110">
 
-# LABDESSEM Rust
+  <h1>LABDESSEM RUST</h1>
 
-`LABDESSEM Rust` is a modular Rust implementation of a short-term power system scheduling model inspired by DESSEM. The workspace combines thermal unit commitment, hydro scheduling, renewables, pumping plants, submarket balance, operational limits, and optional DC-network treatment in a single simulation flow.
+  <p><strong>Open infrastructure for hydrothermal scheduling</strong></p>
+
+  <p>
+    A modular Rust workspace for thermal unit commitment, hydro scheduling,
+    optional FPHA, renewables, pumping plants, operational limits, and
+    network-aware dispatch studies.
+  </p>
+
+  <p>
+    <a href="https://labdessem-rs.dev/">Website</a> •
+    <a href="docs/">Docs</a> •
+    <a href="crates/labdessem-io/study_config.json">Study config</a>
+  </p>
+</div>
 
 ## Current Scope
 

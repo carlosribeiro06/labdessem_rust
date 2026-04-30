@@ -6,16 +6,16 @@
         in="blur"
         type="matrix"
         values="1 0 0 0 0
-                0 0.65 0 0 0
-                0 0 0.25 0 0
+                0 0.72 0 0 0
+                0 0 1 0 0
                 0 0 0 1 0"
-        result="warmGlow"
+        result="coolGlow"
       />
-      <feBlend in="SourceGraphic" in2="warmGlow" mode="screen"/>
+      <feBlend in="SourceGraphic" in2="coolGlow" mode="screen"/>
     </filter>
     <linearGradient id="strokeGlow" x1="86" y1="182" x2="170" y2="74" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF9A3D"/>
-      <stop offset="1" stop-color="#FFC17A"/>
+      <stop offset="0" stop-color="#2FA7FF"/>
+      <stop offset="1" stop-color="#79D0FF"/>
     </linearGradient>
   </defs>
 
