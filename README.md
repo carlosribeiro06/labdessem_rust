@@ -1,35 +1,25 @@
 # LABDESSEM Rust
 
-`LABDESSEM Rust` is a professional Rust implementation of a reduced-scale day-ahead power system scheduling model inspired by DESSEM.
+`LABDESSEM Rust` is a modular Rust implementation of a short-term power system scheduling model inspired by DESSEM. The workspace combines thermal unit commitment, hydro scheduling, renewables, pumping plants, submarket balance, operational limits, and optional DC-network treatment in a single simulation flow.
 
-The project is organized as a modular workspace and is designed to support:
+## Current Scope
 
-- thermal unit commitment
-- hydro scheduling with cascaded reservoirs
-- renewable generation with curtailment decisions
-- submarket demand balance
-- linearized network analysis with iterative flow cuts
-- LP, MILP, and LP with fixed integer decisions
+The current model supports:
 
-## Overview
-
-The current solution workflow follows an iterative network-constrained process:
-
-1. Solve an `LP`.
-2. Compute DC power flows.
-3. Detect line capacity violations.
-4. Add flow cuts only for violated line-period pairs.
-5. Repeat until the `LP` is network-feasible.
-6. Solve a `MILP` with accumulated cuts.
-7. Recompute flows.
-8. If new violations appear, solve `LP with fixed commitment` until no new violations remain.
-9. Export the main operational results to CSV.
-
-This gives the project a practical decomposition strategy while keeping the optimization model modular and extensible.
+- thermal unit commitment with startup and shutdown trajectories
+- minimum up/down time for thermal units
+- thermal residual TON cost treatment at the end of the horizon
+- hydro scheduling with cascades, water diversion, pumping plants, and hydraulic balance
+- two hydro generation formulations:
+  - `FPHA = 1`: generation limited by FPHA cuts
+  - `FPHA = 0`: generation linked to turbining through plant productivity
+- generic renewable plants with dispatch bounded by programmed generation
+- submarket demand balance with optional network representation
+- operational limit constraints and infeasibility reporting
+- iterative network-constrained workflow with LP, MILP, LP-FIXED, and LP-CALC-CMO
+- single-shot MILP workflow as an alternative execution mode
 
 ## Workspace Structure
-
-The repository is organized as a Rust workspace:
 
 ```text
 labdessem_rust/
@@ -41,9 +31,8 @@ labdessem_rust/
 |   |-- labdessem-model
 |   |-- labdessem-simulation
 |   `-- labdessem-solver
+|-- docs/
 |-- examples/
-|   |-- 3Barras
-|   `-- caso_base
 |-- Cargo.toml
 `-- README.md
 ```
@@ -51,117 +40,179 @@ labdessem_rust/
 ### Crates
 
 - `labdessem-core`
-  Domain layer. Defines the power system data structures, identifiers, validations, generation assets, network, submarkets, reservoirs, and study horizon.
-
-- `labdessem-model`
-  Mathematical model layer. Defines indexing, variables, constraints, objective function, and solve modes.
+  Domain entities, identifiers, validations, horizon representation, and study data structures.
 
 - `labdessem-io`
-  Input layer. Reads study data from a JSON configuration file that points to a case directory containing CSV files.
+  Case reader. Loads `study_config.json` and the CSV files under `CAD/` and `OPER/`.
+
+- `labdessem-model`
+  Indexing, variables, objective function, and algebraic constraints.
 
 - `labdessem-solver`
-  Solver integration layer. Builds and solves the optimization model using `good_lp`.
+  Optimization backend integration through `good_lp`.
 
 - `labdessem-simulation`
-  Orchestration layer. Runs the iterative workflow, computes DC flows, checks violations, accumulates flow cuts, and exports result CSVs.
+  End-to-end orchestration: solve workflow, network-cut iterations, dual extraction, and CSV export.
 
 - `labdessem-cli`
-  Command-line entrypoint for reading a study, running the iterative workflow, and writing outputs.
+  Command-line entrypoint for running a study.
 
 - `labdessem-common`
-  Shared utilities and common abstractions used across crates.
+  Shared helpers used across workspace crates.
 
-## Mathematical Scope
+## Execution Modes
 
-### Generation Technologies
+The study configuration supports two execution modes through `opcao_execucao`:
 
-- Thermal plants
-  Each plant contains thermal units. The model is prepared for thermal unit commitment.
+- `1`: `LP -> MILP -> LP-FIXED -> LP-CALC-CMO`
+- `2`: single `MILP`
 
-- Hydro plants
-  Each plant contains groups and hydro units. Reservoirs include minimum, maximum, and initial storage. Plants may be connected in cascade with multiple upstream plants.
+When the network flag is active, the iterative mode adds DC flow cuts only for violated line-period pairs. The final `LP-CALC-CMO` stage is solved with integer decisions fixed and is used to extract dual information such as:
 
-- Wind and solar plants
-  These are modeled at plant level. Their available generation is input data, and the model decides how much to dispatch or curtail.
+- submarket marginal operating cost (`PiDemanda`)
+- hydro water balance dual (`PiBalHidr`)
 
-### Network
+## Study Configuration
 
-The project includes:
+The default configuration file is:
 
-- buses
-- transmission lines
-- submarket aggregation
-- DC flow evaluation
-- iterative line flow cuts based on detected violations
+[`crates/labdessem-io/study_config.json`](crates/labdessem-io/study_config.json)
 
-### Solve Modes
+Current keys:
 
-The modeling layer supports three solve modes:
+- `case_path`
+  Path to the study directory.
 
-- `LinearProgramming`
-- `MixedIntegerLinearProgramming`
-- `LinearProgrammingWithFixedCommitment`
+- `opcao_execucao`
+  Execution strategy selector.
 
-## Current Results Export
+- `rede`
+  Enables or disables electrical network treatment.
 
-After a successful run, the simulation writes CSV outputs under:
+- `UCT`
+  Enables or disables thermal unit commitment.
 
-```text
-<case_path>/RESULTADOS
-```
+- `UCH`
+  Enables or disables hydro commitment variables.
 
-The current export includes:
+- `TON_Residual`
+  Enables or disables thermal residual TON treatment in the objective and reports.
 
-- hydro results
-  volume, generation, turbining, and spillage for all periods
-
-- thermal results
-  generation, on/off status, and residence times for all periods
-
-- network results
-  power flow for every line and every period, including from-bus and to-bus
-
-- wind results
-  generation for all periods
-
-- solar results
-  generation for all periods
-
-## Input Data
-
-The study is driven by a JSON file located at:
-
-[`crates/labdessem-io/study_config.json`](c:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/crates/labdessem-io/study_config.json)
+- `FPHA`
+  Selects hydro generation formulation:
+  - `1`: read `OPER_FPHA.csv` and enforce FPHA cuts
+  - `0`: ignore FPHA cuts and use plant productivity times turbining
 
 Example:
 
 ```json
 {
-  "case_path": "../../examples/caso_base"
+  "case_path": "../../examples/24Barras",
+  "opcao_execucao": 1,
+  "rede": 1,
+  "UCT": 1,
+  "UCH": 0,
+  "TON_Residual": 0,
+  "FPHA": 0
 }
 ```
 
-The `case_path` must point to a study directory that follows the expected CSV layout used by the reader in `labdessem-io`.
+## Input Data
+
+Each study directory is organized with:
+
+- `CAD/`
+  Static registration data such as thermal plants, hydro plants, renewable plants, buses, lines, pumping plants, and thermal ramp trajectories.
+
+- `OPER/`
+  Time-varying data such as demand, inflows, renewable availability, operational limits, interchange limits, residual costs, and FPHA cuts.
+
+Representative files currently used by the reader include:
+
+- `CAD_UNID_UTE.csv`
+- `CAD_RAMPAS_TERMICAS.csv`
+- `CAD_UHE.csv`
+- `CAD_CONJ_UHE.csv`
+- `CAD_REN.csv`
+- `CAD_USIE.csv`
+- `OPER_SBM.csv`
+- `OPER_VAZAO.csv`
+- `OPER_REN.csv`
+- `OPER_REST_LIM.csv`
+- `OPER_CUSTO_RESIDUAL.csv`
+- `OPER_FPHA.csv` when `FPHA = 1`
+
+## Model Highlights
+
+### Thermal
+
+- unit-level generation variables
+- binary commitment, startup, and shutdown variables when `UCT = 1`
+- startup and shutdown trajectories read from `CAD_RAMPAS_TERMICAS.csv`
+- minimum up/down times from input data, interpreted in hours
+- residual end-of-horizon treatment controlled by `TON_Residual`
+
+### Hydro
+
+- plant, group, and unit representation
+- hydraulic balance with upstream cascade mapping
+- water diversion support
+- pumping plants with electrical consumption
+- turbining and spillage tracked in both `hm3` and `m3/s` in outputs
+- optional FPHA-based generation envelope or productivity-based generation relation
+
+### Renewables
+
+- unified renewable representation
+- generation bounded by programmed availability
+- single output file for all renewable plants
+
+### Network and Limits
+
+- optional DC network flow evaluation
+- iterative line-cut addition in execution mode `1`
+- explicit operational limit input and infeasibility reporting
+
+## Outputs
+
+After a successful run, CSV files are written under:
+
+```text
+<case_path>/RESULTADOS
+```
+
+Current outputs include:
+
+- `resultado_hidreletricas.csv`
+- `resultado_termicas.csv`
+- `resultado_renovaveis.csv`
+- `resultado_elevatorias.csv`
+- `resultado_cmosist.csv`
+- `resultado_processo_iter.csv`
+- `resultado_rest_lim.csv`
+- `resultado_inviabilidade_lim.csv`
+
+When network treatment is enabled, the run also writes:
+
+- `resultado_rede.csv`
+- `resultado_linhas_adicionadas.csv`
+- `resultado_inviabilidade_rede.csv`
 
 ## Build and Run
 
-### Default Execution
-
-Run the CLI with the default study configuration:
+### Run with the default configuration
 
 ```powershell
 cargo run -p labdessem-cli
 ```
 
-### Explicit Configuration Path
-
-Run the CLI with a specific JSON configuration file:
+### Run with an explicit configuration path
 
 ```powershell
 cargo run -p labdessem-cli -- crates/labdessem-io/study_config.json
 ```
 
-### Check the Workspace
+### Check the workspace
 
 ```powershell
 cargo check
@@ -169,62 +220,33 @@ cargo check
 
 ## Solver Requirements
 
-The project is currently configured to use `good_lp` with the `HiGHS` backend.
+The workspace is configured around `good_lp` with the `HiGHS` backend.
 
-On Windows, a working build environment requires:
+On Windows, the current toolchain typically requires:
 
 - CMake
 - Visual Studio C++ Build Tools
 - LLVM/Clang with `libclang`
 
-In particular, `highs-sys` requires `bindgen`, which depends on `libclang`. If `libclang` is installed but not detected automatically, define:
+If `libclang` is installed but not detected automatically:
 
 ```powershell
 $env:LIBCLANG_PATH="C:\Program Files\LLVM\bin"
 ```
 
-If you want this permanently:
+To persist it:
 
 ```powershell
 setx LIBCLANG_PATH "C:\Program Files\LLVM\bin"
 ```
 
-## Runtime Output
+## Documentation
 
-During execution, the CLI prints the iterative solution process in real time, including:
+The repository also contains:
 
-- current stage
-- iteration number
-- objective value
-- number of flow violations
-- solve time
-
-This makes it easier to trace the progression of:
-
-- `LP`
-- `MILP`
-- `LP-FIXED`
-
-## Design Goals
-
-This project is being built with a professional engineering standard in mind:
-
-- clear separation between domain, model, IO, solver, and simulation
-- explicit validations in the domain layer
-- reproducible study execution through configuration-driven input
-- scalable architecture for future model growth
-- traceable operational outputs through CSV exports
-
-## Roadmap
-
-The current implementation establishes the core architecture. Natural next steps include:
-
-- fuller thermal unit commitment logic
-- fuller hydro unit commitment logic
-- tighter integration between optimization and network constraints
-- richer reporting and scenario management
-- broader automated test coverage
+- project website sources in [`docs/`](docs)
+- development guides and code connection maps for contributors
 
 ## License
 
-This repository includes a [`LICENSE`](c:/Users/carlo/OneDrive/Documentos/git/labdessem_rust/LICENSE) file at the root of the workspace.
+See [`LICENSE`](LICENSE).
