@@ -1,8 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    fs,
-    fs::File,
-    io,
+    fs, io,
     io::Write,
     path::{Path, PathBuf},
 };
@@ -36,6 +34,8 @@ pub struct StudyConfig {
     pub uct: u8,
     #[serde(rename = "UCH")]
     pub uch: u8,
+    #[serde(rename = "FPHA")]
+    pub fpha: u8,
     #[serde(rename = "TON_Residual")]
     pub ton_residual: u8,
 }
@@ -71,6 +71,7 @@ pub fn read_study_from_config(config_path: impl AsRef<Path>) -> Result<System, I
         config.rede != 0,
         config.uct != 0,
         config.uch != 0,
+        config.fpha != 0,
     )
 }
 
@@ -80,6 +81,7 @@ fn read_study_from_path_with_options(
     network_enabled: bool,
     thermal_unit_commitment_enabled: bool,
     hydro_unit_commitment_enabled: bool,
+    fpha_enabled: bool,
 ) -> Result<System, IoError> {
     let base_path = base_path.as_ref();
     let cad_path = base_path.join("CAD");
@@ -111,7 +113,11 @@ fn read_study_from_path_with_options(
     let pumping_rows = read_pumping_table(cad_path.join("CAD_USIE.csv"))?;
     let hydro_unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
     let hydro_inflow_rows: Vec<HydroInflowRow> = read_csv(oper_path.join("OPER_VAZAO.csv"))?;
-    let hydro_fpha_rows = read_fpha_table(oper_path.join("OPER_FPHA.csv"))?;
+    let hydro_fpha_rows = if fpha_enabled {
+        read_fpha_table(oper_path.join("OPER_FPHA.csv"))?
+    } else {
+        Vec::new()
+    };
     let renewable_catalog_rows = read_renewable_catalog_table(cad_path.join("CAD_REN.csv"))?;
     let renewable_operation_rows = read_renewable_operation_table(oper_path.join("OPER_REN.csv"))?;
 
@@ -121,17 +127,6 @@ fn read_study_from_path_with_options(
         } else {
             (HashMap::new(), HashMap::new())
         };
-    let hydro_startup_trajectories = if hydro_unit_commitment_enabled {
-        read_trajectory_table(cad_path.join("CAD_RAMPAS_UP_UHE.csv"))?
-    } else {
-        HashMap::new()
-    };
-    let hydro_shutdown_trajectories = if hydro_unit_commitment_enabled {
-        read_trajectory_table(cad_path.join("CAD_RAMPAS_DOWN_UHE.csv"))?
-    } else {
-        HashMap::new()
-    };
-
     let horizon = build_horizon(&duration_rows)?;
     let submarkets = build_submarkets(&submarket_catalog, &submarket_operation_rows, &horizon)?;
     let buses = if network_enabled {
@@ -162,12 +157,10 @@ fn read_study_from_path_with_options(
         &hydro_unit_rows,
         &hydro_inflow_rows,
         &hydro_fpha_rows,
-        &hydro_startup_trajectories,
-        &hydro_shutdown_trajectories,
         &submarkets,
         &horizon,
         network_enabled,
-        hydro_unit_commitment_enabled,
+        fpha_enabled,
     )?;
     let pumping_plants = build_pumping_plants(
         &pumping_rows,
@@ -196,6 +189,7 @@ fn read_study_from_path_with_options(
         thermal_unit_commitment_enabled,
         hydro_unit_commitment_enabled,
         ton_residual_enabled,
+        fpha_enabled,
         residual_costs,
         submarkets,
         interchange_limits,
@@ -552,12 +546,10 @@ fn build_hydro_plants(
     unit_rows: &[HydroUnitRow],
     inflow_rows: &[HydroInflowRow],
     fpha_rows: &[HydroFphaRow],
-    startup_trajectories: &HashMap<String, Vec<f64>>,
-    shutdown_trajectories: &HashMap<String, Vec<f64>>,
     submarkets: &[Submarket],
     horizon: &StudyHorizon,
     network_enabled: bool,
-    hydro_unit_commitment_enabled: bool,
+    fpha_enabled: bool,
 ) -> Result<Vec<HydroPlant>, IoError> {
     let period_duration_hours = horizon.period_duration_hours;
     let hydro_code_to_id: HashMap<_, _> = plant_rows
@@ -669,16 +661,6 @@ fn build_hydro_plants(
                         let unit_name = format!("{}-{}-{}", plant_name, group_id, unit_id);
                         let max_generation_mw =
                             normalize_max_bound(unit_row.pmin, unit_row.pmax, "Pmax", &unit_name)?;
-                        let startup = if hydro_unit_commitment_enabled {
-                            trajectory_for(startup_trajectories, plant_name)?
-                        } else {
-                            Vec::new()
-                        };
-                        let shutdown = if hydro_unit_commitment_enabled {
-                            trajectory_for(shutdown_trajectories, plant_name)?
-                        } else {
-                            Vec::new()
-                        };
                         let is_on = unit_row.status_inic != 0;
                         units.push(HydroUnit {
                             id: HydroUnitId(unit_id),
@@ -689,22 +671,6 @@ fn build_hydro_plants(
                                 unit_row.max_turb,
                                 period_duration_hours,
                             ),
-                            startup_trajectory_mw: startup,
-                            shutdown_trajectory_mw: shutdown,
-                            min_up_time: hours_to_periods(
-                                unit_row.ton,
-                                period_duration_hours,
-                                "Ton",
-                                plant_name,
-                            )?,
-                            min_down_time: hours_to_periods(
-                                unit_row.toff,
-                                period_duration_hours,
-                                "Toff",
-                                plant_name,
-                            )?,
-                            startup_cost: unit_row.custo_partida,
-                            shutdown_cost: unit_row.custo_desliga,
                             initial_condition: HydroInitialCondition {
                                 is_on,
                                 generation_mw: if is_on { unit_row.pmin } else { 0.0 },
@@ -744,15 +710,19 @@ fn build_hydro_plants(
                 .get(&row.codigo)
                 .cloned()
                 .unwrap_or_else(|| vec![0.0; horizon.periods]);
-            let fpha_segments = if plant_unit_rows.is_empty() {
-                fpha_by_plant.get(&row.codigo).cloned().unwrap_or_default()
+            let fpha_segments = if fpha_enabled {
+                if plant_unit_rows.is_empty() {
+                    fpha_by_plant.get(&row.codigo).cloned().unwrap_or_default()
+                } else {
+                    fpha_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
+                        IoError::invalid_data(format!(
+                            "missing FPHA data for hydro plant {}",
+                            row.codigo
+                        ))
+                    })?
+                }
             } else {
-                fpha_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "missing FPHA data for hydro plant {}",
-                        row.codigo
-                    ))
-                })?
+                Vec::new()
             };
 
             let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
@@ -779,6 +749,7 @@ fn build_hydro_plants(
                 water_withdrawal_hm3,
                 spillage_cost_per_hm3: row.penal_vert,
                 turbining_cost_per_hm3: row.penal_turb,
+                specific_productivity_mw_per_m3s: row.prod_esp,
                 fpha_segments,
                 groups,
             })
@@ -1527,57 +1498,6 @@ fn build_ordered_trajectory_map(
         .collect()
 }
 
-fn read_trajectory_table(path: PathBuf) -> Result<HashMap<String, Vec<f64>>, IoError> {
-    log_read_file(&path);
-    let file = File::open(&path).map_err(|error| {
-        IoError::invalid_data(format!("failed to open {}: {error}", path.display()))
-    })?;
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .flexible(true)
-        .from_reader(file);
-
-    let headers = reader
-        .headers()
-        .map_err(IoError::from)?
-        .iter()
-        .map(|value| value.trim().to_string())
-        .collect::<Vec<_>>();
-
-    let mut trajectories: HashMap<String, Vec<f64>> = headers
-        .iter()
-        .filter(|header| !header.is_empty())
-        .map(|header| (header.clone(), Vec::new()))
-        .collect();
-
-    for row in reader.records() {
-        let row = row?;
-        append_trajectory_row(&headers, &row, &mut trajectories);
-    }
-
-    Ok(trajectories)
-}
-
-fn append_trajectory_row(
-    headers: &[String],
-    row: &StringRecord,
-    trajectories: &mut HashMap<String, Vec<f64>>,
-) {
-    for (column_idx, header) in headers.iter().enumerate() {
-        if header.is_empty() {
-            continue;
-        }
-        let value = row.get(column_idx).unwrap_or("").trim();
-        if value.is_empty() {
-            continue;
-        }
-        if let Ok(parsed) = value.parse::<f64>() {
-            trajectories.entry(header.clone()).or_default().push(parsed);
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct DurationRow {
     #[serde(rename = "Periodo")]
@@ -1737,6 +1657,8 @@ struct HydroPlantRow {
     penal_vert: f64,
     #[serde(rename = "PenalTurb")]
     penal_turb: f64,
+    #[serde(rename = "ProdEsp")]
+    prod_esp: f64,
 }
 
 #[derive(Debug)]
@@ -1762,10 +1684,6 @@ struct HydroUnitRow {
     pmin: f64,
     #[serde(rename = "Pmax")]
     pmax: f64,
-    #[serde(rename = "Ton")]
-    ton: f64,
-    #[serde(rename = "Toff")]
-    toff: f64,
     #[serde(rename = "StatusInic")]
     status_inic: usize,
     #[serde(rename = "Tinic")]
@@ -1774,10 +1692,6 @@ struct HydroUnitRow {
     barra: Option<usize>,
     #[serde(rename = "MaxTurb")]
     max_turb: f64,
-    #[serde(rename = "CustoPartida")]
-    custo_partida: f64,
-    #[serde(rename = "CustoDesliga")]
-    custo_desliga: f64,
 }
 
 #[derive(Debug, Deserialize)]

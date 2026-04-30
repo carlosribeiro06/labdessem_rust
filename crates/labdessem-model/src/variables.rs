@@ -32,8 +32,6 @@ pub struct Variables {
     pub thermal_startup: Vec<Variable>,
     pub thermal_shutdown: Vec<Variable>,
     pub hydro_commitment: Vec<Variable>,
-    pub hydro_startup: Vec<Variable>,
-    pub hydro_shutdown: Vec<Variable>,
     pub network_flow_slack: Vec<Variable>,
     pub operational_limit_slack: Vec<Variable>,
 }
@@ -323,50 +321,6 @@ impl Variables {
             Vec::new()
         };
 
-        let hydro_startup = if system.hydro_unit_commitment_enabled {
-            build_commitment_variables(
-                indexing
-                    .hydro_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.hydro_plants[entry.plant_idx];
-                        let group = &plant.groups[entry.group_idx];
-                        let unit = &group.units[entry.unit_idx];
-                        format!(
-                            "hydro_startup[p={},g={},u={}",
-                            plant.name, group.name, unit.name
-                        )
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
-
-        let hydro_shutdown = if system.hydro_unit_commitment_enabled {
-            build_commitment_variables(
-                indexing
-                    .hydro_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.hydro_plants[entry.plant_idx];
-                        let group = &plant.groups[entry.group_idx];
-                        let unit = &group.units[entry.unit_idx];
-                        format!(
-                            "hydro_shutdown[p={},g={},u={}",
-                            plant.name, group.name, unit.name
-                        )
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
-
         Self {
             thermal_generation,
             hydro_generation,
@@ -382,8 +336,6 @@ impl Variables {
             thermal_startup,
             thermal_shutdown,
             hydro_commitment,
-            hydro_startup,
-            hydro_shutdown,
             network_flow_slack: Vec::new(),
             operational_limit_slack: Vec::new(),
         }

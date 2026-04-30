@@ -1,0 +1,5 @@
+Codigo;Nome;VolInic;Vmin;Vmax;Tipo;Jusante;Desvio;Submercado;PenalVert;PenalTurb;ProdEsp;Turbina;Perda
+1; CAMARGOS     ;786.09;120;792;RV     ;2;   -   ;Fic2;0.2;0.8;1;Kaplan;0.095
+2; ITUTINGA     ;11;11;11;FD     ;4;   -   ;Fic2;0.2;0.8;1;Kaplan;0.631
+4; FUNIL-GRANDE ;304;304;304;FD     ;6;   -   ;Fic2;0.2;0.8;1;Kaplan;0.394
+6; FURNAS       ;16145.84;5733;22950;RV     ;-;   -   ;Fic2;0.2;0.8;1;Kaplan;0.803

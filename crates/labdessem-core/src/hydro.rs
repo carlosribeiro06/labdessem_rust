@@ -17,12 +17,6 @@ pub struct HydroUnit {
     pub min_generation_mw: f64,
     pub max_generation_mw: f64,
     pub max_turbining_hm3: f64,
-    pub startup_trajectory_mw: Vec<f64>,
-    pub shutdown_trajectory_mw: Vec<f64>,
-    pub min_up_time: usize,
-    pub min_down_time: usize,
-    pub startup_cost: f64,
-    pub shutdown_cost: f64,
     pub initial_condition: HydroInitialCondition,
 }
 
@@ -52,31 +46,6 @@ impl HydroUnit {
         if self.max_turbining_hm3 <= 0.0 {
             return Err(CoreError::validation(format!(
                 "hydro unit {:?} must have positive maximum turbining",
-                self.id
-            )));
-        }
-        if self.startup_trajectory_mw.iter().any(|value| *value < 0.0)
-            || self.shutdown_trajectory_mw.iter().any(|value| *value < 0.0)
-        {
-            return Err(CoreError::validation(format!(
-                "hydro unit {:?} has negative value in startup or shutdown trajectory",
-                self.id
-            )));
-        }
-        if self
-            .startup_trajectory_mw
-            .iter()
-            .chain(self.shutdown_trajectory_mw.iter())
-            .any(|value| *value > self.max_generation_mw)
-        {
-            return Err(CoreError::validation(format!(
-                "hydro unit {:?} has startup or shutdown trajectory above max generation",
-                self.id
-            )));
-        }
-        if self.startup_cost < 0.0 || self.shutdown_cost < 0.0 {
-            return Err(CoreError::validation(format!(
-                "hydro unit {:?} has negative startup or shutdown cost",
                 self.id
             )));
         }
@@ -211,12 +180,13 @@ pub struct HydroPlant {
     pub water_withdrawal_hm3: Vec<f64>,
     pub spillage_cost_per_hm3: f64,
     pub turbining_cost_per_hm3: f64,
+    pub specific_productivity_mw_per_m3s: f64,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
 }
 
 impl HydroPlant {
-    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
+    pub fn validate(&self, horizon: usize, fpha_enabled: bool) -> Result<(), CoreError> {
         if self.name.trim().is_empty() {
             return Err(CoreError::validation("hydro plant name cannot be empty"));
         }
@@ -254,9 +224,22 @@ impl HydroPlant {
                 self.id
             )));
         }
-        if !self.groups.is_empty() && self.fpha_segments.is_empty() {
+        if self.specific_productivity_mw_per_m3s < 0.0 {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} has negative specific productivity",
+                self.id
+            )));
+        }
+        if fpha_enabled && !self.groups.is_empty() && self.fpha_segments.is_empty() {
             return Err(CoreError::validation(format!(
                 "hydro plant {:?} must contain at least one FPHA segment",
+                self.id
+            )));
+        }
+        if !fpha_enabled && !self.groups.is_empty() && self.specific_productivity_mw_per_m3s <= 0.0
+        {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} must contain positive specific productivity when FPHA is disabled",
                 self.id
             )));
         }

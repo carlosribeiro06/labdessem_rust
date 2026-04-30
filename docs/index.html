@@ -133,7 +133,7 @@
           <p class="eyebrow">Despacho hidrotermico em Rust</p>
           <h1>
             Um modelo de otimizacao para
-            <span>UC termico, hidraulicas com FPHA, rede DC, renovaveis e bombeamento</span>
+            <span>UC termico, hidraulicas com FPHA ou produtibilidade, rede DC, renovaveis e bombeamento</span>
           </h1>
           <p class="hero-text">
             O LabDessem Rust e um workspace de desenvolvimento para estudos de despacho
@@ -155,7 +155,7 @@
           </div>
           <ul class="hero-pills">
             <li>LP / MILP / LP-Fixed / LP-Calc-CMO</li>
-            <li>FPHA por cortes</li>
+            <li>FPHA por cortes ou produtibilidade especifica</li>
             <li>PTDF e cortes de fluxo</li>
             <li>CSV + JSON</li>
           </ul>
@@ -268,10 +268,10 @@
           <article class="panel method-card">
             <p class="mini-label">Escala temporal</p>
             <ul class="method-list">
-              <li><code>Ton</code>, <code>Toff</code>, <code>Tinic</code> e <code>TRampaInic</code> sao lidos em horas.</li>
+              <li><code>Ton</code>, <code>Toff</code>, <code>Tinic</code> e <code>TRampaInic</code> das termicas sao lidos em horas.</li>
               <li>O modelo converte horas para periodos internos por \(\lceil horas / \Delta t \rceil\).</li>
-              <li><code>Tinic</code> e tempo no estado atual e entra em TON/TOFF.</li>
-              <li><code>TRampaInic</code> e tempo percorrido na rampa inicial e filtra <code>RupInic</code>/<code>RdownInic</code>.</li>
+              <li><code>Tinic</code> e tempo no estado atual e entra nas restricoes termicas de permanencia minima.</li>
+              <li><code>TRampaInic</code> define a parcela ja percorrida da trajetoria inicial termica quando <code>RupInic</code> ou <code>RdownInic</code> estiver ativo.</li>
               <li>Vazoes em <code>m3/s</code> sao convertidas para <code>hm3</code> por \(hm3=q\,\Delta t\,0.0036\).</li>
             </ul>
           </article>
@@ -325,7 +325,7 @@
                 <li>\(V_{h,t}\) [hm3]: volume absoluto no reservatorio.</li>
                 <li>\(S_{h,t}\) [hm3]: vertimento.</li>
                 <li>\(QD_{h,t}\) [hm3]: vazao desviada.</li>
-                <li>\(u^{hy}_{h,g,j,t}\), \(su^{hy}\), \(sd^{hy}\): compromisso, partida e parada hidraulica.</li>
+                <li>\(u^{hy}_{h,g,j,t}\): compromisso hidraulico binario, quando <code>UCH = 1</code>.</li>
               </ul>
             </div>
             <div>
@@ -357,8 +357,6 @@
             + \sum_{t,p,i} \left(C^{part}_{p,i} y^{th}_{p,i,t} + C^{desl}_{p,i} w^{th}_{p,i,t}\right)
             \]
             \[
-            + \sum_{t,h,g,j} \left(C^{part,hy}_{h,g,j} su^{hy}_{h,g,j,t}
-            + C^{desl,hy}_{h,g,j} sd^{hy}_{h,g,j,t}\right)
             + \sum \text{penalidades de folga}
             + \sum \text{custo residual TON}
             \]
@@ -478,13 +476,8 @@
 
         <div class="method-grid">
           <article class="panel method-card">
-            <p class="mini-label">Compromisso hidraulico</p>
+            <p class="mini-label">Canalizacao hidraulica por compromisso</p>
             <div class="equation-block">
-              \[
-              u^{hy}_{j,t} - u^{hy}_{j,t-1} = su^{hy}_{j,t} - sd^{hy}_{j,t}
-              \qquad
-              su^{hy}_{j,t} + sd^{hy}_{j,t} \le 1
-              \]
               \[
               G^{hy}_{j,t} \le Pmax_j u^{hy}_{j,t}
               \qquad
@@ -498,19 +491,16 @@
           </article>
 
           <article class="panel method-card">
-            <p class="mini-label">TON / TOFF hidraulico</p>
+            <p class="mini-label">Turbinamento maximo por unidade</p>
             <div class="equation-block">
               \[
-              \sum_{k=t}^{t+\widehat{TON}^{hy}_{j,t}-1} u^{hy}_{j,k}
-              \ge
-              \widehat{TON}^{hy}_{j,t}(u^{hy}_{j,t}-u^{hy}_{j,t-1})
-              \]
-              \[
-              \sum_{k=t}^{t+\widehat{TOFF}^{hy}_{j,t}-1}(1-u^{hy}_{j,k})
-              \ge
-              -\widehat{TOFF}^{hy}_{j,t}(u^{hy}_{j,t}-u^{hy}_{j,t-1})
+              0 \le Q_{h,g,j,t} \le QMAX_{h,g,j}
               \]
             </div>
+            <p class="method-note">
+              <code>MaxTurb</code> e lido em <code>m3/s</code> e convertido internamente para
+              <code>hm3</code> por periodo.
+            </p>
           </article>
         </div>
 
@@ -575,9 +565,11 @@
         </div>
 
         <div class="method-block panel">
-          <p class="mini-label">FPHA - funcao de producao hidraulica aproximada</p>
+          <p class="mini-label">Formulacao de geracao hidraulica</p>
           <div class="equation-block">
             \[
+            \text{se } FPHA = 1:
+            \qquad
             \sum_{g,j \in h} G^{hy}_{h,g,j,t}
             \le
             Fcor_{h,k}
@@ -594,13 +586,25 @@
             \qquad
             G^{hy}_{h,g,j,t} \le \rho^{max}_h Q_{h,g,j,t}
             \]
+            \[
+            \text{se } FPHA = 0:
+            \qquad
+            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
+            =
+            ProdEsp_h \, q^{m3/s}_{h,t}
+            \qquad
+            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
+            \le \sum_{g,j \in h} Pmax_{h,g,j}
+            \]
           </div>
           <p class="method-note">
-            A antiga representacao \(G=prod \cdot Q\) foi removida. A geracao hidraulica e
-            limitada pelos cortes de <code>OPER_FPHA</code>, pela potencia maxima das unidades e
-            por uma relacao superior que impede geracao sem turbinamento. A coluna
-            <code>GeracaoMaxPontoMW</code> na saida e calculada por usina, no ponto de operacao,
-            a partir da FPHA.
+            Com <code>FPHA = 1</code>, o modelo le <code>OPER_FPHA</code> e usa cortes por usina,
+            volume final, turbinamento e vertimento, alem do acoplamento superior que impede
+            geracao positiva sem turbinamento. Com <code>FPHA = 0</code>, o modelo ignora
+            <code>OPER_FPHA</code> e passa a usar a produtibilidade especifica da usina para ligar
+            geracao agregada e turbinamento agregado. A coluna
+            <code>GeracaoMaxPontoMW</code> na saida e calculada por usina a partir do volume do
+            ponto de operacao, da formulacao hidraulica ativa e da soma dos <code>Pmax</code>.
           </p>
         </div>
 
