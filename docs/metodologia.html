@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metodologia | LabDessem Rust</title>
+  <meta name="description" content="Metodologia do LabDessem Rust: variaveis, unidades, objetivo e restricoes do modelo atual.">
+  <link rel="canonical" href="https://labdessem-rs.dev/metodologia.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
+        <span class="brand-text">LabDessem Rust</span>
+      </a>
+      <nav class="nav">
+        <a href="./index.html">Inicio</a>
+        <a href="./arquitetura.html">Arquitetura</a>
+        <a class="active" href="./metodologia.html">Metodologia</a>
+        <a href="./execucao.html">Execucao</a>
+        <a href="./resultados.html">Resultados</a>
+      </nav>
+    </header>
+
+    <main class="page-main">
+      <section class="page-hero">
+        <div>
+          <p class="eyebrow">Metodologia</p>
+          <h1>Formulação matemática do modelo atual</h1>
+          <p>
+            Esta pagina resume os conjuntos, unidades, função objetivo e restrições físicas que
+            estão valendo hoje no código.
+          </p>
+          <div class="page-actions">
+            <a class="button button-primary" href="./resultados.html">Ver saidas</a>
+            <a class="button button-secondary" href="./arquitetura.html">Ver conexoes do codigo</a>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="mini-label">Escopo</p>
+          <ul class="method-list">
+            <li>UC termico com trajetorias de partida e desligamento.</li>
+            <li>Hidraulicas com FPHA opcional ou produtibilidade.</li>
+            <li>Renovaveis agregadas.</li>
+            <li>Bombeamento, desvio de agua, rede DC e limites operativos.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Conjuntos</p>
+            <ul class="method-list">
+              <li>\(t \in T\): periodos internos.</li>
+              <li>\(\tau \in T^{orig}\): periodos originais.</li>
+              <li>\(s \in S\): submercados.</li>
+              <li>\(p,i\): usinas e unidades termicas.</li>
+              <li>\(h,g,j\): usinas, conjuntos e unidades hidraulicas.</li>
+              <li>\(a \in A\): renovaveis.</li>
+              <li>\(e \in E\): elevatorias.</li>
+            </ul>
+          </article>
+          <article class="panel method-card">
+            <p class="mini-label">Unidades</p>
+            <ul class="method-list">
+              <li>Geracao e demanda em MW.</li>
+              <li>Volume em hm3.</li>
+              <li>Afluencia, retirada, turbiningo maximo e limites hidraulicos lidos em m3/s e convertidos internamente.</li>
+              <li>Penalidades hidraulicas em R$/hm3.</li>
+              <li>CVU em R$/MWh.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-block panel">
+          <p class="mini-label">Funcao objetivo</p>
+          <div class="equation-block">
+            \[
+            \min Z =
+            \sum CVU\,\Delta t\,G^{th}
+            + \sum CDEF\,\Delta t\,DEF
+            + \sum CINT\,\Delta t\,INT
+            + \sum C^{vert}S
+            + \sum C^{turb}Q
+            + \sum C^{part}y
+            + \sum C^{desl}w
+            + \sum \text{folgas}
+            + \sum \text{residual TON}
+            \]
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Balanco de demanda</p>
+            <div class="equation-block">
+              \[
+              \sum G^{th}
+              + \sum G^{hy}
+              + \sum G^{ren}
+              + \sum INT^{in}
+              - \sum INT^{out}
+              + DEF
+              =
+              DEM + \sum Cons(QB)
+              \]
+            </div>
+          </article>
+          <article class="panel method-card">
+            <p class="mini-label">Renovaveis</p>
+            <div class="equation-block">
+              \[
+              0 \le G^{ren}_{a,t} \le GERPROG_{a,t}
+              \]
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Termicas</p>
+            <div class="equation-block">
+              \[
+              u_t - u_{t-1} = y_t - w_t
+              \qquad
+              y_t + w_t \le 1
+              \]
+              \[
+              Pmin\cdot u_t \le G^{th}_t \le Pmax\cdot u_t
+              \]
+            </div>
+            <p class="method-note">TON, TOFF e trajetorias termicas sao lidos em horas e convertidos para a malha interna.</p>
+          </article>
+          <article class="panel method-card">
+            <p class="mini-label">Hidraulicas</p>
+            <div class="equation-block">
+              \[
+              V_{t+1}=V_t+AFL_t-RET_t+\text{montantes}-Q_t-S_t-QD_t-QB^{jus}_t+QB^{mon}_t
+              \]
+            </div>
+            <p class="method-note">O balanço inclui cascata natural, desvio de agua, retirada para uso alternativo e elevatorias.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-block panel">
+          <p class="mini-label">Geracao hidraulica</p>
+          <div class="equation-block">
+            \[
+            \text{se } FPHA = 1:
+            \qquad
+            \sum G^{hy}_{h,t}
+            \le
+            Fcor_{h,k}\left(RHS_{h,k}+\alpha^V_{h,k}V_{h,t+1}+\alpha^Q_{h,k}q_{h,t}^{m3/s}+\alpha^{lat}_{h,k}q^{lat,m3/s}_{h,t}\right)
+            \]
+            \[
+            \text{se } FPHA = 0:
+            \qquad
+            \sum G^{hy}_{h,t} = ProdEsp_h \cdot q_{h,t}^{m3/s}
+            \]
+          </div>
+          <p class="method-note">Nos dois casos, a soma da geração da usina continua limitada pela soma dos `Pmax` das unidades.</p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="method-grid">
+          <article class="panel method-card">
+            <p class="mini-label">Limites operativos</p>
+            <p class="method-note">`OPER_REST_LIM` aceita `GER`, `VOL`, `TURB`, `VERT`, `DEFLU`, `QDES` e `QBOM`. Para variáveis hidráulicas de vazão, a entrada é em m3/s e a restrição interna é convertida para hm3 por período.</p>
+          </article>
+          <article class="panel method-card">
+            <p class="mini-label">Rede DC</p>
+            <p class="method-note">Com `rede = 1`, o modelo calcula PTDF, monitora fluxos por linha e adiciona cortes ou restrições completas conforme o modo de execução.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./site.js"></script>
+</body>
+</html>

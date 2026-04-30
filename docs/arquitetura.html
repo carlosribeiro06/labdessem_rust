@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arquitetura | LabDessem Rust</title>
+  <meta name="description" content="Arquitetura do workspace LabDessem Rust, conexao entre crates e fluxo de dados do estudo.">
+  <link rel="canonical" href="https://labdessem-rs.dev/arquitetura.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
+        <span class="brand-text">LabDessem Rust</span>
+      </a>
+      <nav class="nav">
+        <a href="./index.html">Inicio</a>
+        <a class="active" href="./arquitetura.html">Arquitetura</a>
+        <a href="./metodologia.html">Metodologia</a>
+        <a href="./execucao.html">Execucao</a>
+        <a href="./resultados.html">Resultados</a>
+      </nav>
+    </header>
+
+    <main class="page-main">
+      <section class="page-hero">
+        <div>
+          <p class="eyebrow">Arquitetura</p>
+          <h1>Como o workspace se organiza de ponta a ponta</h1>
+          <p>
+            Esta pagina mostra como os dados caminham do `study_config.json` ate os CSVs de
+            saida, passando por validacao de dominio, modelagem matematica, solver e simulacao.
+          </p>
+          <div class="page-actions">
+            <a class="button button-primary" href="./metodologia.html">Ver formulacao</a>
+            <a class="button button-secondary" href="./execucao.html">Ir para execucao</a>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="mini-label">Fluxo principal</p>
+          <pre>study_config.json
+   -> labdessem-io
+   -> labdessem-core
+   -> labdessem-model
+   -> labdessem-solver
+   -> labdessem-simulation
+   -> RESULTADOS/*.csv</pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="page-grid">
+          <article class="panel page-card">
+            <h3>labdessem-core</h3>
+            <p>Define entidades, identificadores fortes, horizonte, submercados, termicas, hidraulicas, renovaveis, elevatorias e validacoes de consistencia.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>labdessem-io</h3>
+            <p>Le o `study_config.json`, resolve flags de execucao e converte os arquivos `CAD/` e `OPER/` em estruturas de dominio prontas para validacao e uso no modelo.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>labdessem-model</h3>
+            <p>Cria indexacao, variaveis, funcao objetivo e restricoes. E aqui que entram demanda, commitment termico, balanco hidrico, FPHA, rede e limites operativos.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>labdessem-solver</h3>
+            <p>Traduz o modelo linear/MILP para o backend do `good_lp`, resolve e devolve valores primais, duais e status de otimizacao.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>labdessem-simulation</h3>
+            <p>Orquestra o processo inteiro: escolhe a estrategia de resolucao, adiciona cortes de rede quando necessario, chama o solver e grava os relatórios finais.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>labdessem-cli</h3>
+            <p>Executavel de linha de comando que dispara a leitura do estudo e a simulacao completa.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Conexoes</p>
+          <h2>O que muda quando voce altera uma parte do modelo</h2>
+        </div>
+        <div class="page-grid">
+          <article class="panel page-card">
+            <h3>Novo dado de entrada</h3>
+            <ul>
+              <li>Adicionar leitura no `labdessem-io`.</li>
+              <li>Levar o campo para `labdessem-core`.</li>
+              <li>Validar a coerencia do dado.</li>
+              <li>Usar o campo no `labdessem-model` e, se for o caso, na simulacao e nas saidas.</li>
+            </ul>
+          </article>
+          <article class="panel page-card">
+            <h3>Nova variavel de decisao</h3>
+            <ul>
+              <li>Criar a indexacao, se necessario.</li>
+              <li>Declarar a variavel em `variables.rs`.</li>
+              <li>Usar essa variavel nas restricoes e na funcao objetivo.</li>
+              <li>Coletar a solucao e exportar se quiser enxergar o valor no CSV.</li>
+            </ul>
+          </article>
+          <article class="panel page-card">
+            <h3>Nova restricao</h3>
+            <ul>
+              <li>Definir claramente o conjunto e a unidade fisica.</li>
+              <li>Implementar a restricao em `constraints.rs`.</li>
+              <li>Adicionar ao `ConstraintSet::for_system`.</li>
+              <li>Se houver dual relevante, registrar o nome para captura na simulacao.</li>
+            </ul>
+          </article>
+          <article class="panel page-card">
+            <h3>Novo arquivo de saida</h3>
+            <ul>
+              <li>Extrair as grandezas necessarias da solucao.</li>
+              <li>Criar um `write_*.csv` em `labdessem-simulation`.</li>
+              <li>Declarar cabecalho, descricoes de coluna e unidade correta.</li>
+              <li>Chamar a funcao na etapa final de escrita dos resultados.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

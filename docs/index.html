@@ -6,23 +6,17 @@
   <title>LabDessem Rust</title>
   <meta
     name="description"
-    content="Documentacao tecnica do LabDessem Rust: formulacao matematica, variaveis, unidades, restricoes, funcao objetivo, rede eletrica, FPHA, hidraulicas, termicas, renovaveis e usinas elevatorias."
+    content="Site tecnico do LabDessem Rust com navegacao por paginas para metodologia, arquitetura, execucao e resultados."
   >
   <link rel="canonical" href="https://labdessem-rs.dev/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="LabDessem Rust">
   <meta
     property="og:description"
-    content="Modelo de otimizacao em Rust para despacho hidrotermico com UC, FPHA, rede DC, renovaveis, elevatorias e relatorios CSV."
+    content="Modelo de otimizacao em Rust para despacho hidrotermico com UC termico, FPHA opcional, renovaveis, elevatorias e relatorios CSV."
   >
   <meta property="og:url" content="https://labdessem-rs.dev/">
   <meta property="og:site_name" content="LabDessem Rust">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="LabDessem Rust">
-  <meta
-    name="twitter:description"
-    content="Formulacao, variaveis, unidades, restricoes e estrategia de resolucao do LabDessem Rust."
-  >
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -30,18 +24,6 @@
     rel="stylesheet"
   >
   <link rel="stylesheet" href="./styles.css">
-  <script>
-    window.MathJax = {
-      tex: {
-        inlineMath: [['\\(', '\\)']],
-        displayMath: [['\\[', '\\]']]
-      },
-      svg: {
-        fontCache: 'global'
-      }
-    };
-  </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
   <div class="transmission-background" aria-hidden="true">
@@ -60,46 +42,8 @@
           <feGaussianBlur stdDeviation="6"></feGaussianBlur>
         </filter>
       </defs>
-
       <ellipse cx="260" cy="760" rx="320" ry="120" fill="rgba(104, 184, 255, 0.06)"></ellipse>
       <ellipse cx="1340" cy="760" rx="320" ry="120" fill="rgba(85, 230, 178, 0.05)"></ellipse>
-
-      <g class="tower tower-left">
-        <line class="main-leg" x1="270" y1="132" x2="196" y2="726"></line>
-        <line class="main-leg" x1="270" y1="132" x2="344" y2="726"></line>
-        <line class="spine" x1="270" y1="132" x2="270" y2="726"></line>
-        <line class="crossarm" x1="168" y1="246" x2="372" y2="246"></line>
-        <line class="crossarm" x1="146" y1="352" x2="394" y2="352"></line>
-        <line class="crossarm" x1="124" y1="482" x2="416" y2="482"></line>
-        <line class="brace" x1="270" y1="176" x2="198" y2="246"></line>
-        <line class="brace" x1="270" y1="176" x2="342" y2="246"></line>
-        <line class="brace" x1="270" y1="270" x2="182" y2="352"></line>
-        <line class="brace" x1="270" y1="270" x2="358" y2="352"></line>
-        <line class="brace" x1="270" y1="390" x2="164" y2="482"></line>
-        <line class="brace" x1="270" y1="390" x2="376" y2="482"></line>
-        <line class="brace" x1="196" y1="726" x2="270" y2="614"></line>
-        <line class="brace" x1="344" y1="726" x2="270" y2="614"></line>
-        <line class="brace" x1="196" y1="726" x2="344" y2="726"></line>
-      </g>
-
-      <g class="tower tower-right">
-        <line class="main-leg" x1="1330" y1="132" x2="1256" y2="726"></line>
-        <line class="main-leg" x1="1330" y1="132" x2="1404" y2="726"></line>
-        <line class="spine" x1="1330" y1="132" x2="1330" y2="726"></line>
-        <line class="crossarm" x1="1228" y1="246" x2="1432" y2="246"></line>
-        <line class="crossarm" x1="1206" y1="352" x2="1454" y2="352"></line>
-        <line class="crossarm" x1="1184" y1="482" x2="1476" y2="482"></line>
-        <line class="brace" x1="1330" y1="176" x2="1258" y2="246"></line>
-        <line class="brace" x1="1330" y1="176" x2="1402" y2="246"></line>
-        <line class="brace" x1="1330" y1="270" x2="1242" y2="352"></line>
-        <line class="brace" x1="1330" y1="270" x2="1418" y2="352"></line>
-        <line class="brace" x1="1330" y1="390" x2="1224" y2="482"></line>
-        <line class="brace" x1="1330" y1="390" x2="1436" y2="482"></line>
-        <line class="brace" x1="1256" y1="726" x2="1330" y2="614"></line>
-        <line class="brace" x1="1404" y1="726" x2="1330" y2="614"></line>
-        <line class="brace" x1="1256" y1="726" x2="1404" y2="726"></line>
-      </g>
-
       <path class="wire" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
       <path class="wire" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
       <path class="wire" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
@@ -114,16 +58,16 @@
 
   <div class="site-shell">
     <header class="topbar">
-      <a class="brand" href="#top">
-        <span class="brand-mark">L</span>
+      <a class="brand" href="./index.html">
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
         <span class="brand-text">LabDessem Rust</span>
       </a>
       <nav class="nav">
-        <a href="#architecture">Arquitetura</a>
-        <a href="#methodology">Metodologia</a>
-        <a href="#workflow">Execucao</a>
-        <a href="#results">Resultados</a>
-        <a href="#run">Rodar</a>
+        <a class="active" href="./index.html">Inicio</a>
+        <a href="./arquitetura.html">Arquitetura</a>
+        <a href="./metodologia.html">Metodologia</a>
+        <a href="./execucao.html">Execucao</a>
+        <a href="./resultados.html">Resultados</a>
       </nav>
     </header>
 
@@ -132,18 +76,18 @@
         <div class="hero-copy">
           <p class="eyebrow">Despacho hidrotermico em Rust</p>
           <h1>
-            Um modelo de otimizacao para
-            <span>UC termico, hidraulicas com FPHA ou produtibilidade, rede DC, renovaveis e bombeamento</span>
+            Navegue pelo modelo com
+            <span>paginas tecnicas dedicadas</span>
           </h1>
           <p class="hero-text">
-            O LabDessem Rust e um workspace de desenvolvimento para estudos de despacho
-            energetico com dados em CSV, formulacao LP/MILP, processo iterativo de cortes de rede,
-            limites operativos, relatorios de inviabilidade e saidas tecnicas rastreaveis.
+            O site do LabDessem Rust agora foi organizado como documentacao navegavel:
+            arquitetura do workspace, formulacao matematica, modos de execucao, relatorios
+            CSV e orientacoes de uso em paginas separadas.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#methodology">Ver formulacao</a>
-            <a class="button button-secondary" href="#workflow">Estratégias de solucao</a>
-            <a class="button button-secondary" href="#results">Arquivos de saida</a>
+            <a class="button button-primary" href="./metodologia.html">Abrir metodologia</a>
+            <a class="button button-secondary" href="./execucao.html">Ver execucao</a>
+            <a class="button button-secondary" href="./resultados.html">Explorar saidas</a>
             <a
               class="button button-github"
               href="https://github.com/carlosribeiro06/labdessem_rust"
@@ -154,11 +98,29 @@
             </a>
           </div>
           <ul class="hero-pills">
-            <li>LP / MILP / LP-Fixed / LP-Calc-CMO</li>
-            <li>FPHA por cortes ou produtibilidade especifica</li>
-            <li>PTDF e cortes de fluxo</li>
-            <li>CSV + JSON</li>
+            <li>UC termico</li>
+            <li>FPHA opcional</li>
+            <li>Rede DC opcional</li>
+            <li>Renovaveis agregadas</li>
           </ul>
+          <div class="hero-links">
+            <a class="hero-link-card" href="./arquitetura.html">
+              <strong>Arquitetura do workspace</strong>
+              <span>Veja como core, io, model, solver, simulation e cli se conectam.</span>
+            </a>
+            <a class="hero-link-card" href="./metodologia.html">
+              <strong>Formulacao matematica</strong>
+              <span>Consulte variaveis, unidades, funcao objetivo e restricoes do modelo atual.</span>
+            </a>
+            <a class="hero-link-card" href="./execucao.html">
+              <strong>Modos de execucao</strong>
+              <span>Entenda o fluxo LP, MILP, LP-FIXED, LP-CALC-CMO e o MILP unico.</span>
+            </a>
+            <a class="hero-link-card" href="./resultados.html">
+              <strong>Arquivos de saida</strong>
+              <span>Descubra o que cada CSV registra e como interpretar os relatorios.</span>
+            </a>
+          </div>
         </div>
 
         <div class="hero-panel">
@@ -172,10 +134,8 @@
               <p><span class="prompt">$</span> cargo run -p labdessem-cli</p>
               <p>Lendo configuracao do estudo...</p>
               <p>Opcao de execucao: LP -&gt; MILP -&gt; LP-FIXED -&gt; LP-CALC-CMO</p>
-              <p>Lendo dados de entrada...</p>
-              <p class="accent">MILP #01 | objective = ... | solve time = ... s</p>
-              <p>Gravando arquivos CSV de saida...</p>
-              <p>CSV output directory: examples/caso/RESULTADOS</p>
+              <p>FPHA: habilitado ou substituido por produtibilidade</p>
+              <p class="accent">Resultado final: CSVs em RESULTADOS/</p>
             </div>
           </div>
         </div>
@@ -183,16 +143,16 @@
 
       <section class="metrics">
         <article class="metric-card">
+          <span class="metric-value">5</span>
+          <span class="metric-label">Paginas principais</span>
+        </article>
+        <article class="metric-card">
           <span class="metric-value">2</span>
-          <span class="metric-label">Opcoes de execucao</span>
+          <span class="metric-label">Modos de execucao</span>
         </article>
         <article class="metric-card">
-          <span class="metric-value">4</span>
-          <span class="metric-label">Etapas no fluxo iterativo</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-value">6</span>
-          <span class="metric-label">Blocos fisicos modelados</span>
+          <span class="metric-value">FPHA</span>
+          <span class="metric-label">Opcional por flag</span>
         </article>
         <article class="metric-card">
           <span class="metric-value">CSV</span>
@@ -200,659 +160,38 @@
         </article>
       </section>
 
-      <section id="architecture" class="section">
-        <div class="section-heading">
-          <p class="eyebrow">Arquitetura</p>
-          <h2>Separacao clara entre dados, modelo, solver e simulacao</h2>
-          <p>
-            O workspace foi dividido em crates para manter a formulacao, a leitura de dados, a
-            validacao, o solver e a exportacao de resultados desacoplados.
-          </p>
-        </div>
-
-        <div class="architecture-grid">
-          <article class="stack-card">
-            <h3>labdessem-core</h3>
-            <p>Entidades de dominio: submercados, barras, linhas, termicas, hidraulicas, renovaveis, elevatorias, limites e validacoes.</p>
-          </article>
-          <article class="stack-card">
-            <h3>labdessem-io</h3>
-            <p>Leitura do <code>study_config.json</code> e dos arquivos CSV das pastas <code>CAD</code> e <code>OPER</code>.</p>
-          </article>
-          <article class="stack-card">
-            <h3>labdessem-model</h3>
-            <p>Variaveis, indexacao, funcao objetivo e restricoes lineares do LP/MILP.</p>
-          </article>
-          <article class="stack-card">
-            <h3>labdessem-solver</h3>
-            <p>Integracao com o backend de otimizacao e captura de primal, dual e status.</p>
-          </article>
-          <article class="stack-card">
-            <h3>labdessem-simulation</h3>
-            <p>Orquestracao das etapas, cortes de rede, folgas de inviabilidade, calculo de fluxos e relatorios.</p>
-          </article>
-          <article class="stack-card">
-            <h3>labdessem-cli</h3>
-            <p>Executavel de linha de comando para carregar o caso, resolver e gravar os CSVs em <code>RESULTADOS</code>.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="methodology" class="section section-methodology">
-        <div class="section-heading">
-          <p class="eyebrow">Metodologia</p>
-          <h2>Formulacao matematica implementada</h2>
-          <p>
-            Esta secao documenta o modelo atual: unidades, variaveis, funcao objetivo, restricoes
-            fisicas, rede eletrica, limites operativos, FPHA, bombeamento, desvio, inviabilidades e
-            calculo de CMO.
-          </p>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Conjuntos e indices</p>
-            <ul class="method-list">
-              <li>\(t \in T\): periodos internos do horizonte.</li>
-              <li>\(\tau \in T^{orig}\): periodos originais informados pelo usuario.</li>
-              <li>\(s,r \in S\): submercados.</li>
-              <li>\(b \in B\): barras eletricas, quando <code>rede = 1</code>.</li>
-              <li>\(l \in L\): linhas de transmissao.</li>
-              <li>\(p \in P^{th}\), \(i \in U_p^{th}\): usinas e unidades termicas.</li>
-              <li>\(h \in H\), \(g \in G_h\), \(j \in U_{h,g}^{hy}\): usinas, conjuntos e unidades hidraulicas.</li>
-              <li>\(a \in A\): plantas renovaveis genericas.</li>
-              <li>\(e \in E\): usinas elevatorias.</li>
-            </ul>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">Escala temporal</p>
-            <ul class="method-list">
-              <li><code>Ton</code>, <code>Toff</code>, <code>Tinic</code> e <code>TRampaInic</code> das termicas sao lidos em horas.</li>
-              <li>O modelo converte horas para periodos internos por \(\lceil horas / \Delta t \rceil\).</li>
-              <li><code>Tinic</code> e tempo no estado atual e entra nas restricoes termicas de permanencia minima.</li>
-              <li><code>TRampaInic</code> define a parcela ja percorrida da trajetoria inicial termica quando <code>RupInic</code> ou <code>RdownInic</code> estiver ativo.</li>
-              <li>Vazoes em <code>m3/s</code> sao convertidas para <code>hm3</code> por \(hm3=q\,\Delta t\,0.0036\).</li>
-            </ul>
-          </article>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Unidades principais</p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Grandeza</th>
-                  <th>Entrada</th>
-                  <th>Internamente</th>
-                  <th>Observacao</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td>Geracao termica/hidraulica/renovavel</td><td>MW</td><td>MW</td><td>Custos variaveis usam R$/MWh vezes \(\Delta t\).</td></tr>
-                <tr><td>Demanda</td><td>MW medio</td><td>MW</td><td>Balanceada por submercado.</td></tr>
-                <tr><td>Volume de reservatorio</td><td>hm3</td><td>hm3</td><td><code>VOL</code> em limites operativos e volume util.</td></tr>
-                <tr><td>Afluencia e retirada</td><td>m3/s</td><td>hm3</td><td>Retirada pode ser negativa.</td></tr>
-                <tr><td>Turbinamento maximo</td><td>m3/s</td><td>hm3/periodo</td><td>Saida mostra hm3 e m3/s.</td></tr>
-                <tr><td>Turbinamento, vertimento, defluencia, desvio e bombeamento em limites</td><td>m3/s</td><td>hm3/periodo</td><td><code>TURB</code>, <code>VERT</code>, <code>DEFLU</code>, <code>QDES</code>, <code>QBOM</code>.</td></tr>
-                <tr><td>Penalidade de vertimento/turbinamento</td><td>R$/hm3</td><td>R$/hm3</td><td>Entra direto na funcao objetivo.</td></tr>
-                <tr><td>CVU</td><td>R$/MWh</td><td>R$/MWh</td><td>Multiplicado por geracao e duracao.</td></tr>
-                <tr><td>PiDemanda</td><td>-</td><td>R$/MWh</td><td>Dual da demanda no LP-CALC-CMO, normalizado pela duracao.</td></tr>
-                <tr><td>PiBalHidr</td><td>-</td><td>R$/hm3</td><td>Dual do balanco hidrico no LP-CALC-CMO.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Variaveis de decisao</p>
-          <div class="method-columns">
-            <div>
-              <h3>Termicas</h3>
-              <ul class="method-list">
-                <li>\(G^{th}_{p,i,t}\) [MW]: geracao da unidade termica.</li>
-                <li>\(u^{th}_{p,i,t}\): compromisso ligado/desligado.</li>
-                <li>\(y^{th}_{p,i,t}\): acionamento, limitado em \(0 \le y \le 1\).</li>
-                <li>\(w^{th}_{p,i,t}\): desligamento binario.</li>
-              </ul>
-            </div>
-            <div>
-              <h3>Hidraulicas</h3>
-              <ul class="method-list">
-                <li>\(G^{hy}_{h,g,j,t}\) [MW]: geracao da unidade.</li>
-                <li>\(Q_{h,g,j,t}\) [hm3]: turbinamento da unidade.</li>
-                <li>\(V_{h,t}\) [hm3]: volume absoluto no reservatorio.</li>
-                <li>\(S_{h,t}\) [hm3]: vertimento.</li>
-                <li>\(QD_{h,t}\) [hm3]: vazao desviada.</li>
-                <li>\(u^{hy}_{h,g,j,t}\): compromisso hidraulico binario, quando <code>UCH = 1</code>.</li>
-              </ul>
-            </div>
-            <div>
-              <h3>Sistema</h3>
-              <ul class="method-list">
-                <li>\(G^{ren}_{a,t}\) [MW]: geracao renovavel.</li>
-                <li>\(QB_{e,t}\) [hm3]: bombeamento da elevatoria.</li>
-                <li>\(INT_{s,r,t}\) [MW]: intercambio direcionado.</li>
-                <li>\(DEF_{s,t}\) [MW]: deficit de atendimento.</li>
-                <li>\(\sigma^{flow}\): folga de fluxo.</li>
-                <li>\(\sigma^{lim}\): folga de limite operativo.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Funcao objetivo</p>
-          <div class="equation-block">
-            \[
-            \min Z =
-            \sum_{t,p,i} CVU_{p,i}\,\Delta t\,G^{th}_{p,i,t}
-            + \sum_{t,s} CDEF_s\,\Delta t\,DEF_{s,t}
-            + \sum_{t,s,r} CINT_{s,r}\,\Delta t\,INT_{s,r,t}
-            \]
-            \[
-            + \sum_{t,h} C^{vert}_{h} S_{h,t}
-            + \sum_{t,h,g,j} C^{turb}_{h} Q_{h,g,j,t}
-            + \sum_{t,p,i} \left(C^{part}_{p,i} y^{th}_{p,i,t} + C^{desl}_{p,i} w^{th}_{p,i,t}\right)
-            \]
-            \[
-            + \sum \text{penalidades de folga}
-            + \sum \text{custo residual TON}
-            \]
-          </div>
-          <p class="method-note">
-            Quando <code>TON_Residual = 1</code>, cada partida termica recebe um custo adicional
-            pelo tempo/energia que ficaria fora do horizonte. O coeficiente usa
-            \(\max(CVU_i - \pi_{s(i)},0)\), a duracao do periodo, a trajetoria remanescente de
-            acionamento/desligamento e o bloco minimo ligado em \(Pmin\).
-          </p>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Balanco de demanda</p>
-            <div class="equation-block">
-              \[
-              \sum_{p,i \in s} G^{th}_{p,i,t}
-              + \sum_{h,g,j \in s} G^{hy}_{h,g,j,t}
-              + \sum_{a \in s} G^{ren}_{a,t}
-              + \sum_r INT_{r,s,t}
-              - \sum_r INT_{s,r,t}
-              + DEF_{s,t}
-              =
-              DEM_{s,t} + \sum_{e \in s} Cons_e(QB_{e,t})
-              \]
-            </div>
-            <p class="method-note">
-              A elevatoria consome energia. Como \(QB\) e armazenado em hm3, o consumo usa a
-              conversao para m3/s e o consumo especifico em MW/(m3/s).
-            </p>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">Renovaveis</p>
-            <div class="equation-block">
-              \[
-              0 \le G^{ren}_{a,t} \le GERPROG_{a,t}
-              \]
-            </div>
-            <p class="method-note">
-              Renovaveis sao modeladas genericamente. Nao ha mais saidas separadas de eolica e
-              solar; o resultado consolidado e <code>resultado_renovaveis.csv</code>.
-            </p>
-          </article>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Transicao termica</p>
-            <div class="equation-block">
-              \[
-              u^{th}_{i,t} - u^{th}_{i,t-1} = y^{th}_{i,t} - w^{th}_{i,t}
-              \qquad
-              y^{th}_{i,t} + w^{th}_{i,t} \le 1
-              \]
-              \[
-              0 \le y^{th}_{i,t} \le 1
-              \qquad
-              w^{th}_{i,t} \in \{0,1\}
-              \]
-            </div>
-            <p class="method-note">
-              Para \(t=1\), \(u_{i,t-1}\) e substituido por <code>StatusInic</code>.
-            </p>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">TON / TOFF termico</p>
-            <div class="equation-block">
-              \[
-              \sum_{k=t}^{t+\widehat{TON}_{i,t}-1} u^{th}_{i,k}
-              \ge
-              \widehat{TON}_{i,t}(u^{th}_{i,t}-u^{th}_{i,t-1})
-              \]
-              \[
-              \sum_{k=t}^{t+\widehat{TOFF}_{i,t}-1}(1-u^{th}_{i,k})
-              \ge
-              -\widehat{TOFF}_{i,t}(u^{th}_{i,t}-u^{th}_{i,t-1})
-              \]
-            </div>
-            <p class="method-note">
-              <code>Tinic</code> e usado para calcular o tempo remanescente da condicao inicial.
-            </p>
-          </article>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Rampas termicas com trajetorias por unidade</p>
-          <div class="equation-block">
-            \[
-            Y_{i,t} = \sum_{k=1}^{K_i^{up}} y^{th}_{i,t-k+1},
-            \qquad
-            TRUP_{i,t} = \sum_{k=1}^{K_i^{up}} A_{i,k}y^{th}_{i,t-k+1}
-            \]
-            \[
-            W_{i,t} = \sum_{k=1}^{K_i^{down}} w^{th}_{i,t+k},
-            \qquad
-            TRDN_{i,t} = \sum_{k=1}^{K_i^{down}} D_{i,K_i^{down}-k+1}w^{th}_{i,t+k}
-            \]
-            \[
-            G^{th}_{i,t} \ge
-            Pmin_i(u^{th}_{i,t}-Y_{i,t}-W_{i,t}) + TRUP_{i,t} + TRDN_{i,t}
-            \]
-            \[
-            G^{th}_{i,t} \le
-            Pmax_i(u^{th}_{i,t}-Y_{i,t}-W_{i,t}) + TRUP_{i,t} + TRDN_{i,t}
-            \]
-          </div>
-          <p class="method-note">
-            As trajetorias sao lidas de <code>CAD_RAMPAS_TERMICAS</code> por codigo, nome, unidade,
-            tipo de trajetoria (<code>A</code> ou <code>D</code>), passo e indice. Se
-            <code>RupInic</code> ou <code>RdownInic</code> estiver ativo, <code>TRampaInic</code>
-            define a parcela ja percorrida da trajetoria inicial.
-          </p>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Canalizacao hidraulica por compromisso</p>
-            <div class="equation-block">
-              \[
-              G^{hy}_{j,t} \le Pmax_j u^{hy}_{j,t}
-              \qquad
-              G^{hy}_{j,t} \ge Pmin_j u^{hy}_{j,t}
-              \]
-            </div>
-            <p class="method-note">
-              Se <code>UCH = 0</code>, as variaveis e restricoes de compromisso hidraulico nao sao
-              ativadas.
-            </p>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">Turbinamento maximo por unidade</p>
-            <div class="equation-block">
-              \[
-              0 \le Q_{h,g,j,t} \le QMAX_{h,g,j}
-              \]
-            </div>
-            <p class="method-note">
-              <code>MaxTurb</code> e lido em <code>m3/s</code> e convertido internamente para
-              <code>hm3</code> por periodo.
-            </p>
-          </article>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Balanco hidrico com cascata, desvio, retirada e bombeamento</p>
-          <div class="equation-block">
-            \[
-            V_{h,t+1} =
-            V_{h,t}
-            + AFL_{h,t}
-            - RET_{h,t}
-            + \sum_{m \in Up(h)} \left(\sum_j Q_{m,j,t}+S_{m,t}\right)
-            + \sum_{m \in DvUp(h)} QD_{m,t}
-            \]
-            \[
-            - \sum_j Q_{h,j,t}
-            - S_{h,t}
-            - QD_{h,t}
-            - \sum_{e: jus(e)=h} QB_{e,t}
-            + \sum_{e: mon(e)=h} QB_{e,t}
-            \]
-          </div>
-          <p class="method-note">
-            <code>Jusante</code> e <code>Desvio</code> sao fornecidos por codigo de usina. Uma
-            usina com desvio pode turbinar, verter e desviar; a usina de destino recebe a parcela
-            desviada como montante. Bombeamento retira agua da usina de jusante da elevatoria e
-            injeta na usina de montante.
-          </p>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Reservatorio e volume util</p>
-            <div class="equation-block">
-              \[
-              Vmin_h \le V_{h,t} \le Vmax_h
-              \qquad
-              VU_{h,t}=V_{h,t}-Vmin_h
-              \]
-            </div>
-            <p class="method-note">
-              Em <code>OPER_REST_LIM</code>, a variavel <code>VOL</code> e informada como volume
-              util em hm3. O modelo soma internamente \(Vmin\) antes de aplicar o limite em
-              \(V_{h,t}\).
-            </p>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">Elevatorias</p>
-            <div class="equation-block">
-              \[
-              QBmin_e \le QB_{e,t} \le QBmax_e
-              \qquad
-              Consumo_{e,t}=c^{bomb}_e \cdot q^{m3/s}_{e,t}
-              \]
-            </div>
-            <p class="method-note">
-              <code>CAD_USIE</code> define codigo, nome, submercado, usina hidraulica de jusante,
-              usina hidraulica de montante, limites de bombeamento em m3/s e consumo especifico.
-            </p>
-          </article>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Formulacao de geracao hidraulica</p>
-          <div class="equation-block">
-            \[
-            \text{se } FPHA = 1:
-            \qquad
-            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
-            \le
-            Fcor_{h,k}
-            \left(
-            RHS_{h,k}
-            + \alpha^V_{h,k} V_{h,t+1}
-            + \alpha^Q_{h,k} q^{m3/s}_{h,t}
-            + \alpha^{lat}_{h,k} q^{lat,m3/s}_{h,t}
-            \right)
-            \]
-            \[
-            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
-            \le \sum_{g,j \in h} Pmax_{h,g,j}
-            \qquad
-            G^{hy}_{h,g,j,t} \le \rho^{max}_h Q_{h,g,j,t}
-            \]
-            \[
-            \text{se } FPHA = 0:
-            \qquad
-            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
-            =
-            ProdEsp_h \, q^{m3/s}_{h,t}
-            \qquad
-            \sum_{g,j \in h} G^{hy}_{h,g,j,t}
-            \le \sum_{g,j \in h} Pmax_{h,g,j}
-            \]
-          </div>
-          <p class="method-note">
-            Com <code>FPHA = 1</code>, o modelo le <code>OPER_FPHA</code> e usa cortes por usina,
-            volume final, turbinamento e vertimento, alem do acoplamento superior que impede
-            geracao positiva sem turbinamento. Com <code>FPHA = 0</code>, o modelo ignora
-            <code>OPER_FPHA</code> e passa a usar a produtibilidade especifica da usina para ligar
-            geracao agregada e turbinamento agregado. A coluna
-            <code>GeracaoMaxPontoMW</code> na saida e calculada por usina a partir do volume do
-            ponto de operacao, da formulacao hidraulica ativa e da soma dos <code>Pmax</code>.
-          </p>
-        </div>
-
-        <div class="method-grid">
-          <article class="panel method-card">
-            <p class="mini-label">Limites operativos do usuario</p>
-            <div class="equation-block">
-              \[
-              Linf \le X_{u,var,t} \le Lsup
-              \]
-            </div>
-            <p class="method-note">
-              <code>OPER_REST_LIM</code> aceita <code>GER</code> [MW],
-              <code>VOL</code> [hm3 util], <code>TURB</code>, <code>VERT</code>,
-              <code>DEFLU</code>, <code>QDES</code> e <code>QBOM</code> [m3/s]. O simbolo
-              <code>-</code> em <code>Linf</code> ou <code>Lsup</code> indica que aquele lado do
-              limite nao deve ser adicionado.
-            </p>
-          </article>
-
-          <article class="panel method-card">
-            <p class="mini-label">Expressoes limitadas</p>
-            <ul class="method-list">
-              <li><code>GER</code>: soma das unidades termicas ou hidraulicas da usina.</li>
-              <li><code>TURB</code>: soma do turbinamento das unidades hidraulicas.</li>
-              <li><code>VERT</code>: vertimento da usina hidraulica.</li>
-              <li><code>DEFLU</code>: <code>TURB + VERT</code>.</li>
-              <li><code>QDES</code>: vazao desviada por uma hidraulica.</li>
-              <li><code>QBOM</code>: bombeamento de uma usina elevatoria.</li>
-            </ul>
-          </article>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Rede eletrica DC e PTDF</p>
-          <p class="method-note">
-            Quando <code>rede = 1</code>, o modelo usa uma barra slack, remove essa barra das
-            matrizes e monta a PTDF na mesma forma usada na implementacao Julia.
-          </p>
-          <div class="equation-block">
-            \[
-            B_{red} = A^\top B_{diag} A
-            \qquad
-            B_{diag} = diag(1/x_l)
-            \qquad
-            \beta = B_{diag} A B_{red}^{-1}
-            \]
-            \[
-            F_t = \beta (G_t - P_t)
-            \qquad
-            -Fmax_l \le F_{l,t} \le Fmax_l
-            \]
-          </div>
-          <p class="method-note">
-            No fluxo iterativo, apenas pares linha-periodo violados viram cortes. Na opcao de
-            execucao 2, se a rede estiver ativa, todas as restricoes de fluxo sao adicionadas ao
-            MILP unico desde o inicio.
-          </p>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Folgas de inviabilidade</p>
-          <div class="equation-block">
-            \[
-            F_{l,t} \le Fmax_l + \sigma^{flow,+}_{l,t}
-            \qquad
-            F_{l,t} \ge -Fmax_l - \sigma^{flow,-}_{l,t}
-            \]
-            \[
-            X_{u,var,t} \le Lsup + \sigma^{lim,+}_{u,var,t}
-            \qquad
-            X_{u,var,t} \ge Linf - \sigma^{lim,-}_{u,var,t}
-            \]
-          </div>
-          <p class="method-note">
-            Folgas sao adicionadas apenas quando necessario para diagnosticar inviabilidade de
-            rede ou de limite. Os arquivos <code>resultado_inviabilidade_rede</code> e
-            <code>resultado_inviabilidade_lim</code> registram periodo, etapa, iteracao e violacao.
-          </p>
-        </div>
-
-        <div class="method-block panel">
-          <p class="mini-label">Duais e CMO</p>
-          <p class="method-note">
-            Ao final do processo iterativo da opcao 1, o modelo resolve um <code>LP-CALC-CMO</code>
-            com inteiros fixos. O arquivo <code>resultado_cmosist</code> exporta
-            <code>PiDemanda</code>, dual da restricao de atendimento a demanda em R$/MWh. O arquivo
-            de hidraulicas exporta <code>PiBalHidr</code>, dual do balanco hidrico em R$/hm3.
-          </p>
-        </div>
-      </section>
-
-      <section id="workflow" class="section section-highlight">
-        <div class="section-heading">
-          <p class="eyebrow">Execucao</p>
-          <h2>Duas estrategias controladas por <code>opcao_execucao</code></h2>
-          <p>
-            A configuracao decide se o estudo usa o processo iterativo completo ou apenas um MILP.
-          </p>
-        </div>
-
-        <div class="workflow-grid">
-          <article class="workflow-step">
-            <span>01</span>
-            <h3>Opcao 1 - LP</h3>
-            <p>Resolve o LP relaxado, calcula fluxos DC e adiciona cortes para violacoes de rede.</p>
-          </article>
-          <article class="workflow-step">
-            <span>02</span>
-            <h3>Opcao 1 - MILP</h3>
-            <p>Resolve o MILP com os cortes acumulados e as variaveis inteiras habilitadas por UCT/UCH.</p>
-          </article>
-          <article class="workflow-step">
-            <span>03</span>
-            <h3>Opcao 1 - LP-FIXED</h3>
-            <p>Fixa o compromisso do MILP e refina a solucao enquanto houver novos cortes de rede.</p>
-          </article>
-          <article class="workflow-step">
-            <span>04</span>
-            <h3>Opcao 1 - LP-CALC-CMO</h3>
-            <p>Resolve um LP final com inteiros fixos para recuperar duais de demanda e balanco hidrico.</p>
-          </article>
-          <article class="workflow-step">
-            <span>05</span>
-            <h3>Opcao 2 - MILP unico</h3>
-            <p>Resolve apenas um MILP. Com rede ativa, todas as restricoes de fluxo entram diretamente.</p>
-          </article>
-          <article class="workflow-step">
-            <span>06</span>
-            <h3>Saidas</h3>
-            <p>Gera CSVs de operacao, processo, limites, rede, inviabilidades, CMO e relatorios por tecnologia.</p>
-          </article>
-        </div>
-      </section>
-
       <section class="section">
         <div class="section-heading">
-          <p class="eyebrow">Escopo</p>
-          <h2>Blocos fisicos e operativos modelados</h2>
+          <p class="eyebrow">Mapa rapido</p>
+          <h2>Entre direto na parte que voce precisa</h2>
+          <p>
+            A navegação foi desenhada para consulta rápida. Em vez de procurar tudo em uma página
+            única, cada bloco do modelo ganhou um destino próprio.
+          </p>
         </div>
 
         <div class="scope-grid">
           <article class="scope-card">
-            <h3>Termicas</h3>
-            <p>Unidades com CVU, Pmin/Pmax, TON/TOFF, rampas por unidade, partida, parada e custo residual.</p>
+            <h3>Arquitetura</h3>
+            <p>Crates, fluxo de leitura, montagem do modelo, solver e exportacao.</p>
+            <a class="button button-secondary" href="./arquitetura.html">Abrir pagina</a>
           </article>
           <article class="scope-card">
-            <h3>Hidraulicas</h3>
-            <p>Reservatorios, cascatas, FPHA, conjuntos, unidades, volume util, turbinamento, vertimento e desvio.</p>
+            <h3>Metodologia</h3>
+            <p>Objetivo, demanda, termicas, hidraulicas, renovaveis, rede e limites.</p>
+            <a class="button button-secondary" href="./metodologia.html">Abrir pagina</a>
           </article>
           <article class="scope-card">
-            <h3>Elevatorias</h3>
-            <p>Bombeiam agua de jusante para montante, consomem energia e alteram o balanco hidrico.</p>
+            <h3>Execucao</h3>
+            <p>Flags do estudo, modos de resolucao, JSON de configuracao e comandos.</p>
+            <a class="button button-secondary" href="./execucao.html">Abrir pagina</a>
           </article>
           <article class="scope-card">
-            <h3>Rede</h3>
-            <p>PTDF, limites de linha, cortes iterativos, folgas e relatorios de fluxo quando a rede esta ativa.</p>
+            <h3>Resultados</h3>
+            <p>Arquivos `RESULTADOS/`, duais, inviabilidades e saidas por tecnologia.</p>
+            <a class="button button-secondary" href="./resultados.html">Abrir pagina</a>
           </article>
         </div>
-      </section>
-
-      <section id="results" class="section">
-        <div class="section-heading">
-          <p class="eyebrow">Resultados</p>
-          <h2>Arquivos CSV gerados em <code>RESULTADOS</code></h2>
-          <p>
-            Cada arquivo recebe cabecalho institucional, descricao de colunas e dados separados por
-            ponto e virgula.
-          </p>
-        </div>
-
-        <div class="results-layout">
-          <div class="panel result-list">
-            <ul>
-              <li><strong>resultado_hidreletricas:</strong> volume, geracao, Pmax, geracao maxima no ponto, status, turbinamento, vertimento, desvio, afluencia, retirada, bombeamento, montante e PiBalHidr.</li>
-              <li><strong>resultado_termicas:</strong> geracao, estado, partidas/paradas, CVU, residencia, custo residual e tempo residual quando habilitado.</li>
-              <li><strong>resultado_renovaveis:</strong> geracao renovavel consolidada e disponibilidade.</li>
-              <li><strong>resultado_elevatorias:</strong> periodo, codigo, nome, submercado, QBOM min/max, bombeamento e consumo.</li>
-              <li><strong>resultado_cmosist:</strong> periodo, submercado e PiDemanda em R$/MWh.</li>
-              <li><strong>resultado_rede:</strong> fluxos por linha, limite e violacao, quando <code>rede = 1</code>.</li>
-              <li><strong>resultado_linhas_adicionadas:</strong> linhas que entraram como cortes/restricoes de rede.</li>
-              <li><strong>resultado_rest_lim:</strong> limites operativos expandidos por periodo.</li>
-              <li><strong>resultado_inviabilidade_rede:</strong> violacoes diagnosticadas com folga de rede.</li>
-              <li><strong>resultado_inviabilidade_lim:</strong> violacoes diagnosticadas com folga de limites operativos.</li>
-              <li><strong>resultado_processo_iter:</strong> etapa, iteracao, numero de variaveis, restricoes, objetivo, status e tempo.</li>
-            </ul>
-          </div>
-          <div class="panel result-file">
-            <p class="mini-label">Exemplo</p>
-            <pre>RESULTADOS/
-|-- resultado_hidreletricas.csv
-|-- resultado_termicas.csv
-|-- resultado_renovaveis.csv
-|-- resultado_elevatorias.csv
-|-- resultado_cmosist.csv
-|-- resultado_processo_iter.csv
-|-- resultado_rest_lim.csv
-|-- resultado_inviabilidade_lim.csv
-|-- resultado_rede.csv
-|-- resultado_linhas_adicionadas.csv
-`-- resultado_inviabilidade_rede.csv</pre>
-          </div>
-        </div>
-      </section>
-
-      <section id="run" class="section section-run">
-        <div class="section-heading">
-          <p class="eyebrow">Rodar</p>
-          <h2>Execucao por configuracao JSON</h2>
-          <p>
-            O CLI le o caminho do caso, flags do modelo e estrategia de resolucao a partir do
-            <code>study_config.json</code>.
-          </p>
-        </div>
-
-        <div class="run-grid">
-          <div class="panel code-panel">
-            <p class="mini-label">Execucao padrao</p>
-            <pre><code>cargo run -p labdessem-cli</code></pre>
-          </div>
-          <div class="panel code-panel">
-            <p class="mini-label">Configuracao explicita</p>
-            <pre><code>cargo run -p labdessem-cli -- crates/labdessem-io/study_config.json</code></pre>
-          </div>
-          <div class="panel code-panel wide">
-            <p class="mini-label">study_config.json</p>
-            <pre><code>{
-  "case_path": "../../examples/caso_sin_sem_rede",
-  "opcao_execucao": 1,
-  "rede": 0,
-  "UCT": 1,
-  "UCH": 1,
-  "TON_Residual": 0
-}</code></pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-footer-callout">
-        <div>
-          <p class="eyebrow">Modelo em desenvolvimento</p>
-          <h2>Documentacao alinhada ao codigo atual</h2>
-        </div>
-        <p>
-          Esta pagina descreve a formulacao implementada no workspace Rust: sem compatibilidade
-          legada, com foco em clareza matematica, unidades explicitas e rastreabilidade dos
-          arquivos de entrada e saida.
-        </p>
       </section>
     </main>
   </div>

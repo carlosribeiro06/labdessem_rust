@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resultados | LabDessem Rust</title>
+  <meta name="description" content="Arquivos de saida CSV do LabDessem Rust e o que cada relatorio representa.">
+  <link rel="canonical" href="https://labdessem-rs.dev/resultados.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
+        <span class="brand-text">LabDessem Rust</span>
+      </a>
+      <nav class="nav">
+        <a href="./index.html">Inicio</a>
+        <a href="./arquitetura.html">Arquitetura</a>
+        <a href="./metodologia.html">Metodologia</a>
+        <a href="./execucao.html">Execucao</a>
+        <a class="active" href="./resultados.html">Resultados</a>
+      </nav>
+    </header>
+
+    <main class="page-main">
+      <section class="page-hero">
+        <div>
+          <p class="eyebrow">Resultados</p>
+          <h1>Arquivos CSV produzidos pelo estudo</h1>
+          <p>
+            Todos os relatórios são gravados em `<case_path>/RESULTADOS`, com cabeçalho
+            institucional, descrição de colunas e unidades explícitas.
+          </p>
+          <div class="page-actions">
+            <a class="button button-primary" href="./execucao.html">Voltar para execucao</a>
+            <a class="button button-secondary" href="./metodologia.html">Ver significado fisico</a>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="mini-label">Diretorio final</p>
+          <pre>RESULTADOS/
+|-- resultado_hidreletricas.csv
+|-- resultado_termicas.csv
+|-- resultado_renovaveis.csv
+|-- resultado_elevatorias.csv
+`-- ...</pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="page-grid">
+          <article class="panel page-card">
+            <h3>resultado_hidreletricas.csv</h3>
+            <p>Volume absoluto e util, geracao por unidade e agregada, Pmax, geracao maxima no ponto, turbinamento, vertimento, desvio, afluencia, retirada, bombeamento, montante e `PiBalHidr`.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_termicas.csv</h3>
+            <p>Geracao, CVU, status on/off, tempos de permanencia, tempo residual e custos residuais bruto e incremental quando `TON_Residual = 1`.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_renovaveis.csv</h3>
+            <p>Geração programada e geração despachada de todas as renováveis no formato consolidado.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_elevatorias.csv</h3>
+            <p>Período, código, nome, submercado, bombeamento mínimo, máximo, realizado e consumo elétrico.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_cmosist.csv</h3>
+            <p>`PiDemanda` por período e submercado, calculado no `LP-CALC-CMO` e normalizado em `R$/MWh`.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_processo_iter.csv</h3>
+            <p>Etapas, iterações, objetivo, tempos de solução, número de restrições e número de cortes adicionados ao longo do processo.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_rest_lim.csv</h3>
+            <p>Expansão dos limites operativos por período com variável, unidade e bounds efetivamente montados.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_inviabilidade_lim.csv</h3>
+            <p>Violação por limite operativo, com unidade coerente: `MW`, `hm3` ou `m3/s` conforme a variável.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Rede</p>
+          <h2>Relatorios adicionais quando `rede = 1`</h2>
+        </div>
+        <div class="page-grid">
+          <article class="panel page-card">
+            <h3>resultado_rede.csv</h3>
+            <p>Fluxos por linha e por período depois da solução final.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_linhas_adicionadas.csv</h3>
+            <p>Registro das linhas que viraram cortes de fluxo ao longo do processo iterativo.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>resultado_inviabilidade_rede.csv</h3>
+            <p>Diagnóstico de folgas de rede, período, direção da violação e magnitude.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

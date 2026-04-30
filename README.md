@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="LabDessem Rust logo" width="96">
+</p>
+
 # LABDESSEM Rust
 
 `LABDESSEM Rust` is a modular Rust implementation of a short-term power system scheduling model inspired by DESSEM. The workspace combines thermal unit commitment, hydro scheduling, renewables, pumping plants, submarket balance, operational limits, and optional DC-network treatment in a single simulation flow.

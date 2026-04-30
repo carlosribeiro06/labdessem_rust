@@ -144,14 +144,21 @@ body::before {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(85, 230, 178, 0.18), rgba(104, 184, 255, 0.16));
-  box-shadow: var(--shadow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 169, 92, 0.18), rgba(255, 169, 92, 0.02) 72%);
+}
+
+.brand-logo {
+  display: block;
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 14px rgba(255, 164, 82, 0.32));
 }
 
 .nav {
@@ -166,8 +173,24 @@ body::before {
   font-size: 0.95rem;
 }
 
+.nav a.active,
 .nav a:hover {
   color: var(--text);
+}
+
+.nav a.active {
+  position: relative;
+}
+
+.nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-cool));
 }
 
 .hero {
@@ -271,6 +294,42 @@ body::before {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.hero-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.hero-link-card {
+  display: block;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.hero-link-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(104, 184, 255, 0.32);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-link-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.02rem;
+}
+
+.hero-link-card span {
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.94rem;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -366,6 +425,71 @@ body::before {
 
 .section {
   padding: 96px 0 0;
+}
+
+.page-main {
+  padding-top: 28px;
+}
+
+.page-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: start;
+  padding: 36px 0 18px;
+}
+
+.page-hero .panel {
+  padding: 24px;
+}
+
+.page-hero h1 {
+  margin: 0 0 14px;
+  font-size: clamp(2.6rem, 5vw, 4.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.page-hero p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.page-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.page-card {
+  padding: 22px;
+}
+
+.page-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.16rem;
+}
+
+.page-card p,
+.page-card li {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.page-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.section-spacer {
+  margin-top: 18px;
 }
 
 .section-heading {
@@ -567,6 +691,7 @@ pre {
 
 @media (max-width: 1080px) {
   .hero,
+  .page-hero,
   .results-layout,
   .section-footer-callout {
     grid-template-columns: 1fr;
@@ -579,7 +704,9 @@ pre {
   }
 
   .scope-grid,
-  .metrics {
+  .metrics,
+  .hero-links,
+  .page-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -617,7 +744,9 @@ pre {
   .workflow-grid,
   .scope-grid,
   .method-grid,
-  .run-grid {
+  .run-grid,
+  .hero-links,
+  .page-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Execucao | LabDessem Rust</title>
+  <meta name="description" content="Modos de execucao, study_config e comandos para rodar o LabDessem Rust.">
+  <link rel="canonical" href="https://labdessem-rs.dev/execucao.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
+        <span class="brand-text">LabDessem Rust</span>
+      </a>
+      <nav class="nav">
+        <a href="./index.html">Inicio</a>
+        <a href="./arquitetura.html">Arquitetura</a>
+        <a href="./metodologia.html">Metodologia</a>
+        <a class="active" href="./execucao.html">Execucao</a>
+        <a href="./resultados.html">Resultados</a>
+      </nav>
+    </header>
+
+    <main class="page-main">
+      <section class="page-hero">
+        <div>
+          <p class="eyebrow">Execucao</p>
+          <h1>Como o estudo e configurado e resolvido</h1>
+          <p>
+            O comportamento do modelo e controlado pelo `study_config.json`. Aqui ficam o caminho
+            do caso, os modos de execucao e os principais flags de formulacao.
+          </p>
+          <div class="page-actions">
+            <a class="button button-primary" href="./resultados.html">Ver saidas</a>
+            <a class="button button-secondary" href="./metodologia.html">Ver restricoes</a>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="mini-label">Comando padrao</p>
+          <pre>cargo run -p labdessem-cli
+
+cargo run -p labdessem-cli -- crates/labdessem-io/study_config.json</pre>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="page-grid">
+          <article class="panel page-card">
+            <h3>opcao_execucao = 1</h3>
+            <p>Fluxo iterativo completo: `LP -> MILP -> LP-FIXED -> LP-CALC-CMO`. Quando a rede esta ativa, os cortes de fluxo sao adicionados apenas para pares linha-periodo violados.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>opcao_execucao = 2</h3>
+            <p>Resolve um MILP unico. Com `rede = 1`, as restricoes de fluxo entram diretamente no modelo desde o inicio.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>UCT</h3>
+            <p>Ativa ou desativa o commitment termico: binarias de estado, startup, shutdown, TON, TOFF e rampas termicas.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>UCH</h3>
+            <p>Ativa ou desativa as variaveis binarias de compromisso hidraulico que canalizam a geracao por unidade.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>FPHA</h3>
+            <p>Seleciona entre os cortes da FPHA e a formulacao agregada por produtibilidade da usina.</p>
+          </article>
+          <article class="panel page-card">
+            <h3>TON_Residual</h3>
+            <p>Ativa o tratamento de custo residual termico fora do horizonte e as colunas correspondentes nas saidas termicas.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Exemplo</p>
+          <h2>Configuracao de estudo</h2>
+        </div>
+        <div class="panel page-card">
+          <pre>{
+  "case_path": "../../examples/24Barras",
+  "opcao_execucao": 1,
+  "rede": 1,
+  "UCT": 1,
+  "UCH": 0,
+  "TON_Residual": 0,
+  "FPHA": 0
+}</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
