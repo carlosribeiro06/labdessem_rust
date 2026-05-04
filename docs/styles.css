@@ -237,9 +237,11 @@ body::before {
 }
 
 .hero h1 {
-  font-size: clamp(2.8rem, 5.6vw, 5.2rem);
-  max-width: 12ch;
+  font-size: clamp(1.9rem, 3.9vw, 3.4rem);
+  max-width: 18ch;
   margin-inline: auto;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
 }
 
 .hero h1 span {
@@ -530,14 +532,15 @@ body::before {
 
 .page-hero h1 {
   margin: 0 0 14px;
-  font-size: clamp(2.6rem, 5vw, 4.6rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.95rem, 3.8vw, 3.35rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
 }
 
 .page-hero p {
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.78;
+  font-size: 1.02rem;
 }
 
 .page-actions {
@@ -821,7 +824,7 @@ pre {
 
   .hero h1 {
     max-width: none;
-    font-size: clamp(2.5rem, 12vw, 4.3rem);
+    font-size: clamp(1.8rem, 9vw, 3rem);
   }
 
   .hero-topmark {

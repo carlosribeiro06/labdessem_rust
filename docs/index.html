@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LabDessem Rust</title>
   <meta
     name="description"
-    content="Site tecnico do LabDessem Rust com navegacao por paginas para metodologia, arquitetura, execucao e resultados."
+    content="Technical website for LabDessem Rust with dedicated pages for methodology, architecture, execution, and results."
   >
   <link rel="icon" type="image/svg+xml" href="./logo.svg">
   <link rel="canonical" href="https://labdessem-rs.dev/">
@@ -14,7 +14,7 @@
   <meta property="og:title" content="LabDessem Rust">
   <meta
     property="og:description"
-    content="Modelo de otimizacao em Rust para despacho hidrotermico com UC termico, FPHA opcional, renovaveis, elevatorias e relatorios CSV."
+    content="Rust optimization model for hydrothermal scheduling with thermal UC, optional FPHA, renewables, pumping plants, and CSV reports."
   >
   <meta property="og:url" content="https://labdessem-rs.dev/">
   <meta property="og:site_name" content="LabDessem Rust">
@@ -32,7 +32,7 @@
       <defs>
         <linearGradient id="lineGlow" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
-          <stop offset="50%" stop-color="#55e6b2" stop-opacity="0.95"></stop>
+          <stop offset="50%" stop-color="#37aefe" stop-opacity="0.95"></stop>
           <stop offset="100%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
         </linearGradient>
         <linearGradient id="wireStroke" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -44,7 +44,23 @@
         </filter>
       </defs>
       <ellipse cx="260" cy="760" rx="320" ry="120" fill="rgba(104, 184, 255, 0.06)"></ellipse>
-      <ellipse cx="1340" cy="760" rx="320" ry="120" fill="rgba(85, 230, 178, 0.05)"></ellipse>
+      <ellipse cx="1340" cy="760" rx="320" ry="120" fill="rgba(55, 174, 254, 0.05)"></ellipse>
+      <g class="tower tower-left">
+        <line class="main-leg" x1="270" y1="132" x2="196" y2="726"></line>
+        <line class="main-leg" x1="270" y1="132" x2="344" y2="726"></line>
+        <line class="spine" x1="270" y1="132" x2="270" y2="726"></line>
+        <line class="crossarm" x1="168" y1="246" x2="372" y2="246"></line>
+        <line class="crossarm" x1="146" y1="352" x2="394" y2="352"></line>
+        <line class="crossarm" x1="124" y1="482" x2="416" y2="482"></line>
+      </g>
+      <g class="tower tower-right">
+        <line class="main-leg" x1="1330" y1="132" x2="1256" y2="726"></line>
+        <line class="main-leg" x1="1330" y1="132" x2="1404" y2="726"></line>
+        <line class="spine" x1="1330" y1="132" x2="1330" y2="726"></line>
+        <line class="crossarm" x1="1228" y1="246" x2="1432" y2="246"></line>
+        <line class="crossarm" x1="1206" y1="352" x2="1454" y2="352"></line>
+        <line class="crossarm" x1="1184" y1="482" x2="1476" y2="482"></line>
+      </g>
       <path class="wire" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
       <path class="wire" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
       <path class="wire" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
@@ -60,15 +76,15 @@
   <div class="site-shell">
     <header class="topbar">
       <a class="brand" href="./index.html">
-        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="Logo LabDessem Rust"></span>
+        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="LabDessem Rust logo"></span>
         <span class="brand-text">LabDessem Rust</span>
       </a>
       <nav class="nav">
-        <a class="active" href="./index.html">Inicio</a>
-        <a href="./arquitetura.html">Arquitetura</a>
-        <a href="./metodologia.html">Metodologia</a>
-        <a href="./execucao.html">Execucao</a>
-        <a href="./resultados.html">Resultados</a>
+        <a class="active" href="./index.html">Home</a>
+        <a href="./arquitetura.html">Architecture</a>
+        <a href="./metodologia.html">Methodology</a>
+        <a href="./execucao.html">Execution</a>
+        <a href="./resultados.html">Results</a>
         <a
           class="nav-link-external"
           href="https://github.com/carlosribeiro06/labdessem_rust"
@@ -84,117 +100,29 @@
       <section class="hero">
         <div class="hero-copy">
           <div class="hero-topmark">
-            <img class="hero-logo-large" src="./logo.svg" alt="Logo LabDessem Rust">
+            <img class="hero-logo-large" src="./logo.svg" alt="LabDessem Rust logo">
             <p class="hero-badge">v0.4.0</p>
           </div>
           <h1>
-            Infraestrutura aberta para
-            <span>despacho hidrotermico</span>
+            Open infrastructure for
+            <span>hydrothermal scheduling</span>
           </h1>
           <p class="hero-subtitle">
-            Modelo de otimizacao em Rust para compromisso termico, operacao hidraulica com FPHA
-            opcional, rede DC, renovaveis, elevatorias e relatorios tecnicos rastreaveis.
+            A Rust optimization model for thermal commitment, hydro operation with optional FPHA,
+            DC network representation, unified renewables, pumping plants, and traceable technical reports.
           </p>
           <div class="command-pill"><span class="prompt">$</span><span>cargo run -p labdessem-cli</span></div>
           <div class="hero-actions">
-            <a class="button button-primary" href="./metodologia.html">Metodologia</a>
-            <a class="button button-secondary" href="./execucao.html">Execucao</a>
-            <a class="button button-secondary" href="./resultados.html">Resultados</a>
+            <a class="button button-primary" href="./metodologia.html">Methodology</a>
+            <a class="button button-secondary" href="./execucao.html">Execution</a>
+            <a class="button button-secondary" href="./resultados.html">Results</a>
           </div>
           <ul class="hero-pills">
-            <li>UC termico</li>
-            <li>FPHA opcional</li>
-            <li>Rede DC opcional</li>
-            <li>Renovaveis agregadas</li>
+            <li>Thermal UC</li>
+            <li>Optional FPHA</li>
+            <li>Optional DC network</li>
+            <li>Unified renewables</li>
           </ul>
-          <div class="hero-links">
-            <a class="hero-link-card" href="./arquitetura.html">
-              <strong>Arquitetura do workspace</strong>
-              <span>Veja como core, io, model, solver, simulation e cli se conectam.</span>
-            </a>
-            <a class="hero-link-card" href="./metodologia.html">
-              <strong>Formulacao matematica</strong>
-              <span>Consulte variaveis, unidades, funcao objetivo e restricoes do modelo atual.</span>
-            </a>
-            <a class="hero-link-card" href="./execucao.html">
-              <strong>Modos de execucao</strong>
-              <span>Entenda o fluxo LP, MILP, LP-FIXED, LP-CALC-CMO e o MILP unico.</span>
-            </a>
-            <a class="hero-link-card" href="./resultados.html">
-              <strong>Arquivos de saida</strong>
-              <span>Descubra o que cada CSV registra e como interpretar os relatorios.</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="hero-panel">
-          <div class="panel panel-terminal">
-            <div class="terminal-top">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="terminal-body">
-              <p><span class="prompt">$</span> cargo run -p labdessem-cli</p>
-              <p>Lendo configuracao do estudo...</p>
-              <p>Opcao de execucao: LP -&gt; MILP -&gt; LP-FIXED -&gt; LP-CALC-CMO</p>
-              <p>FPHA: habilitado ou substituido por produtibilidade</p>
-              <p class="accent">Resultado final: CSVs em RESULTADOS/</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="metrics">
-        <article class="metric-card">
-          <span class="metric-value">5</span>
-          <span class="metric-label">Paginas principais</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-value">2</span>
-          <span class="metric-label">Modos de execucao</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-value">FPHA</span>
-          <span class="metric-label">Opcional por flag</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-value">CSV</span>
-          <span class="metric-label">Entrada e saida auditavel</span>
-        </article>
-      </section>
-
-      <section class="section">
-        <div class="section-heading">
-          <p class="eyebrow">Mapa rapido</p>
-          <h2>Entre direto na parte que voce precisa</h2>
-          <p>
-            A navegação foi desenhada para consulta rápida. Em vez de procurar tudo em uma página
-            única, cada bloco do modelo ganhou um destino próprio.
-          </p>
-        </div>
-
-        <div class="scope-grid">
-          <article class="scope-card">
-            <h3>Arquitetura</h3>
-            <p>Crates, fluxo de leitura, montagem do modelo, solver e exportacao.</p>
-            <a class="button button-secondary" href="./arquitetura.html">Abrir pagina</a>
-          </article>
-          <article class="scope-card">
-            <h3>Metodologia</h3>
-            <p>Objetivo, demanda, termicas, hidraulicas, renovaveis, rede e limites.</p>
-            <a class="button button-secondary" href="./metodologia.html">Abrir pagina</a>
-          </article>
-          <article class="scope-card">
-            <h3>Execucao</h3>
-            <p>Flags do estudo, modos de resolucao, JSON de configuracao e comandos.</p>
-            <a class="button button-secondary" href="./execucao.html">Abrir pagina</a>
-          </article>
-          <article class="scope-card">
-            <h3>Resultados</h3>
-            <p>Arquivos `RESULTADOS/`, duais, inviabilidades e saidas por tecnologia.</p>
-            <a class="button button-secondary" href="./resultados.html">Abrir pagina</a>
-          </article>
         </div>
       </section>
     </main>
