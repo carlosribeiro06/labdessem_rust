@@ -203,6 +203,45 @@ pub struct ResidualCost {
     pub cmo_per_mwh: f64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FutureCostCut {
+    pub stage_id: usize,
+    pub cut_id: u64,
+    pub slot_index: usize,
+    pub iteration: usize,
+    pub forward_pass_index: usize,
+    pub intercept: f64,
+    pub coefficients: Vec<f64>,
+    pub is_active: bool,
+}
+
+impl FutureCostCut {
+    pub fn validate(&self, hydro_plant_count: usize) -> Result<(), CoreError> {
+        if !self.intercept.is_finite() {
+            return Err(CoreError::validation(format!(
+                "future cost cut {} has non-finite intercept",
+                self.cut_id
+            )));
+        }
+        if self.coefficients.len() != hydro_plant_count {
+            return Err(CoreError::validation(format!(
+                "future cost cut {} coefficient dimension mismatch: expected {}, found {}",
+                self.cut_id,
+                hydro_plant_count,
+                self.coefficients.len()
+            )));
+        }
+        if self.coefficients.iter().any(|value| !value.is_finite()) {
+            return Err(CoreError::validation(format!(
+                "future cost cut {} has non-finite coefficients",
+                self.cut_id
+            )));
+        }
+
+        Ok(())
+    }
+}
+
 impl ResidualCost {
     pub fn validate(&self) -> Result<(), CoreError> {
         if self.cmo_per_mwh < 0.0 {
@@ -389,7 +428,9 @@ pub struct System {
     pub hydro_unit_commitment_enabled: bool,
     pub ton_residual_enabled: bool,
     pub fpha_enabled: bool,
+    pub future_cost_enabled: bool,
     pub residual_costs: Vec<ResidualCost>,
+    pub future_cost_cuts: Vec<FutureCostCut>,
     pub submarkets: Vec<Submarket>,
     pub interchange_limits: Vec<InterchangeLimit>,
     pub operational_limits: Vec<OperationalLimit>,
@@ -471,6 +512,15 @@ impl System {
             return Err(CoreError::validation(
                 "TON residual objective is enabled but residual costs are missing for some submarkets",
             ));
+        }
+
+        if self.future_cost_enabled && self.future_cost_cuts.is_empty() {
+            return Err(CoreError::validation(
+                "future cost function is enabled but no future cost cuts were loaded",
+            ));
+        }
+        for cut in &self.future_cost_cuts {
+            cut.validate(self.hydro_plants.len())?;
         }
 
         let mut seen_interchange_pairs = HashSet::new();
@@ -873,7 +923,9 @@ mod tests {
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             fpha_enabled: true,
+            future_cost_enabled: false,
             residual_costs: vec![],
+            future_cost_cuts: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
                 name: "SE".into(),

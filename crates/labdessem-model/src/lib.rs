@@ -52,8 +52,8 @@ mod tests {
         },
         renewable::RenewablePlant,
         system::{
-            Bus, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable, PumpingPlant,
-            StudyHorizon, Submarket, System,
+            Bus, FutureCostCut, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable,
+            PumpingPlant, StudyHorizon, Submarket, System,
         },
         thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
@@ -83,7 +83,9 @@ mod tests {
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             fpha_enabled: true,
+            future_cost_enabled: false,
             residual_costs: vec![],
+            future_cost_cuts: vec![],
             submarkets: vec![
                 Submarket {
                     id: SubmarketId(1),
@@ -228,7 +230,9 @@ mod tests {
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             fpha_enabled: true,
+            future_cost_enabled: false,
             residual_costs: vec![],
+            future_cost_cuts: vec![],
             submarkets: vec![Submarket {
                 id: SubmarketId(1),
                 name: "SE".into(),
@@ -1089,5 +1093,74 @@ mod tests {
             .find(|term| term.variable == "thermal_shutdown[p=UTE-1,u=GT-1,t=1]")
             .expect("thermal shutdown cost should exist");
         assert_eq!(thermal_shutdown.coefficient, 5.0);
+    }
+
+    #[test]
+    fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
+        let mut system = build_system();
+        system.future_cost_enabled = true;
+        system.future_cost_cuts = vec![
+            FutureCostCut {
+                stage_id: 2,
+                cut_id: 7,
+                slot_index: 7,
+                iteration: 3,
+                forward_pass_index: 1,
+                intercept: 15.0,
+                coefficients: vec![2.0],
+                is_active: true,
+            },
+            FutureCostCut {
+                stage_id: 2,
+                cut_id: 8,
+                slot_index: 8,
+                iteration: 3,
+                forward_pass_index: 2,
+                intercept: 11.0,
+                coefficients: vec![1.0],
+                is_active: false,
+            },
+        ];
+
+        let model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+        assert_eq!(model.variables.future_cost.len(), 1);
+        assert_eq!(model.variables.future_cost[0].name, "future_cost");
+
+        let future_cost_term = model
+            .objective
+            .terms
+            .iter()
+            .find(|term| term.variable == "future_cost")
+            .expect("future cost must enter the objective");
+        assert_eq!(future_cost_term.coefficient, 1.0);
+
+        let future_cost_constraint = model
+            .constraints
+            .future_cost()
+            .into_iter()
+            .find(|constraint| constraint.name == "future_cost_cut[stage=2,cut=7]")
+            .expect("active future cost cut should exist");
+        assert_eq!(
+            future_cost_constraint.sense,
+            constraints::ConstraintSense::GreaterOrEqual
+        );
+        assert_eq!(future_cost_constraint.rhs, 13.0);
+        assert!(
+            future_cost_constraint
+                .terms
+                .iter()
+                .any(|term| term.variable == "future_cost" && term.coefficient == 1.0)
+        );
+        assert!(future_cost_constraint.terms.iter().any(|term| {
+            term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -2.0
+        }));
+        assert!(
+            !model
+                .constraints
+                .future_cost()
+                .into_iter()
+                .any(|constraint| constraint.name == "future_cost_cut[stage=2,cut=8]")
+        );
     }
 }

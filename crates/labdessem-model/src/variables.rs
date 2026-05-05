@@ -25,6 +25,7 @@ pub struct Variables {
     pub hydro_diversion: Vec<Variable>,
     pub pumping: Vec<Variable>,
     pub hydro_volume: Vec<Variable>,
+    pub future_cost: Vec<Variable>,
     pub deficit: Vec<Variable>,
     pub renewable_generation: Vec<Variable>,
     pub interchange: Vec<Variable>,
@@ -183,6 +184,18 @@ impl Variables {
             })
             .collect();
 
+        let future_cost = if system.future_cost_enabled {
+            vec![Variable {
+                name: "future_cost".into(),
+                lower_bound: 0.0,
+                upper_bound: None,
+                domain: VariableDomain::Continuous,
+                fixed_value: None,
+            }]
+        } else {
+            Vec::new()
+        };
+
         let deficit = system
             .submarkets
             .iter()
@@ -329,6 +342,7 @@ impl Variables {
             hydro_diversion,
             pumping,
             hydro_volume,
+            future_cost,
             deficit,
             renewable_generation,
             interchange,

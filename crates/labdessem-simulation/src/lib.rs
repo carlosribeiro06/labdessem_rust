@@ -1545,6 +1545,7 @@ fn model_dimensions(model: &Model) -> (usize, usize) {
         + variables.hydro_diversion.len()
         + variables.pumping.len()
         + variables.hydro_volume.len()
+        + variables.future_cost.len()
         + variables.deficit.len()
         + variables.renewable_generation.len()
         + variables.interchange.len()
@@ -1587,6 +1588,9 @@ pub fn write_results_csvs(
         &result.operational_limit_infeasibilities,
         output_dir,
     )?;
+    if system.future_cost_enabled {
+        write_future_cost_eco_csv(system, output_dir)?;
+    }
     if network_enabled {
         write_network_csv(system, &result.final_line_flows, output_dir)?;
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
@@ -2133,6 +2137,48 @@ fn write_process_iterations_csv(
     write_csv_file(output_dir.join("resultado_processo_iter.csv"), csv)
 }
 
+fn write_future_cost_eco_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
+    let mut csv = csv_with_header(
+        "Estagio;Corte;Slot;Iteracao;ForwardPass;Ativo;CodigoUsina;Usina;CoefLinear;CoefAngular",
+        &[
+            (
+                "Estagio",
+                "estagio do arquivo binario da funcao de custo futuro",
+            ),
+            ("Corte", "identificador unico do corte"),
+            ("Slot", "slot do corte na politica"),
+            ("Iteracao", "iteracao que gerou o corte"),
+            ("ForwardPass", "indice do forward pass que gerou o corte"),
+            ("Ativo", "indica se o corte estava ativo na politica"),
+            ("CodigoUsina", "codigo da usina hidreletrica"),
+            ("Usina", "nome da usina hidreletrica"),
+            ("CoefLinear", "coeficiente linear comum do corte"),
+            ("CoefAngular", "coeficiente angular da usina no corte"),
+        ],
+    );
+
+    for cut in &system.future_cost_cuts {
+        for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
+            let coefficient = cut.coefficients.get(plant_idx).copied().unwrap_or(0.0);
+            csv.push_str(&format!(
+                "{};{};{};{};{};{};{};{};{:.6};{:.6}\n",
+                cut.stage_id,
+                cut.cut_id,
+                cut.slot_index,
+                cut.iteration,
+                cut.forward_pass_index,
+                if cut.is_active { "SIM" } else { "NAO" },
+                plant.id.0,
+                plant.name,
+                cut.intercept,
+                coefficient
+            ));
+        }
+    }
+
+    write_csv_file(output_dir.join("resultado_fcf_eco.csv"), csv)
+}
+
 fn write_cmosist_csv(
     system: &System,
     summary: &SolveSummary,
@@ -2337,7 +2383,8 @@ fn write_thermal_csv(
                     .last()
                     .copied()
                     .unwrap_or(original_period - 1);
-                let (residual_hours, residual_cost, residual_incremental_cost) = if residual_enabled {
+                let (residual_hours, residual_cost, residual_incremental_cost) = if residual_enabled
+                {
                     thermal_period_residual_output_values(
                         system,
                         summary,
@@ -3102,7 +3149,9 @@ mod tests {
             hydro_unit_commitment_enabled: true,
             ton_residual_enabled: false,
             fpha_enabled: true,
+            future_cost_enabled: false,
             residual_costs: vec![],
+            future_cost_cuts: vec![],
             submarkets: vec![
                 Submarket {
                     id: SubmarketId(1),
