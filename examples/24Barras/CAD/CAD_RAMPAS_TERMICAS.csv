@@ -1,23 +1,29 @@
 CodigoUTE;NomeUTE;Unidade;Traj;Passo; Ipasso
-47; TERMORIO     ;6; A ;0;1
-47; TERMORIO     ;6; A ;0;2
-47; TERMORIO     ;6; A ;20;3
-47; TERMORIO     ;6; A ;20;4
-47; TERMORIO     ;6; A ;60;5
-47; TERMORIO     ;6; A ;80;6
-47; TERMORIO     ;6; A ;120;7
-47; TERMORIO     ;6; A ;160;8
-47; TERMORIO     ;6; A ;180;9
-47; TERMORIO     ;6; A ;220;10
-47; TERMORIO     ;6; A ;280;11
-47; TERMORIO     ;6; A ;410;12
-47; TERMORIO     ;6; A ;450;13
-47; TERMORIO     ;6; A ;523;14
-47; TERMORIO     ;6; D ;255;1
-47; TERMORIO     ;6; D ;0;2
-90; TERMOMACAE   ;14; A ;90;1
-90; TERMOMACAE   ;14; A ;180;2
-90; TERMOMACAE   ;14; A ;360;3
-90; TERMOMACAE   ;14; A ;560;4
-90; TERMOMACAE   ;14; D ;80;1
-90; TERMOMACAE   ;14; D ;0;2
+0;Termica-1;1; A ;0;1
+0;Termica-1;1; A ;0;2
+0;Termica-1;1; A ;20;3
+0;Termica-1;1; A ;20;4
+0;Termica-1;1; A ;60;5
+0;Termica-1;1; A ;80;6
+0;Termica-1;1; A ;120;7
+0;Termica-1;1; A ;160;8
+0;Termica-1;1; A ;180;9
+0;Termica-1;1; A ;220;10
+0;Termica-1;1; A ;280;11
+0;Termica-1;1; A ;410;12
+0;Termica-1;1; A ;450;13
+0;Termica-1;1; A ;523;14
+0;Termica-1;1; D ;255;1
+0;Termica-1;1; D ;0;2
+1;Termica-2;1; A ;90;1
+1;Termica-2;1; A ;180;2
+1;Termica-2;1; A ;360;3
+1;Termica-2;1; A ;560;4
+1;Termica-2;1; D ;80;1
+1;Termica-2;1; D ;0;2
+1;Termica-3;1; A ;90;1
+1;Termica-3;1; A ;180;2
+1;Termica-3;1; A ;360;3
+1;Termica-3;1; A ;560;4
+1;Termica-3;1; D ;80;1
+1;Termica-3;1; D ;0;2
