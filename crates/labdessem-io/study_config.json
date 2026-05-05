@@ -1,9 +1,10 @@
 {
   "case_path": "../../examples/24Barras",
-  "opcao_execucao": 1,
-  "rede": 1,
+  "opcao_execucao": 2,
+  "rede": 0,
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
-  "FPHA": 0
+  "FPHA": 0,
+  "FCF": 1
 }

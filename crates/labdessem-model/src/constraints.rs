@@ -59,6 +59,9 @@ impl ConstraintSet {
                 system, indexing, variables,
             ));
         }
+        if system.future_cost_enabled {
+            linear_constraints.extend(build_future_cost_constraints(system, indexing, variables));
+        }
         linear_constraints.extend(build_operational_limit_constraints(
             system, indexing, variables,
         ));
@@ -201,6 +204,13 @@ impl ConstraintSet {
         self.linear_constraints
             .iter()
             .filter(|constraint| constraint.name.starts_with("hydro_productivity["))
+            .collect()
+    }
+
+    pub fn future_cost(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| constraint.name.starts_with("future_cost_cut["))
             .collect()
     }
 
@@ -598,6 +608,47 @@ fn build_hydro_productivity_constraints(
                     rhs: 0.0,
                 }
             })
+        })
+        .collect()
+}
+
+fn build_future_cost_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+) -> Vec<LinearConstraint> {
+    let Some(future_cost) = variables.future_cost.first() else {
+        return Vec::new();
+    };
+    let horizon = system.horizon.periods;
+
+    system
+        .future_cost_cuts
+        .iter()
+        .filter(|cut| cut.is_active)
+        .map(|cut| {
+            let mut terms = vec![term(future_cost, 1.0)];
+            let mut rhs = cut.intercept;
+
+            for (plant_entry_idx, entry) in indexing.hydro_plant_entries.iter().enumerate() {
+                let plant = &system.hydro_plants[entry.plant_idx];
+                let coefficient = cut.coefficients[plant_entry_idx];
+                if coefficient.abs() <= 1e-12 {
+                    continue;
+                }
+
+                let final_volume =
+                    &variables.hydro_volume[plant_entry_idx * (horizon + 1) + horizon];
+                terms.push(term(final_volume, -coefficient));
+                rhs -= coefficient * plant.reservoir.min_volume_hm3;
+            }
+
+            LinearConstraint {
+                name: format!("future_cost_cut[stage={},cut={}]", cut.stage_id, cut.cut_id),
+                terms,
+                sense: ConstraintSense::GreaterOrEqual,
+                rhs,
+            }
         })
         .collect()
 }

@@ -138,6 +138,12 @@ impl Objective {
             }
         }
 
+        if system.future_cost_enabled {
+            if let Some(future_cost) = variables.future_cost.first() {
+                terms.push(term(future_cost, 1.0));
+            }
+        }
+
         Self {
             sense: ObjectiveSense::Minimize,
             terms,
