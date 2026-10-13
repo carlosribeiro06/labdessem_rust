@@ -191,6 +191,7 @@ version = "0.5.0"
 dependencies = [
  "csv",
  "labdessem-core",
+ "labdessem-model",
  "serde",
  "serde_json",
 ]
