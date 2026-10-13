@@ -6,8 +6,8 @@ use std::{
 
 use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::{
-    entities::{HydroPlant, RenewablePlant, ThermalPlant},
-    ids::{BranchId, BusId, PumpingPlantId, RenewablePlantId, SubmarketId},
+    entities::{HydroPlant, ThermalPlant},
+    ids::{BranchId, BusId, SubmarketId},
     system::{
         Branch, Bus, FutureCostCut, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
         OperationalLimitVariable, PumpingPlant, ResidualCost, StudyHorizon, Submarket, System,
@@ -17,8 +17,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::error::IoError;
 use crate::readers::{
-    bus_id_or_dummy, flow_m3s_to_hm3, read_csv, read_hydro_plants, read_thermal_plants,
-    submarket_id_by_name,
+    read_csv, read_hydro_plants, read_pumping_plants, read_renewable_plants, read_thermal_plants,
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -109,14 +108,11 @@ fn read_study_from_path_with_options(
     } else {
         Vec::new()
     };
-    let pumping_rows = read_pumping_table(cad_path.join("CAD_USIE.csv"))?;
     let future_cost_cuts = if future_cost_enabled {
         read_future_cost_cuts(oper_path.join("OPER_FCF.bin"))?
     } else {
         Vec::new()
     };
-    let renewable_catalog_rows = read_renewable_catalog_table(cad_path.join("CAD_REN.csv"))?;
-    let renewable_operation_rows = read_renewable_operation_table(oper_path.join("OPER_REN.csv"))?;
 
     let horizon = build_horizon(&duration_rows)?;
     let submarkets = build_submarkets(&submarket_catalog, &submarket_operation_rows, &horizon)?;
@@ -149,16 +145,16 @@ fn read_study_from_path_with_options(
         network_enabled,
         fpha_enabled,
     )?;
-    let pumping_plants = build_pumping_plants(
-        &pumping_rows,
+    let pumping_plants = read_pumping_plants(
+        &cad_path,
         &hydro_plants,
         &submarkets,
         horizon.period_duration_hours,
         network_enabled,
     )?;
-    let renewable_plants = build_renewables(
-        &renewable_catalog_rows,
-        &renewable_operation_rows,
+    let renewable_plants = read_renewable_plants(
+        &cad_path,
+        &oper_path,
         &submarkets,
         &horizon,
         network_enabled,
@@ -420,102 +416,6 @@ fn build_interchange_limits(rows: &[InterchangeRow]) -> Vec<InterchangeLimit> {
             penalty_cost_per_mwh: row.penalidade,
         })
         .collect()
-}
-
-fn build_pumping_plants(
-    rows: &[PumpingPlantRow],
-    hydro_plants: &[HydroPlant],
-    submarkets: &[Submarket],
-    period_duration_hours: f64,
-    network_enabled: bool,
-) -> Result<Vec<PumpingPlant>, IoError> {
-    rows.iter()
-        .map(|row| {
-            let name = row.nome.trim().to_string();
-            let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
-            let downstream_hydro_id = hydro_plants
-                .iter()
-                .find(|plant| plant.id.0 == row.jusante)
-                .map(|plant| plant.id)
-                .ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "pumping plant {} references unknown downstream hydro plant {}",
-                        name, row.jusante
-                    ))
-                })?;
-            let upstream_hydro_id = hydro_plants
-                .iter()
-                .find(|plant| plant.id.0 == row.montante)
-                .map(|plant| plant.id)
-                .ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "pumping plant {} references unknown upstream hydro plant {}",
-                        name, row.montante
-                    ))
-                })?;
-
-            Ok(PumpingPlant {
-                id: PumpingPlantId(row.codigo),
-                name: name.clone(),
-                submarket_id,
-                bus_id: BusId(bus_id_or_dummy(
-                    row.barra,
-                    network_enabled,
-                    name.as_str(),
-                    submarket_id,
-                )?),
-                downstream_hydro_id,
-                upstream_hydro_id,
-                min_pumping_hm3: flow_m3s_to_hm3(row.qbomb_min, period_duration_hours),
-                max_pumping_hm3: flow_m3s_to_hm3(row.qbomb_max, period_duration_hours),
-                specific_consumption_mw_per_m3s: row.consumo_especifico,
-            })
-        })
-        .collect()
-}
-
-fn build_renewables(
-    catalog_rows: &[RenewableCatalogRow],
-    operation_rows: &[RenewableOperationRow],
-    submarkets: &[Submarket],
-    horizon: &StudyHorizon,
-    network_enabled: bool,
-) -> Result<Vec<RenewablePlant>, IoError> {
-    let mut generation_by_plant = HashMap::<usize, Vec<f64>>::new();
-
-    for row in operation_rows {
-        let series = generation_by_plant
-            .entry(row.codigo)
-            .or_insert_with(|| vec![0.0; horizon.periods]);
-        for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_REN.csv")? {
-            series[period_idx] = row.ger_prog;
-        }
-    }
-
-    let renewable_plants = catalog_rows
-        .iter()
-        .map(|row| {
-            let name = row.nome.trim().to_string();
-            let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
-            Ok(RenewablePlant {
-                id: RenewablePlantId(row.codigo),
-                name: name.clone(),
-                submarket_id,
-                bus_id: BusId(bus_id_or_dummy(
-                    row.barra,
-                    network_enabled,
-                    name.as_str(),
-                    submarket_id,
-                )?),
-                available_generation_mw: generation_by_plant
-                    .get(&row.codigo)
-                    .cloned()
-                    .unwrap_or_else(|| vec![0.0; horizon.periods]),
-            })
-        })
-        .collect::<Result<Vec<_>, IoError>>()?;
-
-    Ok(renewable_plants)
 }
 
 fn build_residual_costs(rows: &[ResidualCostRow]) -> Vec<ResidualCost> {
@@ -936,237 +836,6 @@ fn read_fb_bool(bytes: &[u8], pos: usize) -> Result<bool, IoError> {
     Ok(value != 0)
 }
 
-fn read_renewable_catalog_table(path: PathBuf) -> Result<Vec<RenewableCatalogRow>, IoError> {
-    log_read_file(&path);
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .from_path(path)?;
-
-    let headers = reader
-        .headers()
-        .map_err(IoError::from)?
-        .iter()
-        .map(|header| header.trim().to_ascii_uppercase())
-        .collect::<Vec<_>>();
-
-    let column = |name: &str| -> Result<usize, IoError> {
-        headers
-            .iter()
-            .position(|header| header == name)
-            .ok_or_else(|| IoError::invalid_data(format!("missing column '{name}' in CAD_REN.csv")))
-    };
-
-    let codigo_idx = column("CODIGO")?;
-    let nome_idx = column("NOME")?;
-    let barra_idx = column("BARRA")?;
-    let submercado_idx = column("SUBMERCADO")?;
-
-    let mut rows = Vec::new();
-    for record in reader.records() {
-        let record = record?;
-        let first_field = record.get(codigo_idx).unwrap_or_default().trim();
-        if first_field.is_empty() || first_field.starts_with('-') {
-            continue;
-        }
-
-        let barra_text = record.get(barra_idx).unwrap_or_default().trim();
-        rows.push(RenewableCatalogRow {
-            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "CAD_REN.csv")?,
-            nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
-            barra: if barra_text.is_empty() || barra_text == "-" {
-                None
-            } else {
-                Some(parse_record_usize(
-                    &record,
-                    barra_idx,
-                    "Barra",
-                    "CAD_REN.csv",
-                )?)
-            },
-            submercado: record
-                .get(submercado_idx)
-                .unwrap_or_default()
-                .trim()
-                .to_string(),
-        });
-    }
-
-    Ok(rows)
-}
-
-fn read_renewable_operation_table(path: PathBuf) -> Result<Vec<RenewableOperationRow>, IoError> {
-    log_read_file(&path);
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .from_path(path)?;
-
-    let headers = reader
-        .headers()
-        .map_err(IoError::from)?
-        .iter()
-        .map(|header| header.trim().to_ascii_uppercase())
-        .collect::<Vec<_>>();
-
-    let column = |name: &str| -> Result<usize, IoError> {
-        headers
-            .iter()
-            .position(|header| header == name)
-            .ok_or_else(|| {
-                IoError::invalid_data(format!("missing column '{name}' in OPER_REN.csv"))
-            })
-    };
-
-    let periodo_idx = column("PERIODO")?;
-    let codigo_idx = column("CODIGO")?;
-    let nome_idx = column("NOME")?;
-    let ger_prog_idx = column("GERPROG")?;
-
-    let mut rows = Vec::new();
-    for record in reader.records() {
-        let record = record?;
-        let first_field = record.get(periodo_idx).unwrap_or_default().trim();
-        if first_field.is_empty() || first_field.starts_with('-') {
-            continue;
-        }
-
-        rows.push(RenewableOperationRow {
-            periodo: parse_record_usize(&record, periodo_idx, "Periodo", "OPER_REN.csv")?,
-            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "OPER_REN.csv")?,
-            _nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
-            ger_prog: parse_record_f64(&record, ger_prog_idx, "GerProg", "OPER_REN.csv")?,
-        });
-    }
-
-    Ok(rows)
-}
-
-fn parse_record_usize(
-    record: &StringRecord,
-    index: usize,
-    field_name: &str,
-    file_name: &str,
-) -> Result<usize, IoError> {
-    record
-        .get(index)
-        .unwrap_or_default()
-        .trim()
-        .parse::<usize>()
-        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
-}
-
-fn parse_record_f64(
-    record: &StringRecord,
-    index: usize,
-    field_name: &str,
-    file_name: &str,
-) -> Result<f64, IoError> {
-    record
-        .get(index)
-        .unwrap_or_default()
-        .trim()
-        .parse::<f64>()
-        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
-}
-
-fn parse_optional_record_usize(
-    record: &StringRecord,
-    index: usize,
-    field_name: &str,
-    file_name: &str,
-) -> Result<Option<usize>, IoError> {
-    let value = record.get(index).unwrap_or_default().trim();
-    if value.is_empty() || value == "-" {
-        return Ok(None);
-    }
-
-    value
-        .parse::<usize>()
-        .map(Some)
-        .map_err(|_| IoError::invalid_data(format!("invalid {field_name} in {file_name}")))
-}
-
-fn read_pumping_table(path: PathBuf) -> Result<Vec<PumpingPlantRow>, IoError> {
-    log_read_file(&path);
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .from_path(path)?;
-
-    let headers = reader
-        .headers()
-        .map_err(IoError::from)?
-        .iter()
-        .map(normalize_column_name)
-        .collect::<Vec<_>>();
-
-    let column = |names: &[&str]| -> Result<usize, IoError> {
-        headers
-            .iter()
-            .position(|header| names.iter().any(|name| header == name))
-            .ok_or_else(|| {
-                IoError::invalid_data(format!(
-                    "missing column '{}' in CAD_USIE.csv",
-                    names.join("' or '")
-                ))
-            })
-    };
-
-    let codigo_idx = column(&["CODIGO", "USIE"])?;
-    let nome_idx = column(&["NOME", "NOMEUSIE"])?;
-    let submarket_idx = column(&["SUBMERCADO", "NOMESIST"])?;
-    let downstream_idx = column(&["JUSANTE", "USIHJUS"])?;
-    let upstream_idx = column(&["MONTANTE", "MONTATE", "USIHMON"])?;
-    let min_idx = column(&["QBOMBMIN"])?;
-    let max_idx = column(&["QBOMBMAX"])?;
-    let consumption_idx = column(&["CONSUMO", "CONSESPEC"])?;
-    let bus_idx = headers.iter().position(|header| header == "BARRA");
-
-    let mut rows = Vec::new();
-    for record in reader.records() {
-        let record = record?;
-        let first_field = record.get(codigo_idx).unwrap_or_default().trim();
-        if first_field.is_empty() || first_field.starts_with('-') {
-            continue;
-        }
-
-        rows.push(PumpingPlantRow {
-            codigo: parse_record_usize(&record, codigo_idx, "Codigo", "CAD_USIE.csv")?,
-            nome: record.get(nome_idx).unwrap_or_default().trim().to_string(),
-            submercado: record
-                .get(submarket_idx)
-                .unwrap_or_default()
-                .trim()
-                .to_string(),
-            jusante: parse_record_usize(&record, downstream_idx, "Jusante", "CAD_USIE.csv")?,
-            montante: parse_record_usize(&record, upstream_idx, "Montante", "CAD_USIE.csv")?,
-            qbomb_min: parse_record_f64(&record, min_idx, "QbombMin", "CAD_USIE.csv")?,
-            qbomb_max: parse_record_f64(&record, max_idx, "QbombMax", "CAD_USIE.csv")?,
-            consumo_especifico: parse_record_f64(
-                &record,
-                consumption_idx,
-                "Consumo",
-                "CAD_USIE.csv",
-            )?,
-            barra: match bus_idx {
-                Some(idx) => parse_optional_record_usize(&record, idx, "Barra", "CAD_USIE.csv")?,
-                None => None,
-            },
-        });
-    }
-
-    Ok(rows)
-}
-
-fn normalize_column_name(value: &str) -> String {
-    value
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect::<String>()
-        .to_ascii_uppercase()
-}
-
 #[derive(Debug, Deserialize)]
 struct DurationRow {
     #[serde(rename = "Periodo")]
@@ -1244,43 +913,6 @@ struct ResidualCostRow {
     submercado: usize,
     #[serde(rename = "CMO")]
     cmo: f64,
-}
-
-#[derive(Debug)]
-struct PumpingPlantRow {
-    codigo: usize,
-    nome: String,
-    submercado: String,
-    jusante: usize,
-    montante: usize,
-    qbomb_min: f64,
-    qbomb_max: f64,
-    consumo_especifico: f64,
-    barra: Option<usize>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RenewableCatalogRow {
-    #[serde(rename = "Codigo")]
-    codigo: usize,
-    #[serde(rename = "Nome")]
-    nome: String,
-    #[serde(rename = "Barra")]
-    barra: Option<usize>,
-    #[serde(rename = "Submercado")]
-    submercado: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct RenewableOperationRow {
-    #[serde(rename = "Periodo")]
-    periodo: usize,
-    #[serde(rename = "Codigo")]
-    codigo: usize,
-    #[serde(rename = "Nome")]
-    _nome: String,
-    #[serde(rename = "GerProg")]
-    ger_prog: f64,
 }
 
 fn log_read_file(path: &Path) {

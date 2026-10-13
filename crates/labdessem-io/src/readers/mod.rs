@@ -22,14 +22,16 @@
 //! - [x] common.rs - shared utilities (read_csv, helpers)
 //! - [x] thermal.rs - ThermalUnitRow, ThermalRampRow, read_thermal_plants
 //! - [x] hydro.rs - HydroPlantRow, HydroUnitRow, etc., read_hydro_plants
-//! - [ ] renewable.rs - RenewableRow, read_renewable_plants
-//! - [ ] pumping.rs - PumpingPlantRow, read_pumping_plants
+//! - [x] renewable.rs - RenewableRow, read_renewable_plants
+//! - [x] pumping.rs - PumpingPlantRow, read_pumping_plants
 //! - [ ] submarket.rs - SubmarketRow, read_submarkets
 //! - [ ] network.rs - BusOperationRow, BranchRow, read_buses, read_branches
 //! - [ ] limits.rs - OperationalLimitRow, read_operational_limits
 
 pub mod common;
 pub mod hydro;
+pub mod pumping;
+pub mod renewable;
 pub mod thermal;
 
 pub use common::{
@@ -37,4 +39,6 @@ pub use common::{
     read_csv, submarket_id_by_name,
 };
 pub use hydro::read_hydro_plants;
+pub use pumping::read_pumping_plants;
+pub use renewable::read_renewable_plants;
 pub use thermal::read_thermal_plants;
