@@ -22,7 +22,8 @@ use labdessem_core::{
     system::{OperationalLimitTarget, OperationalLimitVariable, System},
 };
 use labdessem_io::output::{
-    csv_with_header, volume_hm3_to_flow_m3s, write_csv_file, write_thermal_csv,
+    csv_with_header, volume_hm3_to_flow_m3s, write_csv_file, write_pumping_csv,
+    write_renewable_csv, write_thermal_csv,
 };
 use labdessem_model::{
     Model, SolveMode,
@@ -1444,7 +1445,7 @@ pub fn write_results_csvs(
         output_dir,
     )?;
     write_thermal_csv(system, &result.final_summary.variable_values, output_dir)?;
-    write_pumping_csv(system, &result.final_summary, output_dir)?;
+    write_pumping_csv(system, &result.final_summary.variable_values, output_dir)?;
     write_cmosist_csv(system, &result.cmo_summary, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
@@ -1460,7 +1461,7 @@ pub fn write_results_csvs(
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
         write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
     }
-    write_renewable_csv(system, &result.final_summary, output_dir)?;
+    write_renewable_csv(system, &result.final_summary.variable_values, output_dir)?;
 
     Ok(())
 }
@@ -2307,119 +2308,6 @@ fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<()
     }
 
     write_csv_to_file(output_dir.join("resultado_rest_lim.csv"), csv)
-}
-
-fn write_renewable_csv(
-    system: &System,
-    summary: &SolveSummary,
-    output_dir: &Path,
-) -> Result<(), SimulationError> {
-    let mut csv = csv_with_header(
-        "Periodo;Codigo;Nome;Submercado;GerProg;GeracaoMW",
-        &[
-            ("Periodo", "periodo do horizonte de estudo"),
-            ("Codigo", "codigo da usina renovavel"),
-            ("Nome", "nome da usina renovavel"),
-            ("Submercado", "submercado da usina renovavel"),
-            (
-                "GerProg",
-                "geracao programada maxima media no periodo em MW",
-            ),
-            ("GeracaoMW", "geracao renovavel em MW"),
-        ],
-    );
-
-    for plant in &system.renewable_plants {
-        let submarket_name = system
-            .submarkets
-            .iter()
-            .find(|submarket| submarket.id == plant.submarket_id)
-            .map(|submarket| submarket.name.as_str())
-            .unwrap_or("");
-
-        for original_period in 1..=system.horizon.original_periods {
-            let internal_periods = original_period_internal_indices(system, original_period);
-            let ger_prog = average_internal_values(system, &internal_periods, |period| {
-                plant.available_generation_mw[period]
-            });
-            let generation = average_internal_values(system, &internal_periods, |period| {
-                summary
-                    .variable_values
-                    .get(&renewable_generation_name(plant.name.as_str(), period))
-                    .copied()
-                    .unwrap_or(0.0)
-            });
-            csv.push_str(&format!(
-                "{};{};{};{};{:.6};{:.6}\n",
-                original_period, plant.id.0, plant.name, submarket_name, ger_prog, generation
-            ));
-        }
-    }
-
-    write_csv_to_file(output_dir.join("resultado_renovaveis.csv"), csv)
-}
-
-fn write_pumping_csv(
-    system: &System,
-    summary: &SolveSummary,
-    output_dir: &Path,
-) -> Result<(), SimulationError> {
-    let mut csv = csv_with_header(
-        "Periodo;Codigo;Nome;Submercado;QbombMin;QbombMax;Qbomb;Consumo",
-        &[
-            ("Periodo", "periodo do horizonte de estudo"),
-            ("Codigo", "codigo da usina elevatoria"),
-            ("Nome", "nome da usina elevatoria"),
-            ("Submercado", "submercado onde a elevatoria consome energia"),
-            ("QbombMin", "vazao bombeada minima em m3/s"),
-            ("QbombMax", "vazao bombeada maxima em m3/s"),
-            ("Qbomb", "vazao bombeada media no periodo em m3/s"),
-            ("Consumo", "potencia consumida no bombeamento em MW"),
-        ],
-    );
-
-    for plant in &system.pumping_plants {
-        let submarket_name = system
-            .submarkets
-            .iter()
-            .find(|submarket| submarket.id == plant.submarket_id)
-            .map(|submarket| submarket.name.as_str())
-            .unwrap_or("");
-        let min_pumping_m3s =
-            volume_hm3_to_flow_m3s(plant.min_pumping_hm3, system.horizon.period_duration_hours);
-        let max_pumping_m3s =
-            volume_hm3_to_flow_m3s(plant.max_pumping_hm3, system.horizon.period_duration_hours);
-
-        for original_period in 1..=system.horizon.original_periods {
-            let internal_periods = original_period_internal_indices(system, original_period);
-            let pumping_hm3 = sum_internal_values(&internal_periods, |period| {
-                summary
-                    .variable_values
-                    .get(&pumping_name(plant.name.as_str(), period))
-                    .copied()
-                    .unwrap_or(0.0)
-            });
-            let pumping_m3s = volume_hm3_to_flow_m3s(
-                pumping_hm3,
-                original_period_duration_hours(system, original_period),
-            );
-            let consumption_mw = plant.specific_consumption_mw_per_m3s * pumping_m3s;
-
-            csv.push_str(&format!(
-                "{};{};{};{};{:.6};{:.6};{:.6};{:.6}\n",
-                original_period,
-                plant.id.0,
-                plant.name,
-                submarket_name,
-                min_pumping_m3s,
-                max_pumping_m3s,
-                pumping_m3s,
-                consumption_mw
-            ));
-        }
-    }
-
-    write_csv_to_file(output_dir.join("resultado_elevatorias.csv"), csv)
 }
 
 fn write_csv_to_file(path: impl AsRef<Path>, contents: String) -> Result<(), SimulationError> {

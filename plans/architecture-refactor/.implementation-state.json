@@ -2,7 +2,7 @@
   "plan": "architecture-refactor",
   "mode": "Rigoroso",
   "execution_strategy": "phased",
-  "last_updated": "2026-10-13T19:40:03Z",
+  "last_updated": "2026-10-13T19:52:23Z",
   "tickets": {
     "epic-01-core-entities/ticket-001-create-entities-mod.md": {
       "status": "completed"
@@ -51,7 +51,7 @@
     },
     "epic-04-io-output/ticket-002-move-thermal-writer.md": {
       "status": "completed",
-      "note": "Created stubs with migration path. CSV helpers extracted."
+      "note": "Real implementation extracted to io/output/thermal.rs (263 lines)"
     },
     "epic-04-io-output/ticket-003-move-hydro-writer.md": {
       "status": "pending"
