@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    fs, io,
-    io::Write,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -1159,18 +1158,7 @@ fn bus_id_or_dummy(
 }
 
 fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoError> {
-    log_read_file(&path);
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .from_path(path)?;
-
-    let mut rows = Vec::new();
-    for record in reader.deserialize() {
-        rows.push(record?);
-    }
-
-    Ok(rows)
+    crate::readers::read_csv(path)
 }
 
 fn read_fpha_table(path: PathBuf) -> Result<Vec<HydroFphaRow>, IoError> {
@@ -1982,14 +1970,7 @@ struct RenewableOperationRow {
 }
 
 fn log_read_file(path: &Path) {
-    println!("Lendo arquivo: {}", file_label(path));
-    io::stdout().flush().ok();
-}
-
-fn file_label(path: &Path) -> String {
-    path.file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string())
+    crate::readers::log_read_file(path);
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,4 +1,5 @@
 pub mod error;
+mod readers;
 pub mod study;
 
 pub use error::IoError;
