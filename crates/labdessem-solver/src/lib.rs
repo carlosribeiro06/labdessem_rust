@@ -76,14 +76,14 @@ pub fn solve_milp(model: &Model) -> Result<SolveSummary, SolverError> {
     solve_model(model)
 }
 
-pub fn solve_lp_from_config(config_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
-    let system = labdessem_io::read_study_from_config(config_path)?;
+pub fn solve_lp_from_path(case_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
+    let system = labdessem_io::read_study_from_path(case_path)?;
     let model = Model::from_system(&system, SolveMode::LinearProgramming);
     solve_model(&model)
 }
 
-pub fn solve_milp_from_config(config_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
-    let system = labdessem_io::read_study_from_config(config_path)?;
+pub fn solve_milp_from_path(case_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
+    let system = labdessem_io::read_study_from_path(case_path)?;
     let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
     solve_model(&model)
 }
@@ -244,14 +244,17 @@ impl LinearLikeTerm for labdessem_model::objective::ObjectiveTerm {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{solve_lp_from_config, solve_milp_from_config};
+    use super::{solve_lp_from_path, solve_milp_from_path};
+
+    fn examples_24barras_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras")
+    }
 
     #[test]
     fn solves_lp_for_example_case() {
-        let config_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
+        let case_path = examples_24barras_path();
 
-        let result = solve_lp_from_config(config_path).expect("LP should solve for example case");
+        let result = solve_lp_from_path(&case_path).expect("LP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
         assert!(
@@ -276,11 +279,9 @@ mod tests {
 
     #[test]
     fn solves_milp_for_example_case() {
-        let config_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
+        let case_path = examples_24barras_path();
 
-        let result =
-            solve_milp_from_config(config_path).expect("MILP should solve for example case");
+        let result = solve_milp_from_path(&case_path).expect("MILP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
         if let Some(thermal_on) = result
