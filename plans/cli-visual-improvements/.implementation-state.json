@@ -1,0 +1,26 @@
+{
+  "plan": "cli-visual-improvements",
+  "mode": "Rigoroso",
+  "last_updated": "2026-10-13T15:15:00-03:00",
+  "execution_strategy": "continuous",
+  "tickets": {
+    "ticket-001-create-banner-module.md": {
+      "status": "pending",
+      "detail_level": "detailed"
+    },
+    "ticket-002-design-ascii-banner.md": {
+      "status": "pending",
+      "detail_level": "detailed"
+    },
+    "ticket-003-format-execution-info.md": {
+      "status": "pending",
+      "detail_level": "detailed"
+    }
+  },
+  "epics": {
+    "epic-01-banner": {
+      "phase": "pending",
+      "learning_extracted": false
+    }
+  }
+}
