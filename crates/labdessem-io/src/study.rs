@@ -8,11 +8,11 @@ use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::{
     entities::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
-        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+        RenewablePlant, Reservoir, ThermalPlant,
     },
     ids::{
         BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
-        SubmarketId, ThermalPlantId, ThermalUnitId,
+        SubmarketId,
     },
     system::{
         Branch, Bus, FutureCostCut, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
@@ -22,6 +22,10 @@ use labdessem_core::{
 use serde::{Deserialize, Deserializer};
 
 use crate::error::IoError;
+use crate::readers::{
+    bus_id_or_dummy, hours_to_periods, normalize_max_bound, read_csv, read_thermal_plants,
+    submarket_id_by_name,
+};
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct StudyConfig {
@@ -111,7 +115,6 @@ fn read_study_from_path_with_options(
     } else {
         Vec::new()
     };
-    let thermal_rows: Vec<ThermalUnitRow> = read_csv(cad_path.join("CAD_UNID_UTE.csv"))?;
     let hydro_rows: Vec<HydroPlantRow> = read_csv(cad_path.join("CAD_UHE.csv"))?;
     let pumping_rows = read_pumping_table(cad_path.join("CAD_USIE.csv"))?;
     let hydro_unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
@@ -129,12 +132,6 @@ fn read_study_from_path_with_options(
     let renewable_catalog_rows = read_renewable_catalog_table(cad_path.join("CAD_REN.csv"))?;
     let renewable_operation_rows = read_renewable_operation_table(oper_path.join("OPER_REN.csv"))?;
 
-    let (thermal_startup_trajectories, thermal_shutdown_trajectories) =
-        if thermal_unit_commitment_enabled {
-            read_thermal_trajectory_table(cad_path.join("CAD_RAMPAS_TERMICAS.csv"))?
-        } else {
-            (HashMap::new(), HashMap::new())
-        };
     let horizon = build_horizon(&duration_rows)?;
     let submarkets = build_submarkets(&submarket_catalog, &submarket_operation_rows, &horizon)?;
     let buses = if network_enabled {
@@ -151,10 +148,8 @@ fn read_study_from_path_with_options(
     let residual_costs = build_residual_costs(&residual_cost_rows);
     let operational_limit_rows: Vec<OperationalLimitRow> =
         read_csv(oper_path.join("OPER_REST_LIM.csv"))?;
-    let thermal_plants = build_thermal_plants(
-        &thermal_rows,
-        &thermal_startup_trajectories,
-        &thermal_shutdown_trajectories,
+    let thermal_plants = read_thermal_plants(
+        &cad_path,
         &submarkets,
         horizon.period_duration_hours,
         network_enabled,
@@ -439,114 +434,6 @@ fn build_interchange_limits(rows: &[InterchangeRow]) -> Vec<InterchangeLimit> {
             to_submarket_id: SubmarketId(row.sbm_para),
             max_flow_mw: row.limite,
             penalty_cost_per_mwh: row.penalidade,
-        })
-        .collect()
-}
-
-fn build_thermal_plants(
-    rows: &[ThermalUnitRow],
-    startup_trajectories: &HashMap<String, Vec<f64>>,
-    shutdown_trajectories: &HashMap<String, Vec<f64>>,
-    submarkets: &[Submarket],
-    period_duration_hours: f64,
-    network_enabled: bool,
-    thermal_unit_commitment_enabled: bool,
-) -> Result<Vec<ThermalPlant>, IoError> {
-    let mut grouped = BTreeMap::<usize, Vec<&ThermalUnitRow>>::new();
-    for row in rows {
-        grouped.entry(row.codigo_ute).or_default().push(row);
-    }
-
-    grouped
-        .into_iter()
-        .map(|(plant_code, plant_rows)| {
-            let first = plant_rows[0];
-            let mut units = Vec::with_capacity(plant_rows.len());
-
-            for row in plant_rows {
-                let plant_name = row.nome_ute.trim();
-                let unit_trajectory_key = format!("{}-{}", plant_name, row.unidade);
-                let max_generation_mw =
-                    normalize_max_bound(row.pmin, row.pmax, "Pmax", &unit_trajectory_key)?;
-                let startup = if thermal_unit_commitment_enabled {
-                    trajectory_for(startup_trajectories, &unit_trajectory_key)?
-                } else {
-                    Vec::new()
-                };
-                let shutdown = if thermal_unit_commitment_enabled {
-                    trajectory_for(shutdown_trajectories, &unit_trajectory_key)?
-                } else {
-                    Vec::new()
-                };
-                let initial_condition = if thermal_unit_commitment_enabled {
-                    ThermalInitialCondition {
-                        is_on: row.status_inic != 0,
-                        generation_mw: row.ger_inic,
-                        time_in_state: hours_to_periods(
-                            row.tinic,
-                            period_duration_hours,
-                            "Tinic",
-                            plant_name,
-                        )?,
-                        time_in_ramp: hours_to_periods(
-                            row.trampa_inic,
-                            period_duration_hours,
-                            "TRampaInic",
-                            plant_name,
-                        )?,
-                        is_ramping_up: row.rup_inic != 0,
-                        is_ramping_down: row.rdown_inic != 0,
-                    }
-                } else {
-                    ThermalInitialCondition {
-                        is_on: false,
-                        generation_mw: 0.0,
-                        time_in_state: 0,
-                        time_in_ramp: 0,
-                        is_ramping_up: false,
-                        is_ramping_down: false,
-                    }
-                };
-
-                units.push(ThermalUnit {
-                    id: ThermalUnitId(row.unidade),
-                    name: format!("{}-{}", plant_name, row.unidade),
-                    min_generation_mw: row.pmin,
-                    max_generation_mw,
-                    startup_trajectory_mw: startup,
-                    shutdown_trajectory_mw: shutdown,
-                    min_up_time: hours_to_periods(
-                        row.ton,
-                        period_duration_hours,
-                        "Ton",
-                        plant_name,
-                    )?,
-                    min_down_time: hours_to_periods(
-                        row.toff,
-                        period_duration_hours,
-                        "Toff",
-                        plant_name,
-                    )?,
-                    startup_cost: row.custo_partida,
-                    shutdown_cost: row.custo_desliga,
-                    variable_cost_per_mwh: row.cvu,
-                    initial_condition,
-                });
-            }
-
-            let submarket_id = submarket_id_by_name(submarkets, &first.submercado)?;
-            Ok(ThermalPlant {
-                id: ThermalPlantId(plant_code),
-                name: first.nome_ute.trim().to_string(),
-                submarket_id,
-                bus_id: BusId(bus_id_or_dummy(
-                    first.barra,
-                    network_enabled,
-                    first.nome_ute.trim(),
-                    submarket_id,
-                )?),
-                units,
-            })
         })
         .collect()
 }
@@ -1056,58 +943,8 @@ fn parse_operational_limit_variable(value: &str) -> Result<OperationalLimitVaria
     }
 }
 
-fn hours_to_periods(
-    hours: f64,
-    period_duration_hours: f64,
-    field_name: &str,
-    asset_name: &str,
-) -> Result<usize, IoError> {
-    if hours < 0.0 {
-        return Err(IoError::invalid_data(format!(
-            "{field_name} for {asset_name} cannot be negative"
-        )));
-    }
-
-    let periods = (hours / period_duration_hours).ceil();
-    if !periods.is_finite() {
-        return Err(IoError::invalid_data(format!(
-            "failed to convert {field_name} for {asset_name} from hours to periods"
-        )));
-    }
-
-    Ok(periods as usize)
-}
-
 fn flow_m3s_to_hm3(flow_m3s: f64, period_duration_hours: f64) -> f64 {
     flow_m3s * period_duration_hours * 0.0036
-}
-
-fn submarket_id_by_name(submarkets: &[Submarket], value: &str) -> Result<SubmarketId, IoError> {
-    let submarket_name = value.trim();
-    submarkets
-        .iter()
-        .find(|submarket| submarket.name == submarket_name)
-        .map(|submarket| submarket.id)
-        .ok_or_else(|| IoError::invalid_data(format!("unknown submarket '{submarket_name}'")))
-}
-
-fn normalize_max_bound(
-    min_value: f64,
-    max_value: f64,
-    field_name: &str,
-    asset_name: &str,
-) -> Result<f64, IoError> {
-    if min_value <= max_value {
-        return Ok(max_value);
-    }
-
-    if (min_value - max_value).abs() <= 1e-2 {
-        return Ok(min_value);
-    }
-
-    Err(IoError::invalid_data(format!(
-        "{field_name} for {asset_name} is below the minimum value"
-    )))
 }
 
 fn optional_hydro_reference_by_code(
@@ -1128,37 +965,6 @@ fn optional_hydro_reference_by_code(
         .copied()
         .map(Some)
         .ok_or_else(|| IoError::invalid_data(format!("unknown hydro reference code '{code}'")))
-}
-
-fn trajectory_for(
-    trajectories: &HashMap<String, Vec<f64>>,
-    asset_name: &str,
-) -> Result<Vec<f64>, IoError> {
-    trajectories
-        .get(asset_name)
-        .cloned()
-        .ok_or_else(|| IoError::invalid_data(format!("missing trajectory for '{asset_name}'")))
-}
-
-fn bus_id_or_dummy(
-    bus_id: Option<usize>,
-    network_enabled: bool,
-    asset_name: &str,
-    dummy_submarket_id: SubmarketId,
-) -> Result<usize, IoError> {
-    if network_enabled {
-        bus_id.ok_or_else(|| {
-            IoError::invalid_data(format!(
-                "missing Barra for {asset_name}; Barra is required when rede = 1"
-            ))
-        })
-    } else {
-        Ok(dummy_submarket_id.0)
-    }
-}
-
-fn read_csv<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<Vec<T>, IoError> {
-    crate::readers::read_csv(path)
 }
 
 fn read_fpha_table(path: PathBuf) -> Result<Vec<HydroFphaRow>, IoError> {
@@ -1680,48 +1486,6 @@ fn normalize_column_name(value: &str) -> String {
         .to_ascii_uppercase()
 }
 
-fn read_thermal_trajectory_table(
-    path: PathBuf,
-) -> Result<(HashMap<String, Vec<f64>>, HashMap<String, Vec<f64>>), IoError> {
-    let rows: Vec<ThermalRampRow> = read_csv(path)?;
-    let mut startup_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
-    let mut shutdown_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
-
-    for row in rows {
-        let key = format!("{}-{}", row.nome_ute.trim(), row.unidade);
-        let target = match row.traj.trim().to_ascii_uppercase().as_str() {
-            "A" => &mut startup_steps,
-            "D" => &mut shutdown_steps,
-            other => {
-                return Err(IoError::invalid_data(format!(
-                    "unknown thermal ramp trajectory '{other}' for {key}; expected A or D"
-                )));
-            }
-        };
-        target
-            .entry(key)
-            .or_default()
-            .push((row.indice_passo, row.passo));
-    }
-
-    Ok((
-        build_ordered_trajectory_map(startup_steps),
-        build_ordered_trajectory_map(shutdown_steps),
-    ))
-}
-
-fn build_ordered_trajectory_map(
-    steps_by_unit: BTreeMap<String, Vec<(usize, f64)>>,
-) -> HashMap<String, Vec<f64>> {
-    steps_by_unit
-        .into_iter()
-        .map(|(unit, mut steps)| {
-            steps.sort_by_key(|(step_idx, _)| *step_idx);
-            (unit, steps.into_iter().map(|(_, value)| value).collect())
-        })
-        .collect()
-}
-
 #[derive(Debug, Deserialize)]
 struct DurationRow {
     #[serde(rename = "Periodo")]
@@ -1799,62 +1563,6 @@ struct ResidualCostRow {
     submercado: usize,
     #[serde(rename = "CMO")]
     cmo: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct ThermalUnitRow {
-    #[serde(rename = "CodigoUTE")]
-    codigo_ute: usize,
-    #[serde(rename = "NomeUTE")]
-    nome_ute: String,
-    #[serde(rename = "Unidade")]
-    unidade: usize,
-    #[serde(rename = "Pmin")]
-    pmin: f64,
-    #[serde(rename = "Pmax")]
-    pmax: f64,
-    #[serde(rename = "Ton")]
-    ton: f64,
-    #[serde(rename = "Toff")]
-    toff: f64,
-    #[serde(rename = "GerInic")]
-    ger_inic: f64,
-    #[serde(rename = "StatusInic")]
-    status_inic: usize,
-    #[serde(rename = "Tinic")]
-    tinic: f64,
-    #[serde(rename = "TRampaInic")]
-    trampa_inic: f64,
-    #[serde(rename = "RupInic")]
-    rup_inic: usize,
-    #[serde(rename = "RdownInic")]
-    rdown_inic: usize,
-    #[serde(rename = "CVU")]
-    cvu: f64,
-    #[serde(rename = "CustoPartida")]
-    custo_partida: f64,
-    #[serde(rename = "CustoDesliga")]
-    custo_desliga: f64,
-    #[serde(rename = "Barra")]
-    barra: Option<usize>,
-    #[serde(rename = "Submercado")]
-    submercado: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct ThermalRampRow {
-    #[serde(rename = "CodigoUTE")]
-    _codigo_ute: usize,
-    #[serde(rename = "NomeUTE")]
-    nome_ute: String,
-    #[serde(rename = "Unidade")]
-    unidade: usize,
-    #[serde(rename = "Traj")]
-    traj: String,
-    #[serde(rename = "Passo")]
-    passo: f64,
-    #[serde(rename = " Ipasso")]
-    indice_passo: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2015,15 +1723,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{read_study_config, read_study_from_path, read_thermal_trajectory_table};
+    use super::{read_study_config, read_study_from_path};
     use std::path::PathBuf;
 
     fn examples_24barras_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras")
-    }
-
-    fn examples_caso_sin_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/caso_sin_sem_rede")
     }
 
     #[test]
@@ -2073,23 +1777,27 @@ mod tests {
     }
 
     #[test]
-    fn reads_single_thermal_ramp_file_by_trajectory_type() {
-        let path = examples_caso_sin_path().join("CAD/CAD_RAMPAS_TERMICAS.csv");
+    fn reads_thermal_plants_with_trajectories() {
+        let case_path = examples_24barras_path();
 
-        let (startup, shutdown) =
-            read_thermal_trajectory_table(path).expect("thermal ramp file should be readable");
+        let system = read_study_from_path(&case_path).expect("24Barras should be readable");
+
+        let termica1 = system
+            .thermal_plants
+            .iter()
+            .find(|p| p.name == "Termica-1")
+            .expect("Termica-1 should exist");
+
+        let unit1 = termica1
+            .units
+            .iter()
+            .find(|u| u.id.0 == 1)
+            .expect("Termica-1 unit 1 should exist");
 
         assert_eq!(
-            startup
-                .get("ANGRA 1-1")
-                .expect("ANGRA 1 startup should exist"),
-            &vec![122.0, 212.0, 302.0, 392.0, 460.0]
+            unit1.startup_trajectory_mw,
+            vec![0.0, 0.0, 20.0, 20.0, 60.0, 80.0, 120.0, 160.0, 180.0, 220.0, 280.0, 410.0, 450.0, 523.0]
         );
-        assert_eq!(
-            shutdown
-                .get("ANGRA 1-1")
-                .expect("ANGRA 1 shutdown should exist"),
-            &vec![460.0, 392.0, 302.0, 212.0, 122.0, 0.0]
-        );
+        assert_eq!(unit1.shutdown_trajectory_mw, vec![255.0, 0.0]);
     }
 }

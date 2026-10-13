@@ -1,10 +1,8 @@
 //! CSV readers for each entity type.
 //!
-//! This module provides the infrastructure for entity-specific CSV readers.
-//! Currently, the actual reading logic is in `study.rs`. This module structure
-//! is prepared for incremental extraction of readers.
+//! This module provides entity-specific CSV readers extracted from `study.rs`.
 //!
-//! # Planned Structure
+//! # Structure
 //!
 //! ```text
 //! readers/
@@ -21,15 +19,20 @@
 //!
 //! # Migration Status
 //!
-//! - [x] common.rs - shared utilities (read_csv, log_read_file, file_label)
-//! - [ ] thermal.rs - ThermalUnitRow, ThermalRampRow, build_thermal_plants
-//! - [ ] hydro.rs - HydroPlantRow, HydroUnitRow, etc., build_hydro_plants
-//! - [ ] renewable.rs - RenewableRow, build_renewables
-//! - [ ] pumping.rs - PumpingPlantRow, build_pumping_plants
-//! - [ ] submarket.rs - SubmarketRow, build_submarkets
-//! - [ ] network.rs - BusOperationRow, BranchRow, build_buses, build_branches
-//! - [ ] limits.rs - OperationalLimitRow, build_operational_limits
+//! - [x] common.rs - shared utilities (read_csv, helpers)
+//! - [x] thermal.rs - ThermalUnitRow, ThermalRampRow, read_thermal_plants
+//! - [ ] hydro.rs - HydroPlantRow, HydroUnitRow, etc., read_hydro_plants
+//! - [ ] renewable.rs - RenewableRow, read_renewable_plants
+//! - [ ] pumping.rs - PumpingPlantRow, read_pumping_plants
+//! - [ ] submarket.rs - SubmarketRow, read_submarkets
+//! - [ ] network.rs - BusOperationRow, BranchRow, read_buses, read_branches
+//! - [ ] limits.rs - OperationalLimitRow, read_operational_limits
 
 pub mod common;
+pub mod thermal;
 
-pub use common::{file_label, log_read_file, read_csv};
+pub use common::{
+    bus_id_or_dummy, hours_to_periods, log_read_file, normalize_max_bound, read_csv,
+    submarket_id_by_name,
+};
+pub use thermal::read_thermal_plants;
