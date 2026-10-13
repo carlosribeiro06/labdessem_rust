@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/labdessem-cli",
-    "crates/labdessem-common",
     "crates/labdessem-core",
     "crates/labdessem-io",
     "crates/labdessem-model",

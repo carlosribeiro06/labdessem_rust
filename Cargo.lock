@@ -182,10 +182,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "labdessem-common"
-version = "0.5.0"
-
-[[package]]
 name = "labdessem-core"
 version = "0.5.0"
 
@@ -203,7 +199,6 @@ dependencies = [
 name = "labdessem-model"
 version = "0.5.0"
 dependencies = [
- "labdessem-common",
  "labdessem-core",
 ]
 
@@ -221,7 +216,6 @@ name = "labdessem-solver"
 version = "0.5.0"
 dependencies = [
  "good_lp",
- "labdessem-common",
  "labdessem-io",
  "labdessem-model",
 ]

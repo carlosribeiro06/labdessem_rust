@@ -8,4 +8,3 @@ repository.workspace = true
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
-labdessem-common = { path = "../labdessem-common" }
