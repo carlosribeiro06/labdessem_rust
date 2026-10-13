@@ -17,7 +17,7 @@
   </p>
 
   <p>
-    <a href="https://labdessem-rs.dev/">Website</a> •
+    <a href="https://carlosribeiro06.github.io/labdessem_rust/">Website</a> •
     <a href="docs/">Docs</a> •
     <a href="crates/labdessem-io/study_config.json">Study config</a> •
     <a href="CHANGELOG.md">Changelog</a>
