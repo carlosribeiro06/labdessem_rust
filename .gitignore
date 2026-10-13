@@ -32,3 +32,6 @@ examples/**/RESULTADOS/
 
 # Temporary logs
 *.log
+
+# Planning files
+plans/

@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **BREAKING**: CLI now uses subcommand pattern: `labdessem run [CASE_DIR]`
+- **BREAKING**: `study_config.json` must be placed inside each case directory
+- **BREAKING**: Removed `case_path` field from `study_config.json`
+- Binary is now named `labdessem` (configured via `[[bin]]` in Cargo.toml)
+- CLI defaults to current directory when case path is omitted
+
+### Removed
+- `labdessem-common` crate (was unused)
+- `case_path` configuration field
+
+### Fixed
+- Improved error message when configuration file is missing
+
 ## [0.5.0] - 2026-10-13
 
 ### Added
