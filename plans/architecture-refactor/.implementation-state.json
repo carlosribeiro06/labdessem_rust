@@ -90,6 +90,12 @@
     },
     "epic-07-documentation/ticket-002-add-workspace-lints.md": {
       "status": "completed"
+    },
+    "epic-03-io-readers/ticket-005-extract-network-readers": {
+      "status": "done"
+    },
+    "epic-03-io-readers/ticket-006-simplify-study-orchestration": {
+      "status": "done"
     }
   },
   "epics": {
@@ -103,7 +109,8 @@
     },
     "epic-03-io-readers": {
       "phase": "executing",
-      "learning_extracted": false
+      "learning_extracted": false,
+      "status": "done"
     },
     "epic-04-io-output": {
       "phase": "pending",
