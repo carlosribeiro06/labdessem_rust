@@ -27,7 +27,6 @@ use crate::error::IoError;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct StudyConfig {
-    pub case_path: PathBuf,
     pub opcao_execucao: u8,
     pub rede: u8,
     #[serde(rename = "UCT")]
@@ -51,24 +50,26 @@ pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, I
         ))
     })?;
 
-    let mut config: StudyConfig = serde_json::from_str(&contents)?;
-    if config.case_path.is_relative() {
-        let config_dir = config_path.parent().ok_or_else(|| {
-            IoError::invalid_data(format!(
-                "study config path {} does not have a parent directory",
-                config_path.display()
-            ))
-        })?;
-        config.case_path = config_dir.join(&config.case_path);
-    }
-
+    let config: StudyConfig = serde_json::from_str(&contents)?;
     Ok(config)
 }
 
-pub fn read_study_from_config(config_path: impl AsRef<Path>) -> Result<System, IoError> {
-    let config = read_study_config(config_path)?;
+pub fn read_study_from_path(case_path: impl AsRef<Path>) -> Result<System, IoError> {
+    let case_path = case_path.as_ref();
+    let config_path = case_path.join("study_config.json");
+
+    if !config_path.exists() {
+        return Err(IoError::invalid_data(format!(
+            "Configuration file not found.\n\
+             Expected: {}\n\n\
+             Each study case must contain a study_config.json file in its root directory.",
+            config_path.display()
+        )));
+    }
+
+    let config = read_study_config(&config_path)?;
     read_study_from_path_with_options(
-        config.case_path,
+        case_path,
         config.ton_residual != 0,
         config.rede != 0,
         config.uct != 0,
@@ -2034,46 +2035,66 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{read_study_config, read_study_from_config, read_thermal_trajectory_table};
+    use super::{read_study_config, read_study_from_path, read_thermal_trajectory_table};
     use std::path::PathBuf;
+
+    fn examples_24barras_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras")
+    }
+
+    fn examples_caso_sin_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/caso_sin_sem_rede")
+    }
 
     #[test]
     fn reads_current_case() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
+        let case_path = examples_24barras_path();
 
-        let system =
-            read_study_from_config(config_path).expect("caso_sin_sem_rede should be readable");
-        assert_eq!(system.submarkets.len(), 4);
-        assert_eq!(system.buses.len(), 4);
+        let system = read_study_from_path(&case_path).expect("24Barras should be readable");
+        assert_eq!(system.submarkets.len(), 2);
+        assert_eq!(system.buses.len(), 2);
         assert!(system.branches.is_empty());
-        assert_eq!(system.thermal_plants.len(), 96);
-        assert_eq!(system.hydro_plants.len(), 168);
+        assert_eq!(system.thermal_plants.len(), 3);
+        assert_eq!(system.hydro_plants.len(), 4);
         assert!(!system.hydro_unit_commitment_enabled);
     }
 
     #[test]
-    fn reads_study_from_json_config() {
-        let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("study_config.json");
+    fn reads_study_config_without_case_path() {
+        let config_path = examples_24barras_path().join("study_config.json");
 
         let config = read_study_config(&config_path).expect("study config should be readable");
-        assert!(config.case_path.is_absolute());
-        assert!(config.case_path.exists());
         assert_eq!(config.rede, 0);
         assert!(config.uct <= 1);
         assert!(config.uch <= 1);
         assert!(config.fcf <= 1);
         assert!(config.ton_residual <= 1);
+    }
+
+    #[test]
+    fn reads_study_from_case_directory() {
+        let case_path = examples_24barras_path();
 
         let system =
-            read_study_from_config(config_path).expect("study config should build a valid system");
-        assert_eq!(system.submarkets.len(), 4);
-        assert_eq!(system.buses.len(), 4);
+            read_study_from_path(&case_path).expect("study config should build a valid system");
+        assert_eq!(system.submarkets.len(), 2);
+        assert_eq!(system.buses.len(), 2);
+    }
+
+    #[test]
+    fn returns_error_when_config_missing() {
+        let case_path = PathBuf::from("/nonexistent/path");
+
+        let result = read_study_from_path(&case_path);
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("Configuration file not found"));
+        assert!(error_message.contains("study_config.json"));
     }
 
     #[test]
     fn reads_single_thermal_ramp_file_by_trajectory_type() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/caso_sin_sem_rede/CAD/CAD_RAMPAS_TERMICAS.csv");
+        let path = examples_caso_sin_path().join("CAD/CAD_RAMPAS_TERMICAS.csv");
 
         let (startup, shutdown) =
             read_thermal_trajectory_table(path).expect("thermal ramp file should be readable");
