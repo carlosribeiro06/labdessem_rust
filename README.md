@@ -48,7 +48,6 @@ The current model supports:
 labdessem_rust/
 |-- crates/
 |   |-- labdessem-cli
-|   |-- labdessem-common
 |   |-- labdessem-core
 |   |-- labdessem-io
 |   |-- labdessem-model
@@ -79,9 +78,6 @@ labdessem_rust/
 
 - `labdessem-cli`
   Command-line entrypoint for running a study.
-
-- `labdessem-common`
-  Shared helpers used across workspace crates.
 
 ## Execution Modes
 
