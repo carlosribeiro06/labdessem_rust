@@ -3,6 +3,8 @@ use std::{env, fs, path::PathBuf, process::ExitCode};
 use labdessem_io::{read_study_config, read_study_from_path};
 use labdessem_simulation::{run_simulation, write_results_csvs, ExecutionOption};
 
+mod banner;
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
@@ -78,7 +80,6 @@ fn print_run_help() {
 }
 
 fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Reading study configuration...");
     let config_path = case_path.join("study_config.json");
 
     if !config_path.exists() {
@@ -92,75 +93,45 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     let config = read_study_config(&config_path)?;
-
     let display_path = fs::canonicalize(case_path).unwrap_or_else(|_| case_path.clone());
-    println!("Case: {}", display_path.display());
-
     let execution_option = ExecutionOption::from_config_value(config.opcao_execucao)?;
-    println!("Execution option: {}", execution_option.description());
-    println!(
-        "Network constraints: {}",
-        if config.rede == 0 {
-            "disabled"
-        } else {
-            "enabled"
-        }
-    );
-    println!(
-        "Residual TON: {}",
-        if config.ton_residual == 0 {
-            "disabled"
-        } else {
-            "enabled"
-        }
-    );
-    println!(
-        "Thermal unit commitment: {}",
-        if config.uct == 0 {
-            "disabled"
-        } else {
-            "enabled"
-        }
-    );
-    println!(
-        "Hydro unit commitment: {}",
-        if config.uch == 0 {
-            "disabled"
-        } else {
-            "enabled"
-        }
-    );
 
-    println!("Reading input data...");
+    banner::print_banner();
+    banner::print_execution_info(&banner::ExecutionInfo {
+        case_path: &display_path.display().to_string(),
+        execution_mode: execution_option.description(),
+        network_enabled: config.rede != 0,
+        uct_enabled: config.uct != 0,
+        uch_enabled: config.uch != 0,
+        fpha_enabled: config.fpha != 0,
+        fcf_enabled: config.fcf != 0,
+        ton_residual_enabled: config.ton_residual != 0,
+    });
+
+    eprintln!("Reading input data...");
     let system = read_study_from_path(case_path)?;
 
-    println!("Data loaded successfully.");
-    println!(
-        "Case summary: {} submarkets, {} buses, {} lines, {} thermal plants, {} hydro plants, {} pumping plants, {} renewables",
+    eprintln!(
+        "Loaded: {} submarkets, {} thermal plants, {} hydro plants",
         system.submarkets.len(),
-        system.buses.len(),
-        system.branches.len(),
         system.thermal_plants.len(),
         system.hydro_plants.len(),
-        system.pumping_plants.len(),
-        system.renewable_plants.len()
     );
-    println!("Starting iterative solve process...");
+
+    eprintln!("Solving...");
     let network_enabled = config.rede != 0;
     let result = run_simulation(&system, network_enabled, execution_option)?;
     let output_dir = case_path.join("RESULTADOS");
 
-    println!("Writing CSV output files...");
+    eprintln!("Writing output files...");
     write_results_csvs(&system, &result, &output_dir, network_enabled)?;
     let display_output_dir = fs::canonicalize(&output_dir).unwrap_or(output_dir.clone());
 
-    println!("Iterative simulation finished.");
-    println!("Case: {}", display_path.display());
-    println!();
-    println!("PROCESS");
+    eprintln!();
+    eprintln!("Process");
     for step in &result.steps {
-        println!(
-            "{} #{:02} | objective = {:.4} | flow violations = {} | solve time = {:.3} s",
+        eprintln!(
+            "  {} #{:02} | obj = {:.4} | violations = {} | time = {:.3}s",
             step.stage.label(),
             step.iteration,
             step.objective_value,
@@ -168,16 +139,17 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
             step.solve_time.as_secs_f64()
         );
     }
-    println!();
-    println!("SUMMARY");
-    println!(
-        "Final objective value: {:.4}",
+
+    eprintln!();
+    eprintln!("Summary");
+    eprintln!(
+        "  Objective:   {:.4}",
         result.final_summary.objective_value
     );
-    println!("Accumulated flow cuts: {}", result.accumulated_flow_cuts);
-    println!("Final flow violations: {}", result.final_violations.len());
-    println!(
-        "CSV output directory: {}",
+    eprintln!("  Flow cuts:   {}", result.accumulated_flow_cuts);
+    eprintln!("  Violations:  {}", result.final_violations.len());
+    eprintln!(
+        "  Output:      {}",
         display_output_dir
             .display()
             .to_string()
