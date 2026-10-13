@@ -1,67 +1,142 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
-use labdessem_io::{read_study_config, read_study_from_config};
-use labdessem_simulation::{ExecutionOption, run_simulation, write_results_csvs};
+use labdessem_io::{read_study_config, read_study_from_path};
+use labdessem_simulation::{run_simulation, write_results_csvs, ExecutionOption};
 
 fn main() -> ExitCode {
-    let config_path = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json")
-    });
+    let args: Vec<String> = env::args().collect();
 
-    match run_and_print(&config_path) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("Failed to run iterative simulation: {error}");
+    match args.get(1).map(|s| s.as_str()) {
+        Some("run") => {
+            if args.get(2).map(|s| s.as_str()) == Some("--help")
+                || args.get(2).map(|s| s.as_str()) == Some("-h")
+            {
+                print_run_help();
+                return ExitCode::SUCCESS;
+            }
+
+            let case_path = args
+                .get(2)
+                .map(PathBuf::from)
+                .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+            match run_and_print(&case_path) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some("--help") | Some("-h") | None => {
+            print_help();
+            ExitCode::SUCCESS
+        }
+        Some("--version") | Some("-V") => {
+            println!("labdessem {}", env!("CARGO_PKG_VERSION"));
+            ExitCode::SUCCESS
+        }
+        Some(unknown) => {
+            eprintln!("Unknown command: {unknown}");
+            eprintln!();
+            eprintln!("Run 'labdessem --help' for usage.");
             ExitCode::FAILURE
         }
     }
 }
 
-fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Lendo configuracao do estudo...");
-    let config = read_study_config(config_path)?;
-    println!("Caso selecionado: {}", config.case_path.display());
+fn print_help() {
+    println!("labdessem - Hydrothermal dispatch optimization");
+    println!();
+    println!("USAGE:");
+    println!("    labdessem <COMMAND>");
+    println!();
+    println!("COMMANDS:");
+    println!("    run [CASE_DIR]    Run simulation for a study case");
+    println!("                      If CASE_DIR is omitted, uses current directory");
+    println!();
+    println!("OPTIONS:");
+    println!("    -h, --help        Print help information");
+    println!("    -V, --version     Print version information");
+    println!();
+    println!("EXAMPLES:");
+    println!("    labdessem run /path/to/case");
+    println!("    labdessem run                   # uses current directory");
+}
+
+fn print_run_help() {
+    println!("Run simulation for a study case");
+    println!();
+    println!("USAGE:");
+    println!("    labdessem run [CASE_DIR]");
+    println!();
+    println!("ARGS:");
+    println!("    [CASE_DIR]    Path to study case directory");
+    println!("                  Defaults to current directory if not specified");
+    println!();
+    println!("The case directory must contain a study_config.json file.");
+}
+
+fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Reading study configuration...");
+    let config_path = case_path.join("study_config.json");
+
+    if !config_path.exists() {
+        return Err(format!(
+            "Configuration file not found.\n\
+             Expected: {}\n\n\
+             Each study case must contain a study_config.json file in its root directory.",
+            config_path.display()
+        )
+        .into());
+    }
+
+    let config = read_study_config(&config_path)?;
+
+    let display_path = fs::canonicalize(case_path).unwrap_or_else(|_| case_path.clone());
+    println!("Case: {}", display_path.display());
+
     let execution_option = ExecutionOption::from_config_value(config.opcao_execucao)?;
-    println!("Opcao de execucao: {}", execution_option.description());
+    println!("Execution option: {}", execution_option.description());
     println!(
-        "Restricoes de rede: {}",
+        "Network constraints: {}",
         if config.rede == 0 {
-            "desativadas"
+            "disabled"
         } else {
-            "ativadas"
+            "enabled"
         }
     );
     println!(
-        "TON residual: {}",
+        "Residual TON: {}",
         if config.ton_residual == 0 {
-            "desativado"
+            "disabled"
         } else {
-            "ativado"
+            "enabled"
         }
     );
     println!(
-        "Unit commitment termico: {}",
+        "Thermal unit commitment: {}",
         if config.uct == 0 {
-            "desativado"
+            "disabled"
         } else {
-            "ativado"
+            "enabled"
         }
     );
     println!(
-        "Unit commitment hidraulico: {}",
+        "Hydro unit commitment: {}",
         if config.uch == 0 {
-            "desativado"
+            "disabled"
         } else {
-            "ativado"
+            "enabled"
         }
     );
 
-    println!("Lendo dados de entrada...");
-    let system = read_study_from_config(config_path)?;
+    println!("Reading input data...");
+    let system = read_study_from_path(case_path)?;
 
-    println!("Dados carregados com sucesso.");
+    println!("Data loaded successfully.");
     println!(
-        "Resumo do caso: {} submercados, {} barras, {} linhas, {} UTEs, {} UHEs, {} elevatorias, {} renovaveis",
+        "Case summary: {} submarkets, {} buses, {} lines, {} thermal plants, {} hydro plants, {} pumping plants, {} renewables",
         system.submarkets.len(),
         system.buses.len(),
         system.branches.len(),
@@ -70,17 +145,17 @@ fn run_and_print(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>
         system.pumping_plants.len(),
         system.renewable_plants.len()
     );
-    println!("Iniciando processo iterativo de resolucao...");
+    println!("Starting iterative solve process...");
     let network_enabled = config.rede != 0;
     let result = run_simulation(&system, network_enabled, execution_option)?;
-    let output_dir = config.case_path.join("RESULTADOS");
+    let output_dir = case_path.join("RESULTADOS");
 
-    println!("Gravando arquivos CSV de saida...");
+    println!("Writing CSV output files...");
     write_results_csvs(&system, &result, &output_dir, network_enabled)?;
     let display_output_dir = fs::canonicalize(&output_dir).unwrap_or(output_dir.clone());
 
     println!("Iterative simulation finished.");
-    println!("Config: {}", config_path.display());
+    println!("Case: {}", display_path.display());
     println!();
     println!("PROCESS");
     for step in &result.steps {

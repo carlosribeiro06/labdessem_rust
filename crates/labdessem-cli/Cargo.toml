@@ -6,6 +6,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "labdessem"
+path = "src/main.rs"
+
 [dependencies]
 labdessem-io = { path = "../labdessem-io" }
 labdessem-model = { path = "../labdessem-model" }
