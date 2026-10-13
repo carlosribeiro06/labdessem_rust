@@ -13,30 +13,26 @@
 //! ├── renewable.rs    # read_renewable_plants()
 //! ├── pumping.rs      # read_pumping_plants()
 //! ├── submarket.rs    # read_submarkets()
-//! ├── network.rs      # read_buses(), read_branches()
-//! └── limits.rs       # read_operational_limits()
+//! ├── network.rs      # read_buses(), read_branches(), build_dummy_buses()
+//! └── limits.rs       # read_operational_limits(), read_residual_costs(), read_interchange_limits()
 //! ```
-//!
-//! # Migration Status
-//!
-//! - [x] common.rs - shared utilities (read_csv, helpers)
-//! - [x] thermal.rs - ThermalUnitRow, ThermalRampRow, read_thermal_plants
-//! - [x] hydro.rs - HydroPlantRow, HydroUnitRow, etc., read_hydro_plants
-//! - [x] renewable.rs - RenewableRow, read_renewable_plants
-//! - [x] pumping.rs - PumpingPlantRow, read_pumping_plants
-//! - [ ] submarket.rs - SubmarketRow, read_submarkets
-//! - [ ] network.rs - BusOperationRow, BranchRow, read_buses, read_branches
-//! - [ ] limits.rs - OperationalLimitRow, read_operational_limits
 
 pub mod common;
 pub mod hydro;
+pub mod limits;
+pub mod network;
 pub mod pumping;
 pub mod renewable;
+pub mod submarket;
 pub mod thermal;
 
 // Re-export commonly used utilities for external callers
 pub use common::read_csv;
+
 pub use hydro::read_hydro_plants;
+pub use limits::{read_interchange_limits, read_operational_limits, read_residual_costs};
+pub use network::{build_dummy_buses, read_branches, read_buses};
 pub use pumping::read_pumping_plants;
 pub use renewable::read_renewable_plants;
+pub use submarket::read_submarkets;
 pub use thermal::read_thermal_plants;

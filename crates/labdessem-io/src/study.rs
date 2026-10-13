@@ -1,22 +1,17 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
 
-use labdessem_core::{
-    entities::{HydroPlant, ThermalPlant},
-    ids::{BranchId, BusId, SubmarketId},
-    system::{
-        Branch, Bus, FutureCostCut, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
-        OperationalLimitVariable, PumpingPlant, ResidualCost, StudyHorizon, Submarket, System,
-    },
-};
-use serde::{Deserialize, Deserializer};
+use labdessem_core::system::{FutureCostCut, StudyHorizon, System};
+use serde::Deserialize;
 
 use crate::error::IoError;
 use crate::readers::{
-    read_csv, read_hydro_plants, read_pumping_plants, read_renewable_plants, read_thermal_plants,
+    build_dummy_buses, read_branches, read_buses, read_hydro_plants, read_interchange_limits,
+    read_operational_limits, read_pumping_plants, read_renewable_plants, read_residual_costs,
+    read_submarkets, read_thermal_plants,
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -86,49 +81,28 @@ fn read_study_from_path_with_options(
     let cad_path = base_path.join("CAD");
     let oper_path = base_path.join("OPER");
 
-    let submarket_catalog: Vec<SubmarketCatalogRow> = read_csv(cad_path.join("CAD_SBM.csv"))?;
-    let duration_rows: Vec<DurationRow> = read_csv(oper_path.join("OPER_DURACAO.csv"))?;
-    let submarket_operation_rows: Vec<SubmarketOperationRow> =
-        read_csv(oper_path.join("OPER_SBM.csv"))?;
-    let bus_rows: Vec<BusOperationRow> = if network_enabled {
-        read_csv(oper_path.join("OPER_CARGA_BARRA.csv"))?
+    let duration_rows: Vec<DurationRow> = crate::readers::read_csv(oper_path.join("OPER_DURACAO.csv"))?;
+    let horizon = build_horizon(&duration_rows)?;
+
+    let submarkets = read_submarkets(&cad_path, &oper_path, &horizon)?;
+    let buses = if network_enabled {
+        read_buses(&oper_path, &horizon)?
+    } else {
+        build_dummy_buses(&submarkets, horizon.periods)
+    };
+    let branches = if network_enabled {
+        read_branches(&cad_path)?
     } else {
         Vec::new()
     };
-    let branch_rows: Vec<BranchRow> = if network_enabled {
-        read_csv(oper_path.join("OPER_LINHA.csv"))?
-    } else {
-        Vec::new()
-    };
-    let interchange_rows: Vec<InterchangeRow> =
-        read_csv(oper_path.join("OPER_LIMITE_INTERCAMBIO.csv"))?;
-    let residual_cost_rows: Vec<ResidualCostRow> = if ton_residual_enabled {
-        read_csv(oper_path.join("OPER_CUSTO_RESIDUAL.csv"))?
-    } else {
-        Vec::new()
-    };
+    let interchange_limits = read_interchange_limits(&oper_path)?;
+    let residual_costs = read_residual_costs(&oper_path, ton_residual_enabled)?;
     let future_cost_cuts = if future_cost_enabled {
         read_future_cost_cuts(oper_path.join("OPER_FCF.bin"))?
     } else {
         Vec::new()
     };
 
-    let horizon = build_horizon(&duration_rows)?;
-    let submarkets = build_submarkets(&submarket_catalog, &submarket_operation_rows, &horizon)?;
-    let buses = if network_enabled {
-        build_buses(&bus_rows, &horizon)?
-    } else {
-        build_dummy_buses(&submarkets, horizon.periods)
-    };
-    let branches = if network_enabled {
-        build_branches(&branch_rows)
-    } else {
-        Vec::new()
-    };
-    let interchange_limits = build_interchange_limits(&interchange_rows);
-    let residual_costs = build_residual_costs(&residual_cost_rows);
-    let operational_limit_rows: Vec<OperationalLimitRow> =
-        read_csv(oper_path.join("OPER_REST_LIM.csv"))?;
     let thermal_plants = read_thermal_plants(
         &cad_path,
         &submarkets,
@@ -158,8 +132,8 @@ fn read_study_from_path_with_options(
         &horizon,
         network_enabled,
     )?;
-    let operational_limits = build_operational_limits(
-        &operational_limit_rows,
+    let operational_limits = read_operational_limits(
+        &oper_path,
         &thermal_plants,
         &hydro_plants,
         &pumping_plants,
@@ -254,360 +228,6 @@ fn build_horizon(duration_rows: &[DurationRow]) -> Result<StudyHorizon, IoError>
         internal_to_original_period,
         internal_subperiod_index,
     })
-}
-
-fn build_submarkets(
-    catalog_rows: &[SubmarketCatalogRow],
-    operation_rows: &[SubmarketOperationRow],
-    horizon: &StudyHorizon,
-) -> Result<Vec<Submarket>, IoError> {
-    let mut demand_by_submarket: HashMap<usize, Vec<f64>> = HashMap::new();
-    let mut deficit_cost_by_submarket: HashMap<usize, f64> = HashMap::new();
-
-    for row in operation_rows {
-        let demand_series = demand_by_submarket
-            .entry(row.codigo_submercado)
-            .or_insert_with(|| vec![0.0; horizon.periods]);
-        for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_SBM.csv")? {
-            demand_series[period_idx] = row.demanda;
-        }
-
-        match deficit_cost_by_submarket.get(&row.codigo_submercado) {
-            Some(cost) if (*cost - row.custo_deficit).abs() > f64::EPSILON => {
-                return Err(IoError::invalid_data(format!(
-                    "submarket {} has inconsistent deficit cost across periods",
-                    row.codigo_submercado
-                )));
-            }
-            Some(_) => {}
-            None => {
-                deficit_cost_by_submarket.insert(row.codigo_submercado, row.custo_deficit);
-            }
-        }
-    }
-
-    catalog_rows
-        .iter()
-        .map(|row| {
-            let demand_mw = demand_by_submarket
-                .get(&row.codigo)
-                .cloned()
-                .unwrap_or_else(|| vec![0.0; horizon.periods]);
-
-            let deficit_cost_per_mwh =
-                *deficit_cost_by_submarket
-                    .get(&row.codigo)
-                    .unwrap_or_else(|| {
-                        deficit_cost_by_submarket
-                            .values()
-                            .next()
-                            .expect("OPER_SBM.csv must contain at least one deficit cost")
-                    });
-
-            Ok(Submarket {
-                id: SubmarketId(row.codigo),
-                name: row.nome.clone(),
-                demand_mw,
-                deficit_cost_per_mwh,
-            })
-        })
-        .collect()
-}
-
-fn build_buses(rows: &[BusOperationRow], horizon: &StudyHorizon) -> Result<Vec<Bus>, IoError> {
-    let mut buses = BTreeMap::<usize, BusAccumulator>::new();
-
-    for row in rows {
-        let entry = buses
-            .entry(row.codigo_barra)
-            .or_insert_with(|| BusAccumulator {
-                name: row.nome_barra.clone(),
-                submarket_id: row.codigo_submercado,
-                angle_reference: row.swing,
-                demand_mw: vec![0.0; horizon.periods],
-            });
-
-        if entry.name != row.nome_barra {
-            return Err(IoError::invalid_data(format!(
-                "bus {} has inconsistent name across periods",
-                row.codigo_barra
-            )));
-        }
-        if entry.submarket_id != row.codigo_submercado {
-            return Err(IoError::invalid_data(format!(
-                "bus {} has inconsistent submarket across periods",
-                row.codigo_barra
-            )));
-        }
-        if entry.angle_reference != row.swing {
-            return Err(IoError::invalid_data(format!(
-                "bus {} has inconsistent swing flag across periods",
-                row.codigo_barra
-            )));
-        }
-
-        for period_idx in
-            internal_periods_for_input_period(row.periodo, horizon, "OPER_CARGA_BARRA.csv")?
-        {
-            entry.demand_mw[period_idx] = row.carga;
-        }
-    }
-
-    Ok(buses
-        .into_iter()
-        .map(|(id, bus)| Bus {
-            id: BusId(id),
-            name: bus.name,
-            submarket_id: SubmarketId(bus.submarket_id),
-            angle_reference: bus.angle_reference,
-            demand_mw: bus.demand_mw,
-        })
-        .collect())
-}
-
-fn internal_periods_for_input_period(
-    period: usize,
-    horizon: &StudyHorizon,
-    file_name: &str,
-) -> Result<Vec<usize>, IoError> {
-    if !(1..=horizon.original_periods).contains(&period) {
-        return Err(IoError::invalid_data(format!(
-            "invalid period {period} in {file_name}; expected values between 1 and {}",
-            horizon.original_periods
-        )));
-    }
-
-    Ok(horizon.internal_periods_for_original(period))
-}
-
-fn build_dummy_buses(submarkets: &[Submarket], horizon: usize) -> Vec<Bus> {
-    submarkets
-        .iter()
-        .map(|submarket| Bus {
-            id: BusId(submarket.id.0),
-            name: format!("DUMMY-BUS-{}", submarket.name),
-            submarket_id: submarket.id,
-            angle_reference: submarket.id == SubmarketId(1),
-            demand_mw: vec![0.0; horizon],
-        })
-        .collect()
-}
-
-fn build_branches(rows: &[BranchRow]) -> Vec<Branch> {
-    rows.iter()
-        .map(|row| Branch {
-            id: BranchId(row.codigo_linha),
-            name: format!("LINHA-{}", row.codigo_linha),
-            from_bus_id: BusId(row.de),
-            to_bus_id: BusId(row.para),
-            reactance_pu: row.reatancia,
-            thermal_limit_mw: row.capacidade,
-        })
-        .collect()
-}
-
-fn build_interchange_limits(rows: &[InterchangeRow]) -> Vec<InterchangeLimit> {
-    rows.iter()
-        .map(|row| InterchangeLimit {
-            from_submarket_id: SubmarketId(row.sbm_de),
-            to_submarket_id: SubmarketId(row.sbm_para),
-            max_flow_mw: row.limite,
-            penalty_cost_per_mwh: row.penalidade,
-        })
-        .collect()
-}
-
-fn build_residual_costs(rows: &[ResidualCostRow]) -> Vec<ResidualCost> {
-    rows.iter()
-        .map(|row| ResidualCost {
-            submarket_id: SubmarketId(row.submercado),
-            cmo_per_mwh: row.cmo,
-        })
-        .collect()
-}
-
-fn build_operational_limits(
-    rows: &[OperationalLimitRow],
-    thermal_plants: &[ThermalPlant],
-    hydro_plants: &[HydroPlant],
-    pumping_plants: &[PumpingPlant],
-    horizon: &StudyHorizon,
-) -> Result<Vec<OperationalLimit>, IoError> {
-    rows.iter()
-        .map(|row| {
-            let start_original =
-                parse_restriction_period(&row.periodo_inicial, horizon.original_periods, true)?;
-            let end_original =
-                parse_restriction_period(&row.periodo_final, horizon.original_periods, false)?;
-            if start_original > end_original {
-                return Err(IoError::invalid_data(format!(
-                    "operational limit for {} has initial period after final period",
-                    row.nome_usina
-                )));
-            }
-            let start_period = horizon
-                .internal_periods_for_original(start_original)
-                .first()
-                .copied()
-                .map(|period| period + 1)
-                .ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "period {start_original} has no internal representation"
-                    ))
-                })?;
-            let end_period = horizon
-                .internal_periods_for_original(end_original)
-                .last()
-                .copied()
-                .map(|period| period + 1)
-                .ok_or_else(|| {
-                    IoError::invalid_data(format!(
-                        "period {end_original} has no internal representation"
-                    ))
-                })?;
-            let variable = parse_operational_limit_variable(&row.variavel)?;
-            let lower_bound = parse_optional_bound(&row.linf, "Linf")?;
-            let upper_bound = parse_optional_bound(&row.lsup, "Lsup")?;
-            let plant_name = row.nome_usina.trim();
-
-            let thermal_match = thermal_plants
-                .iter()
-                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
-            let hydro_match = hydro_plants
-                .iter()
-                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
-            let pumping_match = pumping_plants
-                .iter()
-                .find(|plant| plant.id.0 == row.codigo_usina && plant.name == plant_name);
-
-            let target = match variable {
-                OperationalLimitVariable::Generation => {
-                    match (thermal_match, hydro_match) {
-                        (Some(plant), None) => {
-                            OperationalLimitTarget::ThermalPlant(plant.id)
-                        }
-                        (None, Some(plant)) => {
-                            OperationalLimitTarget::HydroPlant(plant.id)
-                        }
-                        (Some(_), Some(_)) => {
-                            return Err(IoError::invalid_data(format!(
-                                "operational limit for {} is ambiguous between thermal and hydro generation",
-                                plant_name
-                            )));
-                        }
-                        (None, None) => {
-                            return Err(IoError::invalid_data(format!(
-                                "unknown plant {} ({}) in OPER_REST_LIM.csv",
-                                plant_name, row.codigo_usina
-                            )));
-                        }
-                    }
-                }
-                OperationalLimitVariable::Pumping => {
-                    if let Some(thermal) = thermal_match {
-                        return Err(IoError::invalid_data(format!(
-                            "thermal plant {} cannot define restriction for variable {}",
-                            thermal.name, row.variavel
-                        )));
-                    }
-                    if let Some(hydro) = hydro_match {
-                        return Err(IoError::invalid_data(format!(
-                            "hydro plant {} cannot define restriction for variable {}",
-                            hydro.name, row.variavel
-                        )));
-                    }
-
-                    let pumping = pumping_match.ok_or_else(|| {
-                        IoError::invalid_data(format!(
-                            "unknown pumping plant {} ({}) in OPER_REST_LIM.csv",
-                            plant_name, row.codigo_usina
-                        ))
-                    })?;
-                    OperationalLimitTarget::PumpingPlant(pumping.id)
-                }
-                _ => {
-                    if let Some(thermal) = thermal_match {
-                        return Err(IoError::invalid_data(format!(
-                            "thermal plant {} cannot define restriction for variable {}",
-                            thermal.name, row.variavel
-                        )));
-                    }
-
-                    let hydro = hydro_match.ok_or_else(|| {
-                        IoError::invalid_data(format!(
-                            "unknown hydro plant {} ({}) in OPER_REST_LIM.csv",
-                            plant_name, row.codigo_usina
-                        ))
-                    })?;
-                    OperationalLimitTarget::HydroPlant(hydro.id)
-                }
-            };
-
-            Ok(OperationalLimit {
-                target,
-                plant_name: plant_name.to_string(),
-                variable,
-                start_period,
-                end_period,
-                lower_bound,
-                upper_bound,
-            })
-        })
-        .collect()
-}
-
-fn parse_restriction_period(value: &str, horizon: usize, is_start: bool) -> Result<usize, IoError> {
-    let trimmed = value.trim();
-    if trimmed.eq_ignore_ascii_case("I") {
-        return Ok(1);
-    }
-    if trimmed.eq_ignore_ascii_case("F") {
-        return Ok(horizon);
-    }
-
-    let period = trimmed.parse::<usize>().map_err(|_| {
-        IoError::invalid_data(format!("invalid restriction period value '{trimmed}'"))
-    })?;
-
-    if !(1..=horizon).contains(&period) {
-        return Err(IoError::invalid_data(format!(
-            "restriction {} period {} is outside study horizon 1..={}",
-            if is_start { "initial" } else { "final" },
-            period,
-            horizon
-        )));
-    }
-
-    Ok(period)
-}
-
-fn parse_optional_bound(value: &str, field_name: &str) -> Result<Option<f64>, IoError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() || trimmed == "-" {
-        return Ok(None);
-    }
-
-    let parsed = trimmed.parse::<f64>().map_err(|_| {
-        IoError::invalid_data(format!(
-            "invalid {field_name} value '{trimmed}' in OPER_REST_LIM.csv"
-        ))
-    })?;
-    Ok(Some(parsed))
-}
-
-fn parse_operational_limit_variable(value: &str) -> Result<OperationalLimitVariable, IoError> {
-    match value.trim().to_ascii_uppercase().as_str() {
-        "GER" => Ok(OperationalLimitVariable::Generation),
-        "VERT" => Ok(OperationalLimitVariable::Spillage),
-        "VOL" => Ok(OperationalLimitVariable::Volume),
-        "DEFLU" => Ok(OperationalLimitVariable::Defluence),
-        "TURB" => Ok(OperationalLimitVariable::Turbining),
-        "QDES" => Ok(OperationalLimitVariable::Diversion),
-        "QBOM" => Ok(OperationalLimitVariable::Pumping),
-        other => Err(IoError::invalid_data(format!(
-            "unknown operational limit variable '{other}' in OPER_REST_LIM.csv"
-        ))),
-    }
 }
 
 fn read_future_cost_cuts(path: PathBuf) -> Result<Vec<FutureCostCut>, IoError> {
@@ -841,117 +461,6 @@ struct DurationRow {
     periodo: usize,
     #[serde(rename = "Duracao")]
     duracao: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct SubmarketCatalogRow {
-    #[serde(rename = "Codigo")]
-    codigo: usize,
-    #[serde(rename = "Nome")]
-    nome: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct SubmarketOperationRow {
-    #[serde(rename = "CodigoSubmercado")]
-    codigo_submercado: usize,
-    #[serde(rename = "Periodo")]
-    periodo: usize,
-    #[serde(rename = "Demanda")]
-    demanda: f64,
-    #[serde(rename = "CustoDeficit")]
-    custo_deficit: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct BusOperationRow {
-    #[serde(rename = "CodigoBarra")]
-    codigo_barra: usize,
-    #[serde(rename = "NomeBarra")]
-    nome_barra: String,
-    #[serde(rename = "Periodo")]
-    periodo: usize,
-    #[serde(rename = "Carga")]
-    carga: f64,
-    #[serde(rename = "CodigoSubmercado")]
-    codigo_submercado: usize,
-    #[serde(rename = "Swing")]
-    #[serde(deserialize_with = "deserialize_bool_flag")]
-    swing: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct BranchRow {
-    #[serde(rename = "De")]
-    de: usize,
-    #[serde(rename = "Para")]
-    para: usize,
-    #[serde(rename = "Capacidade")]
-    capacidade: f64,
-    #[serde(rename = "Reatancia")]
-    reatancia: f64,
-    #[serde(rename = "CodigoLinha")]
-    codigo_linha: usize,
-}
-
-#[derive(Debug, Deserialize)]
-struct InterchangeRow {
-    #[serde(rename = "SbmDe")]
-    sbm_de: usize,
-    #[serde(rename = "SbmPara")]
-    sbm_para: usize,
-    #[serde(rename = "Limite")]
-    limite: f64,
-    #[serde(rename = "Penalidade")]
-    penalidade: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct ResidualCostRow {
-    #[serde(rename = "Submercado")]
-    submercado: usize,
-    #[serde(rename = "CMO")]
-    cmo: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct OperationalLimitRow {
-    #[serde(rename = "PeriodoInicial")]
-    periodo_inicial: String,
-    #[serde(rename = "PeriodoFinal")]
-    periodo_final: String,
-    #[serde(rename = "CodigoUsina")]
-    codigo_usina: usize,
-    #[serde(rename = "NomeUsina")]
-    nome_usina: String,
-    #[serde(rename = "Variavel")]
-    variavel: String,
-    #[serde(rename = "Linf")]
-    linf: String,
-    #[serde(rename = "Lsup")]
-    lsup: String,
-}
-
-#[derive(Debug)]
-struct BusAccumulator {
-    name: String,
-    submarket_id: usize,
-    angle_reference: bool,
-    demand_mw: Vec<f64>,
-}
-
-fn deserialize_bool_flag<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = String::deserialize(deserializer)?;
-    match value.trim().to_ascii_lowercase().as_str() {
-        "true" | "1" => Ok(true),
-        "false" | "0" => Ok(false),
-        other => Err(serde::de::Error::custom(format!(
-            "invalid boolean flag '{other}'"
-        ))),
-    }
 }
 
 #[cfg(test)]
