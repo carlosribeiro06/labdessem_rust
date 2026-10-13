@@ -2,7 +2,7 @@
   "plan": "architecture-refactor",
   "mode": "Rigoroso",
   "execution_strategy": "phased",
-  "last_updated": "2026-10-13T19:55:15Z",
+  "last_updated": "2026-10-13T19:58:25Z",
   "tickets": {
     "epic-01-core-entities/ticket-001-create-entities-mod.md": {
       "status": "completed"
@@ -58,7 +58,7 @@
     },
     "epic-04-io-output/ticket-004-move-network-writers.md": {
       "status": "completed",
-      "note": "Created stubs with migration path."
+      "note": "Extracted summary.rs (97 lines), limits.rs (80 lines). Network writers remain in simulation due to local type dependencies."
     },
     "epic-04-io-output/ticket-005-update-simulation-exports.md": {
       "status": "deferred",
