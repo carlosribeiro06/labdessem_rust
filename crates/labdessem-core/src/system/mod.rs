@@ -1,3 +1,11 @@
+//! System container and related types.
+
+mod builder;
+mod validate;
+
+pub use builder::SystemBuilder;
+pub use validate::validate_system;
+
 use std::collections::HashSet;
 
 use crate::{
