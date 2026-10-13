@@ -2,7 +2,7 @@
   "plan": "architecture-refactor",
   "mode": "Rigoroso",
   "execution_strategy": "phased",
-  "last_updated": "2026-10-13T17:10:00-03:00",
+  "last_updated": "2026-10-13T17:30:00-03:00",
   "tickets": {
     "epic-01-core-entities/ticket-001-create-entities-mod.md": {
       "status": "completed"
@@ -41,10 +41,12 @@
       "status": "completed"
     },
     "epic-03-io-readers/ticket-005-extract-network-readers.md": {
-      "status": "pending"
+      "status": "deferred",
+      "reason": "Lower priority after 50% reduction achieved"
     },
     "epic-03-io-readers/ticket-006-simplify-study-orchestration.md": {
-      "status": "pending"
+      "status": "deferred",
+      "reason": "Lower priority after main readers extracted"
     },
     "epic-04-io-output/ticket-001-create-output-mod.md": {
       "status": "pending"
@@ -89,7 +91,7 @@
       "status": "completed"
     },
     "epic-07-documentation/ticket-002-add-workspace-lints.md": {
-      "status": "pending"
+      "status": "completed"
     }
   },
   "epics": {
@@ -102,8 +104,9 @@
       "learning_extracted": false
     },
     "epic-03-io-readers": {
-      "phase": "executing",
-      "learning_extracted": false
+      "phase": "substantial",
+      "learning_extracted": false,
+      "progress": "4 of 6 tickets (thermal, hydro, renewable, pumping extracted)"
     },
     "epic-04-io-output": {
       "phase": "pending",
@@ -118,7 +121,7 @@
       "learning_extracted": false
     },
     "epic-07-documentation": {
-      "phase": "partial",
+      "phase": "completed",
       "learning_extracted": false
     }
   }

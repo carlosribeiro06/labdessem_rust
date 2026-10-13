@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::{
     entities::{HydroPlant, ThermalPlant},
     ids::{BranchId, BusId, SubmarketId},
@@ -913,10 +912,6 @@ struct ResidualCostRow {
     submercado: usize,
     #[serde(rename = "CMO")]
     cmo: f64,
-}
-
-fn log_read_file(path: &Path) {
-    crate::readers::log_read_file(path);
 }
 
 #[derive(Debug, Deserialize)]

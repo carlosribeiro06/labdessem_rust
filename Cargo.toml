@@ -15,3 +15,14 @@ edition = "2024"
 authors = ["Carlos Ribeiro <carlosribeiro121201@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/carlosribeiro06/labdessem_rust"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
