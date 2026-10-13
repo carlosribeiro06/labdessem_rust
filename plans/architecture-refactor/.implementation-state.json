@@ -2,7 +2,7 @@
   "plan": "architecture-refactor",
   "mode": "Rigoroso",
   "execution_strategy": "phased",
-  "last_updated": "2026-10-13T19:58:25Z",
+  "last_updated": "2026-10-13T20:01:12Z",
   "tickets": {
     "epic-01-core-entities/ticket-001-create-entities-mod.md": {
       "status": "completed"
@@ -53,9 +53,6 @@
       "status": "completed",
       "note": "Real implementation extracted to io/output/thermal.rs (263 lines)"
     },
-    "epic-04-io-output/ticket-003-move-hydro-writer.md": {
-      "status": "pending"
-    },
     "epic-04-io-output/ticket-004-move-network-writers.md": {
       "status": "completed",
       "note": "Extracted summary.rs (97 lines), limits.rs (80 lines). Network writers remain in simulation due to local type dependencies."
@@ -68,7 +65,8 @@
       "status": "completed"
     },
     "epic-05-simulation-split/ticket-002-extract-iteration-module.md": {
-      "status": "pending"
+      "status": "deferred",
+      "note": "Iteration logic tightly coupled with DC network model. Extraction would require major restructuring."
     },
     "epic-05-simulation-split/ticket-003-extract-network-cuts.md": {
       "status": "pending"
@@ -116,7 +114,8 @@
     "epic-04-io-output": {
       "phase": "completed",
       "learning_extracted": false,
-      "note": "Module structure created. Full extraction deferred."
+      "note": "All extractable writers moved to io/output. Network writers remain in simulation due to type dependencies.",
+      "status": "done"
     },
     "epic-05-simulation-split": {
       "phase": "executing",
