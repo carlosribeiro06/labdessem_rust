@@ -8,5 +8,11 @@ members = [
     "crates/labdessem-simulation",
     "crates/labdessem-solver"
 ]
-
 resolver = "2"
+
+[workspace.package]
+version = "0.5.0"
+edition = "2024"
+authors = ["Carlos Ribeiro <carlosribeiro121201@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/carlosribeiro06/labdessem_rust"
