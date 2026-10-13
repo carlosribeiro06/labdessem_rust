@@ -7,19 +7,18 @@ use std::{
 
 use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::{
-    hydro::{
-        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+    entities::{
+        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
+        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
     },
     ids::{
         BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
         SubmarketId, ThermalPlantId, ThermalUnitId,
     },
-    renewable::RenewablePlant,
     system::{
         Branch, Bus, FutureCostCut, InterchangeLimit, OperationalLimit, OperationalLimitTarget,
         OperationalLimitVariable, PumpingPlant, ResidualCost, StudyHorizon, Submarket, System,
     },
-    thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
 };
 use serde::{Deserialize, Deserializer};
 

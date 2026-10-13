@@ -153,7 +153,7 @@ impl Objective {
 
 fn thermal_startup_residual_cost_for_period(
     system: &System,
-    unit: &labdessem_core::thermal::ThermalUnit,
+    unit: &labdessem_core::entities::thermal::ThermalUnit,
     startup_period: usize,
     cmo_per_mwh: f64,
 ) -> f64 {
@@ -168,7 +168,7 @@ fn thermal_startup_residual_cost_for_period(
         * system.horizon.period_duration_hours
 }
 
-fn thermal_startup_residual_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
+fn thermal_startup_residual_profile(unit: &labdessem_core::entities::thermal::ThermalUnit) -> Vec<f64> {
     let mut profile = unit.startup_trajectory_mw.clone();
     let steady_periods = unit
         .min_up_time
@@ -178,7 +178,7 @@ fn thermal_startup_residual_profile(unit: &labdessem_core::thermal::ThermalUnit)
 }
 
 fn thermal_shutdown_residual_cost(
-    unit: &labdessem_core::thermal::ThermalUnit,
+    unit: &labdessem_core::entities::thermal::ThermalUnit,
     cmo_per_mwh: f64,
     period_duration_hours: f64,
 ) -> f64 {

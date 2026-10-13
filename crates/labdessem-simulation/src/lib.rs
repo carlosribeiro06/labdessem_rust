@@ -1963,7 +1963,7 @@ fn write_hydro_csv(
 fn hydro_upstream_inflow_hm3(
     system: &System,
     summary: &SolveSummary,
-    plant: &labdessem_core::hydro::HydroPlant,
+    plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
 ) -> f64 {
     let mut total = 0.0;
@@ -2032,7 +2032,7 @@ fn hydro_pumping_out_hm3(
 
 fn hydro_total_turbining_hm3(
     summary: &SolveSummary,
-    plant: &labdessem_core::hydro::HydroPlant,
+    plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
 ) -> f64 {
     plant
@@ -2058,7 +2058,7 @@ fn hydro_total_turbining_hm3(
 fn hydro_generation_max_at_point_mw(
     system: &System,
     summary: &SolveSummary,
-    plant: &labdessem_core::hydro::HydroPlant,
+    plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
     plant_max_generation_mw: f64,
 ) -> f64 {
@@ -2535,7 +2535,7 @@ fn thermal_period_residual_output_values(
     system: &System,
     _summary: &SolveSummary,
     _plant_name: &str,
-    unit: &labdessem_core::thermal::ThermalUnit,
+    unit: &labdessem_core::entities::thermal::ThermalUnit,
     periods: &[usize],
     residual_cmo_per_mwh: Option<f64>,
 ) -> (f64, f64, f64) {
@@ -2548,7 +2548,7 @@ fn thermal_period_residual_output_values(
 
 fn thermal_startup_residual_output_values(
     system: &System,
-    unit: &labdessem_core::thermal::ThermalUnit,
+    unit: &labdessem_core::entities::thermal::ThermalUnit,
     startup_period: usize,
     residual_cmo_per_mwh: Option<f64>,
 ) -> (f64, f64, f64) {
@@ -2573,7 +2573,7 @@ fn thermal_startup_residual_output_values(
     (residual_hours, residual_cost, residual_incremental_cost)
 }
 
-fn thermal_startup_residual_profile(unit: &labdessem_core::thermal::ThermalUnit) -> Vec<f64> {
+fn thermal_startup_residual_profile(unit: &labdessem_core::entities::thermal::ThermalUnit) -> Vec<f64> {
     let mut profile = unit.startup_trajectory_mw.clone();
     let steady_periods = unit
         .min_up_time
@@ -3113,15 +3113,15 @@ fn bus_name(system: &System, bus_id: BusId) -> String {
 mod tests {
     use super::run_iterative_simulation;
     use labdessem_core::{
-        hydro::{
+        entities::{
             HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+            ThermalInitialCondition, ThermalPlant, ThermalUnit,
         },
         ids::{
             BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
             ThermalUnitId,
         },
         system::{Branch, Bus, StudyHorizon, Submarket, System},
-        thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
 
     fn fpha_segments() -> Vec<HydroFphaSegment> {

@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
 use crate::{
+    entities::{HydroPlant, RenewablePlant, ThermalPlant},
     error::CoreError,
-    hydro::HydroPlant,
-    ids::{BranchId, BusId, HydroPlantId, PumpingPlantId, SubmarketId, ThermalPlantId},
-    renewable::RenewablePlant,
-    thermal::ThermalPlant,
+    ids::{BusId, HydroPlantId, PumpingPlantId, SubmarketId, ThermalPlantId},
 };
+
+// Re-export entities for backward compatibility
+pub use crate::entities::{Branch, Bus, PumpingPlant, Submarket};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StudyHorizon {
@@ -81,115 +82,6 @@ impl StudyHorizon {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Submarket {
-    pub id: SubmarketId,
-    pub name: String,
-    pub demand_mw: Vec<f64>,
-    pub deficit_cost_per_mwh: f64,
-}
-
-impl Submarket {
-    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
-        if self.name.trim().is_empty() {
-            return Err(CoreError::validation("submarket name cannot be empty"));
-        }
-        if self.demand_mw.len() != horizon {
-            return Err(CoreError::validation(format!(
-                "submarket {:?} demand horizon mismatch: expected {}, found {}",
-                self.id,
-                horizon,
-                self.demand_mw.len()
-            )));
-        }
-        if self.demand_mw.iter().any(|value| *value < 0.0) {
-            return Err(CoreError::validation(format!(
-                "submarket {:?} has negative demand",
-                self.id
-            )));
-        }
-        if self.deficit_cost_per_mwh < 0.0 {
-            return Err(CoreError::validation(format!(
-                "submarket {:?} has negative deficit cost",
-                self.id
-            )));
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Bus {
-    pub id: BusId,
-    pub name: String,
-    pub submarket_id: SubmarketId,
-    pub angle_reference: bool,
-    pub demand_mw: Vec<f64>,
-}
-
-impl Bus {
-    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
-        if self.name.trim().is_empty() {
-            return Err(CoreError::validation("bus name cannot be empty"));
-        }
-        if self.demand_mw.len() != horizon {
-            return Err(CoreError::validation(format!(
-                "bus {:?} demand horizon mismatch: expected {}, found {}",
-                self.id,
-                horizon,
-                self.demand_mw.len()
-            )));
-        }
-        if self.demand_mw.iter().any(|value| *value < 0.0) {
-            return Err(CoreError::validation(format!(
-                "bus {:?} has negative demand",
-                self.id
-            )));
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Branch {
-    pub id: BranchId,
-    pub name: String,
-    pub from_bus_id: BusId,
-    pub to_bus_id: BusId,
-    pub reactance_pu: f64,
-    pub thermal_limit_mw: f64,
-}
-
-impl Branch {
-    pub fn validate(&self) -> Result<(), CoreError> {
-        if self.name.trim().is_empty() {
-            return Err(CoreError::validation("branch name cannot be empty"));
-        }
-        if self.from_bus_id == self.to_bus_id {
-            return Err(CoreError::validation(format!(
-                "branch {:?} connects the same bus on both ends",
-                self.id
-            )));
-        }
-        if self.reactance_pu <= 0.0 {
-            return Err(CoreError::validation(format!(
-                "branch {:?} must have positive reactance",
-                self.id
-            )));
-        }
-        if self.thermal_limit_mw <= 0.0 {
-            return Err(CoreError::validation(format!(
-                "branch {:?} must have positive thermal limit",
-                self.id
-            )));
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct InterchangeLimit {
     pub from_submarket_id: SubmarketId,
     pub to_submarket_id: SubmarketId,
@@ -248,53 +140,6 @@ impl ResidualCost {
             return Err(CoreError::validation(format!(
                 "residual cost for submarket {:?} must be non-negative",
                 self.submarket_id
-            )));
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PumpingPlant {
-    pub id: PumpingPlantId,
-    pub name: String,
-    pub submarket_id: SubmarketId,
-    pub bus_id: BusId,
-    pub downstream_hydro_id: HydroPlantId,
-    pub upstream_hydro_id: HydroPlantId,
-    pub min_pumping_hm3: f64,
-    pub max_pumping_hm3: f64,
-    pub specific_consumption_mw_per_m3s: f64,
-}
-
-impl PumpingPlant {
-    pub fn validate(&self) -> Result<(), CoreError> {
-        if self.name.trim().is_empty() {
-            return Err(CoreError::validation("pumping plant name cannot be empty"));
-        }
-        if self.downstream_hydro_id == self.upstream_hydro_id {
-            return Err(CoreError::validation(format!(
-                "pumping plant {:?} cannot connect the same hydro plant as downstream and upstream",
-                self.id
-            )));
-        }
-        if self.min_pumping_hm3 < 0.0 || self.max_pumping_hm3 < 0.0 {
-            return Err(CoreError::validation(format!(
-                "pumping plant {:?} has negative pumping limit",
-                self.id
-            )));
-        }
-        if self.min_pumping_hm3 > self.max_pumping_hm3 {
-            return Err(CoreError::validation(format!(
-                "pumping plant {:?} has minimum pumping above maximum pumping",
-                self.id
-            )));
-        }
-        if self.specific_consumption_mw_per_m3s < 0.0 {
-            return Err(CoreError::validation(format!(
-                "pumping plant {:?} has negative specific consumption",
-                self.id
             )));
         }
 
@@ -889,13 +734,14 @@ fn validate_bus_and_submarket_membership(
 mod tests {
     use super::*;
     use crate::{
-        hydro::{HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroUnit, Reservoir},
+        entities::{
+            HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroUnit, RenewablePlant,
+            Reservoir, ThermalInitialCondition, ThermalUnit,
+        },
         ids::{
             BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, RenewablePlantId,
             SubmarketId, ThermalPlantId, ThermalUnitId,
         },
-        renewable::RenewablePlant,
-        thermal::{ThermalInitialCondition, ThermalUnit},
     };
 
     fn fpha_segments() -> Vec<HydroFphaSegment> {

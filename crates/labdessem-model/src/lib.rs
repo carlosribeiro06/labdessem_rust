@@ -43,19 +43,18 @@ impl Model {
 mod tests {
     use super::*;
     use labdessem_core::{
-        hydro::{
-            HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+        entities::{
+            HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
+            RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
         },
         ids::{
             BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
             SubmarketId, ThermalPlantId, ThermalUnitId,
         },
-        renewable::RenewablePlant,
         system::{
             Bus, FutureCostCut, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable,
             PumpingPlant, StudyHorizon, Submarket, System,
         },
-        thermal::{ThermalInitialCondition, ThermalPlant, ThermalUnit},
     };
 
     fn fpha_segments() -> Vec<HydroFphaSegment> {

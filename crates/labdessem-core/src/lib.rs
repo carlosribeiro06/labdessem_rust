@@ -1,8 +1,10 @@
+pub mod entities;
 pub mod error;
-pub mod hydro;
 pub mod ids;
-pub mod renewable;
 pub mod system;
-pub mod thermal;
 
+pub use entities::{
+    HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
+    Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+};
 pub use error::CoreError;
