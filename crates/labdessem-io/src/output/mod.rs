@@ -8,7 +8,9 @@
 //! ```text
 //! output/
 //! ├── mod.rs          # This file
-//! └── common.rs       # Shared CSV utilities
+//! ├── common.rs       # Shared CSV utilities
+//! ├── hydro.rs        # Hydro plant results (stub)
+//! └── thermal.rs      # Thermal plant results (stub)
 //! ```
 //!
 //! # Usage
@@ -24,7 +26,15 @@
 //! );
 //! write_csv_file("output.csv", csv)?;
 //! ```
+//!
+//! # Note
+//!
+//! The hydro and thermal modules are stubs. The actual writer implementations
+//! remain in `labdessem-simulation` due to complex dependencies. See module
+//! documentation for migration path.
 
 pub mod common;
+pub mod hydro;
+pub mod thermal;
 
 pub use common::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
