@@ -2,7 +2,7 @@
   "plan": "architecture-refactor",
   "mode": "Rigoroso",
   "execution_strategy": "phased",
-  "last_updated": "2026-10-13T16:24:00-03:00",
+  "last_updated": "2026-10-13T16:33:00-03:00",
   "tickets": {
     "epic-01-core-entities/ticket-001-create-entities-mod.md": {
       "status": "completed"
@@ -41,13 +41,13 @@
       "status": "completed"
     },
     "epic-03-io-readers/ticket-005-extract-network-readers.md": {
-      "status": "pending"
+      "status": "completed"
     },
     "epic-03-io-readers/ticket-006-simplify-study-orchestration.md": {
-      "status": "pending"
+      "status": "completed"
     },
     "epic-04-io-output/ticket-001-create-output-mod.md": {
-      "status": "pending"
+      "status": "completed"
     },
     "epic-04-io-output/ticket-002-move-thermal-writer.md": {
       "status": "pending"
@@ -90,12 +90,6 @@
     },
     "epic-07-documentation/ticket-002-add-workspace-lints.md": {
       "status": "completed"
-    },
-    "epic-03-io-readers/ticket-005-extract-network-readers": {
-      "status": "done"
-    },
-    "epic-03-io-readers/ticket-006-simplify-study-orchestration": {
-      "status": "done"
     }
   },
   "epics": {
@@ -108,12 +102,12 @@
       "learning_extracted": false
     },
     "epic-03-io-readers": {
-      "phase": "executing",
+      "phase": "completed",
       "learning_extracted": false,
       "status": "done"
     },
     "epic-04-io-output": {
-      "phase": "pending",
+      "phase": "executing",
       "learning_extracted": false
     },
     "epic-05-simulation-split": {

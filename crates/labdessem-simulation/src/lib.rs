@@ -11,6 +11,7 @@ use labdessem_core::{
     ids::{BranchId, BusId},
     system::{OperationalLimitTarget, OperationalLimitVariable, System},
 };
+use labdessem_io::output::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
 use labdessem_model::{
     Model, SolveMode,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
@@ -1957,7 +1958,7 @@ fn write_hydro_csv(
         }
     }
 
-    write_csv_file(output_dir.join("resultado_hidreletricas.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_hidreletricas.csv"), csv)
 }
 
 fn hydro_upstream_inflow_hm3(
@@ -2134,7 +2135,7 @@ fn write_process_iterations_csv(
         ));
     }
 
-    write_csv_file(output_dir.join("resultado_processo_iter.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_processo_iter.csv"), csv)
 }
 
 fn write_future_cost_eco_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
@@ -2176,7 +2177,7 @@ fn write_future_cost_eco_csv(system: &System, output_dir: &Path) -> Result<(), S
         }
     }
 
-    write_csv_file(output_dir.join("resultado_fcf_eco.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_fcf_eco.csv"), csv)
 }
 
 fn write_cmosist_csv(
@@ -2216,7 +2217,7 @@ fn write_cmosist_csv(
         }
     }
 
-    write_csv_file(output_dir.join("resultado_cmosist.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_cmosist.csv"), csv)
 }
 
 fn demand_balance_constraint_name(submarket_name: &str, period: usize) -> String {
@@ -2528,7 +2529,7 @@ fn write_thermal_csv(
         }
     }
 
-    write_csv_file(output_dir.join("resultado_termicas.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_termicas.csv"), csv)
 }
 
 fn thermal_period_residual_output_values(
@@ -2651,7 +2652,7 @@ fn write_network_csv(
         ));
     }
 
-    write_csv_file(output_dir.join("resultado_rede.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_rede.csv"), csv)
 }
 
 fn write_added_flow_cut_lines_csv(
@@ -2682,7 +2683,7 @@ fn write_added_flow_cut_lines_csv(
         ));
     }
 
-    write_csv_file(output_dir.join("resultado_linhas_adicionadas.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_linhas_adicionadas.csv"), csv)
 }
 
 fn write_network_infeasibility_csv(
@@ -2711,7 +2712,7 @@ fn write_network_infeasibility_csv(
         ));
     }
 
-    write_csv_file(output_dir.join("resultado_inviabilidade_rede.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_inviabilidade_rede.csv"), csv)
 }
 
 fn write_operational_limit_infeasibility_csv(
@@ -2748,7 +2749,7 @@ fn write_operational_limit_infeasibility_csv(
         ));
     }
 
-    write_csv_file(output_dir.join("resultado_inviabilidade_lim.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_inviabilidade_lim.csv"), csv)
 }
 
 fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
@@ -2805,7 +2806,7 @@ fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<()
         }
     }
 
-    write_csv_file(output_dir.join("resultado_rest_lim.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_rest_lim.csv"), csv)
 }
 
 fn write_renewable_csv(
@@ -2859,7 +2860,7 @@ fn write_renewable_csv(
         }
     }
 
-    write_csv_file(output_dir.join("resultado_renovaveis.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_renovaveis.csv"), csv)
 }
 
 fn write_pumping_csv(
@@ -2922,25 +2923,12 @@ fn write_pumping_csv(
         }
     }
 
-    write_csv_file(output_dir.join("resultado_elevatorias.csv"), csv)
+    write_csv_to_file(output_dir.join("resultado_elevatorias.csv"), csv)
 }
 
-fn csv_with_header(columns: &str, column_descriptions: &[(&str, &str)]) -> String {
-    let mut header = String::from(
-        "ONS - Operador Nacional do Sistema Eletrico\nLabDessem\n\nDescricao das colunas:\n",
-    );
-    for (column, description) in column_descriptions {
-        header.push_str(&format!("{column}: {description}\n"));
-    }
-    header.push('\n');
-    header.push_str(columns);
-    header.push('\n');
-    header
-}
-
-fn write_csv_file(path: impl AsRef<Path>, contents: String) -> Result<(), SimulationError> {
+fn write_csv_to_file(path: impl AsRef<Path>, contents: String) -> Result<(), SimulationError> {
     let path = path.as_ref();
-    fs::write(path, contents).map_err(|error| {
+    write_csv_file(path, contents).map_err(|error| {
         SimulationError::IterativeProcess(format!(
             "failed to write output file {}: {error}",
             path.display()
@@ -3051,10 +3039,6 @@ fn hydro_diversion_name(plant_name: &str, period: usize) -> String {
 
 fn pumping_name(plant_name: &str, period: usize) -> String {
     format!("pumping[p={},t={}]", plant_name, period + 1)
-}
-
-fn volume_hm3_to_flow_m3s(volume_hm3: f64, period_duration_hours: f64) -> f64 {
-    volume_hm3 / (period_duration_hours * 0.0036)
 }
 
 fn hydro_volume_name(plant_name: &str, period: usize) -> String {

@@ -8,13 +8,23 @@
 //! ```text
 //! output/
 //! ├── mod.rs          # This file
-//! ├── common.rs       # Shared utilities
-//! ├── hydro.rs        # Hydro plant results
-//! ├── network.rs      # Network results (buses, branches, CMO)
-//! ├── pumping.rs      # Pumping plant results
-//! ├── renewable.rs    # Renewable plant results
-//! ├── summary.rs      # Iteration logs, constraint summaries
-//! └── thermal.rs      # Thermal plant results
+//! └── common.rs       # Shared CSV utilities
+//! ```
+//!
+//! # Usage
+//!
+//! The common module provides CSV generation utilities:
+//!
+//! ```ignore
+//! use labdessem_io::output::{csv_with_header, write_csv_file};
+//!
+//! let csv = csv_with_header(
+//!     "Col1;Col2;Col3",
+//!     &[("Col1", "description 1"), ("Col2", "description 2")],
+//! );
+//! write_csv_file("output.csv", csv)?;
 //! ```
 
-// Modules to be implemented by subsequent tickets
+pub mod common;
+
+pub use common::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
