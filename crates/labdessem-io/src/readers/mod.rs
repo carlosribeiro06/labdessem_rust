@@ -1,6 +1,6 @@
-//! CSV readers for each entity type.
+//! CSV and binary readers for each entity type.
 //!
-//! This module provides entity-specific CSV readers extracted from `study.rs`.
+//! This module provides entity-specific readers extracted from `study.rs`.
 //!
 //! # Structure
 //!
@@ -8,16 +8,20 @@
 //! readers/
 //! ├── mod.rs          # This file
 //! ├── common.rs       # Shared utilities (csv parsing, period conversion)
-//! ├── thermal.rs      # read_thermal_plants()
+//! ├── future_cost.rs  # read_future_cost_cuts() - FlatBuffers binary reader
+//! ├── horizon.rs      # read_horizon() - Study horizon from OPER_DURACAO.csv
 //! ├── hydro.rs        # read_hydro_plants()
-//! ├── renewable.rs    # read_renewable_plants()
-//! ├── pumping.rs      # read_pumping_plants()
-//! ├── submarket.rs    # read_submarkets()
+//! ├── limits.rs       # read_operational_limits(), read_residual_costs(), read_interchange_limits()
 //! ├── network.rs      # read_buses(), read_branches(), build_dummy_buses()
-//! └── limits.rs       # read_operational_limits(), read_residual_costs(), read_interchange_limits()
+//! ├── pumping.rs      # read_pumping_plants()
+//! ├── renewable.rs    # read_renewable_plants()
+//! ├── submarket.rs    # read_submarkets()
+//! └── thermal.rs      # read_thermal_plants()
 //! ```
 
 pub mod common;
+pub mod future_cost;
+pub mod horizon;
 pub mod hydro;
 pub mod limits;
 pub mod network;
@@ -26,9 +30,9 @@ pub mod renewable;
 pub mod submarket;
 pub mod thermal;
 
-// Re-export commonly used utilities for external callers
 pub use common::read_csv;
-
+pub use future_cost::read_future_cost_cuts;
+pub use horizon::read_horizon;
 pub use hydro::read_hydro_plants;
 pub use limits::{read_interchange_limits, read_operational_limits, read_residual_costs};
 pub use network::{build_dummy_buses, read_branches, read_buses};
