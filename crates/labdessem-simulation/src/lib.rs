@@ -22,14 +22,15 @@ use labdessem_core::{
     system::{OperationalLimitTarget, OperationalLimitVariable, System},
 };
 use labdessem_io::output::{
-    csv_with_header, volume_hm3_to_flow_m3s, write_csv_file, write_pumping_csv,
+    csv_with_header, volume_hm3_to_flow_m3s, write_cmosist_csv, write_csv_file,
+    write_future_cost_eco_csv, write_operational_limits_csv, write_pumping_csv,
     write_renewable_csv, write_thermal_csv,
 };
 use labdessem_model::{
     Model, SolveMode,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
     names::{
-        demand_balance_constraint_name, hydro_balance_constraint_name, hydro_commitment_name,
+        hydro_balance_constraint_name, hydro_commitment_name,
         hydro_diversion_name, hydro_generation_name, hydro_spillage_name, hydro_turbining_name,
         hydro_volume_name, pumping_name, renewable_generation_name,
         thermal_generation_name,
@@ -1446,7 +1447,7 @@ pub fn write_results_csvs(
     )?;
     write_thermal_csv(system, &result.final_summary.variable_values, output_dir)?;
     write_pumping_csv(system, &result.final_summary.variable_values, output_dir)?;
-    write_cmosist_csv(system, &result.cmo_summary, output_dir)?;
+    write_cmosist_csv(system, &result.cmo_summary.constraint_duals, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
     write_operational_limit_infeasibility_csv(
@@ -2002,88 +2003,6 @@ fn write_process_iterations_csv(
     write_csv_to_file(output_dir.join("resultado_processo_iter.csv"), csv)
 }
 
-fn write_future_cost_eco_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
-    let mut csv = csv_with_header(
-        "Estagio;Corte;Slot;Iteracao;ForwardPass;Ativo;CodigoUsina;Usina;CoefLinear;CoefAngular",
-        &[
-            (
-                "Estagio",
-                "estagio do arquivo binario da funcao de custo futuro",
-            ),
-            ("Corte", "identificador unico do corte"),
-            ("Slot", "slot do corte na politica"),
-            ("Iteracao", "iteracao que gerou o corte"),
-            ("ForwardPass", "indice do forward pass que gerou o corte"),
-            ("Ativo", "indica se o corte estava ativo na politica"),
-            ("CodigoUsina", "codigo da usina hidreletrica"),
-            ("Usina", "nome da usina hidreletrica"),
-            ("CoefLinear", "coeficiente linear comum do corte"),
-            ("CoefAngular", "coeficiente angular da usina no corte"),
-        ],
-    );
-
-    for cut in &system.future_cost_cuts {
-        for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
-            let coefficient = cut.coefficients.get(plant_idx).copied().unwrap_or(0.0);
-            csv.push_str(&format!(
-                "{};{};{};{};{};{};{};{};{:.6};{:.6}\n",
-                cut.stage_id,
-                cut.cut_id,
-                cut.slot_index,
-                cut.iteration,
-                cut.forward_pass_index,
-                if cut.is_active { "SIM" } else { "NAO" },
-                plant.id.0,
-                plant.name,
-                cut.intercept,
-                coefficient
-            ));
-        }
-    }
-
-    write_csv_to_file(output_dir.join("resultado_fcf_eco.csv"), csv)
-}
-
-fn write_cmosist_csv(
-    system: &System,
-    summary: &SolveSummary,
-    output_dir: &Path,
-) -> Result<(), SimulationError> {
-    let mut csv = csv_with_header(
-        "Periodo;Submercado;PiDemanda",
-        &[
-            ("Periodo", "periodo do horizonte de estudo"),
-            ("Submercado", "nome do submercado"),
-            (
-                "PiDemanda",
-                "dual da restricao de atendimento a demanda no LP-CALC-CMO em R$/MWh",
-            ),
-        ],
-    );
-
-    for original_period in 1..=system.horizon.original_periods {
-        let internal_periods = original_period_internal_indices(system, original_period);
-        for submarket in &system.submarkets {
-            let pi_demand = average_internal_values(system, &internal_periods, |period| {
-                let constraint_name =
-                    demand_balance_constraint_name(submarket.name.as_str(), period);
-                let raw_pi_demand = summary
-                    .constraint_duals
-                    .get(&constraint_name)
-                    .copied()
-                    .unwrap_or(0.0);
-                raw_pi_demand / system.horizon.period_duration_hours
-            });
-            csv.push_str(&format!(
-                "{};{};{:.6}\n",
-                original_period, submarket.name, pi_demand
-            ));
-        }
-    }
-
-    write_csv_to_file(output_dir.join("resultado_cmosist.csv"), csv)
-}
-
 fn write_network_csv(
     system: &System,
     line_flows: &[LineFlowResult],
@@ -2251,63 +2170,6 @@ fn write_operational_limit_infeasibility_csv(
     }
 
     write_csv_to_file(output_dir.join("resultado_inviabilidade_lim.csv"), csv)
-}
-
-fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<(), SimulationError> {
-    let mut csv = csv_with_header(
-        "TipoUsina;CodigoUsina;NomeUsina;Variavel;Periodo;Linf;Lsup",
-        &[
-            ("TipoUsina", "tipo da usina associada ao limite"),
-            ("CodigoUsina", "codigo da usina associada ao limite"),
-            ("NomeUsina", "nome da usina associada ao limite"),
-            ("Variavel", "variavel limitada"),
-            ("Periodo", "periodo de aplicacao do limite"),
-            ("Linf", "limite inferior informado"),
-            ("Lsup", "limite superior informado"),
-        ],
-    );
-
-    for limit in &system.operational_limits {
-        let (plant_type, plant_code) = match limit.target {
-            OperationalLimitTarget::ThermalPlant(id) => ("TERMICA", id.0),
-            OperationalLimitTarget::HydroPlant(id) => ("HIDRAULICA", id.0),
-            OperationalLimitTarget::PumpingPlant(id) => ("ELEVATORIA", id.0),
-        };
-
-        let original_periods = (limit.start_period..=limit.end_period)
-            .filter_map(|period| {
-                system
-                    .horizon
-                    .internal_to_original_period
-                    .get(period - 1)
-                    .copied()
-            })
-            .collect::<BTreeSet<_>>();
-
-        for period in original_periods {
-            let lower_bound = limit
-                .lower_bound
-                .map(|value| format!("{value:.6}"))
-                .unwrap_or_default();
-            let upper_bound = limit
-                .upper_bound
-                .map(|value| format!("{value:.6}"))
-                .unwrap_or_default();
-
-            csv.push_str(&format!(
-                "{};{};{};{};{};{};{}\n",
-                plant_type,
-                plant_code,
-                limit.plant_name,
-                operational_limit_variable_label(limit.variable),
-                period,
-                lower_bound,
-                upper_bound
-            ));
-        }
-    }
-
-    write_csv_to_file(output_dir.join("resultado_rest_lim.csv"), csv)
 }
 
 fn write_csv_to_file(path: impl AsRef<Path>, contents: String) -> Result<(), SimulationError> {
