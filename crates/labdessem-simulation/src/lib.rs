@@ -1,14 +1,24 @@
+mod error;
+mod results;
+mod workflow;
+
+pub use error::SimulationError;
+pub use results::{
+    AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
+    LineFlowResult, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
+};
+pub use workflow::{ExecutionOption, IterationStage};
+
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    error::Error,
-    fmt, fs,
-    io::{self, Write},
+    fs, io,
+    io::Write,
     path::Path,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use labdessem_core::{
-    ids::{BranchId, BusId},
+    ids::BusId,
     system::{OperationalLimitTarget, OperationalLimitVariable, System},
 };
 use labdessem_io::output::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
@@ -21,160 +31,6 @@ use labdessem_model::{
 use labdessem_solver::{SolveSummary, SolverError, solve_model};
 
 const NETWORK_FLOW_SLACK_PENALTY_PER_MW: f64 = 1_000_000.0;
-
-#[derive(Debug)]
-pub enum SimulationError {
-    Solver(SolverError),
-    InvalidNetwork(String),
-    IterativeProcess(String),
-}
-
-impl fmt::Display for SimulationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Solver(error) => write!(f, "{error}"),
-            Self::InvalidNetwork(message) | Self::IterativeProcess(message) => {
-                write!(f, "{message}")
-            }
-        }
-    }
-}
-
-impl Error for SimulationError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Solver(error) => Some(error),
-            Self::InvalidNetwork(_) | Self::IterativeProcess(_) => None,
-        }
-    }
-}
-
-impl From<SolverError> for SimulationError {
-    fn from(value: SolverError) -> Self {
-        Self::Solver(value)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IterationStage {
-    LinearProgramming,
-    MixedIntegerLinearProgramming,
-    LinearProgrammingWithFixedCommitment,
-    LinearProgrammingCalculateCmo,
-}
-
-impl IterationStage {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::LinearProgramming => "LP",
-            Self::MixedIntegerLinearProgramming => "MILP",
-            Self::LinearProgrammingWithFixedCommitment => "LP-FIXED",
-            Self::LinearProgrammingCalculateCmo => "LP-CALC-CMO",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExecutionOption {
-    Iterative,
-    SingleMilp,
-}
-
-impl ExecutionOption {
-    pub fn from_config_value(value: u8) -> Result<Self, SimulationError> {
-        match value {
-            1 => Ok(Self::Iterative),
-            2 => Ok(Self::SingleMilp),
-            other => Err(SimulationError::IterativeProcess(format!(
-                "opcao_execucao invalida: {other}. Use 1 para LP -> MILP -> LP-FIXED -> LP-CALC-CMO ou 2 para MILP unico"
-            ))),
-        }
-    }
-
-    pub fn description(&self) -> &'static str {
-        match self {
-            Self::Iterative => "LP -> MILP -> LP-FIXED -> LP-CALC-CMO",
-            Self::SingleMilp => "MILP unico",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FlowViolation {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub period: usize,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
-}
-
-#[derive(Debug, Clone)]
-pub struct IterationReport {
-    pub stage: IterationStage,
-    pub iteration: usize,
-    pub variable_count: usize,
-    pub constraint_count: usize,
-    pub objective_value: f64,
-    pub solution_status: String,
-    pub solve_time: Duration,
-    pub violation_count: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct IterativeSimulationResult {
-    pub steps: Vec<IterationReport>,
-    pub final_summary: SolveSummary,
-    pub cmo_summary: SolveSummary,
-    pub final_violations: Vec<FlowViolation>,
-    pub accumulated_flow_cuts: usize,
-    pub final_line_flows: Vec<LineFlowResult>,
-    pub added_flow_cut_lines: Vec<AddedFlowCutLineResult>,
-    pub network_infeasibilities: Vec<NetworkInfeasibilityRecord>,
-    pub operational_limit_infeasibilities: Vec<OperationalLimitInfeasibilityRecord>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct LineFlowResult {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub from_bus_name: String,
-    pub to_bus_name: String,
-    pub period: usize,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AddedFlowCutLineResult {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub from_bus_id: BusId,
-    pub to_bus_id: BusId,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct NetworkInfeasibilityRecord {
-    pub stage: IterationStage,
-    pub iteration: usize,
-    pub period: usize,
-    pub branch_name: String,
-    pub violation_mw: f64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct OperationalLimitInfeasibilityRecord {
-    pub stage: IterationStage,
-    pub iteration: usize,
-    pub period: usize,
-    pub plant_code: usize,
-    pub plant_name: String,
-    pub variable: OperationalLimitVariable,
-    pub unit: &'static str,
-    pub lower_violation: f64,
-    pub upper_violation: f64,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct FlowCutKey {
