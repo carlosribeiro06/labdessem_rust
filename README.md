@@ -12,9 +12,15 @@
   </p>
 
   <p>
+    <a href="https://github.com/carlosribeiro06/labdessem_rust/releases/latest"><img src="https://img.shields.io/github/v/release/carlosribeiro06/labdessem_rust?label=version" alt="Latest Release"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  </p>
+
+  <p>
     <a href="https://labdessem-rs.dev/">Website</a> •
     <a href="docs/">Docs</a> •
-    <a href="crates/labdessem-io/study_config.json">Study config</a>
+    <a href="crates/labdessem-io/study_config.json">Study config</a> •
+    <a href="CHANGELOG.md">Changelog</a>
   </p>
 </div>
 
@@ -29,6 +35,7 @@ The current model supports:
 - two hydro generation formulations:
   - `FPHA = 1`: generation limited by FPHA cuts
   - `FPHA = 0`: generation linked to turbining through plant productivity
+- future cost function via Benders cuts read from binary file
 - generic renewable plants with dispatch bounded by programmed generation
 - submarket demand balance with optional network representation
 - operational limit constraints and infeasibility reporting
@@ -119,6 +126,11 @@ Current keys:
   - `1`: read `OPER_FPHA.csv` and enforce FPHA cuts
   - `0`: ignore FPHA cuts and use plant productivity times turbining
 
+- `FCF`
+  Enables or disables future cost function:
+  - `1`: read `OPER_FCF.bin` and add Benders cuts to the model
+  - `0`: ignore future cost (default)
+
 Example:
 
 ```json
@@ -129,7 +141,8 @@ Example:
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
-  "FPHA": 0
+  "FPHA": 0,
+  "FCF": 0
 }
 ```
 
@@ -157,6 +170,7 @@ Representative files currently used by the reader include:
 - `OPER_REST_LIM.csv`
 - `OPER_CUSTO_RESIDUAL.csv`
 - `OPER_FPHA.csv` when `FPHA = 1`
+- `OPER_FCF.bin` when `FCF = 1`
 
 ## Model Highlights
 
@@ -207,6 +221,7 @@ Current outputs include:
 - `resultado_processo_iter.csv`
 - `resultado_rest_lim.csv`
 - `resultado_inviabilidade_lim.csv`
+- `resultado_fcf_eco.csv` when `FCF = 1`
 
 When network treatment is enabled, the run also writes:
 
