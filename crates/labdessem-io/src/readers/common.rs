@@ -124,3 +124,8 @@ pub fn bus_id_or_dummy(
         Ok(dummy_submarket_id.0)
     }
 }
+
+/// Convert flow from m3/s to hm3 over a period.
+pub fn flow_m3s_to_hm3(flow_m3s: f64, period_duration_hours: f64) -> f64 {
+    flow_m3s * period_duration_hours * 0.0036
+}
