@@ -25,6 +25,12 @@ use labdessem_io::output::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_fi
 use labdessem_model::{
     Model, SolveMode,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
+    names::{
+        demand_balance_constraint_name, hydro_balance_constraint_name, hydro_commitment_name,
+        hydro_diversion_name, hydro_generation_name, hydro_spillage_name, hydro_turbining_name,
+        hydro_volume_name, pumping_name, renewable_generation_name, thermal_commitment_name,
+        thermal_generation_name,
+    },
     objective::ObjectiveTerm,
     variables::{Variable, VariableDomain},
 };
@@ -1127,8 +1133,7 @@ fn injections_by_period(
         };
 
         for period in 0..horizon {
-            let variable_name =
-                renewable_generation_name("renewable_generation", plant.name.as_str(), period);
+            let variable_name = renewable_generation_name(plant.name.as_str(), period);
             injections[period][*bus_pos] += summary
                 .variable_values
                 .get(&variable_name)
@@ -2076,18 +2081,6 @@ fn write_cmosist_csv(
     write_csv_to_file(output_dir.join("resultado_cmosist.csv"), csv)
 }
 
-fn demand_balance_constraint_name(submarket_name: &str, period: usize) -> String {
-    format!(
-        "demand_balance[submarket={},t={}]",
-        submarket_name,
-        period + 1
-    )
-}
-
-fn hydro_balance_constraint_name(plant_name: &str, period: usize) -> String {
-    format!("hydro_balance[p={},t={}]", plant_name, period + 1)
-}
-
 fn write_thermal_csv(
     system: &System,
     summary: &SolveSummary,
@@ -2701,11 +2694,7 @@ fn write_renewable_csv(
             let generation = average_internal_values(system, &internal_periods, |period| {
                 summary
                     .variable_values
-                    .get(&renewable_generation_name(
-                        "renewable_generation",
-                        plant.name.as_str(),
-                        period,
-                    ))
+                    .get(&renewable_generation_name(plant.name.as_str(), period))
                     .copied()
                     .unwrap_or(0.0)
             });
@@ -2820,89 +2809,6 @@ fn thermal_residence_times(
     }
 
     (times_on, times_off)
-}
-
-fn thermal_generation_name(plant_name: &str, unit_name: &str, period: usize) -> String {
-    format!(
-        "thermal_generation[p={},u={},t={}]",
-        plant_name,
-        unit_name,
-        period + 1
-    )
-}
-
-fn thermal_commitment_name(plant_name: &str, unit_name: &str, period: usize) -> String {
-    format!(
-        "thermal_on[p={},u={},t={}]",
-        plant_name,
-        unit_name,
-        period + 1
-    )
-}
-
-fn hydro_generation_name(
-    plant_name: &str,
-    group_name: &str,
-    unit_name: &str,
-    period: usize,
-) -> String {
-    format!(
-        "hydro_generation[p={},g={},u={},t={}]",
-        plant_name,
-        group_name,
-        unit_name,
-        period + 1
-    )
-}
-
-fn hydro_turbining_name(
-    plant_name: &str,
-    group_name: &str,
-    unit_name: &str,
-    period: usize,
-) -> String {
-    format!(
-        "hydro_turbining[p={},g={},u={},t={}]",
-        plant_name,
-        group_name,
-        unit_name,
-        period + 1
-    )
-}
-
-fn hydro_commitment_name(
-    plant_name: &str,
-    group_name: &str,
-    unit_name: &str,
-    period: usize,
-) -> String {
-    format!(
-        "hydro_on[p={},g={},u={},t={}]",
-        plant_name,
-        group_name,
-        unit_name,
-        period + 1
-    )
-}
-
-fn hydro_spillage_name(plant_name: &str, period: usize) -> String {
-    format!("hydro_spillage[p={},t={}]", plant_name, period + 1)
-}
-
-fn hydro_diversion_name(plant_name: &str, period: usize) -> String {
-    format!("hydro_diversion[p={},t={}]", plant_name, period + 1)
-}
-
-fn pumping_name(plant_name: &str, period: usize) -> String {
-    format!("pumping[p={},t={}]", plant_name, period + 1)
-}
-
-fn hydro_volume_name(plant_name: &str, period: usize) -> String {
-    format!("hydro_volume[p={},t={}]", plant_name, period)
-}
-
-fn renewable_generation_name(prefix: &str, plant_name: &str, period: usize) -> String {
-    format!("{prefix}[p={},t={}]", plant_name, period + 1)
 }
 
 fn flow_slack_name(prefix: &str, branch_name: &str, period: usize) -> String {

@@ -1,5 +1,6 @@
 pub mod constraints;
 pub mod indexing;
+pub mod names;
 pub mod objective;
 pub mod variables;
 
