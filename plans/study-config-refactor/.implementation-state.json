@@ -1,0 +1,50 @@
+{
+  "plan": "study-config-refactor",
+  "mode": "Rigoroso",
+  "last_updated": "2026-10-13T15:00:00-03:00",
+  "execution_strategy": "continuous",
+  "tickets": {
+    "ticket-001-update-study-config-struct.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-002-create-example-configs.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-003-update-tests.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-004-rename-binary.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-005-implement-run-subcommand.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-006-update-readme.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    },
+    "ticket-007-update-changelog.md": {
+      "status": "completed",
+      "detail_level": "detailed"
+    }
+  },
+  "epics": {
+    "epic-01-config-structure": {
+      "phase": "completed",
+      "learning_extracted": false
+    },
+    "epic-02-cli-refactor": {
+      "phase": "completed",
+      "learning_extracted": false
+    },
+    "epic-03-documentation": {
+      "phase": "completed",
+      "learning_extracted": false
+    }
+  }
+}

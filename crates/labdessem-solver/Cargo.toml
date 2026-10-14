@@ -10,3 +10,6 @@ repository.workspace = true
 labdessem-model = { path = "../labdessem-model" }
 labdessem-io = { path = "../labdessem-io" }
 good_lp = { version = "1.15", default-features = false, features = ["highs"] }
+
+[lints]
+workspace = true
