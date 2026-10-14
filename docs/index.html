@@ -1,133 +1,164 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LabDessem Rust</title>
-  <meta
-    name="description"
-    content="Technical website for LabDessem Rust with dedicated pages for methodology, architecture, execution, and results."
-  >
+  <title>LabDessem Rust - Open Infrastructure for Hydrothermal Scheduling</title>
+  <meta name="description" content="A modular Rust workspace for thermal unit commitment, hydro scheduling, FPHA, renewables, and network-aware dispatch studies.">
   <link rel="icon" type="image/svg+xml" href="./logo.svg">
   <link rel="canonical" href="https://carlosribeiro06.github.io/labdessem_rust/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="LabDessem Rust">
-  <meta
-    property="og:description"
-    content="Rust optimization model for hydrothermal scheduling with thermal UC, optional FPHA, renewables, pumping plants, and CSV reports."
-  >
+  <meta property="og:description" content="Open infrastructure for hydrothermal scheduling. Built in Rust.">
   <meta property="og:url" content="https://carlosribeiro06.github.io/labdessem_rust/">
-  <meta property="og:site_name" content="LabDessem Rust">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
-    rel="stylesheet"
-  >
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <div class="transmission-background" aria-hidden="true">
-    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <linearGradient id="lineGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
-          <stop offset="50%" stop-color="#37aefe" stop-opacity="0.95"></stop>
-          <stop offset="100%" stop-color="#68b8ff" stop-opacity="0.15"></stop>
-        </linearGradient>
-        <linearGradient id="wireStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#4f6f99"></stop>
-          <stop offset="100%" stop-color="#90a9cf"></stop>
-        </linearGradient>
-        <filter id="softGlow">
-          <feGaussianBlur stdDeviation="6"></feGaussianBlur>
-        </filter>
-      </defs>
-      <ellipse cx="260" cy="760" rx="320" ry="120" fill="rgba(104, 184, 255, 0.06)"></ellipse>
-      <ellipse cx="1340" cy="760" rx="320" ry="120" fill="rgba(55, 174, 254, 0.05)"></ellipse>
-      <g class="tower tower-left">
-        <line class="main-leg" x1="270" y1="132" x2="196" y2="726"></line>
-        <line class="main-leg" x1="270" y1="132" x2="344" y2="726"></line>
-        <line class="spine" x1="270" y1="132" x2="270" y2="726"></line>
-        <line class="crossarm" x1="168" y1="246" x2="372" y2="246"></line>
-        <line class="crossarm" x1="146" y1="352" x2="394" y2="352"></line>
-        <line class="crossarm" x1="124" y1="482" x2="416" y2="482"></line>
-      </g>
-      <g class="tower tower-right">
-        <line class="main-leg" x1="1330" y1="132" x2="1256" y2="726"></line>
-        <line class="main-leg" x1="1330" y1="132" x2="1404" y2="726"></line>
-        <line class="spine" x1="1330" y1="132" x2="1330" y2="726"></line>
-        <line class="crossarm" x1="1228" y1="246" x2="1432" y2="246"></line>
-        <line class="crossarm" x1="1206" y1="352" x2="1454" y2="352"></line>
-        <line class="crossarm" x1="1184" y1="482" x2="1476" y2="482"></line>
-      </g>
-      <path class="wire" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
-      <path class="wire" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
-      <path class="wire" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
-      <path class="energy energy-1" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
-      <path class="energy energy-2" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
-      <path class="energy energy-3" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
-      <path class="energy-blur blur-1" d="M 184 246 C 520 182, 1080 182, 1416 246"></path>
-      <path class="energy-blur blur-2" d="M 162 352 C 520 296, 1080 296, 1438 352"></path>
-      <path class="energy-blur blur-3" d="M 140 482 C 520 438, 1080 438, 1460 482"></path>
-    </svg>
-  </div>
-
-  <div class="site-shell">
-    <header class="topbar">
-      <a class="brand" href="./index.html">
-        <span class="brand-mark"><img class="brand-logo" src="./logo.svg" alt="LabDessem Rust logo"></span>
-        <span class="brand-text">LabDessem Rust</span>
+  <header class="header">
+    <div class="header-inner">
+      <a href="./" class="logo">
+        <img src="./logo.svg" alt="LabDessem logo">
+        <span>LabDessem</span>
       </a>
       <nav class="nav">
-        <a class="active" href="./index.html">Home</a>
-        <a href="./arquitetura.html">Architecture</a>
-        <a href="./metodologia.html">Methodology</a>
-        <a href="./execucao.html">Execution</a>
-        <a href="./resultados.html">Results</a>
-        <a
-          class="nav-link-external"
-          href="https://github.com/carlosribeiro06/labdessem_rust"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          GitHub
-        </a>
-      </nav>
-    </header>
-
-    <main id="top">
-      <section class="hero">
-        <div class="hero-copy">
-          <div class="hero-topmark">
-            <img class="hero-logo-large" src="./logo.svg" alt="LabDessem Rust logo">
-            <p class="hero-badge">v0.4.0</p>
-          </div>
-          <h1>
-            Open infrastructure for
-            <span>hydrothermal scheduling</span>
-          </h1>
-          <p class="hero-subtitle">
-            A Rust optimization model for thermal commitment, hydro operation with optional FPHA,
-            DC network representation, unified renewables, pumping plants, and traceable technical reports.
-          </p>
-          <div class="command-pill"><span class="prompt">$</span><span>cargo run -p labdessem-cli</span></div>
-          <div class="hero-actions">
-            <a class="button button-primary" href="./metodologia.html">Methodology</a>
-            <a class="button button-secondary" href="./execucao.html">Execution</a>
-            <a class="button button-secondary" href="./resultados.html">Results</a>
-          </div>
-          <ul class="hero-pills">
-            <li>Thermal UC</li>
-            <li>Optional FPHA</li>
-            <li>Optional DC network</li>
-            <li>Unified renewables</li>
-          </ul>
+        <a href="./" class="active">Home</a>
+        <a href="./docs.html">Docs</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./methodology.html">Methodology</a>
+        <div class="nav-external">
+          <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank" rel="noopener">GitHub</a>
         </div>
-      </section>
-    </main>
-  </div>
+      </nav>
+    </div>
+  </header>
 
-  <script src="./site.js"></script>
+  <main>
+    <section class="hero container">
+      <span class="version-badge">v0.6.0</span>
+      <h1>Open infrastructure for<br>hydrothermal <span>scheduling</span></h1>
+      <p class="hero-subtitle">
+        A modular Rust workspace for thermal unit commitment, hydro scheduling,
+        optional FPHA, renewables, pumping plants, operational limits, and
+        network-aware dispatch studies.
+      </p>
+      <div class="command-box">
+        <span class="prompt">$</span>
+        <code>labdessem run examples/24Barras</code>
+      </div>
+      <div class="btn-group">
+        <a href="./docs.html" class="btn btn-primary">Get Started</a>
+        <a href="./methodology.html" class="btn btn-secondary">Methodology</a>
+        <a href="https://github.com/carlosribeiro06/labdessem_rust" class="btn btn-secondary" target="_blank">GitHub</a>
+      </div>
+      <div class="pills">
+        <span class="pill">Thermal UC</span>
+        <span class="pill">Hydro FPHA</span>
+        <span class="pill">Future Cost Function</span>
+        <span class="pill">DC Network</span>
+        <span class="pill">Pumping Plants</span>
+        <span class="pill">JSON Schema</span>
+      </div>
+    </section>
+
+    <section class="cards-section container">
+      <h2>Get started</h2>
+      <div class="cards-grid">
+        <div class="card">
+          <h3>Quick Start</h3>
+          <p>Install the CLI, configure your study case, and run your first optimization in minutes.</p>
+          <a href="./docs.html" class="card-link">Read the docs →</a>
+        </div>
+        <div class="card">
+          <h3>Configuration</h3>
+          <p>Learn how to set up <code>study_config.json</code> with JSON Schema validation and IDE autocompletion.</p>
+          <a href="./configuration.html" class="card-link">Configuration guide →</a>
+        </div>
+        <div class="card">
+          <h3>Methodology</h3>
+          <p>Understand the mathematical formulation: thermal UC, hydro balance, FPHA cuts, and future cost function.</p>
+          <a href="./methodology.html" class="card-link">Learn more →</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="container">
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">6</div>
+          <div class="stat-label">Crates</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">30+</div>
+          <div class="stat-label">Tests</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">0</div>
+          <div class="stat-label">Proprietary deps</div>
+        </div>
+      </div>
+    </div>
+
+    <section class="code-section container">
+      <h2>Run in three commands</h2>
+      <div class="code-tabs">
+        <button class="code-tab active" data-tab="install">Install</button>
+        <button class="code-tab" data-tab="run">Run</button>
+        <button class="code-tab" data-tab="config">Configure</button>
+      </div>
+      <div class="code-block" id="tab-install">
+<pre><span class="comment"># Install the CLI from source</span>
+<span class="command">$</span> cargo install --path crates/labdessem-cli
+
+<span class="comment"># Or run directly with cargo</span>
+<span class="command">$</span> cargo run -p labdessem-cli -- run examples/24Barras</pre>
+      </div>
+      <div class="code-block" id="tab-run" style="display: none;">
+<pre><span class="comment"># Run a study case</span>
+<span class="command">$</span> labdessem run examples/24Barras
+
+<span class="comment"># Run from the case directory</span>
+<span class="command">$</span> cd examples/24Barras
+<span class="command">$</span> labdessem run
+
+<span class="comment"># Results are written to RESULTADOS/</span></pre>
+      </div>
+      <div class="code-block" id="tab-config" style="display: none;">
+<pre><span class="comment">// study_config.json</span>
+{
+  <span class="string">"$schema"</span>: <span class="string">"../../schemas/study_config.schema.json"</span>,
+  <span class="string">"opcao_execucao"</span>: 2,
+  <span class="string">"rede"</span>: 0,
+  <span class="string">"UCT"</span>: 1,
+  <span class="string">"UCH"</span>: 0,
+  <span class="string">"FPHA"</span>: 0,
+  <span class="string">"FCF"</span>: 1
+}</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="./docs.html">Documentation</a>
+      <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank">GitHub</a>
+      <a href="./methodology.html">Methodology</a>
+    </div>
+    <p class="footer-copy">MIT License · LabDessem Rust</p>
+  </footer>
+
+  <script>
+    // Code tabs
+    document.querySelectorAll('.code-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.code-block').forEach(b => b.style.display = 'none');
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+      });
+    });
+  </script>
 </body>
 </html>

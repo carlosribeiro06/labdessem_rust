@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://carlosribeiro06.github.io/labdessem_rust/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
+  <url><loc>https://carlosribeiro06.github.io/labdessem_rust/</loc></url>
+  <url><loc>https://carlosribeiro06.github.io/labdessem_rust/docs.html</loc></url>
+  <url><loc>https://carlosribeiro06.github.io/labdessem_rust/configuration.html</loc></url>
+  <url><loc>https://carlosribeiro06.github.io/labdessem_rust/methodology.html</loc></url>
 </urlset>

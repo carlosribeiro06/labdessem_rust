@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuration - LabDessem Rust</title>
+  <meta name="description" content="Study configuration guide for LabDessem Rust - study_config.json reference and JSON Schema.">
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="./" class="logo">
+        <img src="./logo.svg" alt="LabDessem logo">
+        <span>LabDessem</span>
+      </a>
+      <nav class="nav">
+        <a href="./">Home</a>
+        <a href="./docs.html">Docs</a>
+        <a href="./configuration.html" class="active">Configuration</a>
+        <a href="./methodology.html">Methodology</a>
+        <div class="nav-external">
+          <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container docs-layout">
+      <aside class="docs-sidebar">
+        <nav class="docs-nav">
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Configuration</div>
+            <a href="#study-config" class="active">study_config.json</a>
+            <a href="#json-schema">JSON Schema</a>
+            <a href="#ide-setup">IDE Setup</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Parameters</div>
+            <a href="#execution-mode">Execution Mode</a>
+            <a href="#model-flags">Model Flags</a>
+          </div>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Configuration</h1>
+        <p>Each study case requires a <code>study_config.json</code> file in its root directory. This file controls execution mode, model features, and solver behavior.</p>
+
+        <h2 id="study-config">study_config.json</h2>
+        <p>Example configuration:</p>
+        <pre><code>{
+  "$schema": "../../schemas/study_config.schema.json",
+  "opcao_execucao": 2,
+  "rede": 0,
+  "UCT": 1,
+  "UCH": 0,
+  "TON_Residual": 0,
+  "FPHA": 0,
+  "FCF": 1
+}</code></pre>
+
+        <h2 id="json-schema">JSON Schema</h2>
+        <p>A JSON Schema is provided at <code>schemas/study_config.schema.json</code> for IDE autocompletion and validation.</p>
+        <p>Add the <code>$schema</code> property to your config file:</p>
+        <pre><code>{
+  "$schema": "../../schemas/study_config.schema.json",
+  ...
+}</code></pre>
+        <p>The schema path is relative to your study directory. Adjust the path based on your directory structure.</p>
+
+        <h2 id="ide-setup">IDE Setup</h2>
+        <h3>VS Code</h3>
+        <p>For automatic validation across all study configs, add to <code>.vscode/settings.json</code>:</p>
+        <pre><code>{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/study_config.json"],
+      "url": "./schemas/study_config.schema.json"
+    }
+  ]
+}</code></pre>
+
+        <h2 id="execution-mode">Execution Mode</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>1</code></td>
+              <td>Iterative: LP → MILP → LP-FIXED → LP-CALC-CMO</td>
+            </tr>
+            <tr>
+              <td><code>2</code></td>
+              <td>Single MILP solve</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Mode 1 (Iterative)</strong>: Starts with LP relaxation, solves MILP, then fixes integers and re-solves for dual information (CMOs). When network is enabled, adds DC flow cuts iteratively for violated line-period pairs.</p>
+        <p><strong>Mode 2 (Single MILP)</strong>: Direct mixed-integer solve. Faster but no dual information extraction.</p>
+
+        <h2 id="model-flags">Model Flags</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rede</code></td>
+              <td>0/1</td>
+              <td>Enable DC network flow representation</td>
+            </tr>
+            <tr>
+              <td><code>UCT</code></td>
+              <td>0/1</td>
+              <td>Enable thermal unit commitment (binary variables)</td>
+            </tr>
+            <tr>
+              <td><code>UCH</code></td>
+              <td>0/1</td>
+              <td>Enable hydro unit commitment (binary variables)</td>
+            </tr>
+            <tr>
+              <td><code>TON_Residual</code></td>
+              <td>0/1</td>
+              <td>Enable thermal residual TON treatment at horizon end</td>
+            </tr>
+            <tr>
+              <td><code>FPHA</code></td>
+              <td>0/1</td>
+              <td>Hydro generation formulation: 1 = FPHA cuts, 0 = productivity</td>
+            </tr>
+            <tr>
+              <td><code>FCF</code></td>
+              <td>0/1</td>
+              <td>Enable future cost function (Benders cuts from OPER_FCF.bin)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>FPHA Flag</h3>
+        <p>Controls how hydro generation is computed:</p>
+        <ul>
+          <li><code>FPHA=1</code>: Read FPHA cuts from <code>OPER_FPHA.csv</code>. Generation bounded by piecewise linear approximation.</li>
+          <li><code>FPHA=0</code>: Generation = productivity × turbining. Simpler but less accurate for varying head.</li>
+        </ul>
+
+        <h3>FCF Flag</h3>
+        <p>Controls future cost function:</p>
+        <ul>
+          <li><code>FCF=1</code>: Read Benders cuts from <code>OPER_FCF.bin</code>. Adds future cost variable and constraints linking final storage to expected future cost.</li>
+          <li><code>FCF=0</code>: No future cost. Useful for deterministic single-stage studies.</li>
+        </ul>
+      </article>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="./docs.html">Documentation</a>
+      <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank">GitHub</a>
+      <a href="./methodology.html">Methodology</a>
+    </div>
+    <p class="footer-copy">MIT License · LabDessem Rust</p>
+  </footer>
+</body>
+</html>

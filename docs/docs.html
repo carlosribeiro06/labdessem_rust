@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation - LabDessem Rust</title>
+  <meta name="description" content="Documentation for LabDessem Rust - installation, usage, and workspace structure.">
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="./" class="logo">
+        <img src="./logo.svg" alt="LabDessem logo">
+        <span>LabDessem</span>
+      </a>
+      <nav class="nav">
+        <a href="./">Home</a>
+        <a href="./docs.html" class="active">Docs</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./methodology.html">Methodology</a>
+        <div class="nav-external">
+          <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container docs-layout">
+      <aside class="docs-sidebar">
+        <nav class="docs-nav">
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Getting Started</div>
+            <a href="#installation" class="active">Installation</a>
+            <a href="#quick-start">Quick Start</a>
+            <a href="#cli-usage">CLI Usage</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Workspace</div>
+            <a href="#workspace-structure">Structure</a>
+            <a href="#crates">Crates</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Study Case</div>
+            <a href="#input-data">Input Data</a>
+            <a href="#outputs">Outputs</a>
+          </div>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Documentation</h1>
+        <p>LabDessem Rust is a modular workspace for hydrothermal scheduling optimization. This guide covers installation, basic usage, and workspace organization.</p>
+
+        <h2 id="installation">Installation</h2>
+        <p>Clone the repository and install the CLI:</p>
+        <pre><code>git clone https://github.com/carlosribeiro06/labdessem_rust.git
+cd labdessem_rust
+cargo install --path crates/labdessem-cli</code></pre>
+        <p>This installs the <code>labdessem</code> binary to <code>~/.cargo/bin/</code>.</p>
+
+        <h3>Requirements</h3>
+        <ul>
+          <li>Rust 1.70 or later</li>
+          <li>CMake (for HiGHS solver compilation)</li>
+          <li>C++ compiler (Visual Studio Build Tools on Windows, GCC/Clang on Linux)</li>
+        </ul>
+
+        <h2 id="quick-start">Quick Start</h2>
+        <p>Run an example study case:</p>
+        <pre><code>labdessem run examples/24Barras</code></pre>
+        <p>Results are written to <code>examples/24Barras/RESULTADOS/</code>.</p>
+
+        <h2 id="cli-usage">CLI Usage</h2>
+        <pre><code># Run a study case (path argument)
+labdessem run examples/24Barras
+
+# Run from the case directory
+cd examples/24Barras
+labdessem run
+
+# Show help
+labdessem --help
+labdessem run --help</code></pre>
+
+        <h2 id="workspace-structure">Workspace Structure</h2>
+        <pre><code>labdessem_rust/
+├── crates/
+│   ├── labdessem-cli        # Command-line interface
+│   ├── labdessem-core       # Domain entities, IDs, validation
+│   ├── labdessem-io         # Case reader and output writers
+│   ├── labdessem-model      # Variables, objective, constraints
+│   ├── labdessem-simulation # Workflow orchestration
+│   └── labdessem-solver     # Optimization backend (HiGHS)
+├── docs/                    # This website
+├── examples/                # Example study cases
+├── schemas/                 # JSON Schema for study_config.json
+└── Cargo.toml               # Workspace configuration</code></pre>
+
+        <h2 id="crates">Crates</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Crate</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>labdessem-cli</code></td>
+              <td>Command-line interface. Produces the <code>labdessem</code> binary.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-core</code></td>
+              <td>Domain entities, identifiers, validations, horizon representation.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-io</code></td>
+              <td>Case reader. Loads <code>study_config.json</code> and CSV files from <code>CAD/</code> and <code>OPER/</code>.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-model</code></td>
+              <td>Indexing, variables, objective function, and algebraic constraints.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-solver</code></td>
+              <td>Optimization backend integration through <code>good_lp</code> with HiGHS.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-simulation</code></td>
+              <td>End-to-end orchestration: solve workflow, network iterations, output export.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="input-data">Input Data</h2>
+        <p>Each study directory is organized with:</p>
+        <ul>
+          <li><code>study_config.json</code> — Study configuration (see <a href="./configuration.html">Configuration</a>)</li>
+          <li><code>CAD/</code> — Static registration data (plants, buses, lines)</li>
+          <li><code>OPER/</code> — Time-varying data (demand, inflows, availability)</li>
+        </ul>
+
+        <h3>CAD Files (Registration)</h3>
+        <ul>
+          <li><code>CAD_UNID_UTE.csv</code> — Thermal plants and units</li>
+          <li><code>CAD_RAMPAS_TERMICAS.csv</code> — Thermal ramp trajectories</li>
+          <li><code>CAD_UHE.csv</code> — Hydro plants</li>
+          <li><code>CAD_CONJ_UHE.csv</code> — Hydro groups and units</li>
+          <li><code>CAD_REN.csv</code> — Renewable plants</li>
+          <li><code>CAD_USIE.csv</code> — Pumping plants</li>
+        </ul>
+
+        <h3>OPER Files (Operational)</h3>
+        <ul>
+          <li><code>OPER_SBM.csv</code> — Submarket demand</li>
+          <li><code>OPER_VAZAO.csv</code> — Hydro inflows</li>
+          <li><code>OPER_REN.csv</code> — Renewable availability</li>
+          <li><code>OPER_REST_LIM.csv</code> — Operational limits</li>
+          <li><code>OPER_FPHA.csv</code> — FPHA cuts (when <code>FPHA=1</code>)</li>
+          <li><code>OPER_FCF.bin</code> — Future cost cuts (when <code>FCF=1</code>)</li>
+        </ul>
+
+        <h2 id="outputs">Outputs</h2>
+        <p>After a successful run, CSV files are written to <code>RESULTADOS/</code>:</p>
+        <ul>
+          <li><code>resultado_termicas.csv</code> — Thermal generation and commitment</li>
+          <li><code>resultado_hidreletricas.csv</code> — Hydro generation, turbining, spillage</li>
+          <li><code>resultado_renovaveis.csv</code> — Renewable generation</li>
+          <li><code>resultado_elevatorias.csv</code> — Pumping plant operation</li>
+          <li><code>resultado_cmosist.csv</code> — Marginal operating costs</li>
+          <li><code>resultado_fcf_eco.csv</code> — Future cost cut values (when <code>FCF=1</code>)</li>
+          <li><code>resultado_rede.csv</code> — Network flows (when <code>rede=1</code>)</li>
+        </ul>
+      </article>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="./docs.html">Documentation</a>
+      <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank">GitHub</a>
+      <a href="./methodology.html">Methodology</a>
+    </div>
+    <p class="footer-copy">MIT License · LabDessem Rust</p>
+  </footer>
+</body>
+</html>

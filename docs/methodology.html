@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Methodology - LabDessem Rust</title>
+  <meta name="description" content="Mathematical methodology for LabDessem Rust - thermal UC, hydro scheduling, FPHA, and future cost function.">
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="./" class="logo">
+        <img src="./logo.svg" alt="LabDessem logo">
+        <span>LabDessem</span>
+      </a>
+      <nav class="nav">
+        <a href="./">Home</a>
+        <a href="./docs.html">Docs</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./methodology.html" class="active">Methodology</a>
+        <div class="nav-external">
+          <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container docs-layout">
+      <aside class="docs-sidebar">
+        <nav class="docs-nav">
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Overview</div>
+            <a href="#model-scope" class="active">Model Scope</a>
+            <a href="#objective">Objective Function</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Thermal</div>
+            <a href="#thermal-uc">Unit Commitment</a>
+            <a href="#thermal-ramps">Ramp Trajectories</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Hydro</div>
+            <a href="#hydro-balance">Hydraulic Balance</a>
+            <a href="#fpha">FPHA Formulation</a>
+            <a href="#fcf">Future Cost Function</a>
+          </div>
+          <div class="docs-nav-section">
+            <div class="docs-nav-title">Network</div>
+            <a href="#dc-network">DC Network Flow</a>
+            <a href="#iterative">Iterative Cuts</a>
+          </div>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Methodology</h1>
+        <p>LabDessem Rust implements a hydrothermal scheduling model with thermal unit commitment, hydro operation with cascades, and optional network representation.</p>
+
+        <h2 id="model-scope">Model Scope</h2>
+        <p>The current model supports:</p>
+        <ul>
+          <li>Thermal unit commitment with startup and shutdown trajectories</li>
+          <li>Minimum up/down time for thermal units</li>
+          <li>Thermal residual TON cost treatment at horizon end</li>
+          <li>Hydro scheduling with cascades, water diversion, pumping plants</li>
+          <li>Two hydro generation formulations (FPHA cuts or productivity)</li>
+          <li>Future cost function via Benders cuts</li>
+          <li>Generic renewable plants bounded by programmed generation</li>
+          <li>Submarket demand balance with optional DC network</li>
+          <li>Operational limit constraints</li>
+        </ul>
+
+        <h2 id="objective">Objective Function</h2>
+        <p>The objective minimizes total operational cost:</p>
+        <pre><code>min Σ (thermal generation cost + startup cost + shutdown cost)
+    + Σ (hydro spillage cost + turbining cost)
+    + Σ (deficit cost)
+    + Σ (interchange penalty)
+    + future cost (when FCF=1)</code></pre>
+
+        <h2 id="thermal-uc">Thermal Unit Commitment</h2>
+        <p>When <code>UCT=1</code>, each thermal unit has binary variables:</p>
+        <ul>
+          <li><code>u[i,t]</code> — commitment status (on/off)</li>
+          <li><code>v[i,t]</code> — startup indicator</li>
+          <li><code>w[i,t]</code> — shutdown indicator</li>
+        </ul>
+        <p>Constraints enforce:</p>
+        <pre><code>u[i,t] - u[i,t-1] = v[i,t] - w[i,t]  (state transition)
+Σ u[i,τ] ≥ min_up_time × v[i,t]       (minimum up time)
+Σ (1-u[i,τ]) ≥ min_down_time × w[i,t] (minimum down time)</code></pre>
+
+        <h2 id="thermal-ramps">Ramp Trajectories</h2>
+        <p>Thermal units follow predefined ramp trajectories during startup and shutdown. The model reads trajectories from <code>CAD_RAMPAS_TERMICAS.csv</code> and enforces generation to follow the trajectory during state transitions.</p>
+
+        <h2 id="hydro-balance">Hydraulic Balance</h2>
+        <p>For each hydro plant and period:</p>
+        <pre><code>V[i,t] = V[i,t-1] + A[i,t] - Q[i,t] - S[i,t] + Σ(Q[j,t] + S[j,t]) - W[i,t]</code></pre>
+        <p>Where:</p>
+        <ul>
+          <li><code>V</code> — reservoir volume</li>
+          <li><code>A</code> — natural inflow</li>
+          <li><code>Q</code> — turbining</li>
+          <li><code>S</code> — spillage</li>
+          <li><code>W</code> — water withdrawal</li>
+          <li>Summation over upstream plants in the cascade</li>
+        </ul>
+
+        <h2 id="fpha">FPHA Formulation</h2>
+        <p>The Hydro Production Function Approximation (FPHA) linearizes the nonlinear relationship between generation, head, and turbining.</p>
+        <p>When <code>FPHA=1</code>, generation is bounded by piecewise linear cuts:</p>
+        <pre><code>G[i,t] ≤ α₀ + α₁×V[i,t] + α₂×Q[i,t] + α₃×Qlat[i,t]</code></pre>
+        <p>Cuts are read from <code>OPER_FPHA.csv</code> with coefficients per segment.</p>
+        <p>When <code>FPHA=0</code>, generation is computed directly:</p>
+        <pre><code>G[i,t] = ρ × Q[i,t]</code></pre>
+        <p>Where ρ is the specific productivity (MW per m³/s).</p>
+
+        <h2 id="fcf">Future Cost Function</h2>
+        <p>The Future Cost Function (FCF) represents the expected cost-to-go from the end of the horizon. It is approximated by Benders cuts:</p>
+        <pre><code>α ≥ π₀ + Σ πᵢ × Vfinal[i]</code></pre>
+        <p>Where:</p>
+        <ul>
+          <li><code>α</code> — future cost variable (added to objective)</li>
+          <li><code>π₀</code> — cut intercept</li>
+          <li><code>πᵢ</code> — coefficient for final volume of hydro plant i</li>
+        </ul>
+        <p>Cuts are read from binary file <code>OPER_FCF.bin</code> when <code>FCF=1</code>.</p>
+
+        <h2 id="dc-network">DC Network Flow</h2>
+        <p>When <code>rede=1</code>, the model includes DC power flow approximation:</p>
+        <pre><code>f[l,t] = (θ[from] - θ[to]) / x[l]  (line flow)
+|f[l,t]| ≤ f_max[l]                 (thermal limit)</code></pre>
+        <p>Bus power balance enforces generation minus demand equals net injection.</p>
+
+        <h2 id="iterative">Iterative Network Cuts</h2>
+        <p>In execution mode 1, network constraints are added iteratively:</p>
+        <ol>
+          <li>Solve LP relaxation (network-free)</li>
+          <li>Compute DC flows from solution</li>
+          <li>Identify violated line-period pairs</li>
+          <li>Add flow constraints for violations</li>
+          <li>Repeat until no violations or iteration limit</li>
+          <li>Solve final MILP with all cuts</li>
+          <li>Fix integers and solve LP-CALC-CMO for duals</li>
+        </ol>
+        <p>This approach keeps the model size manageable while ensuring feasibility.</p>
+      </article>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="./docs.html">Documentation</a>
+      <a href="https://github.com/carlosribeiro06/labdessem_rust" target="_blank">GitHub</a>
+      <a href="./methodology.html">Methodology</a>
+    </div>
+    <p class="footer-copy">MIT License · LabDessem Rust</p>
+  </footer>
+</body>
+</html>
