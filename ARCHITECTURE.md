@@ -56,8 +56,26 @@ builds `System` via entity readers. Writes result CSVs to `RESULTADOS/`.
 ```
 labdessem-io/src/
 ├── readers/
+│   ├── mod.rs         # Reader orchestration
 │   ├── common.rs      # read_csv(), log utilities
-│   └── mod.rs         # Reader infrastructure
+│   ├── horizon.rs     # StudyHorizon parsing
+│   ├── thermal.rs     # Thermal plants and ramps
+│   ├── hydro.rs       # Hydro plants, groups, units, FPHA
+│   ├── renewable.rs   # Renewable plants
+│   ├── pumping.rs     # Pumping plants
+│   ├── submarket.rs   # Submarkets and demand
+│   ├── network.rs     # Buses and branches
+│   ├── limits.rs      # Operational limits
+│   └── future_cost.rs # FCF binary file reader
+├── output/
+│   ├── mod.rs         # Output module exports
+│   ├── common.rs      # csv_with_header(), write_csv_file()
+│   ├── helpers.rs     # Period conversion utilities
+│   ├── thermal.rs     # Thermal results writer
+│   ├── renewable.rs   # Renewable results writer
+│   ├── pumping.rs     # Pumping results writer
+│   ├── summary.rs     # CMO and FCF economic results
+│   └── limits.rs      # Operational limits results
 ├── study.rs           # Study loading orchestration
 └── error.rs           # IoError
 ```
@@ -70,15 +88,39 @@ mathematical program.
 
 ```
 labdessem-model/src/
+├── lib.rs             # Public API re-exports
+├── model.rs           # Model struct and SolveMode enum
 ├── indexing.rs        # Variable/constraint indexing
 ├── variables.rs       # Decision variables
 ├── objective.rs       # Objective function
-└── constraints.rs     # All constraints
+├── names.rs           # Variable/constraint naming functions
+├── constraints/
+│   ├── mod.rs         # Constraint orchestration
+│   ├── thermal.rs     # Thermal unit commitment constraints
+│   ├── hydro.rs       # Hydro balance and generation constraints
+│   ├── demand.rs      # Submarket demand balance
+│   └── limits.rs      # Operational limit constraints
+└── tests.rs           # Unit tests
 ```
 
 **labdessem-simulation** — End-to-end orchestration: iterative solve
-workflow (LP → MILP → LP-FIXED → LP-CALC-CMO), network cut addition,
-dual extraction, and result CSV generation.
+workflow (LP → MILP → LP-FIXED → LP-CALC-CMO), DC network flow modeling
+with PTDF computation, network cut addition, dual extraction, and
+result CSV generation.
+
+```
+labdessem-simulation/src/
+├── lib.rs             # Public API (run_simulation, write_results_csvs)
+├── stages.rs          # Solve workflow (run_simulation, solve_stage, etc.)
+├── workflow.rs        # ExecutionOption and IterationStage enums
+├── output.rs          # CSV writers for all result files
+├── results.rs         # Result structures (IterativeSimulationResult, etc.)
+├── error.rs           # SimulationError
+└── network/
+    ├── mod.rs         # DcNetworkModel, FlowCutKey
+    ├── ptdf.rs        # PTDF matrix computation (linear algebra)
+    └── flow.rs        # Flow violation detection and cut generation
+```
 
 ### Entry Point
 
