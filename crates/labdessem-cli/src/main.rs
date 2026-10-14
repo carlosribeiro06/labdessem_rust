@@ -8,19 +8,17 @@ mod banner;
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
-    match args.get(1).map(|s| s.as_str()) {
+    match args.get(1).map(std::string::String::as_str) {
         Some("run") => {
-            if args.get(2).map(|s| s.as_str()) == Some("--help")
-                || args.get(2).map(|s| s.as_str()) == Some("-h")
+            if args.get(2).map(std::string::String::as_str) == Some("--help")
+                || args.get(2).map(std::string::String::as_str) == Some("-h")
             {
                 print_run_help();
                 return ExitCode::SUCCESS;
             }
 
             let case_path = args
-                .get(2)
-                .map(PathBuf::from)
-                .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+                .get(2).map_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")), PathBuf::from);
 
             match run_and_print(&case_path) {
                 Ok(()) => ExitCode::SUCCESS,
@@ -30,11 +28,11 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some("--help") | Some("-h") | None => {
+        Some("--help" | "-h") | None => {
             print_help();
             ExitCode::SUCCESS
         }
-        Some("--version") | Some("-V") => {
+        Some("--version" | "-V") => {
             println!("labdessem {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }

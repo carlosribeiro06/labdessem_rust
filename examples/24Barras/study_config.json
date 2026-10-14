@@ -1,4 +1,5 @@
 {
+  "$schema": "../../schemas/study_config.schema.json",
   "opcao_execucao": 2,
   "rede": 0,
   "UCT": 1,

@@ -16,13 +16,13 @@ pub fn read_buses(
     oper_path: &Path,
     horizon: &StudyHorizon,
 ) -> Result<Vec<Bus>, IoError> {
-    let rows: Vec<BusOperationRow> = read_csv(oper_path.join("OPER_CARGA_BARRA.csv"))?;
+    let rows: Vec<BusOperationRow> = read_csv(&oper_path.join("OPER_CARGA_BARRA.csv"))?;
     build_buses(&rows, horizon)
 }
 
 /// Read branches from CAD_LINHAS.csv for network-enabled cases.
 pub fn read_branches(cad_path: &Path) -> Result<Vec<Branch>, IoError> {
-    let rows: Vec<BranchRow> = read_csv(cad_path.join("CAD_LINHAS.csv"))?;
+    let rows: Vec<BranchRow> = read_csv(&cad_path.join("CAD_LINHAS.csv"))?;
     Ok(build_branches(&rows))
 }
 

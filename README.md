@@ -127,6 +127,7 @@ Example:
 
 ```json
 {
+  "$schema": "../../schemas/study_config.schema.json",
   "opcao_execucao": 2,
   "rede": 0,
   "UCT": 1,
@@ -134,6 +135,22 @@ Example:
   "TON_Residual": 0,
   "FPHA": 0,
   "FCF": 1
+}
+```
+
+### JSON Schema
+
+A JSON Schema is provided for IDE autocompletion and validation. Add `$schema` to your config file pointing to `schemas/study_config.schema.json`, or configure VS Code:
+
+```json
+// .vscode/settings.json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/study_config.json"],
+      "url": "./schemas/study_config.schema.json"
+    }
+  ]
 }
 ```
 

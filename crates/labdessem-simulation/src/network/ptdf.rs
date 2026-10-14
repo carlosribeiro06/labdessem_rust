@@ -218,6 +218,8 @@ pub fn dot(left: &[f64], right: &[f64]) -> f64 {
 
 /// Round a value to the specified number of decimal digits.
 pub fn round_to_digits(value: f64, digits: u32) -> f64 {
+    // Rationale: digits is always a small positive number in practice (0-15)
+    #[allow(clippy::cast_possible_wrap)]
     let factor = 10_f64.powi(digits as i32);
     (value * factor).round() / factor
 }

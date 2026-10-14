@@ -27,9 +27,9 @@ pub fn read_hydro_plants(
     network_enabled: bool,
     fpha_enabled: bool,
 ) -> Result<Vec<HydroPlant>, IoError> {
-    let plant_rows: Vec<HydroPlantRow> = read_csv(cad_path.join("CAD_UHE.csv"))?;
-    let unit_rows: Vec<HydroUnitRow> = read_csv(cad_path.join("CAD_CONJ_UHE.csv"))?;
-    let inflow_rows: Vec<HydroInflowRow> = read_csv(oper_path.join("OPER_VAZAO.csv"))?;
+    let plant_rows: Vec<HydroPlantRow> = read_csv(&cad_path.join("CAD_UHE.csv"))?;
+    let unit_rows: Vec<HydroUnitRow> = read_csv(&cad_path.join("CAD_CONJ_UHE.csv"))?;
+    let inflow_rows: Vec<HydroInflowRow> = read_csv(&oper_path.join("OPER_VAZAO.csv"))?;
     let fpha_rows = if fpha_enabled {
         read_fpha_table(oper_path.join("OPER_FPHA.csv"))?
     } else {
@@ -221,15 +221,14 @@ fn build_hydro_plants(
                     let unit_quantity = unit_row.unidades;
                     if unit_quantity == 0 {
                         return Err(IoError::invalid_data(format!(
-                            "hydro plant {} group {} must have at least one unit",
-                            plant_name, group_id
+                            "hydro plant {plant_name} group {group_id} must have at least one unit"
                         )));
                     }
 
                     for _ in 0..unit_quantity {
                         let unit_id = next_unit_id;
                         next_unit_id += 1;
-                        let unit_name = format!("{}-{}-{}", plant_name, group_id, unit_id);
+                        let unit_name = format!("{plant_name}-{group_id}-{unit_id}");
                         let max_generation_mw =
                             normalize_max_bound(unit_row.pmin, unit_row.pmax, "Pmax", &unit_name)?;
                         let is_on = unit_row.status_inic != 0;

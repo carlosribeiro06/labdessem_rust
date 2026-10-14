@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StudyConfig",
+  "description": "Study configuration read from study_config.json.",
+  "type": "object",
+  "required": [
+    "FPHA",
+    "TON_Residual",
+    "UCH",
+    "UCT",
+    "opcao_execucao",
+    "rede"
+  ],
+  "properties": {
+    "FCF": {
+      "description": "Enable future cost function (0 = disabled, 1 = enabled).",
+      "default": 0,
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "FPHA": {
+      "description": "Enable FPHA hydro generation formulation (0 = disabled, 1 = enabled).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "TON_Residual": {
+      "description": "Enable thermal residual TON treatment (0 = disabled, 1 = enabled).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "UCH": {
+      "description": "Enable hydro unit commitment (0 = disabled, 1 = enabled).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "UCT": {
+      "description": "Enable thermal unit commitment (0 = disabled, 1 = enabled).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "opcao_execucao": {
+      "description": "Execution mode: 1 for iterative (LP→MILP→LP-FIXED→LP-CMO), 2 for single MILP.",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "rede": {
+      "description": "Enable network constraints (0 = disabled, 1 = enabled).",
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    }
+  }
+}

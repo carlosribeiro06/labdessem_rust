@@ -338,6 +338,8 @@ fn run_lp_cut_loop(
     }
 }
 
+// Rationale: solve_stage needs all parameters for complete stage execution context
+#[allow(clippy::too_many_arguments)]
 fn solve_stage(
     system: &System,
     dc_network: &DcNetworkModel,
@@ -407,7 +409,7 @@ fn solve_stage(
         Err(error) => return Err(error.into()),
     };
     let solve_time = started_at.elapsed();
-    let violations = detect_flow_violations(system, dc_network, &summary)?;
+    let violations = detect_flow_violations(system, dc_network, &summary);
 
     println!(
         "{} #{:02} concluido | objective = {:.4} | flow violations = {} | solve time = {:.3} s",
@@ -857,8 +859,7 @@ pub fn summarize_added_flow_cut_lines(
             .max_by(|left, right| left.flow_mw.abs().total_cmp(&right.flow_mw.abs()));
 
         let flow_mw = selected_flow
-            .map(|line_flow| line_flow.flow_mw)
-            .unwrap_or(0.0);
+            .map_or(0.0, |line_flow| line_flow.flow_mw);
 
         output.push(AddedFlowCutLineResult {
             branch_id: branch.id,

@@ -15,7 +15,7 @@ use crate::readers::common::read_csv;
 
 /// Read interchange limits from OPER_LIMITE_INTERCAMBIO.csv.
 pub fn read_interchange_limits(oper_path: &Path) -> Result<Vec<InterchangeLimit>, IoError> {
-    let rows: Vec<InterchangeRow> = read_csv(oper_path.join("OPER_LIMITE_INTERCAMBIO.csv"))?;
+    let rows: Vec<InterchangeRow> = read_csv(&oper_path.join("OPER_LIMITE_INTERCAMBIO.csv"))?;
     Ok(build_interchange_limits(&rows))
 }
 
@@ -24,7 +24,7 @@ pub fn read_residual_costs(oper_path: &Path, enabled: bool) -> Result<Vec<Residu
     if !enabled {
         return Ok(Vec::new());
     }
-    let rows: Vec<ResidualCostRow> = read_csv(oper_path.join("OPER_CUSTO_RESIDUAL.csv"))?;
+    let rows: Vec<ResidualCostRow> = read_csv(&oper_path.join("OPER_CUSTO_RESIDUAL.csv"))?;
     Ok(build_residual_costs(&rows))
 }
 
@@ -36,7 +36,7 @@ pub fn read_operational_limits(
     pumping_plants: &[PumpingPlant],
     horizon: &StudyHorizon,
 ) -> Result<Vec<OperationalLimit>, IoError> {
-    let rows: Vec<OperationalLimitRow> = read_csv(oper_path.join("OPER_REST_LIM.csv"))?;
+    let rows: Vec<OperationalLimitRow> = read_csv(&oper_path.join("OPER_REST_LIM.csv"))?;
     build_operational_limits(&rows, thermal_plants, hydro_plants, pumping_plants, horizon)
 }
 
@@ -121,8 +121,7 @@ fn build_operational_limits(
                         (None, Some(plant)) => OperationalLimitTarget::HydroPlant(plant.id),
                         (Some(_), Some(_)) => {
                             return Err(IoError::invalid_data(format!(
-                                "operational limit for {} is ambiguous between thermal and hydro generation",
-                                plant_name
+                                "operational limit for {plant_name} is ambiguous between thermal and hydro generation"
                             )));
                         }
                         (None, None) => {
