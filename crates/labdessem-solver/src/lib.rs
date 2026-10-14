@@ -289,7 +289,10 @@ mod tests {
             .iter()
             .find_map(|(name, value)| name.starts_with("thermal_on[").then_some(*value))
         {
-            assert!(thermal_on == 0.0 || thermal_on == 1.0);
+            // Use tolerance for float comparison (solver may return 0.9999999 instead of 1.0)
+            let is_zero = thermal_on.abs() < 1e-6;
+            let is_one = (thermal_on - 1.0).abs() < 1e-6;
+            assert!(is_zero || is_one, "thermal_on should be 0 or 1, got {thermal_on}");
         }
         assert!(result.constraint_duals.is_empty());
     }
