@@ -1,9 +1,23 @@
-//! System container and related types.
+//! Power system model container and related types.
+//!
+//! The [`System`] struct is the immutable container for all power system data
+//! used in optimization. It is constructed via [`SystemBuilder`].
+//!
+//! # Module Structure
+//!
+//! - [`horizon`](horizon) - Study horizon and temporal discretization
+//! - [`operational_limit`](operational_limit) - Operational limit constraints
+//! - [`builder`](builder) - System construction API
+//! - [`validate`](validate) - System validation logic
 
 mod builder;
+mod horizon;
+mod operational_limit;
 mod validate;
 
 pub use builder::SystemBuilder;
+pub use horizon::StudyHorizon;
+pub use operational_limit::{OperationalLimit, OperationalLimitTarget, OperationalLimitVariable};
 pub use validate::validate_system;
 
 use std::collections::HashSet;
@@ -11,83 +25,11 @@ use std::collections::HashSet;
 use crate::{
     entities::{HydroPlant, RenewablePlant, ThermalPlant},
     error::CoreError,
-    ids::{BusId, HydroPlantId, PumpingPlantId, SubmarketId, ThermalPlantId},
+    ids::{BusId, SubmarketId},
 };
 
 // Re-export entities for backward compatibility
 pub use crate::entities::{Branch, Bus, PumpingPlant, Submarket};
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StudyHorizon {
-    pub periods: usize,
-    pub period_duration_hours: f64,
-    pub original_periods: usize,
-    pub original_period_durations_hours: Vec<f64>,
-    pub internal_to_original_period: Vec<usize>,
-    pub internal_subperiod_index: Vec<usize>,
-}
-
-impl StudyHorizon {
-    pub fn validate(&self) -> Result<(), CoreError> {
-        if self.periods == 0 {
-            return Err(CoreError::validation(
-                "study horizon must contain at least one period",
-            ));
-        }
-        if self.period_duration_hours <= 0.0 {
-            return Err(CoreError::validation(
-                "study horizon period duration must be positive",
-            ));
-        }
-        if self.original_periods == 0 {
-            return Err(CoreError::validation(
-                "study horizon must contain at least one original period",
-            ));
-        }
-        if self.original_period_durations_hours.len() != self.original_periods {
-            return Err(CoreError::validation(
-                "study horizon original duration horizon mismatch",
-            ));
-        }
-        if self
-            .original_period_durations_hours
-            .iter()
-            .any(|duration| *duration <= 0.0)
-        {
-            return Err(CoreError::validation(
-                "study horizon original period durations must be positive",
-            ));
-        }
-        if self.internal_to_original_period.len() != self.periods
-            || self.internal_subperiod_index.len() != self.periods
-        {
-            return Err(CoreError::validation(
-                "study horizon internal period mapping mismatch",
-            ));
-        }
-        if self
-            .internal_to_original_period
-            .iter()
-            .any(|period| *period == 0 || *period > self.original_periods)
-        {
-            return Err(CoreError::validation(
-                "study horizon internal mapping references invalid original period",
-            ));
-        }
-
-        Ok(())
-    }
-
-    pub fn internal_periods_for_original(&self, original_period: usize) -> Vec<usize> {
-        self.internal_to_original_period
-            .iter()
-            .enumerate()
-            .filter_map(|(internal_idx, mapped_period)| {
-                (*mapped_period == original_period).then_some(internal_idx)
-            })
-            .collect()
-    }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterchangeLimit {
@@ -152,102 +94,6 @@ impl ResidualCost {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum OperationalLimitVariable {
-    Generation,
-    Spillage,
-    Volume,
-    Defluence,
-    Turbining,
-    Diversion,
-    Pumping,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OperationalLimitTarget {
-    ThermalPlant(ThermalPlantId),
-    HydroPlant(HydroPlantId),
-    PumpingPlant(PumpingPlantId),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct OperationalLimit {
-    pub target: OperationalLimitTarget,
-    pub plant_name: String,
-    pub variable: OperationalLimitVariable,
-    pub start_period: usize,
-    pub end_period: usize,
-    pub lower_bound: Option<f64>,
-    pub upper_bound: Option<f64>,
-}
-
-impl OperationalLimit {
-    pub fn validate(&self, horizon: usize) -> Result<(), CoreError> {
-        if self.plant_name.trim().is_empty() {
-            return Err(CoreError::validation(
-                "operational limit plant name cannot be empty",
-            ));
-        }
-        if self.start_period == 0 || self.end_period == 0 {
-            return Err(CoreError::validation(
-                "operational limit periods must start at 1",
-            ));
-        }
-        if self.start_period > self.end_period {
-            return Err(CoreError::validation(format!(
-                "operational limit for {} has start period greater than end period",
-                self.plant_name
-            )));
-        }
-        if self.end_period > horizon {
-            return Err(CoreError::validation(format!(
-                "operational limit for {} exceeds study horizon",
-                self.plant_name
-            )));
-        }
-        if self.lower_bound.is_none() && self.upper_bound.is_none() {
-            return Err(CoreError::validation(format!(
-                "operational limit for {} must define at least one bound",
-                self.plant_name
-            )));
-        }
-        if let (Some(lower), Some(upper)) = (self.lower_bound, self.upper_bound)
-            && lower > upper {
-                return Err(CoreError::validation(format!(
-                    "operational limit for {} has lower bound greater than upper bound",
-                    self.plant_name
-                )));
-            }
-
-        match (self.target, self.variable) {
-            (
-                OperationalLimitTarget::ThermalPlant(_),
-                OperationalLimitVariable::Spillage
-                | OperationalLimitVariable::Volume
-                | OperationalLimitVariable::Defluence
-                | OperationalLimitVariable::Turbining
-                | OperationalLimitVariable::Diversion
-                | OperationalLimitVariable::Pumping,
-            ) => Err(CoreError::validation(format!(
-                "thermal plant {} cannot define limit for {:?}",
-                self.plant_name, self.variable
-            ))),
-            (OperationalLimitTarget::HydroPlant(_), OperationalLimitVariable::Pumping) => {
-                Err(CoreError::validation(format!(
-                    "hydro plant {} cannot define limit for {:?}",
-                    self.plant_name, self.variable
-                )))
-            }
-            (OperationalLimitTarget::PumpingPlant(_), OperationalLimitVariable::Pumping) => Ok(()),
-            (OperationalLimitTarget::PumpingPlant(_), _) => Err(CoreError::validation(format!(
-                "pumping plant {} cannot define limit for {:?}",
-                self.plant_name, self.variable
-            ))),
-            _ => Ok(()),
-        }
     }
 }
 
@@ -520,6 +366,8 @@ impl System {
             }
         }
 
+        // Rationale: expect() is safe here because ID existence was validated in the previous loop
+        #[allow(clippy::expect_used)]
         for plant in &self.hydro_plants {
             for upstream in &plant.upstream_plant_ids {
                 let upstream_plant = self
@@ -633,14 +481,12 @@ impl System {
                         .find(|candidate| candidate.id == plant_id)
                         .ok_or_else(|| {
                             CoreError::validation(format!(
-                                "operational limit references unknown thermal plant {:?}",
-                                plant_id
+                                "operational limit references unknown thermal plant {plant_id:?}"
                             ))
                         })?;
                     if plant.name != limit.plant_name {
                         return Err(CoreError::validation(format!(
-                            "operational limit plant name mismatch for thermal plant {:?}",
-                            plant_id
+                            "operational limit plant name mismatch for thermal plant {plant_id:?}"
                         )));
                     }
                 }
@@ -651,14 +497,12 @@ impl System {
                         .find(|candidate| candidate.id == plant_id)
                         .ok_or_else(|| {
                             CoreError::validation(format!(
-                                "operational limit references unknown hydro plant {:?}",
-                                plant_id
+                                "operational limit references unknown hydro plant {plant_id:?}"
                             ))
                         })?;
                     if plant.name != limit.plant_name {
                         return Err(CoreError::validation(format!(
-                            "operational limit plant name mismatch for hydro plant {:?}",
-                            plant_id
+                            "operational limit plant name mismatch for hydro plant {plant_id:?}"
                         )));
                     }
                 }
@@ -669,14 +513,12 @@ impl System {
                         .find(|candidate| candidate.id == plant_id)
                         .ok_or_else(|| {
                             CoreError::validation(format!(
-                                "operational limit references unknown pumping plant {:?}",
-                                plant_id
+                                "operational limit references unknown pumping plant {plant_id:?}"
                             ))
                         })?;
                     if plant.name != limit.plant_name {
                         return Err(CoreError::validation(format!(
-                            "operational limit plant name mismatch for pumping plant {:?}",
-                            plant_id
+                            "operational limit plant name mismatch for pumping plant {plant_id:?}"
                         )));
                     }
                 }
@@ -712,17 +554,17 @@ fn validate_bus_and_submarket_membership(
 ) -> Result<(), CoreError> {
     if !bus_ids.contains(&bus_id) {
         return Err(CoreError::validation(format!(
-            "{entity_name} {entity_id} references unknown bus {:?}",
-            bus_id
+            "{entity_name} {entity_id} references unknown bus {bus_id:?}"
         )));
     }
     if !submarket_ids.contains(&submarket_id) {
         return Err(CoreError::validation(format!(
-            "{entity_name} {entity_id} references unknown submarket {:?}",
-            submarket_id
+            "{entity_name} {entity_id} references unknown submarket {submarket_id:?}"
         )));
     }
 
+    // Rationale: expect() is safe because bus existence was checked by contains() above
+    #[allow(clippy::expect_used)]
     let bus = buses
         .iter()
         .find(|bus| bus.id == bus_id)
@@ -738,6 +580,8 @@ fn validate_bus_and_submarket_membership(
 }
 
 #[cfg(test)]
+// Rationale: Tests use expect() for cleaner failure messages
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::{

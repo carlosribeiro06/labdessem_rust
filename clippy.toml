@@ -1,0 +1,11 @@
+# Clippy configuration for labdessem workspace
+# See: https://doc.rust-lang.org/clippy/lint_configuration.html
+
+# Allow functions up to 8 arguments (default is 7)
+too-many-arguments-threshold = 8
+
+# Allow type complexity up to 300 (default is 250)
+type-complexity-threshold = 300
+
+# Threshold for cognitive complexity
+cognitive-complexity-threshold = 30

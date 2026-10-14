@@ -584,6 +584,17 @@ fn write_network_csv(
     line_flows: &[LineFlowResult],
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
+    #[derive(Default)]
+    struct NetworkOutputAccumulator {
+        branch_name: String,
+        from_bus_name: String,
+        to_bus_name: String,
+        weighted_flow_sum: f64,
+        duration_hours: f64,
+        limit_mw: f64,
+        violated: bool,
+    }
+
     let mut csv = csv_with_header(
         "Linha;BarraDe;BarraPara;Periodo;FluxoMW;LimiteMW;Violacao",
         &[
@@ -596,17 +607,6 @@ fn write_network_csv(
             ("Violacao", "indicador de violacao do limite de fluxo"),
         ],
     );
-
-    #[derive(Default)]
-    struct NetworkOutputAccumulator {
-        branch_name: String,
-        from_bus_name: String,
-        to_bus_name: String,
-        weighted_flow_sum: f64,
-        duration_hours: f64,
-        limit_mw: f64,
-        violated: bool,
-    }
 
     let mut aggregated = BTreeMap::<(usize, usize), NetworkOutputAccumulator>::new();
     for line_flow in line_flows {
@@ -621,9 +621,13 @@ fn write_network_csv(
         let entry = aggregated
             .entry((line_flow.branch_id.0, original_period))
             .or_default();
-        entry.branch_name = line_flow.branch_name.clone();
-        entry.from_bus_name = line_flow.from_bus_name.clone();
-        entry.to_bus_name = line_flow.to_bus_name.clone();
+        // Rationale: Cloning strings once per branch is acceptable; clone_from would add complexity
+        #[allow(clippy::assigning_clones)]
+        {
+            entry.branch_name = line_flow.branch_name.clone();
+            entry.from_bus_name = line_flow.from_bus_name.clone();
+            entry.to_bus_name = line_flow.to_bus_name.clone();
+        }
         entry.weighted_flow_sum += line_flow.flow_mw * system.horizon.period_duration_hours;
         entry.duration_hours += system.horizon.period_duration_hours;
         entry.limit_mw = line_flow.limit_mw;
@@ -644,7 +648,7 @@ fn write_network_csv(
             original_period,
             flow_mw,
             line_flow.limit_mw,
-            if line_flow.violated { 1 } else { 0 }
+            i32::from(line_flow.violated)
         ));
     }
 

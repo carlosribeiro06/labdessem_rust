@@ -20,9 +20,45 @@ repository = "https://github.com/carlosribeiro06/labdessem_rust"
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
 panic = "warn"
 todo = "warn"
 unimplemented = "warn"
 dbg_macro = "warn"
+
+# Allowed pedantic lints (with rationale)
+# Rationale: Not requiring full docs yet — incremental documentation effort
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Rationale: Most functions don't need #[must_use] in this domain
+must_use_candidate = "allow"
+# Rationale: Scientific computing uses casts between usize and f64 intentionally
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+# Rationale: Acceptable in public API for clarity (e.g., ThermalPlant in thermal module)
+module_name_repetitions = "allow"
+# Rationale: Minor style issue, not worth the noise
+doc_markdown = "allow"
+# Rationale: Float comparison is intentional in optimization context (bounds, equality checks)
+float_cmp = "allow"
+# Rationale: Builder pattern uses Self returns without must_use
+return_self_not_must_use = "allow"
+# Rationale: HashMap with default hasher is acceptable in this domain
+implicit_hasher = "allow"
+# Rationale: Struct bools represent domain flags (e.g., UCT, UCH, FPHA)
+struct_excessive_bools = "allow"
+fn_params_excessive_bools = "allow"
+# Rationale: Similar names in domain context are meaningful (e.g., idx, index)
+similar_names = "allow"
+# Rationale: Long functions were reviewed during Phase 1-2 refactoring and are cohesive
+too_many_lines = "allow"
+# Rationale: Complex domain types in optimization (will refactor incrementally)
+type_complexity = "allow"
+# Rationale: String building with format! is acceptable style
+format_push_string = "allow"
+# Rationale: clone_on_ref_ptr is acceptable for Arc/Rc cloning
+clone_on_ref_ptr = "allow"

@@ -17,7 +17,7 @@ struct DurationRow {
 }
 
 pub fn read_horizon(oper_path: &Path) -> Result<StudyHorizon, IoError> {
-    let duration_rows: Vec<DurationRow> = read_csv(oper_path.join("OPER_DURACAO.csv"))?;
+    let duration_rows: Vec<DurationRow> = read_csv(&oper_path.join("OPER_DURACAO.csv"))?;
     build_horizon(&duration_rows)
 }
 
@@ -45,6 +45,8 @@ fn build_horizon(duration_rows: &[DurationRow]) -> Result<StudyHorizon, IoError>
     let mut internal_subperiod_index = Vec::new();
 
     for original_period in 1..=expected_periods {
+        // Rationale: expect() is safe because sequence validation above guarantees the period exists
+        #[allow(clippy::expect_used)]
         let duration = *periods
             .get(&original_period)
             .expect("duration should exist after sequence validation");

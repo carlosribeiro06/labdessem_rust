@@ -90,15 +90,13 @@ pub fn write_thermal_csv(
                     let commitment_name = thermal_commitment_name(&plant.name, &unit.name, period);
                     variable_values
                         .get(&commitment_name)
-                        .copied()
-                        .map(|value| value >= 0.5)
-                        .unwrap_or_else(|| {
+                        .copied().map_or_else(|| {
                             let generation_val = variable_values
                                 .get(&thermal_generation_name(&plant.name, &unit.name, period))
                                 .copied()
                                 .unwrap_or(0.0);
                             generation_val.abs() > 1e-8
-                        })
+                        }, |value| value >= 0.5)
                 })
                 .collect::<Vec<_>>();
 

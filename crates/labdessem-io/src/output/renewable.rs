@@ -34,8 +34,7 @@ pub fn write_renewable_csv(
             .submarkets
             .iter()
             .find(|s| s.id == plant.submarket_id)
-            .map(|s| s.name.as_str())
-            .unwrap_or("");
+            .map_or("", |s| s.name.as_str());
 
         for original_period in 1..=system.horizon.original_periods {
             let internal_periods = original_period_internal_indices(system, original_period);

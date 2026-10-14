@@ -1,5 +1,8 @@
 //! Flow detection and violation tracking.
 
+// Rationale: expect() calls are for validated entities from validated System
+#![allow(clippy::expect_used)]
+
 use std::collections::BTreeSet;
 
 use labdessem_core::system::System;
@@ -131,7 +134,7 @@ pub fn detect_flow_violations(
     system: &System,
     dc_network: &DcNetworkModel,
     summary: &SolveSummary,
-) -> Result<Vec<FlowViolation>, crate::SimulationError> {
+) -> Vec<FlowViolation> {
     let line_flows = compute_line_flows(system, dc_network, summary);
     let mut violations = Vec::new();
 
@@ -148,7 +151,7 @@ pub fn detect_flow_violations(
         }
     }
 
-    Ok(violations)
+    violations
 }
 
 /// Compute line flows for all branches and periods.
@@ -182,9 +185,7 @@ fn bus_name(system: &System, bus_id: labdessem_core::ids::BusId) -> String {
     system
         .buses
         .iter()
-        .find(|bus| bus.id == bus_id)
-        .map(|bus| bus.name.clone())
-        .unwrap_or_else(|| format!("BUS-{}", bus_id.0))
+        .find(|bus| bus.id == bus_id).map_or_else(|| format!("BUS-{}", bus_id.0), |bus| bus.name.clone())
 }
 
 fn injections_by_period(

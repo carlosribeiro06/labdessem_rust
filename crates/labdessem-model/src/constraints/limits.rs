@@ -1,5 +1,8 @@
 //! Operational limit and future cost constraints.
 
+// Rationale: expect() calls in this module are for validated entities (checked during System construction)
+#![allow(clippy::expect_used)]
+
 use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 
 use crate::indexing::Indexing;
@@ -59,7 +62,7 @@ pub fn build_operational_limit_constraints(
     let mut constraints = Vec::new();
 
     for limit in &system.operational_limits {
-        for period in limit.start_period - 1..=limit.end_period - 1 {
+        for period in (limit.start_period - 1)..limit.end_period {
             let terms =
                 operational_limit_terms(system, indexing, variables, limit, period, horizon);
 

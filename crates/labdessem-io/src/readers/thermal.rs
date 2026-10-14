@@ -21,7 +21,7 @@ pub fn read_thermal_plants(
     network_enabled: bool,
     uct_enabled: bool,
 ) -> Result<Vec<ThermalPlant>, IoError> {
-    let rows: Vec<ThermalUnitRow> = read_csv(cad_path.join("CAD_UNID_UTE.csv"))?;
+    let rows: Vec<ThermalUnitRow> = read_csv(&cad_path.join("CAD_UNID_UTE.csv"))?;
 
     let (startup_trajectories, shutdown_trajectories) = if uct_enabled {
         read_trajectories(cad_path.join("CAD_RAMPAS_TERMICAS.csv"))?
@@ -43,7 +43,7 @@ pub fn read_thermal_plants(
 fn read_trajectories(
     path: impl AsRef<Path>,
 ) -> Result<(HashMap<String, Vec<f64>>, HashMap<String, Vec<f64>>), IoError> {
-    let rows: Vec<ThermalRampRow> = read_csv(path.as_ref().to_path_buf())?;
+    let rows: Vec<ThermalRampRow> = read_csv(path.as_ref())?;
     let mut startup_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
     let mut shutdown_steps = BTreeMap::<String, Vec<(usize, f64)>>::new();
 

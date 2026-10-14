@@ -17,8 +17,8 @@ pub fn read_submarkets(
     oper_path: &Path,
     horizon: &StudyHorizon,
 ) -> Result<Vec<Submarket>, IoError> {
-    let catalog_rows: Vec<SubmarketCatalogRow> = read_csv(cad_path.join("CAD_SBM.csv"))?;
-    let operation_rows: Vec<SubmarketOperationRow> = read_csv(oper_path.join("OPER_SBM.csv"))?;
+    let catalog_rows: Vec<SubmarketCatalogRow> = read_csv(&cad_path.join("CAD_SBM.csv"))?;
+    let operation_rows: Vec<SubmarketOperationRow> = read_csv(&oper_path.join("OPER_SBM.csv"))?;
 
     build_submarkets(&catalog_rows, &operation_rows, horizon)
 }
@@ -65,6 +65,8 @@ fn build_submarkets(
                 *deficit_cost_by_submarket
                     .get(&row.codigo)
                     .unwrap_or_else(|| {
+                        // Rationale: expect() is safe because OPER_SBM.csv validation ensures at least one entry
+                        #[allow(clippy::expect_used)]
                         deficit_cost_by_submarket
                             .values()
                             .next()

@@ -18,18 +18,28 @@ use crate::readers::{
     read_renewable_plants, read_residual_costs, read_submarkets, read_thermal_plants,
 };
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+use schemars::JsonSchema;
+
+/// Study configuration read from study_config.json.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, JsonSchema)]
 pub struct StudyConfig {
+    /// Execution mode: 1 for iterative (LP→MILP→LP-FIXED→LP-CMO), 2 for single MILP.
     pub opcao_execucao: u8,
+    /// Enable network constraints (0 = disabled, 1 = enabled).
     pub rede: u8,
+    /// Enable thermal unit commitment (0 = disabled, 1 = enabled).
     #[serde(rename = "UCT")]
     pub uct: u8,
+    /// Enable hydro unit commitment (0 = disabled, 1 = enabled).
     #[serde(rename = "UCH")]
     pub uch: u8,
+    /// Enable FPHA hydro generation formulation (0 = disabled, 1 = enabled).
     #[serde(rename = "FPHA")]
     pub fpha: u8,
+    /// Enable future cost function (0 = disabled, 1 = enabled).
     #[serde(rename = "FCF", default)]
     pub fcf: u8,
+    /// Enable thermal residual TON treatment (0 = disabled, 1 = enabled).
     #[serde(rename = "TON_Residual")]
     pub ton_residual: u8,
 }
@@ -168,9 +178,19 @@ fn read_study_from_path_with_options(
     Ok(system)
 }
 
+/// Generate JSON Schema for StudyConfig.
+pub fn generate_study_config_schema() -> String {
+    let schema = schemars::schema_for!(StudyConfig);
+    // Rationale: serde_json serialization of valid schemars schema cannot fail
+    #[allow(clippy::expect_used)]
+    serde_json::to_string_pretty(&schema).expect("schema serialization should not fail")
+}
+
 #[cfg(test)]
+// Rationale: Tests use expect() for cleaner failure messages
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use super::{read_study_config, read_study_from_path};
+    use super::{generate_study_config_schema, read_study_config, read_study_from_path};
     use std::path::PathBuf;
 
     fn examples_24barras_path() -> PathBuf {
@@ -246,5 +266,14 @@ mod tests {
             vec![0.0, 0.0, 20.0, 20.0, 60.0, 80.0, 120.0, 160.0, 180.0, 220.0, 280.0, 410.0, 450.0, 523.0]
         );
         assert_eq!(unit1.shutdown_trajectory_mw, vec![255.0, 0.0]);
+    }
+
+    #[test]
+    fn generates_valid_json_schema() {
+        let schema = generate_study_config_schema();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&schema).expect("schema should be valid JSON");
+        assert!(parsed.get("$schema").is_some());
+        assert!(parsed.get("properties").is_some());
     }
 }

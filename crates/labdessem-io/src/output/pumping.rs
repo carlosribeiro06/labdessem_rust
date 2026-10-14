@@ -36,8 +36,7 @@ pub fn write_pumping_csv(
             .submarkets
             .iter()
             .find(|s| s.id == plant.submarket_id)
-            .map(|s| s.name.as_str())
-            .unwrap_or("");
+            .map_or("", |s| s.name.as_str());
         let min_pumping_m3s =
             volume_hm3_to_flow_m3s(plant.min_pumping_hm3, system.horizon.period_duration_hours);
         let max_pumping_m3s =

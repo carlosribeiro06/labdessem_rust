@@ -1,5 +1,8 @@
 //! Model construction tests.
 
+// Rationale: Tests use expect() for cleaner failure messages
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use crate::{constraints, objective, Model, SolveMode};
 use labdessem_core::{
     entities::{

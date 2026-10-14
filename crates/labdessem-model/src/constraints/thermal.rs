@@ -2,6 +2,9 @@
 //!
 //! Includes generation limits, commitment transitions, ramps, and min up/down times.
 
+// Rationale: expect() calls are for validated trajectory configurations
+#![allow(clippy::expect_used)]
+
 use labdessem_core::system::System;
 
 use crate::indexing::Indexing;
@@ -227,11 +230,11 @@ pub fn build_thermal_min_up_down_constraints(
         } else {
             0
         };
-        let remaining_off = if !initial_on {
+        let remaining_off = if initial_on {
+            0
+        } else {
             unit.min_down_time
                 .saturating_sub(unit.initial_condition.time_in_state)
-        } else {
-            0
         };
 
         for period in 0..remaining_on.min(horizon) {

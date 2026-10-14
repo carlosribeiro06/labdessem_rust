@@ -41,6 +41,8 @@ pub fn write_results_csvs(
 }
 
 #[cfg(test)]
+// Rationale: Tests use expect() for cleaner failure messages
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::run_iterative_simulation;
     use labdessem_core::{

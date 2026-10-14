@@ -115,7 +115,7 @@ pub fn hydro_diversion_name(plant_name: &str, period: usize) -> String {
 }
 
 pub fn hydro_volume_name(plant_name: &str, period: usize) -> String {
-    format!("hydro_volume[p={},t={}]", plant_name, period)
+    format!("hydro_volume[p={plant_name},t={period}]")
 }
 
 // =============================================================================

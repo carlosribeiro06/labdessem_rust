@@ -25,8 +25,7 @@ impl fmt::Display for SolverError {
             Self::UnsupportedSolveMode(mode) => {
                 write!(
                     f,
-                    "solve mode {:?} is not supported by the current LP solver",
-                    mode
+                    "solve mode {mode:?} is not supported by the current LP solver"
                 )
             }
             Self::UnknownVariable(name) => write!(f, "unknown variable in solver mapping: {name}"),
@@ -61,6 +60,8 @@ pub struct SolveSummary {
 }
 
 pub fn solve_model(model: &Model) -> Result<SolveSummary, SolverError> {
+    // Rationale: Explicit match preserves clarity about distinct solve modes, even if implementation is currently the same
+    #[allow(clippy::match_same_arms)]
     match model.solve_mode {
         SolveMode::LinearProgramming => solve_problem(model, false),
         SolveMode::MixedIntegerLinearProgramming => solve_problem(model, true),
@@ -241,6 +242,8 @@ impl LinearLikeTerm for labdessem_model::objective::ObjectiveTerm {
 }
 
 #[cfg(test)]
+// Rationale: Tests use expect() for cleaner failure messages
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use std::path::PathBuf;
 
