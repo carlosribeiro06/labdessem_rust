@@ -170,6 +170,8 @@ impl Indexing {
 }
 
 fn submarket_position(submarket_ids: &[SubmarketId], submarket_id: SubmarketId) -> usize {
+    // Rationale: expect() is safe because System validation guarantees valid submarket IDs
+    #[allow(clippy::expect_used)]
     submarket_ids
         .iter()
         .position(|candidate| *candidate == submarket_id)

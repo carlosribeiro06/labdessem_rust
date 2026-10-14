@@ -159,15 +159,13 @@ fn remaining_trajectory_from_time_in_state(
 ) -> Result<Vec<f64>, CoreError> {
     if trajectory.is_empty() {
         return Err(CoreError::validation(format!(
-            "thermal unit {:?} is marked in {} trajectory but the trajectory is empty",
-            unit_id, trajectory_name
+            "thermal unit {unit_id:?} is marked in {trajectory_name} trajectory but the trajectory is empty"
         )));
     }
 
     if time_in_ramp == 0 {
         return Err(CoreError::validation(format!(
-            "thermal unit {:?} is marked in {} trajectory but has zero initial ramp time",
-            unit_id, trajectory_name
+            "thermal unit {unit_id:?} is marked in {trajectory_name} trajectory but has zero initial ramp time"
         )));
     }
 
@@ -185,8 +183,7 @@ fn remaining_trajectory_from_time_in_state(
     let expected_generation = trajectory[current_step_idx];
     if (expected_generation - generation_mw).abs() > 1e-6 {
         return Err(CoreError::validation(format!(
-            "thermal unit {:?} initial generation {} is inconsistent with {} trajectory step {} ({})",
-            unit_id, generation_mw, trajectory_name, time_in_ramp, expected_generation
+            "thermal unit {unit_id:?} initial generation {generation_mw} is inconsistent with {trajectory_name} trajectory step {time_in_ramp} ({expected_generation})"
         )));
     }
 

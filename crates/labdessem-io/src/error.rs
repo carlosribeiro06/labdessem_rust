@@ -1,10 +1,11 @@
-use std::{error::Error, fmt, path::PathBuf};
+use std::{error::Error, fmt, io, path::PathBuf};
 
 #[derive(Debug)]
 pub enum IoError {
     Csv(csv::Error),
     Json(serde_json::Error),
     Core(labdessem_core::CoreError),
+    Io(io::Error),
     MissingFileName(PathBuf),
     InvalidData(String),
 }
@@ -21,6 +22,7 @@ impl fmt::Display for IoError {
             Self::Csv(error) => write!(f, "{error}"),
             Self::Json(error) => write!(f, "{error}"),
             Self::Core(error) => write!(f, "{error}"),
+            Self::Io(error) => write!(f, "{error}"),
             Self::MissingFileName(path) => {
                 write!(f, "missing file name for path {}", path.display())
             }
@@ -35,6 +37,7 @@ impl Error for IoError {
             Self::Csv(error) => Some(error),
             Self::Json(error) => Some(error),
             Self::Core(error) => Some(error),
+            Self::Io(error) => Some(error),
             Self::MissingFileName(_) | Self::InvalidData(_) => None,
         }
     }
@@ -55,5 +58,11 @@ impl From<labdessem_core::CoreError> for IoError {
 impl From<serde_json::Error> for IoError {
     fn from(value: serde_json::Error) -> Self {
         Self::Json(value)
+    }
+}
+
+impl From<io::Error> for IoError {
+    fn from(value: io::Error) -> Self {
+        Self::Io(value)
     }
 }

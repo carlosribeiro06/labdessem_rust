@@ -19,7 +19,7 @@
   <p>
     <a href="https://carlosribeiro06.github.io/labdessem_rust/">Website</a> •
     <a href="docs/">Docs</a> •
-    <a href="crates/labdessem-io/study_config.json">Study config</a> •
+    <a href="examples/24Barras/study_config.json">Study config</a> •
     <a href="CHANGELOG.md">Changelog</a>
   </p>
 </div>
@@ -61,6 +61,9 @@ labdessem_rust/
 
 ### Crates
 
+- `labdessem-cli`
+  Command-line interface for running studies. Produces the `labdessem` binary.
+
 - `labdessem-core`
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
@@ -76,9 +79,6 @@ labdessem_rust/
 - `labdessem-simulation`
   End-to-end orchestration: solve workflow, network-cut iterations, dual extraction, and CSV export.
 
-- `labdessem-cli`
-  Command-line entrypoint for running a study.
-
 ## Execution Modes
 
 The study configuration supports two execution modes through `opcao_execucao`:
@@ -93,14 +93,10 @@ When the network flag is active, the iterative mode adds DC flow cuts only for v
 
 ## Study Configuration
 
-The default configuration file is:
-
-[`crates/labdessem-io/study_config.json`](crates/labdessem-io/study_config.json)
+Each study case must contain a `study_config.json` file in its root directory.
+See [`examples/24Barras/study_config.json`](examples/24Barras/study_config.json) for a reference.
 
 Current keys:
-
-- `case_path`
-  Path to the study directory.
 
 - `opcao_execucao`
   Execution strategy selector.
@@ -131,14 +127,30 @@ Example:
 
 ```json
 {
-  "case_path": "../../examples/24Barras",
-  "opcao_execucao": 1,
-  "rede": 1,
+  "$schema": "../../schemas/study_config.schema.json",
+  "opcao_execucao": 2,
+  "rede": 0,
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
   "FPHA": 0,
-  "FCF": 0
+  "FCF": 1
+}
+```
+
+### JSON Schema
+
+A JSON Schema is provided for IDE autocompletion and validation. Add `$schema` to your config file pointing to `schemas/study_config.schema.json`, or configure VS Code:
+
+```json
+// .vscode/settings.json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/study_config.json"],
+      "url": "./schemas/study_config.schema.json"
+    }
+  ]
 }
 ```
 
@@ -227,21 +239,43 @@ When network treatment is enabled, the run also writes:
 
 ## Build and Run
 
-### Run with the default configuration
+### Install the CLI
 
-```powershell
-cargo run -p labdessem-cli
+```bash
+cargo install --path crates/labdessem-cli
 ```
 
-### Run with an explicit configuration path
+This installs the `labdessem` binary to `~/.cargo/bin/`.
 
-```powershell
-cargo run -p labdessem-cli -- crates/labdessem-io/study_config.json
+### Run a study case
+
+```bash
+labdessem run examples/24Barras
+```
+
+### Run from the case directory
+
+```bash
+cd examples/24Barras
+labdessem run
+```
+
+### Show help
+
+```bash
+labdessem --help
+labdessem run --help
+```
+
+### Development (without installing)
+
+```bash
+cargo run -p labdessem-cli -- run examples/24Barras
 ```
 
 ### Check the workspace
 
-```powershell
+```bash
 cargo check
 ```
 

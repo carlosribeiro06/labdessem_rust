@@ -25,8 +25,7 @@ impl fmt::Display for SolverError {
             Self::UnsupportedSolveMode(mode) => {
                 write!(
                     f,
-                    "solve mode {:?} is not supported by the current LP solver",
-                    mode
+                    "solve mode {mode:?} is not supported by the current LP solver"
                 )
             }
             Self::UnknownVariable(name) => write!(f, "unknown variable in solver mapping: {name}"),
@@ -61,6 +60,8 @@ pub struct SolveSummary {
 }
 
 pub fn solve_model(model: &Model) -> Result<SolveSummary, SolverError> {
+    // Rationale: Explicit match preserves clarity about distinct solve modes, even if implementation is currently the same
+    #[allow(clippy::match_same_arms)]
     match model.solve_mode {
         SolveMode::LinearProgramming => solve_problem(model, false),
         SolveMode::MixedIntegerLinearProgramming => solve_problem(model, true),
@@ -76,14 +77,14 @@ pub fn solve_milp(model: &Model) -> Result<SolveSummary, SolverError> {
     solve_model(model)
 }
 
-pub fn solve_lp_from_config(config_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
-    let system = labdessem_io::read_study_from_config(config_path)?;
+pub fn solve_lp_from_path(case_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
+    let system = labdessem_io::read_study_from_path(case_path)?;
     let model = Model::from_system(&system, SolveMode::LinearProgramming);
     solve_model(&model)
 }
 
-pub fn solve_milp_from_config(config_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
-    let system = labdessem_io::read_study_from_config(config_path)?;
+pub fn solve_milp_from_path(case_path: impl AsRef<Path>) -> Result<SolveSummary, SolverError> {
+    let system = labdessem_io::read_study_from_path(case_path)?;
     let model = Model::from_system(&system, SolveMode::MixedIntegerLinearProgramming);
     solve_model(&model)
 }
@@ -241,17 +242,22 @@ impl LinearLikeTerm for labdessem_model::objective::ObjectiveTerm {
 }
 
 #[cfg(test)]
+// Rationale: Tests use expect() for cleaner failure messages
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use std::path::PathBuf;
 
-    use super::{solve_lp_from_config, solve_milp_from_config};
+    use super::{solve_lp_from_path, solve_milp_from_path};
+
+    fn examples_24barras_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras")
+    }
 
     #[test]
     fn solves_lp_for_example_case() {
-        let config_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
+        let case_path = examples_24barras_path();
 
-        let result = solve_lp_from_config(config_path).expect("LP should solve for example case");
+        let result = solve_lp_from_path(&case_path).expect("LP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
         assert!(
@@ -276,11 +282,9 @@ mod tests {
 
     #[test]
     fn solves_milp_for_example_case() {
-        let config_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../labdessem-io/study_config.json");
+        let case_path = examples_24barras_path();
 
-        let result =
-            solve_milp_from_config(config_path).expect("MILP should solve for example case");
+        let result = solve_milp_from_path(&case_path).expect("MILP should solve for example case");
 
         assert!(result.objective_value >= 0.0);
         if let Some(thermal_on) = result
@@ -288,7 +292,10 @@ mod tests {
             .iter()
             .find_map(|(name, value)| name.starts_with("thermal_on[").then_some(*value))
         {
-            assert!(thermal_on == 0.0 || thermal_on == 1.0);
+            // Use tolerance for float comparison (solver may return 0.9999999 instead of 1.0)
+            let is_zero = thermal_on.abs() < 1e-6;
+            let is_one = (thermal_on - 1.0).abs() < 1e-6;
+            assert!(is_zero || is_one, "thermal_on should be 0 or 1, got {thermal_on}");
         }
         assert!(result.constraint_duals.is_empty());
     }

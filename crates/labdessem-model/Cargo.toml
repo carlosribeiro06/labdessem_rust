@@ -8,3 +8,5 @@ repository.workspace = true
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
+[lints]
+workspace = true

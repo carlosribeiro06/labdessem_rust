@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.0] - 2026-10-14
+
+### Added
+- JSON Schema for `study_config.json` with IDE autocompletion support
+- `test_support` module in `labdessem-core` for reusable test fixtures
+- Design documentation in `docs/design/` covering architecture decisions
+- Workspace-wide lints configuration with clippy pedantic rules
+
+### Changed
+- **BREAKING**: CLI now uses subcommand pattern: `labdessem run [CASE_DIR]`
+- **BREAKING**: `study_config.json` must be placed inside each case directory
+- **BREAKING**: Removed `case_path` field from `study_config.json`
+- Binary is now named `labdessem` (configured via `[[bin]]` in Cargo.toml)
+- CLI defaults to current directory when case path is omitted
+- Refactored `system/mod.rs` from 861 to 31 lines (index-only pattern)
+- Refactored `constraints/mod.rs` from 253 to 39 lines (index-only pattern)
+- Major architecture improvements: modularized readers, writers, constraints
+- Extracted `StudyHorizon` and `OperationalLimit` to dedicated modules
+
+### Removed
+- `labdessem-common` crate (was unused)
+- `case_path` configuration field
+
+### Fixed
+- Improved error message when configuration file is missing
+- Resolved all clippy warnings (72 → 0)
+
 ## [0.5.0] - 2026-10-13
 
 ### Added

@@ -113,22 +113,19 @@ impl Reservoir {
     pub fn validate(&self, plant_id: HydroPlantId) -> Result<(), CoreError> {
         if self.min_volume_hm3 < 0.0 || self.max_volume_hm3 < 0.0 || self.initial_volume_hm3 < 0.0 {
             return Err(CoreError::validation(format!(
-                "hydro plant {:?} has negative reservoir volume",
-                plant_id
+                "hydro plant {plant_id:?} has negative reservoir volume"
             )));
         }
         if self.min_volume_hm3 > self.max_volume_hm3 {
             return Err(CoreError::validation(format!(
-                "hydro plant {:?} has minimum reservoir volume above maximum",
-                plant_id
+                "hydro plant {plant_id:?} has minimum reservoir volume above maximum"
             )));
         }
         if self.initial_volume_hm3 < self.min_volume_hm3
             || self.initial_volume_hm3 > self.max_volume_hm3
         {
             return Err(CoreError::validation(format!(
-                "hydro plant {:?} has initial reservoir volume outside bounds",
-                plant_id
+                "hydro plant {plant_id:?} has initial reservoir volume outside bounds"
             )));
         }
 
@@ -150,14 +147,12 @@ impl HydroFphaSegment {
     pub fn validate(&self, plant_id: HydroPlantId) -> Result<(), CoreError> {
         if self.segment == 0 {
             return Err(CoreError::validation(format!(
-                "hydro plant {:?} has FPHA segment zero",
-                plant_id
+                "hydro plant {plant_id:?} has FPHA segment zero"
             )));
         }
         if self.correction_factor < 0.0 {
             return Err(CoreError::validation(format!(
-                "hydro plant {:?} has negative FPHA correction factor",
-                plant_id
+                "hydro plant {plant_id:?} has negative FPHA correction factor"
             )));
         }
 
