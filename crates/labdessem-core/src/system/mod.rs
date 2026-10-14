@@ -214,14 +214,13 @@ impl OperationalLimit {
                 self.plant_name
             )));
         }
-        if let (Some(lower), Some(upper)) = (self.lower_bound, self.upper_bound) {
-            if lower > upper {
+        if let (Some(lower), Some(upper)) = (self.lower_bound, self.upper_bound)
+            && lower > upper {
                 return Err(CoreError::validation(format!(
                     "operational limit for {} has lower bound greater than upper bound",
                     self.plant_name
                 )));
             }
-        }
 
         match (self.target, self.variable) {
             (

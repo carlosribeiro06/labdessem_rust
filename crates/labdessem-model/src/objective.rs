@@ -95,8 +95,8 @@ impl Objective {
             solve_mode,
             SolveMode::MixedIntegerLinearProgramming
                 | SolveMode::LinearProgrammingWithFixedCommitment
-        ) {
-            if system.thermal_unit_commitment_enabled {
+        )
+            && system.thermal_unit_commitment_enabled {
                 for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
                     let plant = &system.thermal_plants[entry.plant_idx];
                     let unit = &plant.units[entry.unit_idx];
@@ -136,13 +136,11 @@ impl Objective {
                     }
                 }
             }
-        }
 
-        if system.future_cost_enabled {
-            if let Some(future_cost) = variables.future_cost.first() {
+        if system.future_cost_enabled
+            && let Some(future_cost) = variables.future_cost.first() {
                 terms.push(term(future_cost, 1.0));
             }
-        }
 
         Self {
             sense: ObjectiveSense::Minimize,
