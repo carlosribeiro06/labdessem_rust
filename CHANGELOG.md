@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-15
+
 ### Fixed
 - Mode 1 now correctly skips LP-FIXED loop when MILP has no flow violations
 - All output results now come from LP-CALC-CMO stage for economic consistency
