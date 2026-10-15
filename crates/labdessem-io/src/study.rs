@@ -104,7 +104,7 @@ fn read_study_from_path_with_options(
         build_dummy_buses(&submarkets, horizon.periods)
     };
     let branches = if network_enabled {
-        read_branches(&cad_path)?
+        read_branches(&oper_path)?
     } else {
         Vec::new()
     };

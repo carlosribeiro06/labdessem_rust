@@ -1,7 +1,7 @@
 {
   "$schema": "../../schemas/study_config.schema.json",
   "opcao_execucao": 2,
-  "rede": 0,
+  "rede": 1,
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,

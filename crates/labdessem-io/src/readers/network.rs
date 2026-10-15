@@ -20,9 +20,9 @@ pub fn read_buses(
     build_buses(&rows, horizon)
 }
 
-/// Read branches from CAD_LINHAS.csv for network-enabled cases.
-pub fn read_branches(cad_path: &Path) -> Result<Vec<Branch>, IoError> {
-    let rows: Vec<BranchRow> = read_csv(&cad_path.join("CAD_LINHAS.csv"))?;
+/// Read branches from OPER_LINHA.csv for network-enabled cases.
+pub fn read_branches(oper_path: &Path) -> Result<Vec<Branch>, IoError> {
+    let rows: Vec<BranchRow> = read_csv(&oper_path.join("OPER_LINHA.csv"))?;
     Ok(build_branches(&rows))
 }
 
