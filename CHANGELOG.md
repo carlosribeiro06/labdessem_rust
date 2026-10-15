@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Mode 2 (Single MILP) now includes LP-CALC-CMO stage for valid dual extraction
+- Mode 1 LP-CALC-CMO now uses all flow constraints instead of only accumulated cuts
+
 ## [0.6.0] - 2026-10-14
 
 ### Added

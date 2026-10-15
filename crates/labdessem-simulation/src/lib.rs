@@ -209,4 +209,104 @@ mod tests {
             1
         );
     }
+
+    #[test]
+    fn mode2_calls_lp_calc_cmo_without_network() {
+        use super::{run_simulation, ExecutionOption, IterationStage};
+
+        let system = build_system();
+        let result = run_simulation(&system, false, ExecutionOption::SingleMilp)
+            .expect("Mode 2 simulation should succeed");
+
+        // Verify LP-CALC-CMO was called
+        let has_cmo_stage = result
+            .steps
+            .iter()
+            .any(|step| step.stage == IterationStage::LinearProgrammingCalculateCmo);
+        assert!(
+            has_cmo_stage,
+            "Mode 2 without network should call LP-CALC-CMO stage"
+        );
+
+        // Verify we have both MILP and LP-CALC-CMO
+        let milp_count = result
+            .steps
+            .iter()
+            .filter(|step| step.stage == IterationStage::MixedIntegerLinearProgramming)
+            .count();
+        assert_eq!(milp_count, 1, "Should have exactly one MILP stage");
+    }
+
+    #[test]
+    fn mode2_calls_lp_calc_cmo_with_network() {
+        use super::{run_simulation, ExecutionOption, IterationStage};
+
+        let system = build_system();
+        let result = run_simulation(&system, true, ExecutionOption::SingleMilp)
+            .expect("Mode 2 simulation with network should succeed");
+
+        // Verify LP-CALC-CMO was called
+        let has_cmo_stage = result
+            .steps
+            .iter()
+            .any(|step| step.stage == IterationStage::LinearProgrammingCalculateCmo);
+        assert!(
+            has_cmo_stage,
+            "Mode 2 with network should call LP-CALC-CMO stage"
+        );
+
+        // Verify stages order: MILP then LP-CALC-CMO
+        let stages: Vec<_> = result.steps.iter().map(|s| s.stage).collect();
+        let milp_pos = stages
+            .iter()
+            .position(|&s| s == IterationStage::MixedIntegerLinearProgramming);
+        let cmo_pos = stages
+            .iter()
+            .position(|&s| s == IterationStage::LinearProgrammingCalculateCmo);
+
+        assert!(milp_pos.is_some(), "Should have MILP stage");
+        assert!(cmo_pos.is_some(), "Should have LP-CALC-CMO stage");
+        assert!(
+            milp_pos.unwrap() < cmo_pos.unwrap(),
+            "MILP should come before LP-CALC-CMO"
+        );
+    }
+
+    #[test]
+    fn mode1_and_mode2_both_produce_lp_calc_cmo_without_network() {
+        use super::{run_simulation, ExecutionOption, IterationStage};
+
+        let system = build_system();
+
+        // Run Mode 1 (Iterative)
+        let result1 = run_simulation(&system, false, ExecutionOption::Iterative)
+            .expect("Mode 1 should succeed");
+
+        // Run Mode 2 (Single MILP)
+        let result2 = run_simulation(&system, false, ExecutionOption::SingleMilp)
+            .expect("Mode 2 should succeed");
+
+        // Both should have LP-CALC-CMO
+        let mode1_has_cmo = result1
+            .steps
+            .iter()
+            .any(|s| s.stage == IterationStage::LinearProgrammingCalculateCmo);
+        let mode2_has_cmo = result2
+            .steps
+            .iter()
+            .any(|s| s.stage == IterationStage::LinearProgrammingCalculateCmo);
+
+        assert!(mode1_has_cmo, "Mode 1 should have LP-CALC-CMO stage");
+        assert!(mode2_has_cmo, "Mode 2 should have LP-CALC-CMO stage");
+
+        // CMO summaries should have non-empty constraint duals
+        assert!(
+            !result1.cmo_summary.constraint_duals.is_empty(),
+            "Mode 1 cmo_summary should have constraint duals"
+        );
+        assert!(
+            !result2.cmo_summary.constraint_duals.is_empty(),
+            "Mode 2 cmo_summary should have constraint duals"
+        );
+    }
 }

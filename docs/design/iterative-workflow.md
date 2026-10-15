@@ -26,11 +26,12 @@ When network treatment is disabled (`rede = 0`), the LP stage runs only once wit
 
 ### Mode 2: Single MILP (`opcao_execucao = 2`)
 
-Direct solve without iteration:
+Direct solve without LP iteration:
 
 1. **MILP** with all network constraints (if enabled)
+2. **LP-CALC-CMO** for dual extraction (marginal costs)
 
-This mode is faster but may not find the optimal commitment sequence when network constraints are binding.
+This mode is faster but may not find the optimal commitment sequence when network constraints are binding. The LP-CALC-CMO stage ensures valid dual extraction even though there is no LP iteration.
 
 ## Stage Details
 
@@ -66,12 +67,13 @@ This mode is faster but may not find the optimal commitment sequence when networ
 
 **Purpose**: Extract dual information for pricing.
 
-- Same fixed commitments as LP-FIXED
+- Commitment variables fixed to MILP solution values
+- Uses all flow constraints (not just accumulated cuts) for correct dual extraction
 - Extracts dual variables:
   - `PiDemanda`: Submarket marginal operating cost (CMO)
   - `PiBalHidr`: Water balance shadow prices
 
-This stage produces the economic signals used in settlement and planning.
+This stage produces the economic signals used in settlement and planning. Both execution modes use LP-CALC-CMO with all network flow constraints to ensure valid, economically meaningful duals.
 
 ## Network Cut Iteration
 

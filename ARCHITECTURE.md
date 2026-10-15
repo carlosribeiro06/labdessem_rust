@@ -227,9 +227,13 @@ The study configuration supports two execution modes:
 
 - **Mode 1 (Iterative)**: `LP → MILP → LP-FIXED → LP-CALC-CMO`
   - LP iterations add network cuts for violated flows
-  - Final LP-CALC-CMO extracts dual values (CMO, water value)
+  - LP-CALC-CMO uses all flow constraints for dual extraction
 
-- **Mode 2 (Single MILP)**: Direct MILP solve without iteration
+- **Mode 2 (Single MILP)**: `MILP → LP-CALC-CMO`
+  - MILP includes all network constraints upfront
+  - LP-CALC-CMO extracts dual values with fixed commitments
+
+Both modes use LP-CALC-CMO with all flow constraints to ensure valid dual extraction (CMO, water value).
 
 ## Key Types
 

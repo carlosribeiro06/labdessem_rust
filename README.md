@@ -83,13 +83,15 @@ labdessem_rust/
 
 The study configuration supports two execution modes through `opcao_execucao`:
 
-- `1`: `LP -> MILP -> LP-FIXED -> LP-CALC-CMO`
-- `2`: single `MILP`
+- `1`: `LP -> MILP -> LP-FIXED -> LP-CALC-CMO` (iterative network cuts)
+- `2`: `MILP -> LP-CALC-CMO` (all network constraints upfront)
 
-When the network flag is active, the iterative mode adds DC flow cuts only for violated line-period pairs. The final `LP-CALC-CMO` stage is solved with integer decisions fixed and is used to extract dual information such as:
+Both modes use the `LP-CALC-CMO` stage to extract valid dual information:
 
 - submarket marginal operating cost (`PiDemanda`)
 - hydro water balance dual (`PiBalHidr`)
+
+When the network flag is active, mode 1 adds DC flow cuts iteratively for violated line-period pairs, while mode 2 includes all network constraints from the start. The `LP-CALC-CMO` stage always uses all flow constraints for correct dual extraction.
 
 ## Study Configuration
 
