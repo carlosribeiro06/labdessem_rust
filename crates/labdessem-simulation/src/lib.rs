@@ -309,4 +309,66 @@ mod tests {
             "Mode 2 cmo_summary should have constraint duals"
         );
     }
+
+    #[test]
+    fn mode1_with_network_skips_lp_fixed_when_no_violations() {
+        use super::{run_simulation, ExecutionOption, IterationStage};
+
+        let system = build_system();
+        let result = run_simulation(&system, true, ExecutionOption::Iterative)
+            .expect("Mode 1 with network should succeed");
+
+        // Get all stages in order
+        let stages: Vec<_> = result.steps.iter().map(|s| s.stage).collect();
+
+        // Find positions of key stages
+        let milp_pos = stages
+            .iter()
+            .position(|&s| s == IterationStage::MixedIntegerLinearProgramming);
+        let cmo_pos = stages
+            .iter()
+            .position(|&s| s == IterationStage::LinearProgrammingCalculateCmo);
+
+        assert!(milp_pos.is_some(), "Should have MILP stage");
+        assert!(cmo_pos.is_some(), "Should have LP-CALC-CMO stage");
+
+        // MILP should come before LP-CALC-CMO
+        let milp_idx = milp_pos.unwrap();
+        let cmo_idx = cmo_pos.unwrap();
+        assert!(milp_idx < cmo_idx, "MILP should come before LP-CALC-CMO");
+
+        // If no violations, there should be no LP-FIXED between MILP and LP-CALC-CMO
+        // (the test system is simple enough that it shouldn't have violations)
+        let has_lp_fixed_after_milp = stages[milp_idx..cmo_idx]
+            .iter()
+            .any(|&s| s == IterationStage::LinearProgrammingWithFixedCommitment);
+
+        // Note: This test verifies the structure. If the system has violations,
+        // LP-FIXED stages may appear, which is also correct behavior.
+        if result.final_violations.is_empty() {
+            assert!(
+                !has_lp_fixed_after_milp,
+                "Should skip LP-FIXED when MILP has no violations"
+            );
+        }
+    }
+
+    #[test]
+    fn mode1_output_comes_from_cmo_summary() {
+        use super::{run_simulation, ExecutionOption};
+
+        let system = build_system();
+        let result = run_simulation(&system, true, ExecutionOption::Iterative)
+            .expect("Mode 1 should succeed");
+
+        // Verify cmo_summary has expected content
+        assert!(
+            !result.cmo_summary.variable_values.is_empty(),
+            "cmo_summary should have variable values for output"
+        );
+        assert!(
+            !result.cmo_summary.constraint_duals.is_empty(),
+            "cmo_summary should have constraint duals for CMO extraction"
+        );
+    }
 }

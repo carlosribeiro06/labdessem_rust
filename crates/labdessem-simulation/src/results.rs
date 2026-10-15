@@ -37,7 +37,6 @@ pub struct IterationReport {
 #[derive(Debug, Clone)]
 pub struct IterativeSimulationResult {
     pub steps: Vec<IterationReport>,
-    pub final_summary: SolveSummary,
     pub cmo_summary: SolveSummary,
     pub final_violations: Vec<FlowViolation>,
     pub accumulated_flow_cuts: usize,

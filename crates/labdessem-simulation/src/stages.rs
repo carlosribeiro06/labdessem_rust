@@ -74,8 +74,9 @@ fn run_iterative_simulation_strategy(
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
     )?;
-    let milp_new_cuts = extend_cut_set(&mut accumulated_cuts, system, &milp_violations);
-    if milp_used_slacks && milp_new_cuts == 0 {
+
+    // Bifurcation: skip LP-FIXED loop if no violations or MILP was infeasible
+    if milp_violations.is_empty() || milp_used_slacks {
         let all_cuts = all_flow_constraints(system);
         let cmo_summary = solve_stage(
             system,
@@ -90,13 +91,12 @@ fn run_iterative_simulation_strategy(
             &mut operational_limit_infeasibilities,
         )?
         .0;
-        let final_line_flows = compute_line_flows(system, &dc_network, &milp_summary);
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         return Ok(IterativeSimulationResult {
             steps,
-            final_summary: milp_summary,
             cmo_summary,
             final_violations: milp_violations,
             accumulated_flow_cuts: accumulated_cuts.len(),
@@ -107,11 +107,13 @@ fn run_iterative_simulation_strategy(
         });
     }
 
+    // Has violations and MILP was feasible — add cuts and enter LP-FIXED loop
+    extend_cut_set(&mut accumulated_cuts, system, &milp_violations);
+
     let mut fixed_iteration = 1usize;
-    let final_summary;
     let final_violations;
     loop {
-        let (summary, violations, used_slacks) = solve_stage(
+        let (_, violations, used_slacks) = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
@@ -125,7 +127,6 @@ fn run_iterative_simulation_strategy(
         )?;
 
         if violations.is_empty() {
-            final_summary = summary;
             final_violations = violations;
             break;
         }
@@ -133,7 +134,6 @@ fn run_iterative_simulation_strategy(
         let new_cuts = extend_cut_set(&mut accumulated_cuts, system, &violations);
         if new_cuts == 0 {
             if used_slacks {
-                final_summary = summary;
                 final_violations = violations;
                 break;
             }
@@ -146,9 +146,6 @@ fn run_iterative_simulation_strategy(
         fixed_iteration += 1;
     }
 
-    let final_line_flows = compute_line_flows(system, &dc_network, &final_summary);
-    let added_flow_cut_lines =
-        summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
     let all_cuts = all_flow_constraints(system);
     let cmo_summary = solve_stage(
         system,
@@ -164,9 +161,12 @@ fn run_iterative_simulation_strategy(
     )?
     .0;
 
+    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
+    let added_flow_cut_lines =
+        summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+
     Ok(IterativeSimulationResult {
         steps,
-        final_summary,
         cmo_summary,
         final_violations,
         accumulated_flow_cuts: accumulated_cuts.len(),
@@ -200,9 +200,6 @@ fn run_single_milp_simulation(
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
         )?;
-        let final_line_flows = compute_line_flows(system, &dc_network, &milp_summary);
-        let added_flow_cut_lines =
-            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         let cmo_summary = solve_stage(
             system,
@@ -218,9 +215,12 @@ fn run_single_milp_simulation(
         )?
         .0;
 
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
+        let added_flow_cut_lines =
+            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+
         return Ok(IterativeSimulationResult {
             steps,
-            final_summary: milp_summary,
             cmo_summary,
             final_violations,
             accumulated_flow_cuts: accumulated_cuts.len(),
@@ -253,7 +253,6 @@ fn run_single_milp_simulation(
 
     Ok(IterativeSimulationResult {
         steps,
-        final_summary: milp_summary,
         cmo_summary,
         final_violations: Vec::new(),
         accumulated_flow_cuts: 0,
@@ -290,15 +289,6 @@ fn run_simulation_without_network(
         &mut operational_limit_infeasibilities,
     )?;
 
-    let final_summary = solve_stage_without_network(
-        system,
-        SolveMode::LinearProgrammingWithFixedCommitment,
-        Some(&milp_summary),
-        IterationStage::LinearProgrammingWithFixedCommitment,
-        1,
-        &mut steps,
-        &mut operational_limit_infeasibilities,
-    )?;
     let cmo_summary = solve_stage_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
@@ -311,7 +301,6 @@ fn run_simulation_without_network(
 
     Ok(IterativeSimulationResult {
         steps,
-        final_summary,
         cmo_summary,
         final_violations: Vec::new(),
         accumulated_flow_cuts: 0,

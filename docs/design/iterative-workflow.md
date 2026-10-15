@@ -6,10 +6,10 @@ This document describes the execution modes and solve stages in labdessem.
 
 Labdessem supports two execution modes controlled by `opcao_execucao` in `study_config.json`:
 
-- **Mode 1 (Iterative)**: LP → MILP → LP-FIXED → LP-CALC-CMO with network cut iteration
-- **Mode 2 (Single MILP)**: Direct MILP solve without iteration
+- **Mode 1 (Iterative)**: LP → MILP → LP-CALC-CMO with optional LP-FIXED loop for network violations
+- **Mode 2 (Single MILP)**: Direct MILP → LP-CALC-CMO without LP iteration
 
-The iterative mode is designed for network-constrained studies where DC flow constraints are added incrementally based on detected violations.
+Both modes use LP-CALC-CMO as the final stage for dual extraction and output generation.
 
 ## Execution Modes
 
@@ -19,8 +19,11 @@ This mode runs a multi-stage workflow:
 
 1. **LP relaxation** with iterative network cut addition
 2. **MILP** for commitment decisions
-3. **LP-FIXED** to verify feasibility with fixed commitments
-4. **LP-CALC-CMO** for dual extraction (marginal costs)
+3. **Bifurcation check**:
+   - If no violations → go directly to LP-CALC-CMO
+   - If violations exist → enter LP-FIXED loop
+4. **LP-FIXED** (if needed) to resolve remaining network violations
+5. **LP-CALC-CMO** for dual extraction and output generation
 
 When network treatment is disabled (`rede = 0`), the LP stage runs only once without iteration.
 
@@ -31,7 +34,26 @@ Direct solve without LP iteration:
 1. **MILP** with all network constraints (if enabled)
 2. **LP-CALC-CMO** for dual extraction (marginal costs)
 
-This mode is faster but may not find the optimal commitment sequence when network constraints are binding. The LP-CALC-CMO stage ensures valid dual extraction even though there is no LP iteration.
+This mode is faster but may not find the optimal commitment sequence when network constraints are binding.
+
+## Post-MILP Bifurcation (Mode 1)
+
+After MILP completes, the workflow checks for flow violations:
+
+1. **No violations** (`milp_violations.is_empty()`): Go directly to LP-CALC-CMO
+2. **MILP infeasible** (used slacks): Go directly to LP-CALC-CMO
+3. **Has violations**: Add all cuts to `accumulated_cuts`, enter LP-FIXED loop
+
+The LP-FIXED loop continues until no violations remain, adding cuts incrementally.
+
+## Output Source
+
+**All result CSV files are generated exclusively from LP-CALC-CMO output:**
+
+- Variable values (generation, turbining, volume, etc.)
+- Constraint duals (CMO, water value)
+
+This ensures economic consistency with all network constraints, regardless of which cuts were needed during the iterative process.
 
 ## Stage Details
 
@@ -61,11 +83,11 @@ This mode is faster but may not find the optimal commitment sequence when networ
 
 - Commitment variables fixed to MILP solution values
 - Re-solves as LP for faster verification
-- May detect infeasibilities not visible in MILP
+- Only executed when MILP solution has network violations
 
 ### LP-CALC-CMO Stage
 
-**Purpose**: Extract dual information for pricing.
+**Purpose**: Extract dual information for pricing and generate output.
 
 - Commitment variables fixed to MILP solution values
 - Uses all flow constraints (not just accumulated cuts) for correct dual extraction
@@ -103,14 +125,16 @@ LP (iterations)
 MILP
     │
     ├─ commitment decisions (on/off, startup, shutdown)
-    ▼
-LP-FIXED
     │
-    ├─ verified dispatch
     ▼
-LP-CALC-CMO
+Violations? ──No──► LP-CALC-CMO ──► Output CSVs
     │
-    └─ dual variables (CMO, water values)
+    │ Yes
+    ▼
+LP-FIXED (loop until no violations)
+    │
+    ▼
+LP-CALC-CMO ──► Output CSVs
 ```
 
 ## Key Files

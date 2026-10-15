@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Mode 1 now correctly skips LP-FIXED loop when MILP has no flow violations
+- All output results now come from LP-CALC-CMO stage for economic consistency
+
+### Changed
+- Removed `final_summary` from `IterativeSimulationResult` (internal API change)
+- Mode 1 without network no longer runs unnecessary LP-FIXED stage
+
 ## [0.6.1] - 2026-10-15
 
 ### Fixed

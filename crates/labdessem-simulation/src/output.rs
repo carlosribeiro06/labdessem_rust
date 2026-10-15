@@ -37,14 +37,9 @@ pub fn write_results_csvs(
         ))
     })?;
 
-    write_hydro_csv(
-        system,
-        &result.final_summary,
-        &result.cmo_summary,
-        output_dir,
-    )?;
-    write_thermal_csv(system, &result.final_summary.variable_values, output_dir)?;
-    write_pumping_csv(system, &result.final_summary.variable_values, output_dir)?;
+    write_hydro_csv(system, &result.cmo_summary, output_dir)?;
+    write_thermal_csv(system, &result.cmo_summary.variable_values, output_dir)?;
+    write_pumping_csv(system, &result.cmo_summary.variable_values, output_dir)?;
     write_cmosist_csv(system, &result.cmo_summary.constraint_duals, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
@@ -60,7 +55,7 @@ pub fn write_results_csvs(
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
         write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
     }
-    write_renewable_csv(system, &result.final_summary.variable_values, output_dir)?;
+    write_renewable_csv(system, &result.cmo_summary.variable_values, output_dir)?;
 
     Ok(())
 }
@@ -241,7 +236,6 @@ fn hydro_generation_max_at_point_mw(
 fn write_hydro_csv(
     system: &System,
     summary: &SolveSummary,
-    cmo_summary: &SolveSummary,
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
     let mut csv = csv_with_header(
@@ -350,7 +344,7 @@ fn write_hydro_csv(
 
             // Dual
             let pi_bal_hidr = average_internal_values(system, &internal_periods, |period| {
-                cmo_summary
+                summary
                     .constraint_duals
                     .get(&hydro_balance_constraint_name(plant.name.as_str(), period))
                     .copied()
