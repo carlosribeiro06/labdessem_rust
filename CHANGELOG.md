@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-15
+
+### Fixed
+- Fixed period index calculation in `injections_by_period` that caused iterative network cut loop (`opcao_execucao=1`) to stall with error "LP flow-cut loop stalled because the same network violations persisted without generating new cuts"
+- Flow calculations now correctly use generation values after the first LP iteration
+
 ## [0.6.2] - 2026-10-15
 
 ### Fixed
