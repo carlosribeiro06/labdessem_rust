@@ -212,7 +212,7 @@ fn injections_by_period(
                     let variable = labdessem_model::names::thermal_generation_name(
                         &plant.name,
                         &unit.name,
-                        period + 1,
+                        period,
                     );
                     if let Some(value) = summary.variable_values.get(&variable) {
                         injection[*bus_pos] += value;
@@ -233,7 +233,7 @@ fn injections_by_period(
                             &plant.name,
                             &group.name,
                             &unit.name,
-                            period + 1,
+                            period,
                         );
                         if let Some(value) = summary.variable_values.get(&variable) {
                             injection[*bus_pos] += value;
@@ -250,7 +250,7 @@ fn injections_by_period(
 
             for (period, injection) in injections.iter_mut().enumerate() {
                 let variable =
-                    labdessem_model::names::renewable_generation_name(&plant.name, period + 1);
+                    labdessem_model::names::renewable_generation_name(&plant.name, period);
                 if let Some(value) = summary.variable_values.get(&variable) {
                     injection[*bus_pos] += value;
                 }
@@ -264,7 +264,7 @@ fn injections_by_period(
             }
 
             for (period, injection) in injections.iter_mut().enumerate() {
-                let variable = labdessem_model::names::pumping_name(&plant.name, period + 1);
+                let variable = labdessem_model::names::pumping_name(&plant.name, period);
                 if let Some(value) = summary.variable_values.get(&variable) {
                     let consumption_mw = value * plant.specific_consumption_mw_per_m3s / flow_conversion;
                     injection[*bus_pos] -= consumption_mw;
