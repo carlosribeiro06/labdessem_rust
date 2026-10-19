@@ -233,9 +233,10 @@ impl HighsSolver {
                 self.statistics.failure_count += 1;
 
                 let msg = error.to_string();
-                if msg.contains("infeasible") {
+                let msg_lower = msg.to_lowercase();
+                if msg_lower.contains("infeasible") {
                     Err(SolverError::Infeasible)
-                } else if msg.contains("unbounded") {
+                } else if msg_lower.contains("unbounded") {
                     Err(SolverError::Unbounded)
                 } else {
                     Err(SolverError::InternalError {
