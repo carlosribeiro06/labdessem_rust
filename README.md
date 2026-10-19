@@ -41,6 +41,7 @@ The current model supports:
 - operational limit constraints and infeasibility reporting
 - iterative network-constrained workflow with LP, MILP, LP-FIXED, and LP-CALC-CMO
 - single-shot MILP workflow as an alternative execution mode
+- nodal marginal cost (CMB) and submarket marginal operating cost (CMO) computation when network is enabled
 
 ## Workspace Structure
 
@@ -238,6 +239,7 @@ When network treatment is enabled, the run also writes:
 - `resultado_rede.csv`
 - `resultado_linhas_adicionadas.csv`
 - `resultado_inviabilidade_rede.csv`
+- `resultado_cmobar.csv` (nodal marginal costs per bus)
 
 ## Build and Run
 

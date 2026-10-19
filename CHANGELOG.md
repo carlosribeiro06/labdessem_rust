@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-19
+
+### Added
+- **Nodal Marginal Cost (CMB)**: Compute bus-level marginal costs when network is enabled
+  - CMB formula: `λ_DS + Σ(PTDF × λ_L)` using demand balance dual and flow constraint duals
+  - New `compute_cmb_per_bus()` function in `labdessem-simulation`
+  - New `resultado_cmobar.csv` output with columns: Periodo, CodigoBarra, NomeBarra, Submercado, CMB
+- **Submarket Marginal Operating Cost (CMO)**: Demand-weighted average of CMBs per submarket
+  - CMO formula: `Σ(CMB × demand) / Σ(demand)` for buses in each submarket
+  - New `compute_cmo_from_cmb()` function
+  - Added CMO column to `resultado_cmosist.csv` alongside existing PiDemanda
+- **Flow dual extraction infrastructure**:
+  - `FlowCutMapping` struct to track flow constraint row indices
+  - `extract_flow_duals()` function for extracting `λ_L` from LP solution
+  - Flow cut naming functions in `labdessem-model`
+- **Documentation**: New `docs/design/cmb-cmo-formulation.md` with mathematical formulation
+
+### Changed
+- `IterativeSimulationResult` now includes `cmb_records`, `cmo_values`, and `flow_cut_mapping` fields
+- `write_cmosist_csv()` accepts optional CMO values parameter
+- When `rede=0`: CMO equals PiDemanda, no CMB computation
+- When `rede=1`: Full CMB/CMO computation with network congestion component
+
 ## [0.8.0] - 2026-10-19
 
 ### Removed
@@ -187,6 +210,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `labdessem-common`: shared utilities
 - Example cases: 3Barras, 24Barras
 
+[0.9.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.6.3...v0.7.0
+[0.6.3]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.2.0...v0.3.0
