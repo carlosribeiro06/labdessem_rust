@@ -142,7 +142,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     eprintln!("Summary");
     eprintln!(
         "  Objective:   {:.4}",
-        result.cmo_summary.objective_value
+        result.cmo_solution.objective
     );
     eprintln!("  Flow cuts:   {}", result.accumulated_flow_cuts);
     eprintln!("  Violations:  {}", result.final_violations.len());
