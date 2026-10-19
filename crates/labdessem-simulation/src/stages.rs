@@ -8,11 +8,14 @@ use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, S
 use labdessem_io::output::volume_hm3_to_flow_m3s;
 use labdessem_model::{
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
+    indexing::ColumnOffsets,
     objective::ObjectiveTerm,
     variables::{Variable, VariableDomain},
     Model, SolveMode,
 };
-use labdessem_solver::{solve_model, SolverError, SolveSummary};
+use labdessem_solver::{
+    model_to_lp_template, HighsSolver, LpSolution, SolverError, SolverInterface,
+};
 
 use crate::error::SimulationError;
 use crate::network::{
@@ -27,24 +30,44 @@ use crate::workflow::{ExecutionOption, IterationStage};
 
 const NETWORK_FLOW_SLACK_PENALTY_PER_MW: f64 = 1_000_000.0;
 
+/// Solve a model using the HiGHS solver, returning LpSolution directly.
+fn solve_model_direct(
+    solver: &mut HighsSolver,
+    model: &Model,
+) -> Result<LpSolution, SolverError> {
+    let template = model_to_lp_template(model);
+    solver.load_model(&template);
+    solver.solve(None).map(|view| view.to_owned())
+}
+
 /// Run simulation with the specified execution option.
 pub fn run_simulation(
     system: &System,
     network_enabled: bool,
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
+    // Create solver once and reuse across all stages
+    let mut solver = HighsSolver::new().map_err(|e| {
+        SimulationError::IterativeProcess(format!("Failed to create solver: {e}"))
+    })?;
+
     match execution_option {
-        ExecutionOption::Iterative => run_iterative_simulation_strategy(system, network_enabled),
-        ExecutionOption::SingleMilp => run_single_milp_simulation(system, network_enabled),
+        ExecutionOption::Iterative => {
+            run_iterative_simulation_strategy(system, network_enabled, &mut solver)
+        }
+        ExecutionOption::SingleMilp => {
+            run_single_milp_simulation(system, network_enabled, &mut solver)
+        }
     }
 }
 
 fn run_iterative_simulation_strategy(
     system: &System,
     network_enabled: bool,
+    solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     if !network_enabled {
-        return run_simulation_without_network(system);
+        return run_simulation_without_network(system, solver);
     }
 
     let dc_network = DcNetworkModel::from_system(system)?;
@@ -60,6 +83,7 @@ fn run_iterative_simulation_strategy(
         &mut steps,
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
     let (milp_summary, milp_violations, milp_used_slacks) = solve_stage(
@@ -73,12 +97,13 @@ fn run_iterative_simulation_strategy(
         &mut steps,
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
     // Bifurcation: skip LP-FIXED loop if no violations or MILP was infeasible
     if milp_violations.is_empty() || milp_used_slacks {
         let all_cuts = all_flow_constraints(system);
-        let cmo_summary = solve_stage(
+        let cmo_solution = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
@@ -89,15 +114,18 @@ fn run_iterative_simulation_strategy(
             &mut steps,
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
+            solver,
         )?
         .0;
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
+        let indexing = labdessem_model::indexing::Indexing::from_system(system);
+        let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         return Ok(IterativeSimulationResult {
             steps,
-            cmo_summary,
+            cmo_solution,
             final_violations: milp_violations,
             accumulated_flow_cuts: accumulated_cuts.len(),
             final_line_flows,
@@ -124,6 +152,7 @@ fn run_iterative_simulation_strategy(
             &mut steps,
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
+            solver,
         )?;
 
         if violations.is_empty() {
@@ -147,7 +176,7 @@ fn run_iterative_simulation_strategy(
     }
 
     let all_cuts = all_flow_constraints(system);
-    let cmo_summary = solve_stage(
+    let cmo_solution = solve_stage(
         system,
         &dc_network,
         SolveMode::LinearProgrammingWithFixedCommitment,
@@ -158,16 +187,19 @@ fn run_iterative_simulation_strategy(
         &mut steps,
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
+        solver,
     )?
     .0;
 
-    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
+    let indexing = labdessem_model::indexing::Indexing::from_system(system);
+    let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
     let added_flow_cut_lines =
         summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
     Ok(IterativeSimulationResult {
         steps,
-        cmo_summary,
+        cmo_solution,
         final_violations,
         accumulated_flow_cuts: accumulated_cuts.len(),
         final_line_flows,
@@ -180,6 +212,7 @@ fn run_iterative_simulation_strategy(
 fn run_single_milp_simulation(
     system: &System,
     network_enabled: bool,
+    solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
     let mut network_infeasibilities = Vec::new();
@@ -199,9 +232,10 @@ fn run_single_milp_simulation(
             &mut steps,
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
+            solver,
         )?;
 
-        let cmo_summary = solve_stage(
+        let cmo_solution = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
@@ -212,16 +246,19 @@ fn run_single_milp_simulation(
             &mut steps,
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
+            solver,
         )?
         .0;
 
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_summary);
+        let indexing = labdessem_model::indexing::Indexing::from_system(system);
+        let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         return Ok(IterativeSimulationResult {
             steps,
-            cmo_summary,
+            cmo_solution,
             final_violations,
             accumulated_flow_cuts: accumulated_cuts.len(),
             final_line_flows,
@@ -239,9 +276,10 @@ fn run_single_milp_simulation(
         1,
         &mut steps,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
-    let cmo_summary = solve_stage_without_network(
+    let cmo_solution = solve_stage_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
@@ -249,11 +287,12 @@ fn run_single_milp_simulation(
         1,
         &mut steps,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
     Ok(IterativeSimulationResult {
         steps,
-        cmo_summary,
+        cmo_solution,
         final_violations: Vec::new(),
         accumulated_flow_cuts: 0,
         final_line_flows: Vec::new(),
@@ -265,6 +304,7 @@ fn run_single_milp_simulation(
 
 fn run_simulation_without_network(
     system: &System,
+    solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
     let mut operational_limit_infeasibilities = Vec::new();
@@ -277,6 +317,7 @@ fn run_simulation_without_network(
         1,
         &mut steps,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
     let milp_summary = solve_stage_without_network(
@@ -287,9 +328,10 @@ fn run_simulation_without_network(
         1,
         &mut steps,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
-    let cmo_summary = solve_stage_without_network(
+    let cmo_solution = solve_stage_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
@@ -297,11 +339,12 @@ fn run_simulation_without_network(
         1,
         &mut steps,
         &mut operational_limit_infeasibilities,
+        solver,
     )?;
 
     Ok(IterativeSimulationResult {
         steps,
-        cmo_summary,
+        cmo_solution,
         final_violations: Vec::new(),
         accumulated_flow_cuts: 0,
         final_line_flows: Vec::new(),
@@ -318,6 +361,7 @@ fn run_lp_cut_loop(
     steps: &mut Vec<IterationReport>,
     network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
+    solver: &mut HighsSolver,
 ) -> Result<(), SimulationError> {
     let mut iteration = 1usize;
     loop {
@@ -332,6 +376,7 @@ fn run_lp_cut_loop(
             steps,
             network_infeasibilities,
             operational_limit_infeasibilities,
+            solver,
         )?;
 
         if violations.is_empty() {
@@ -360,28 +405,33 @@ fn solve_stage(
     dc_network: &DcNetworkModel,
     solve_mode: SolveMode,
     accumulated_cuts: &BTreeSet<FlowCutKey>,
-    commitment_source: Option<&SolveSummary>,
+    commitment_source: Option<&LpSolution>,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
     network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
-) -> Result<(SolveSummary, Vec<FlowViolation>, bool), SimulationError> {
+    solver: &mut HighsSolver,
+) -> Result<(LpSolution, Vec<FlowViolation>, bool), SimulationError> {
     println!("Resolvendo {} #{:02}...", stage.label(), iteration);
     io::stdout().flush().ok();
 
+    let indexing = labdessem_model::indexing::Indexing::from_system(system);
+    let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+    let horizon = system.horizon.periods;
+
     let mut model = Model::from_system(system, solve_mode);
     if let Some(commitment_source) = commitment_source {
-        apply_commitment_fixes(&mut model, commitment_source);
+        apply_commitment_fixes(&mut model, commitment_source, &col_offsets, horizon);
     }
     add_flow_cuts(&mut model, system, accumulated_cuts, dc_network, false);
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
     let mut used_slacks = false;
-    let summary = match solve_model(&model) {
+    let summary = match solve_model_direct(solver, &model) {
         Ok(summary) => summary,
-        Err(SolverError::InfeasibleOrUnbounded(_))
+        Err(SolverError::Infeasible) | Err(SolverError::Unbounded)
             if !accumulated_cuts.is_empty() || !system.operational_limits.is_empty() =>
         {
             used_slacks = true;
@@ -394,7 +444,7 @@ fn solve_stage(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source);
+                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
             }
             add_flow_cuts(
                 &mut relaxed_model,
@@ -405,17 +455,19 @@ fn solve_stage(
             );
             add_operational_limit_slacks(&mut relaxed_model);
 
-            let relaxed_summary = solve_model(&relaxed_model)?;
+            let relaxed_summary = solve_model_direct(solver, &relaxed_model)?;
             network_infeasibilities.extend(collect_network_infeasibilities(
                 system,
                 accumulated_cuts,
                 &relaxed_summary,
+                &col_offsets,
                 stage,
                 iteration,
             ));
             operational_limit_infeasibilities.extend(collect_operational_limit_infeasibilities(
                 system,
                 &relaxed_summary,
+                &col_offsets,
                 stage,
                 iteration,
             ));
@@ -424,13 +476,13 @@ fn solve_stage(
         Err(error) => return Err(error.into()),
     };
     let solve_time = started_at.elapsed();
-    let violations = detect_flow_violations(system, dc_network, &summary);
+    let violations = detect_flow_violations(system, dc_network, &summary, &col_offsets);
 
     println!(
         "{} #{:02} concluido | objective = {:.4} | flow violations = {} | solve time = {:.3} s",
         stage.label(),
         iteration,
-        summary.objective_value,
+        summary.objective,
         violations.len(),
         solve_time.as_secs_f64()
     );
@@ -441,7 +493,7 @@ fn solve_stage(
         iteration,
         variable_count,
         constraint_count,
-        objective_value: summary.objective_value,
+        objective_value: summary.objective,
         solution_status: if used_slacks {
             "OPTIMAL_WITH_SLACK".into()
         } else {
@@ -457,25 +509,30 @@ fn solve_stage(
 fn solve_stage_without_network(
     system: &System,
     solve_mode: SolveMode,
-    commitment_source: Option<&SolveSummary>,
+    commitment_source: Option<&LpSolution>,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
-) -> Result<SolveSummary, SimulationError> {
+    solver: &mut HighsSolver,
+) -> Result<LpSolution, SimulationError> {
     println!("Resolvendo {} #{:02}...", stage.label(), iteration);
     io::stdout().flush().ok();
 
+    let indexing = labdessem_model::indexing::Indexing::from_system(system);
+    let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+    let horizon = system.horizon.periods;
+
     let mut model = Model::from_system(system, solve_mode);
     if let Some(commitment_source) = commitment_source {
-        apply_commitment_fixes(&mut model, commitment_source);
+        apply_commitment_fixes(&mut model, commitment_source, &col_offsets, horizon);
     }
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
-    let summary = match solve_model(&model) {
+    let summary = match solve_model_direct(solver, &model) {
         Ok(summary) => summary,
-        Err(SolverError::InfeasibleOrUnbounded(_)) if !system.operational_limits.is_empty() => {
+        Err(SolverError::Infeasible) | Err(SolverError::Unbounded) if !system.operational_limits.is_empty() => {
             println!(
                 "{} #{:02} inviavel com restricoes de limite. Adicionando folgas...",
                 stage.label(),
@@ -485,14 +542,15 @@ fn solve_stage_without_network(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source);
+                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
             }
             add_operational_limit_slacks(&mut relaxed_model);
 
-            let relaxed_summary = solve_model(&relaxed_model)?;
+            let relaxed_summary = solve_model_direct(solver, &relaxed_model)?;
             operational_limit_infeasibilities.extend(collect_operational_limit_infeasibilities(
                 system,
                 &relaxed_summary,
+                &col_offsets,
                 stage,
                 iteration,
             ));
@@ -506,7 +564,7 @@ fn solve_stage_without_network(
         "{} #{:02} finalizado | objective = {:.4} | flow violations = 0 | solve time = {:.3} s",
         stage.label(),
         iteration,
-        summary.objective_value,
+        summary.objective,
         solve_time.as_secs_f64()
     );
     io::stdout().flush().ok();
@@ -516,7 +574,7 @@ fn solve_stage_without_network(
         iteration,
         variable_count,
         constraint_count,
-        objective_value: summary.objective_value,
+        objective_value: summary.objective,
         solution_status: if operational_limit_infeasibilities
             .iter()
             .any(|record| record.stage == stage && record.iteration == iteration)
@@ -532,33 +590,38 @@ fn solve_stage_without_network(
     Ok(summary)
 }
 
-fn apply_commitment_fixes(model: &mut Model, source: &SolveSummary) {
-    let variable_vectors = [
-        &mut model.variables.thermal_commitment,
-        &mut model.variables.thermal_startup,
-        &mut model.variables.thermal_shutdown,
-        &mut model.variables.hydro_commitment,
-    ];
-
-    for variables in variable_vectors {
-        for variable in variables {
-            let value = source
-                .variable_values
-                .get(&variable.name)
-                .copied()
-                .unwrap_or(0.0);
-            variable.fixed_value = Some(match variable.domain {
-                VariableDomain::Binary => {
-                    if value >= 0.5 {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                VariableDomain::Continuous => value,
-            });
-        }
+fn apply_commitment_fixes(
+    model: &mut Model,
+    source: &LpSolution,
+    col_offsets: &ColumnOffsets,
+    horizon: usize,
+) {
+    // Thermal commitment
+    for (idx, variable) in model.variables.thermal_commitment.iter_mut().enumerate() {
+        let value = source.primal[col_offsets.thermal_commitment + idx];
+        variable.fixed_value = Some(if value >= 0.5 { 1.0 } else { 0.0 });
     }
+
+    // Thermal startup
+    for (idx, variable) in model.variables.thermal_startup.iter_mut().enumerate() {
+        let value = source.primal[col_offsets.thermal_startup + idx];
+        variable.fixed_value = Some(if value >= 0.5 { 1.0 } else { 0.0 });
+    }
+
+    // Thermal shutdown
+    for (idx, variable) in model.variables.thermal_shutdown.iter_mut().enumerate() {
+        let value = source.primal[col_offsets.thermal_shutdown + idx];
+        variable.fixed_value = Some(if value >= 0.5 { 1.0 } else { 0.0 });
+    }
+
+    // Hydro commitment
+    for (idx, variable) in model.variables.hydro_commitment.iter_mut().enumerate() {
+        let value = source.primal[col_offsets.hydro_commitment + idx];
+        variable.fixed_value = Some(if value >= 0.5 { 1.0 } else { 0.0 });
+    }
+
+    // Also need to mark the horizon for later use
+    let _ = horizon; // Used for offset calculation verification if needed
 }
 
 fn extend_cut_set(
@@ -665,32 +728,33 @@ fn add_network_flow_slack_variable(model: &mut Model, name: &str) {
 fn collect_network_infeasibilities(
     system: &System,
     cut_keys: &BTreeSet<FlowCutKey>,
-    summary: &SolveSummary,
+    solution: &LpSolution,
+    col_offsets: &ColumnOffsets,
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<NetworkInfeasibilityRecord> {
     let mut records = Vec::new();
 
+    // Network flow slacks are added after all standard variables.
+    // They are added in pairs (upper, lower) for each cut in cut_keys order.
+    let mut slack_idx = 0;
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
-        let upper_violation = summary
-            .variable_values
-            .get(&flow_slack_name(
-                "flow_slack_upper",
-                branch.name.as_str(),
-                cut_key.period,
-            ))
+        
+        // Upper slack
+        let upper_violation = solution.primal
+            .get(col_offsets.network_flow_slack + slack_idx)
             .copied()
             .unwrap_or(0.0);
-        let lower_violation = summary
-            .variable_values
-            .get(&flow_slack_name(
-                "flow_slack_lower",
-                branch.name.as_str(),
-                cut_key.period,
-            ))
+        slack_idx += 1;
+        
+        // Lower slack
+        let lower_violation = solution.primal
+            .get(col_offsets.network_flow_slack + slack_idx)
             .copied()
             .unwrap_or(0.0);
+        slack_idx += 1;
+        
         let violation_mw = upper_violation + lower_violation;
 
         if violation_mw > 1e-8 {
@@ -749,13 +813,19 @@ fn add_operational_limit_slacks(model: &mut Model) {
 
 fn collect_operational_limit_infeasibilities(
     system: &System,
-    summary: &SolveSummary,
+    solution: &LpSolution,
+    col_offsets: &ColumnOffsets,
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<OperationalLimitInfeasibilityRecord> {
     let mut aggregated =
         BTreeMap::<(usize, usize, String, OperationalLimitVariable), (f64, f64)>::new();
 
+    // Operational limit slacks are added after network flow slacks.
+    // They are added in pairs (lower, upper) for each operational limit constraint.
+    // The order follows the constraint iteration order in add_operational_limit_slacks.
+    let mut slack_idx = 0;
+    
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
             OperationalLimitTarget::ThermalPlant(id) => id.0,
@@ -764,26 +834,19 @@ fn collect_operational_limit_infeasibilities(
         };
 
         for period in limit.start_period..=limit.end_period {
-            let lower_violation = summary
-                .variable_values
-                .get(&operational_limit_slack_name(
-                    true,
-                    limit.plant_name.as_str(),
-                    limit.variable,
-                    period,
-                ))
+            // Lower bound slack
+            let lower_violation = solution.primal
+                .get(col_offsets.operational_limit_slack + slack_idx)
                 .copied()
                 .unwrap_or(0.0);
-            let upper_violation = summary
-                .variable_values
-                .get(&operational_limit_slack_name(
-                    false,
-                    limit.plant_name.as_str(),
-                    limit.variable,
-                    period,
-                ))
+            slack_idx += 1;
+            
+            // Upper bound slack  
+            let upper_violation = solution.primal
+                .get(col_offsets.operational_limit_slack + slack_idx)
                 .copied()
                 .unwrap_or(0.0);
+            slack_idx += 1;
 
             if lower_violation <= 1e-8 && upper_violation <= 1e-8 {
                 continue;

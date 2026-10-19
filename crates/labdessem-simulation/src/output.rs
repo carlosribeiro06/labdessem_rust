@@ -9,12 +9,13 @@ use labdessem_io::output::{
     write_future_cost_eco_csv, write_operational_limits_csv, write_pumping_csv,
     write_renewable_csv, write_thermal_csv,
 };
+use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::{
     hydro_balance_constraint_name, hydro_commitment_name, hydro_diversion_name,
     hydro_generation_name, hydro_spillage_name, hydro_turbining_name, hydro_volume_name,
     pumping_name,
 };
-use labdessem_solver::SolveSummary;
+use labdessem_solver::SolutionAccessor;
 
 use crate::error::SimulationError;
 use crate::results::{
@@ -29,6 +30,9 @@ pub fn write_results_csvs(
     output_dir: impl AsRef<Path>,
     network_enabled: bool,
 ) -> Result<(), SimulationError> {
+    use std::collections::HashMap;
+    use labdessem_model::names;
+
     let output_dir = output_dir.as_ref();
     std::fs::create_dir_all(output_dir).map_err(|error| {
         SimulationError::IterativeProcess(format!(
@@ -37,10 +41,123 @@ pub fn write_results_csvs(
         ))
     })?;
 
-    write_hydro_csv(system, &result.cmo_summary, output_dir)?;
-    write_thermal_csv(system, &result.cmo_summary.variable_values, output_dir)?;
-    write_pumping_csv(system, &result.cmo_summary.variable_values, output_dir)?;
-    write_cmosist_csv(system, &result.cmo_summary.constraint_duals, output_dir)?;
+    // Create SolutionAccessor for indexed access
+    let indexing = Indexing::from_system(system);
+    let params = ConstraintOffsetParams {
+        horizon: system.horizon.periods,
+        fpha_enabled: system.fpha_enabled,
+        num_fpha_segments: system.hydro_plants.iter()
+            .flat_map(|p| &p.fpha_segments)
+            .count(),
+        future_cost_enabled: system.future_cost_enabled,
+        num_future_cost_cuts: system.future_cost_cuts.len(),
+        num_operational_limits: system.operational_limits.len(),
+        thermal_uct_enabled: system.thermal_unit_commitment_enabled,
+        hydro_uch_enabled: system.hydro_unit_commitment_enabled,
+        is_commitment_mode: true,
+    };
+    let accessor = SolutionAccessor::new(&result.cmo_solution, &indexing, &params);
+    let horizon = system.horizon.periods;
+
+    // Build temporary variable_values HashMap for IO functions
+    let mut variable_values = HashMap::new();
+    
+    // Thermal generation
+    let mut unit_idx = 0;
+    for plant in &system.thermal_plants {
+        for unit in &plant.units {
+            for period in 0..horizon {
+                let name = names::thermal_generation_name(&plant.name, &unit.name, period);
+                variable_values.insert(name, accessor.thermal_generation(unit_idx, period));
+            }
+            unit_idx += 1;
+        }
+    }
+
+    // Hydro generation, turbining, commitment
+    let mut hydro_unit_idx = 0;
+    for plant in &system.hydro_plants {
+        for group in &plant.groups {
+            for unit in &group.units {
+                for period in 0..horizon {
+                    variable_values.insert(
+                        names::hydro_generation_name(&plant.name, &group.name, &unit.name, period),
+                        accessor.hydro_generation(hydro_unit_idx, period),
+                    );
+                    variable_values.insert(
+                        names::hydro_turbining_name(&plant.name, &group.name, &unit.name, period),
+                        accessor.hydro_turbining(hydro_unit_idx, period),
+                    );
+                    variable_values.insert(
+                        names::hydro_commitment_name(&plant.name, &group.name, &unit.name, period),
+                        accessor.hydro_commitment(hydro_unit_idx, period),
+                    );
+                }
+                hydro_unit_idx += 1;
+            }
+        }
+    }
+
+    // Hydro spillage, diversion, volume
+    for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
+        for period in 0..horizon {
+            variable_values.insert(
+                names::hydro_spillage_name(&plant.name, period),
+                accessor.hydro_spillage(plant_idx, period),
+            );
+            variable_values.insert(
+                names::hydro_diversion_name(&plant.name, period),
+                accessor.hydro_diversion(plant_idx, period),
+            );
+        }
+        // Volume has horizon+1 entries (initial + each period end)
+        for period in 0..=horizon {
+            variable_values.insert(
+                names::hydro_volume_name(&plant.name, period),
+                accessor.hydro_volume(plant_idx, period),
+            );
+        }
+    }
+
+    // Pumping
+    for (plant_idx, plant) in system.pumping_plants.iter().enumerate() {
+        for period in 0..horizon {
+            variable_values.insert(
+                names::pumping_name(&plant.name, period),
+                accessor.pumping(plant_idx, period),
+            );
+        }
+    }
+
+    // Renewable
+    for (plant_idx, plant) in system.renewable_plants.iter().enumerate() {
+        for period in 0..horizon {
+            variable_values.insert(
+                names::renewable_generation_name(&plant.name, period),
+                accessor.renewable_generation(plant_idx, period),
+            );
+        }
+    }
+
+    // Build temporary constraint_duals HashMap
+    let mut constraint_duals = HashMap::new();
+    for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
+        for period in 0..horizon {
+            let name = names::demand_balance_constraint_name(&submarket.name, period);
+            constraint_duals.insert(name, accessor.demand_balance_dual(submarket_idx, period));
+        }
+    }
+    for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
+        for period in 0..horizon {
+            let name = hydro_balance_constraint_name(&plant.name, period);
+            constraint_duals.insert(name, accessor.hydro_balance_dual(plant_idx, period));
+        }
+    }
+
+    write_hydro_csv(system, &variable_values, &constraint_duals, output_dir)?;
+    write_thermal_csv(system, &variable_values, output_dir)?;
+    write_pumping_csv(system, &variable_values, output_dir)?;
+    write_cmosist_csv(system, &constraint_duals, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
     write_operational_limit_infeasibility_csv(
@@ -55,7 +172,7 @@ pub fn write_results_csvs(
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
         write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
     }
-    write_renewable_csv(system, &result.cmo_summary.variable_values, output_dir)?;
+    write_renewable_csv(system, &variable_values, output_dir)?;
 
     Ok(())
 }
@@ -95,7 +212,7 @@ fn sum_internal_values<F: Fn(usize) -> f64>(periods: &[usize], values: F) -> f64
 
 fn hydro_upstream_inflow_hm3(
     system: &System,
-    summary: &SolveSummary,
+    summary: &SummaryCompat<'_>,
     plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
 ) -> f64 {
@@ -145,7 +262,7 @@ fn hydro_upstream_inflow_hm3(
 
 fn hydro_pumping_out_hm3(
     system: &System,
-    summary: &SolveSummary,
+    summary: &SummaryCompat<'_>,
     plant_id: labdessem_core::ids::HydroPlantId,
     period: usize,
 ) -> f64 {
@@ -164,7 +281,7 @@ fn hydro_pumping_out_hm3(
 }
 
 fn hydro_total_turbining_hm3(
-    summary: &SolveSummary,
+    summary: &SummaryCompat<'_>,
     plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
 ) -> f64 {
@@ -190,7 +307,7 @@ fn hydro_total_turbining_hm3(
 
 fn hydro_generation_max_at_point_mw(
     system: &System,
-    summary: &SolveSummary,
+    summary: &SummaryCompat<'_>,
     plant: &labdessem_core::entities::hydro::HydroPlant,
     period: usize,
     plant_max_generation_mw: f64,
@@ -233,11 +350,19 @@ fn hydro_generation_max_at_point_mw(
 
 // --- Hydro Writer ---
 
+// Temporary compatibility struct that mimics SummaryCompat<'_> for output functions
+struct SummaryCompat<'a> {
+    variable_values: &'a std::collections::HashMap<String, f64>,
+    constraint_duals: &'a std::collections::HashMap<String, f64>,
+}
+
 fn write_hydro_csv(
     system: &System,
-    summary: &SolveSummary,
+    variable_values: &std::collections::HashMap<String, f64>,
+    constraint_duals: &std::collections::HashMap<String, f64>,
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
+    let summary = SummaryCompat { variable_values, constraint_duals };
     let mut csv = csv_with_header(
         "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
         &[
@@ -331,13 +456,13 @@ fn write_hydro_csv(
 
             // Pumping out
             let pumping_out_hm3 = sum_internal_values(&internal_periods, |period| {
-                hydro_pumping_out_hm3(system, summary, plant.id, period)
+                hydro_pumping_out_hm3(system, &summary, plant.id, period)
             });
             let pumping_out_m3s = volume_hm3_to_flow_m3s(pumping_out_hm3, period_duration_hours);
 
             // Upstream inflow
             let upstream_inflow_hm3 = sum_internal_values(&internal_periods, |period| {
-                hydro_upstream_inflow_hm3(system, summary, plant, period)
+                hydro_upstream_inflow_hm3(system, &summary, plant, period)
             });
             let upstream_inflow_m3s =
                 volume_hm3_to_flow_m3s(upstream_inflow_hm3, period_duration_hours);
@@ -362,7 +487,7 @@ fn write_hydro_csv(
                 average_internal_values(system, &internal_periods, |period| {
                     hydro_generation_max_at_point_mw(
                         system,
-                        summary,
+                        &summary,
                         plant,
                         period,
                         total_max_generation,
