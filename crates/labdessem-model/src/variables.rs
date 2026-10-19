@@ -26,7 +26,6 @@ pub struct Variables {
     pub pumping: Vec<Variable>,
     pub hydro_volume: Vec<Variable>,
     pub future_cost: Vec<Variable>,
-    pub deficit: Vec<Variable>,
     pub renewable_generation: Vec<Variable>,
     pub interchange: Vec<Variable>,
     pub thermal_commitment: Vec<Variable>,
@@ -196,24 +195,6 @@ impl Variables {
             Vec::new()
         };
 
-        let deficit = system
-            .submarkets
-            .iter()
-            .flat_map(|submarket| {
-                (0..horizon).map(move |period| Variable {
-                    name: format!(
-                        "deficit[submarket={},t={}]",
-                        submarket.name,
-                        display_period(period)
-                    ),
-                    lower_bound: 0.0,
-                    upper_bound: None,
-                    domain: VariableDomain::Continuous,
-                    fixed_value: None,
-                })
-            })
-            .collect();
-
         let renewable_generation = indexing
             .renewable_plant_entries
             .iter()
@@ -343,7 +324,6 @@ impl Variables {
             pumping,
             hydro_volume,
             future_cost,
-            deficit,
             renewable_generation,
             interchange,
             thermal_commitment,

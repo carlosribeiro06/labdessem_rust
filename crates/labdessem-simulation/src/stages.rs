@@ -966,7 +966,6 @@ fn model_dimensions(model: &Model) -> (usize, usize) {
         + variables.pumping.len()
         + variables.hydro_volume.len()
         + variables.future_cost.len()
-        + variables.deficit.len()
         + variables.renewable_generation.len()
         + variables.interchange.len()
         + variables.thermal_commitment.len()

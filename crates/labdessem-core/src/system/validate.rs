@@ -56,7 +56,6 @@ mod tests {
                 id: SubmarketId(1),
                 name: "SE".into(),
                 demand_mw: vec![100.0, 110.0],
-                deficit_cost_per_mwh: 1000.0,
             }],
             interchange_limits: vec![],
             operational_limits: vec![],

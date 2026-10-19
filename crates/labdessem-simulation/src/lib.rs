@@ -90,13 +90,11 @@ mod tests {
                     id: SubmarketId(1),
                     name: "SE".into(),
                     demand_mw: vec![100.0, 100.0],
-                    deficit_cost_per_mwh: 1_000.0,
                 },
                 Submarket {
                     id: SubmarketId(2),
                     name: "S".into(),
                     demand_mw: vec![50.0, 50.0],
-                    deficit_cost_per_mwh: 1_000.0,
                 },
             ],
             interchange_limits: vec![],

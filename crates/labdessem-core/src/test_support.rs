@@ -30,7 +30,6 @@ pub fn minimal_submarket(id: usize, demand_mw: f64, periods: usize) -> Submarket
         id: SubmarketId(id),
         name: format!("SBM-{id}"),
         demand_mw: vec![demand_mw; periods],
-        deficit_cost_per_mwh: 1000.0,
     }
 }
 

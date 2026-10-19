@@ -46,17 +46,6 @@ impl Objective {
             }
         }
 
-        for submarket_idx in 0..system.submarkets.len() {
-            let submarket = &system.submarkets[submarket_idx];
-            for period in 0..horizon {
-                let deficit = &variables.deficit[submarket_idx * horizon + period];
-                terms.push(term(
-                    deficit,
-                    submarket.deficit_cost_per_mwh * period_duration_hours,
-                ));
-            }
-        }
-
         for (entry_idx, entry) in indexing.hydro_plant_entries.iter().enumerate() {
             let plant = &system.hydro_plants[entry.plant_idx];
 
