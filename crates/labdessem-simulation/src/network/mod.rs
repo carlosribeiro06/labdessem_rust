@@ -6,10 +6,12 @@ use labdessem_core::{ids::BusId, system::System};
 
 use crate::SimulationError;
 
+mod cmb;
 mod dual_extraction;
 mod flow;
 mod ptdf;
 
+pub use cmb::{compute_cmb_per_bus, compute_cmo_from_cmb, CmbRecord};
 pub use dual_extraction::extract_flow_duals;
 pub use flow::{
     all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,

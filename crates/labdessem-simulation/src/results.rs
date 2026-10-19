@@ -4,11 +4,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use labdessem_core::{
-    ids::{BranchId, BusId},
+    ids::{BranchId, BusId, SubmarketId},
     system::OperationalLimitVariable,
 };
 use labdessem_solver::LpSolution;
 
+use crate::network::CmbRecord;
 use crate::IterationStage;
 
 /// Maps flow cut keys to their constraint row indices in the LP model.
@@ -52,6 +53,12 @@ pub struct IterativeSimulationResult {
     pub added_flow_cut_lines: Vec<AddedFlowCutLineResult>,
     pub network_infeasibilities: Vec<NetworkInfeasibilityRecord>,
     pub operational_limit_infeasibilities: Vec<OperationalLimitInfeasibilityRecord>,
+    /// CMB records per (bus, period) — populated when network_enabled=true
+    pub cmb_records: Vec<CmbRecord>,
+    /// CMO values per (submarket, period) — always populated
+    pub cmo_values: HashMap<(SubmarketId, usize), f64>,
+    /// Flow cut mapping from LP-CALC-CMO stage — None when network disabled
+    pub flow_cut_mapping: Option<FlowCutMapping>,
 }
 
 /// Line flow result for network output.
