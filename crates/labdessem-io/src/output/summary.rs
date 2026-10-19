@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, path::Path};
 
+use labdessem_core::ids::SubmarketId;
 use labdessem_core::system::System;
 use labdessem_model::names::demand_balance_constraint_name;
 
@@ -12,19 +13,27 @@ use crate::output::{
 };
 
 /// Write marginal operating cost (CMO) results to CSV.
+///
+/// When `cmo_values` is provided (network enabled), includes a CMO column with the
+/// demand-weighted average CMB. When None, CMO column equals PiDemanda.
 pub fn write_cmosist_csv(
     system: &System,
     constraint_duals: &HashMap<String, f64>,
+    cmo_values: Option<&HashMap<(SubmarketId, usize), f64>>,
     output_dir: &Path,
 ) -> Result<(), IoError> {
     let mut csv = csv_with_header(
-        "Periodo;Submercado;PiDemanda",
+        "Periodo;Submercado;PiDemanda;CMO",
         &[
             ("Periodo", "periodo do horizonte de estudo"),
             ("Submercado", "nome do submercado"),
             (
                 "PiDemanda",
                 "dual da restricao de atendimento a demanda no LP-CALC-CMO em R$/MWh",
+            ),
+            (
+                "CMO",
+                "custo marginal de operacao do submercado em R$/MWh (media ponderada dos CMBs quando rede=1, igual a PiDemanda quando rede=0)",
             ),
         ],
     );
@@ -41,9 +50,20 @@ pub fn write_cmosist_csv(
                     .unwrap_or(0.0);
                 raw_pi_demand / system.horizon.period_duration_hours
             });
+
+            // CMO: use provided values if available, otherwise equals PiDemanda
+            let cmo = match cmo_values {
+                Some(values) => {
+                    average_internal_values(system, &internal_periods, |period| {
+                        values.get(&(submarket.id, period)).copied().unwrap_or(pi_demand)
+                    })
+                }
+                None => pi_demand,
+            };
+
             csv.push_str(&format!(
-                "{};{};{:.6}\n",
-                original_period, submarket.name, pi_demand
+                "{};{};{:.6};{:.6}\n",
+                original_period, submarket.name, pi_demand, cmo
             ));
         }
     }

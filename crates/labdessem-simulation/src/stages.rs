@@ -1,9 +1,10 @@
 //! Simulation solve stages and workflow orchestration.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::{self, Write};
 use std::time::Instant;
 
+use labdessem_core::ids::SubmarketId;
 use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 use labdessem_io::output::volume_hm3_to_flow_m3s;
 use labdessem_model::{
@@ -19,12 +20,14 @@ use labdessem_solver::{
 
 use crate::error::SimulationError;
 use crate::network::{
-    all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,
-    flow_terms_for_cut, DcNetworkModel, FlowCutKey,
+    all_flow_constraints, compute_cmb_per_bus, compute_cmo_from_cmb, compute_line_flows,
+    constant_load_shift, detect_flow_violations, extract_flow_duals, flow_terms_for_cut,
+    CmbRecord, DcNetworkModel, FlowCutKey,
 };
 use crate::results::{
-    AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
-    LineFlowResult, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
+    AddedFlowCutLineResult, FlowCutMapping, FlowViolation, IterationReport,
+    IterativeSimulationResult, LineFlowResult, NetworkInfeasibilityRecord,
+    OperationalLimitInfeasibilityRecord,
 };
 use crate::workflow::{ExecutionOption, IterationStage};
 
@@ -123,6 +126,9 @@ fn run_iterative_simulation_strategy(
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
+        let (cmb_records, cmo_values, flow_cut_mapping) =
+            compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &all_cuts);
+
         return Ok(IterativeSimulationResult {
             steps,
             cmo_solution,
@@ -132,6 +138,9 @@ fn run_iterative_simulation_strategy(
             added_flow_cut_lines,
             network_infeasibilities,
             operational_limit_infeasibilities,
+            cmb_records,
+            cmo_values,
+            flow_cut_mapping,
         });
     }
 
@@ -197,6 +206,9 @@ fn run_iterative_simulation_strategy(
     let added_flow_cut_lines =
         summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
+    let (cmb_records, cmo_values, flow_cut_mapping) =
+        compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &all_cuts);
+
     Ok(IterativeSimulationResult {
         steps,
         cmo_solution,
@@ -206,6 +218,9 @@ fn run_iterative_simulation_strategy(
         added_flow_cut_lines,
         network_infeasibilities,
         operational_limit_infeasibilities,
+        cmb_records,
+        cmo_values,
+        flow_cut_mapping,
     })
 }
 
@@ -256,6 +271,9 @@ fn run_single_milp_simulation(
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
+        let (cmb_records, cmo_values, flow_cut_mapping) =
+            compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &accumulated_cuts);
+
         return Ok(IterativeSimulationResult {
             steps,
             cmo_solution,
@@ -265,6 +283,9 @@ fn run_single_milp_simulation(
             added_flow_cut_lines,
             network_infeasibilities,
             operational_limit_infeasibilities,
+            cmb_records,
+            cmo_values,
+            flow_cut_mapping,
         });
     }
 
@@ -290,6 +311,10 @@ fn run_single_milp_simulation(
         solver,
     )?;
 
+    let empty_cuts = BTreeSet::new();
+    let (cmb_records, cmo_values, flow_cut_mapping) =
+        compute_cmb_cmo_data(system, None, &cmo_solution, &empty_cuts);
+
     Ok(IterativeSimulationResult {
         steps,
         cmo_solution,
@@ -299,6 +324,9 @@ fn run_single_milp_simulation(
         added_flow_cut_lines: Vec::new(),
         network_infeasibilities: Vec::new(),
         operational_limit_infeasibilities,
+        cmb_records,
+        cmo_values,
+        flow_cut_mapping,
     })
 }
 
@@ -342,6 +370,10 @@ fn run_simulation_without_network(
         solver,
     )?;
 
+    let empty_cuts = BTreeSet::new();
+    let (cmb_records, cmo_values, flow_cut_mapping) =
+        compute_cmb_cmo_data(system, None, &cmo_solution, &empty_cuts);
+
     Ok(IterativeSimulationResult {
         steps,
         cmo_solution,
@@ -351,6 +383,9 @@ fn run_simulation_without_network(
         added_flow_cut_lines: Vec::new(),
         network_infeasibilities: Vec::new(),
         operational_limit_infeasibilities,
+        cmb_records,
+        cmo_values,
+        flow_cut_mapping,
     })
 }
 
@@ -656,7 +691,10 @@ fn add_flow_cuts(
     cut_keys: &BTreeSet<FlowCutKey>,
     dc_network: &DcNetworkModel,
     use_slack_variables: bool,
-) {
+) -> FlowCutMapping {
+    let mut mapping = FlowCutMapping::default();
+    let start_row = model.constraints.linear_constraints.len();
+
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
         let rhs_shift = constant_load_shift(system, dc_network, cut_key.branch_idx, cut_key.period);
@@ -688,6 +726,7 @@ fn add_flow_cuts(
             });
         }
 
+        let upper_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
             name: format!(
                 "flow_cut_upper[branch={},t={}]",
@@ -698,6 +737,8 @@ fn add_flow_cuts(
             sense: ConstraintSense::LessOrEqual,
             rhs: branch.thermal_limit_mw + rhs_shift,
         });
+
+        let lower_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
             name: format!(
                 "flow_cut_lower[branch={},t={}]",
@@ -708,7 +749,123 @@ fn add_flow_cuts(
             sense: ConstraintSense::GreaterOrEqual,
             rhs: -branch.thermal_limit_mw + rhs_shift,
         });
+
+        mapping
+            .indices
+            .insert((cut_key.branch_idx, cut_key.period), (upper_row_idx, lower_row_idx));
     }
+
+    mapping
+}
+
+/// Compute CMB and CMO data from LP-CALC-CMO solution.
+///
+/// When network is enabled, computes:
+/// - CMB per (bus, period) using PTDF and flow duals
+/// - CMO per (submarket, period) as demand-weighted average of CMBs
+///
+/// When network is disabled, returns:
+/// - Empty CMB records
+/// - CMO = PiDemanda (demand balance dual)
+fn compute_cmb_cmo_data(
+    system: &System,
+    dc_network: Option<&DcNetworkModel>,
+    cmo_solution: &LpSolution,
+    all_cuts: &BTreeSet<FlowCutKey>,
+) -> (Vec<CmbRecord>, HashMap<(SubmarketId, usize), f64>, Option<FlowCutMapping>) {
+    let horizon = system.horizon.periods;
+    let periods: Vec<usize> = (0..horizon).collect();
+
+    // When network is disabled or no dc_network or no cuts, CMO = PiDemanda
+    let dc_network = match dc_network {
+        Some(dc) if !all_cuts.is_empty() => dc,
+        _ => {
+            // No network: CMO = demand dual from model. Since we don't have easy access
+            // to row offsets without flow cuts, use SolutionAccessor pattern.
+            let indexing = labdessem_model::indexing::Indexing::from_system(system);
+            let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
+                horizon,
+                fpha_enabled: system.fpha_enabled,
+                num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+                future_cost_enabled: system.future_cost_enabled,
+                num_future_cost_cuts: system.future_cost_cuts.len(),
+                num_operational_limits: system.operational_limits.len(),
+                thermal_uct_enabled: system.thermal_unit_commitment_enabled,
+                hydro_uch_enabled: system.hydro_unit_commitment_enabled,
+                is_commitment_mode: true,
+            };
+            let row_offsets = indexing.compute_constraint_offsets(&constraint_params);
+
+            let mut cmo_values = HashMap::new();
+            for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
+                for period in 0..horizon {
+                    let row_idx = row_offsets.demand_balance + submarket_idx * horizon + period;
+                    let dual = cmo_solution.dual.get(row_idx).copied().unwrap_or(0.0);
+                    let cmo = dual / system.horizon.period_duration_hours;
+                    cmo_values.insert((submarket.id, period), cmo);
+                }
+            }
+            return (Vec::new(), cmo_values, None);
+        }
+    };
+
+    // With network enabled: calculate base constraint count by counting all constraints
+    // BEFORE flow cuts. The flow cuts add 2 constraints per cut (upper + lower).
+    // Total duals = base_constraints + 2 * num_cuts
+    let num_flow_cut_constraints = all_cuts.len() * 2;
+    let base_constraint_count = cmo_solution.dual.len().saturating_sub(num_flow_cut_constraints);
+
+    // Extract demand balance duals
+    let indexing = labdessem_model::indexing::Indexing::from_system(system);
+    let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
+        horizon,
+        fpha_enabled: system.fpha_enabled,
+        num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+        future_cost_enabled: system.future_cost_enabled,
+        num_future_cost_cuts: system.future_cost_cuts.len(),
+        num_operational_limits: system.operational_limits.len(),
+        thermal_uct_enabled: system.thermal_unit_commitment_enabled,
+        hydro_uch_enabled: system.hydro_unit_commitment_enabled,
+        is_commitment_mode: true,
+    };
+    let row_offsets = indexing.compute_constraint_offsets(&constraint_params);
+
+    let mut demand_duals = HashMap::new();
+    for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
+        for period in 0..horizon {
+            let row_idx = row_offsets.demand_balance + submarket_idx * horizon + period;
+            let dual = cmo_solution.dual.get(row_idx).copied().unwrap_or(0.0);
+            demand_duals.insert((submarket.id, period), dual);
+        }
+    }
+
+    // Build mapping by simulating add_flow_cuts logic
+    let mut mapping = FlowCutMapping::default();
+    for (idx, cut_key) in all_cuts.iter().enumerate() {
+        let upper_row_idx = idx * 2;
+        let lower_row_idx = idx * 2 + 1;
+        mapping.indices.insert(
+            (cut_key.branch_idx, cut_key.period),
+            (upper_row_idx, lower_row_idx),
+        );
+    }
+
+    // Extract flow duals
+    let flow_duals = extract_flow_duals(cmo_solution, &mapping, base_constraint_count);
+
+    // Compute CMB per bus
+    let cmb_records = compute_cmb_per_bus(system, dc_network, &demand_duals, &flow_duals, &periods);
+
+    // Compute CMO as demand-weighted average of CMBs
+    let cmo_values = compute_cmo_from_cmb(&cmb_records, system);
+
+    // Convert to R$/MWh by dividing by period duration
+    let cmo_values: HashMap<(SubmarketId, usize), f64> = cmo_values
+        .into_iter()
+        .map(|(key, val)| (key, val / system.horizon.period_duration_hours))
+        .collect();
+
+    (cmb_records, cmo_values, Some(mapping))
 }
 
 fn add_network_flow_slack_variable(model: &mut Model, name: &str) {

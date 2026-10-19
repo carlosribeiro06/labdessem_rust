@@ -177,3 +177,65 @@ pub fn hydro_balance_constraint_name(plant_name: &str, period: usize) -> String 
         display_period(period)
     )
 }
+
+// =============================================================================
+// Flow cut constraint names (for CMB dual extraction)
+// =============================================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowCutDirection {
+    Upper,
+    Lower,
+}
+
+pub fn flow_cut_upper_name(branch_name: &str, period: usize) -> String {
+    format!("flow_cut_upper[branch={branch_name},t={period}]")
+}
+
+pub fn flow_cut_lower_name(branch_name: &str, period: usize) -> String {
+    format!("flow_cut_lower[branch={branch_name},t={period}]")
+}
+
+pub fn flow_cut_name(branch_name: &str, period: usize, direction: FlowCutDirection) -> String {
+    match direction {
+        FlowCutDirection::Upper => flow_cut_upper_name(branch_name, period),
+        FlowCutDirection::Lower => flow_cut_lower_name(branch_name, period),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_flow_cut_upper_name() {
+        assert_eq!(
+            flow_cut_upper_name("L001", 1),
+            "flow_cut_upper[branch=L001,t=1]"
+        );
+        assert_eq!(
+            flow_cut_upper_name("L001", 24),
+            "flow_cut_upper[branch=L001,t=24]"
+        );
+    }
+
+    #[test]
+    fn test_flow_cut_lower_name() {
+        assert_eq!(
+            flow_cut_lower_name("L001", 1),
+            "flow_cut_lower[branch=L001,t=1]"
+        );
+    }
+
+    #[test]
+    fn test_flow_cut_name_delegates_correctly() {
+        assert_eq!(
+            flow_cut_name("L001", 5, FlowCutDirection::Upper),
+            flow_cut_upper_name("L001", 5)
+        );
+        assert_eq!(
+            flow_cut_name("L001", 5, FlowCutDirection::Lower),
+            flow_cut_lower_name("L001", 5)
+        );
+    }
+}
