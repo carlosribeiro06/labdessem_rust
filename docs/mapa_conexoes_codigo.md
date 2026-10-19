@@ -239,7 +239,6 @@ As principais familias hoje sao:
 - renovaveis
   - `renewable_generation`
 - sistema
-  - `deficit`
   - `interchange`
 - flexibilidade e inviabilidades
   - `network_flow_slack`
@@ -305,7 +304,6 @@ A funcao objetivo atual reune diferentes parcelas, por exemplo:
 
 - CVU termico;
 - custos de partida e desligamento;
-- deficit;
 - penalidade de vertimento;
 - penalidade de turbinamento;
 - custos residuais de TON, quando habilitados;
