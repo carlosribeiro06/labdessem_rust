@@ -18,6 +18,7 @@ use labdessem_model::names::{
 use labdessem_solver::SolutionAccessor;
 
 use crate::error::SimulationError;
+use crate::network::CmbRecord;
 use crate::results::{
     AddedFlowCutLineResult, IterationReport, IterativeSimulationResult, LineFlowResult,
     NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
@@ -157,7 +158,12 @@ pub fn write_results_csvs(
     write_hydro_csv(system, &variable_values, &constraint_duals, output_dir)?;
     write_thermal_csv(system, &variable_values, output_dir)?;
     write_pumping_csv(system, &variable_values, output_dir)?;
-    write_cmosist_csv(system, &constraint_duals, output_dir)?;
+    let cmo_values_ref = if network_enabled {
+        Some(&result.cmo_values)
+    } else {
+        None
+    };
+    write_cmosist_csv(system, &constraint_duals, cmo_values_ref, output_dir)?;
     write_process_iterations_csv(&result.steps, output_dir)?;
     write_operational_limits_csv(system, output_dir)?;
     write_operational_limit_infeasibility_csv(
@@ -171,6 +177,7 @@ pub fn write_results_csvs(
         write_network_csv(system, &result.final_line_flows, output_dir)?;
         write_added_flow_cut_lines_csv(&result.added_flow_cut_lines, output_dir)?;
         write_network_infeasibility_csv(&result.network_infeasibilities, output_dir)?;
+        write_cmb_csv(system, &result.cmb_records, output_dir)?;
     }
     write_renewable_csv(system, &variable_values, output_dir)?;
 
@@ -832,6 +839,88 @@ fn write_network_infeasibility_csv(
     }
 
     write_csv_to_file(output_dir.join("resultado_inviabilidade_rede.csv"), csv)
+}
+
+fn write_cmb_csv(
+    system: &System,
+    cmb_records: &[CmbRecord],
+    output_dir: &Path,
+) -> Result<(), SimulationError> {
+    let mut csv = csv_with_header(
+        "Periodo;CodigoBarra;NomeBarra;Submercado;CMB",
+        &[
+            ("Periodo", "periodo do horizonte de estudo"),
+            ("CodigoBarra", "codigo da barra eletrica"),
+            ("NomeBarra", "nome da barra eletrica"),
+            ("Submercado", "submercado em que a barra esta localizada"),
+            ("CMB", "custo marginal de barra em R$/MWh"),
+        ],
+    );
+
+    // Build bus lookup
+    let bus_lookup: std::collections::HashMap<_, _> = system
+        .buses
+        .iter()
+        .map(|bus| (bus.id, bus))
+        .collect();
+
+    // Build submarket lookup
+    let submarket_lookup: std::collections::HashMap<_, _> = system
+        .submarkets
+        .iter()
+        .map(|sbm| (sbm.id, sbm))
+        .collect();
+
+    // Aggregate internal periods to original periods
+    #[derive(Default)]
+    struct CmbAccumulator {
+        bus_id: usize,
+        bus_name: String,
+        submarket_name: String,
+        weighted_cmb_sum: f64,
+        duration_hours: f64,
+    }
+
+    let mut aggregated = BTreeMap::<(usize, usize), CmbAccumulator>::new();
+
+    for record in cmb_records {
+        let internal_period = record.period;
+        let Some(&original_period) = system.horizon.internal_to_original_period.get(internal_period) else {
+            continue;
+        };
+
+        let bus = bus_lookup.get(&record.bus_id);
+        let submarket = submarket_lookup.get(&record.submarket_id);
+
+        let entry = aggregated
+            .entry((record.bus_id.0, original_period))
+            .or_default();
+
+        if entry.duration_hours == 0.0 {
+            entry.bus_id = record.bus_id.0;
+            entry.bus_name = bus.map(|b| b.name.clone()).unwrap_or_default();
+            entry.submarket_name = submarket.map(|s| s.name.clone()).unwrap_or_default();
+        }
+
+        entry.weighted_cmb_sum += record.cmb * system.horizon.period_duration_hours;
+        entry.duration_hours += system.horizon.period_duration_hours;
+    }
+
+    // Write aggregated rows
+    for ((_bus_id, original_period), acc) in aggregated {
+        let cmb = if acc.duration_hours > 0.0 {
+            acc.weighted_cmb_sum / acc.duration_hours
+        } else {
+            0.0
+        };
+
+        csv.push_str(&format!(
+            "{};{};{};{};{:.6}\n",
+            original_period, acc.bus_id, acc.bus_name, acc.submarket_name, cmb
+        ));
+    }
+
+    write_csv_to_file(output_dir.join("resultado_cmobar.csv"), csv)
 }
 
 fn write_operational_limit_infeasibility_csv(
