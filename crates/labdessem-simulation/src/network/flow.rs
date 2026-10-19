@@ -6,8 +6,8 @@
 use std::collections::BTreeSet;
 
 use labdessem_core::system::System;
-use labdessem_model::{constraints::LinearTerm, Model};
-use labdessem_solver::SolveSummary;
+use labdessem_model::{constraints::LinearTerm, indexing::ColumnOffsets, Model};
+use labdessem_solver::LpSolution;
 
 use super::ptdf::{dot, round_to_digits};
 use super::{DcNetworkModel, FlowCutKey};
@@ -133,9 +133,10 @@ pub fn constant_load_shift(
 pub fn detect_flow_violations(
     system: &System,
     dc_network: &DcNetworkModel,
-    summary: &SolveSummary,
+    solution: &LpSolution,
+    col_offsets: &ColumnOffsets,
 ) -> Vec<FlowViolation> {
-    let line_flows = compute_line_flows(system, dc_network, summary);
+    let line_flows = compute_line_flows(system, dc_network, solution, col_offsets);
     let mut violations = Vec::new();
 
     for line_flow in line_flows {
@@ -158,9 +159,10 @@ pub fn detect_flow_violations(
 pub fn compute_line_flows(
     system: &System,
     dc_network: &DcNetworkModel,
-    summary: &SolveSummary,
+    solution: &LpSolution,
+    col_offsets: &ColumnOffsets,
 ) -> Vec<LineFlowResult> {
-    let injections = injections_by_period(system, dc_network, summary);
+    let injections = injections_by_period(system, dc_network, solution, col_offsets);
     let mut line_flows = Vec::with_capacity(system.horizon.periods * system.branches.len());
 
     for (period, period_injections) in injections.iter().enumerate() {
@@ -191,94 +193,82 @@ fn bus_name(system: &System, bus_id: labdessem_core::ids::BusId) -> String {
 fn injections_by_period(
     system: &System,
     dc_network: &DcNetworkModel,
-    summary: &SolveSummary,
+    solution: &LpSolution,
+    col_offsets: &ColumnOffsets,
 ) -> Vec<Vec<f64>> {
     let horizon = system.horizon.periods;
     let bus_count = dc_network.non_slack_bus_ids.len();
     let mut injections = vec![vec![0.0; bus_count]; horizon];
 
-    for bus_id in &dc_network.non_slack_bus_ids {
-        let Some(bus_pos) = dc_network.non_slack_bus_positions.get(bus_id) else {
+    // Thermal generation
+    let mut thermal_unit_idx = 0;
+    for plant in &system.thermal_plants {
+        let bus_pos = dc_network.non_slack_bus_positions.get(&plant.bus_id);
+        for _unit in &plant.units {
+            if let Some(&bus_pos) = bus_pos {
+                for period in 0..horizon {
+                    let idx = col_offsets.thermal_generation + thermal_unit_idx * horizon + period;
+                    injections[period][bus_pos] += solution.primal[idx];
+                }
+            }
+            thermal_unit_idx += 1;
+        }
+    }
+
+    // Hydro generation
+    let mut hydro_unit_idx = 0;
+    for plant in &system.hydro_plants {
+        let bus_pos = dc_network.non_slack_bus_positions.get(&plant.bus_id);
+        for group in &plant.groups {
+            for _unit in &group.units {
+                if let Some(&bus_pos) = bus_pos {
+                    for period in 0..horizon {
+                        let idx = col_offsets.hydro_generation + hydro_unit_idx * horizon + period;
+                        injections[period][bus_pos] += solution.primal[idx];
+                    }
+                }
+                hydro_unit_idx += 1;
+            }
+        }
+    }
+
+    // Renewable generation
+    for (plant_idx, plant) in system.renewable_plants.iter().enumerate() {
+        let Some(&bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
             continue;
         };
-
-        for plant in &system.thermal_plants {
-            if plant.bus_id != *bus_id {
-                continue;
-            }
-
-            for unit in &plant.units {
-                for (period, injection) in injections.iter_mut().enumerate() {
-                    let variable = labdessem_model::names::thermal_generation_name(
-                        &plant.name,
-                        &unit.name,
-                        period,
-                    );
-                    if let Some(value) = summary.variable_values.get(&variable) {
-                        injection[*bus_pos] += value;
-                    }
-                }
-            }
+        for period in 0..horizon {
+            let idx = col_offsets.renewable_generation + plant_idx * horizon + period;
+            injections[period][bus_pos] += solution.primal[idx];
         }
+    }
 
-        for plant in &system.hydro_plants {
-            if plant.bus_id != *bus_id {
-                continue;
-            }
-
-            for group in &plant.groups {
-                for unit in &group.units {
-                    for (period, injection) in injections.iter_mut().enumerate() {
-                        let variable = labdessem_model::names::hydro_generation_name(
-                            &plant.name,
-                            &group.name,
-                            &unit.name,
-                            period,
-                        );
-                        if let Some(value) = summary.variable_values.get(&variable) {
-                            injection[*bus_pos] += value;
-                        }
-                    }
-                }
-            }
+    // Pumping (negative injection - consumption)
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+    for (plant_idx, plant) in system.pumping_plants.iter().enumerate() {
+        let Some(&bus_pos) = dc_network.non_slack_bus_positions.get(&plant.bus_id) else {
+            continue;
+        };
+        for period in 0..horizon {
+            let idx = col_offsets.pumping + plant_idx * horizon + period;
+            let pumping_hm3 = solution.primal[idx];
+            let consumption_mw = pumping_hm3 * plant.specific_consumption_mw_per_m3s / flow_conversion;
+            injections[period][bus_pos] -= consumption_mw;
         }
+    }
 
-        for plant in &system.renewable_plants {
-            if plant.bus_id != *bus_id {
-                continue;
-            }
-
-            for (period, injection) in injections.iter_mut().enumerate() {
-                let variable =
-                    labdessem_model::names::renewable_generation_name(&plant.name, period);
-                if let Some(value) = summary.variable_values.get(&variable) {
-                    injection[*bus_pos] += value;
-                }
-            }
-        }
-
-        let flow_conversion = system.horizon.period_duration_hours * 0.0036;
-        for plant in &system.pumping_plants {
-            if plant.bus_id != *bus_id {
-                continue;
-            }
-
-            for (period, injection) in injections.iter_mut().enumerate() {
-                let variable = labdessem_model::names::pumping_name(&plant.name, period);
-                if let Some(value) = summary.variable_values.get(&variable) {
-                    let consumption_mw = value * plant.specific_consumption_mw_per_m3s / flow_conversion;
-                    injection[*bus_pos] -= consumption_mw;
-                }
-            }
-        }
-
+    // Demand (negative injection)
+    for bus_id in &dc_network.non_slack_bus_ids {
+        let Some(&bus_pos) = dc_network.non_slack_bus_positions.get(bus_id) else {
+            continue;
+        };
         let bus = system
             .buses
             .iter()
             .find(|bus| bus.id == *bus_id)
             .expect("bus should exist for non-slack PTDF position");
-        for (period, injection) in injections.iter_mut().enumerate() {
-            injection[*bus_pos] -= bus.demand_mw[period];
+        for period in 0..horizon {
+            injections[period][bus_pos] -= bus.demand_mw[period];
         }
     }
 

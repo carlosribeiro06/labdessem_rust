@@ -299,14 +299,14 @@ mod tests {
         assert!(mode1_has_cmo, "Mode 1 should have LP-CALC-CMO stage");
         assert!(mode2_has_cmo, "Mode 2 should have LP-CALC-CMO stage");
 
-        // CMO summaries should have non-empty constraint duals
+        // CMO solutions should have non-empty dual arrays
         assert!(
-            !result1.cmo_summary.constraint_duals.is_empty(),
-            "Mode 1 cmo_summary should have constraint duals"
+            !result1.cmo_solution.dual.is_empty(),
+            "Mode 1 cmo_solution should have dual values"
         );
         assert!(
-            !result2.cmo_summary.constraint_duals.is_empty(),
-            "Mode 2 cmo_summary should have constraint duals"
+            !result2.cmo_solution.dual.is_empty(),
+            "Mode 2 cmo_solution should have dual values"
         );
     }
 
@@ -354,21 +354,21 @@ mod tests {
     }
 
     #[test]
-    fn mode1_output_comes_from_cmo_summary() {
+    fn mode1_output_comes_from_cmo_solution() {
         use super::{run_simulation, ExecutionOption};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::Iterative)
             .expect("Mode 1 should succeed");
 
-        // Verify cmo_summary has expected content
+        // Verify cmo_solution has expected content
         assert!(
-            !result.cmo_summary.variable_values.is_empty(),
-            "cmo_summary should have variable values for output"
+            !result.cmo_solution.primal.is_empty(),
+            "cmo_solution should have primal values for output"
         );
         assert!(
-            !result.cmo_summary.constraint_duals.is_empty(),
-            "cmo_summary should have constraint duals for CMO extraction"
+            !result.cmo_solution.dual.is_empty(),
+            "cmo_solution should have dual values for CMO extraction"
         );
     }
 }

@@ -6,7 +6,7 @@ use labdessem_core::{
     ids::{BranchId, BusId},
     system::OperationalLimitVariable,
 };
-use labdessem_solver::SolveSummary;
+use labdessem_solver::LpSolution;
 
 use crate::IterationStage;
 
@@ -37,7 +37,7 @@ pub struct IterationReport {
 #[derive(Debug, Clone)]
 pub struct IterativeSimulationResult {
     pub steps: Vec<IterationReport>,
-    pub cmo_summary: SolveSummary,
+    pub cmo_solution: LpSolution,
     pub final_violations: Vec<FlowViolation>,
     pub accumulated_flow_cuts: usize,
     pub final_line_flows: Vec<LineFlowResult>,
