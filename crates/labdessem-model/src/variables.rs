@@ -382,7 +382,7 @@ fn build_commitment_variables(
                     name: format!("{base_name},t={}]", display_period(period)),
                     lower_bound: 0.0,
                     upper_bound: Some(1.0),
-                    domain: VariableDomain::Binary,
+                    domain: VariableDomain::Continuous,
                     fixed_value: Some(0.0),
                 })
             })
