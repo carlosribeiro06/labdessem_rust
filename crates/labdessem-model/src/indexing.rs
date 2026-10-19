@@ -55,6 +55,9 @@ pub struct Indexing {
     pub pumping_plants: usize,
     pub buses: usize,
     pub submarkets: usize,
+    pub future_cost_enabled: bool,
+    pub thermal_unit_commitment_enabled: bool,
+    pub hydro_unit_commitment_enabled: bool,
 }
 
 impl Indexing {
@@ -158,6 +161,9 @@ impl Indexing {
             pumping_plants: pumping_plant_entries.len(),
             buses: system.buses.len(),
             submarkets: system.submarkets.len(),
+            future_cost_enabled: system.future_cost_enabled,
+            thermal_unit_commitment_enabled: system.thermal_unit_commitment_enabled,
+            hydro_unit_commitment_enabled: system.hydro_unit_commitment_enabled,
             hydro_plant_entries,
             thermal_unit_entries,
             hydro_unit_entries,
@@ -210,10 +216,12 @@ impl Indexing {
         offset += self.pumping_plants * horizon;
 
         let hydro_volume = offset;
-        offset += self.hydro_plant_entries.len() * horizon;
+        offset += self.hydro_plant_entries.len() * (horizon + 1);
 
         let future_cost = offset;
-        offset += 1; // single future cost variable
+        if self.future_cost_enabled {
+            offset += 1;
+        }
 
         let deficit = offset;
         offset += self.submarkets * horizon;
@@ -225,16 +233,24 @@ impl Indexing {
         offset += self.interchange_entries.len();
 
         let thermal_commitment = offset;
-        offset += self.thermal_units * horizon;
+        if self.thermal_unit_commitment_enabled {
+            offset += self.thermal_units * horizon;
+        }
 
         let thermal_startup = offset;
-        offset += self.thermal_units * horizon;
+        if self.thermal_unit_commitment_enabled {
+            offset += self.thermal_units * horizon;
+        }
 
         let thermal_shutdown = offset;
-        offset += self.thermal_units * horizon;
+        if self.thermal_unit_commitment_enabled {
+            offset += self.thermal_units * horizon;
+        }
 
         let hydro_commitment = offset;
-        offset += self.hydro_units * horizon;
+        if self.hydro_unit_commitment_enabled {
+            offset += self.hydro_units * horizon;
+        }
 
         // network_flow_slack and operational_limit_slack are dynamic
         let network_flow_slack = offset;
@@ -494,6 +510,9 @@ mod tests {
             pumping_plants: 0,
             buses: 1,
             submarkets: 1,
+            future_cost_enabled: true,
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
         }
     }
 
@@ -566,5 +585,124 @@ mod tests {
         assert_eq!(offsets.hydro_generation, 3);
         // hydro_turbining: 2 units × 3 periods = 6
         assert_eq!(offsets.hydro_turbining, 9);
+    }
+
+    #[test]
+    fn column_offsets_match_variable_counts() {
+        use crate::{variables::Variables, SolveMode};
+        use labdessem_io::read_study_from_path;
+        use std::path::PathBuf;
+
+        let case_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras");
+        let system = read_study_from_path(case_path).expect("24Barras should be readable");
+        let indexing = Indexing::from_system(&system);
+        let variables =
+            Variables::for_system(&system, &indexing, SolveMode::MixedIntegerLinearProgramming);
+        let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
+
+        let mut expected_offset = 0;
+
+        assert_eq!(
+            col_offsets.thermal_generation, expected_offset,
+            "thermal_generation offset mismatch"
+        );
+        expected_offset += variables.thermal_generation.len();
+
+        assert_eq!(
+            col_offsets.hydro_generation, expected_offset,
+            "hydro_generation offset mismatch"
+        );
+        expected_offset += variables.hydro_generation.len();
+
+        assert_eq!(
+            col_offsets.hydro_turbining, expected_offset,
+            "hydro_turbining offset mismatch"
+        );
+        expected_offset += variables.hydro_turbining.len();
+
+        assert_eq!(
+            col_offsets.hydro_spillage, expected_offset,
+            "hydro_spillage offset mismatch"
+        );
+        expected_offset += variables.hydro_spillage.len();
+
+        assert_eq!(
+            col_offsets.hydro_diversion, expected_offset,
+            "hydro_diversion offset mismatch"
+        );
+        expected_offset += variables.hydro_diversion.len();
+
+        assert_eq!(col_offsets.pumping, expected_offset, "pumping offset mismatch");
+        expected_offset += variables.pumping.len();
+
+        assert_eq!(
+            col_offsets.hydro_volume, expected_offset,
+            "hydro_volume offset mismatch"
+        );
+        expected_offset += variables.hydro_volume.len();
+
+        assert_eq!(
+            col_offsets.future_cost, expected_offset,
+            "future_cost offset mismatch"
+        );
+        expected_offset += variables.future_cost.len();
+
+        assert_eq!(col_offsets.deficit, expected_offset, "deficit offset mismatch");
+        expected_offset += variables.deficit.len();
+
+        assert_eq!(
+            col_offsets.renewable_generation, expected_offset,
+            "renewable_generation offset mismatch"
+        );
+        expected_offset += variables.renewable_generation.len();
+
+        assert_eq!(
+            col_offsets.interchange, expected_offset,
+            "interchange offset mismatch"
+        );
+        expected_offset += variables.interchange.len();
+
+        assert_eq!(
+            col_offsets.thermal_commitment, expected_offset,
+            "thermal_commitment offset mismatch"
+        );
+        expected_offset += variables.thermal_commitment.len();
+
+        assert_eq!(
+            col_offsets.thermal_startup, expected_offset,
+            "thermal_startup offset mismatch"
+        );
+        expected_offset += variables.thermal_startup.len();
+
+        assert_eq!(
+            col_offsets.thermal_shutdown, expected_offset,
+            "thermal_shutdown offset mismatch"
+        );
+        expected_offset += variables.thermal_shutdown.len();
+
+        assert_eq!(
+            col_offsets.hydro_commitment, expected_offset,
+            "hydro_commitment offset mismatch"
+        );
+        expected_offset += variables.hydro_commitment.len();
+
+        // network_flow_slack and operational_limit_slack are dynamic (empty in base model)
+        assert_eq!(
+            col_offsets.network_flow_slack, expected_offset,
+            "network_flow_slack offset mismatch"
+        );
+        expected_offset += variables.network_flow_slack.len();
+
+        assert_eq!(
+            col_offsets.operational_limit_slack, expected_offset,
+            "operational_limit_slack offset mismatch"
+        );
+        expected_offset += variables.operational_limit_slack.len();
+
+        assert_eq!(
+            col_offsets.total, expected_offset,
+            "total offset mismatch: expected {} but got {}",
+            expected_offset, col_offsets.total
+        );
     }
 }

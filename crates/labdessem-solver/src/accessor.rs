@@ -288,6 +288,9 @@ mod tests {
             pumping_plants: 0,
             buses: 1,
             submarkets: 1,
+            future_cost_enabled: true,
+            thermal_unit_commitment_enabled: true,
+            hydro_unit_commitment_enabled: true,
         }
     }
 
