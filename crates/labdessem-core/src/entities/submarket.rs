@@ -9,7 +9,6 @@ pub struct Submarket {
     pub id: SubmarketId,
     pub name: String,
     pub demand_mw: Vec<f64>,
-    pub deficit_cost_per_mwh: f64,
 }
 
 impl Submarket {
@@ -28,12 +27,6 @@ impl Submarket {
         if self.demand_mw.iter().any(|value| *value < 0.0) {
             return Err(CoreError::validation(format!(
                 "submarket {:?} has negative demand",
-                self.id
-            )));
-        }
-        if self.deficit_cost_per_mwh < 0.0 {
-            return Err(CoreError::validation(format!(
-                "submarket {:?} has negative deficit cost",
                 self.id
             )));
         }

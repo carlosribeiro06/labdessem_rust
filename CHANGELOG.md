@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-19
+
+### Removed
+- **BREAKING**: Removed deficit variable and `deficit_cost_per_mwh` field from the model
+  - Demand balance constraints are now strict equalities: supply must exactly meet demand
+  - If the system cannot meet demand, the optimization problem becomes infeasible (no load shedding)
+  - Removed `deficit` field from `Variables` struct
+  - Removed `deficit` offset from `ColumnOffsets` struct
+  - Removed deficit cost loop from `Objective::for_system`
+  - Removed deficit term from demand balance constraint
+  - Removed `deficit_name()` function from `names.rs`
+  - Removed `deficit_cost_per_mwh` field from `Submarket` entity
+  - Removed `CustoDeficit` column from `OPER_SBM.csv` format
+  - Removed `deficit()` method from `SolutionAccessor`
+
 ## [0.7.1] - 2026-10-19
 
 ### Fixed

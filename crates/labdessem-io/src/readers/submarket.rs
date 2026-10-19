@@ -29,7 +29,6 @@ fn build_submarkets(
     horizon: &StudyHorizon,
 ) -> Result<Vec<Submarket>, IoError> {
     let mut demand_by_submarket: HashMap<usize, Vec<f64>> = HashMap::new();
-    let mut deficit_cost_by_submarket: HashMap<usize, f64> = HashMap::new();
 
     for row in operation_rows {
         let demand_series = demand_by_submarket
@@ -37,19 +36,6 @@ fn build_submarkets(
             .or_insert_with(|| vec![0.0; horizon.periods]);
         for period_idx in internal_periods_for_input_period(row.periodo, horizon, "OPER_SBM.csv")? {
             demand_series[period_idx] = row.demanda;
-        }
-
-        match deficit_cost_by_submarket.get(&row.codigo_submercado) {
-            Some(cost) if (*cost - row.custo_deficit).abs() > f64::EPSILON => {
-                return Err(IoError::invalid_data(format!(
-                    "submarket {} has inconsistent deficit cost across periods",
-                    row.codigo_submercado
-                )));
-            }
-            Some(_) => {}
-            None => {
-                deficit_cost_by_submarket.insert(row.codigo_submercado, row.custo_deficit);
-            }
         }
     }
 
@@ -61,23 +47,10 @@ fn build_submarkets(
                 .cloned()
                 .unwrap_or_else(|| vec![0.0; horizon.periods]);
 
-            let deficit_cost_per_mwh =
-                *deficit_cost_by_submarket
-                    .get(&row.codigo)
-                    .unwrap_or_else(|| {
-                        // Rationale: expect() is safe because OPER_SBM.csv validation ensures at least one entry
-                        #[allow(clippy::expect_used)]
-                        deficit_cost_by_submarket
-                            .values()
-                            .next()
-                            .expect("OPER_SBM.csv must contain at least one deficit cost")
-                    });
-
             Ok(Submarket {
                 id: SubmarketId(row.codigo),
                 name: row.nome.clone(),
                 demand_mw,
-                deficit_cost_per_mwh,
             })
         })
         .collect()
@@ -114,6 +87,4 @@ struct SubmarketOperationRow {
     periodo: usize,
     #[serde(rename = "Demanda")]
     demanda: f64,
-    #[serde(rename = "CustoDeficit")]
-    custo_deficit: f64,
 }

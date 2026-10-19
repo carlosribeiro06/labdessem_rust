@@ -52,13 +52,11 @@ fn build_system() -> System {
                 id: SubmarketId(1),
                 name: "SE".into(),
                 demand_mw: vec![100.0, 105.0],
-                deficit_cost_per_mwh: 1_000.0,
             },
             Submarket {
                 id: SubmarketId(2),
                 name: "S".into(),
                 demand_mw: vec![60.0, 62.0],
-                deficit_cost_per_mwh: 1_000.0,
             },
         ],
         interchange_limits: vec![
@@ -198,7 +196,6 @@ fn build_system_with_multiple_upstreams() -> System {
             id: SubmarketId(1),
             name: "SE".into(),
             demand_mw: vec![0.0],
-            deficit_cost_per_mwh: 1_000.0,
         }],
         interchange_limits: vec![],
         operational_limits: vec![],
@@ -339,7 +336,6 @@ fn builds_model_skeleton() {
     assert_eq!(model.variables.hydro_turbining.len(), 2);
     assert_eq!(model.variables.hydro_spillage.len(), 2);
     assert_eq!(model.variables.hydro_volume.len(), 3);
-    assert_eq!(model.variables.deficit.len(), 4);
     assert_eq!(model.variables.interchange.len(), 4);
     assert_eq!(model.constraints.demand_balance().len(), 4);
     assert_eq!(model.constraints.hydro_balance().len(), 2);
@@ -395,7 +391,6 @@ fn builds_demand_balance_by_submarket_and_period() {
     assert!(term_names.contains(&"renewable_generation[p=REN-1,t=1]"));
     assert!(term_names.contains(&"interchange[from=S,to=SE,t=1]"));
     assert!(term_names.contains(&"interchange[from=SE,to=S,t=1]"));
-    assert!(term_names.contains(&"deficit[submarket=SE,t=1]"));
 
     let incoming = first
         .terms
@@ -1000,14 +995,6 @@ fn builds_objective_with_operating_costs_in_lp_mode() {
         .find(|term| term.variable == "thermal_generation[p=UTE-1,u=GT-1,t=1]")
         .expect("thermal generation cost should exist");
     assert_eq!(thermal_cost.coefficient, 100.0);
-
-    let deficit_cost = model
-        .objective
-        .terms
-        .iter()
-        .find(|term| term.variable == "deficit[submarket=SE,t=1]")
-        .expect("deficit cost should exist");
-    assert_eq!(deficit_cost.coefficient, 1_000.0);
 
     let spillage_cost = model
         .objective

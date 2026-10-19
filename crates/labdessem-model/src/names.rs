@@ -159,18 +159,6 @@ pub fn branch_flow_name(branch_id: usize, period: usize) -> String {
 }
 
 // =============================================================================
-// Submarket variable names
-// =============================================================================
-
-pub fn deficit_name(submarket_id: usize, period: usize) -> String {
-    format!(
-        "deficit[s={},t={}]",
-        submarket_id,
-        display_period(period)
-    )
-}
-
-// =============================================================================
 // Constraint names (for dual extraction)
 // =============================================================================
 

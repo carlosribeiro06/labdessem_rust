@@ -185,15 +185,14 @@ impl Indexing {
     /// 6. pumping
     /// 7. hydro_volume
     /// 8. future_cost
-    /// 9. deficit
-    /// 10. renewable_generation
-    /// 11. interchange
-    /// 12. thermal_commitment
-    /// 13. thermal_startup
-    /// 14. thermal_shutdown
-    /// 15. hydro_commitment
-    /// 16. network_flow_slack
-    /// 17. operational_limit_slack
+    /// 9. renewable_generation
+    /// 10. interchange
+    /// 11. thermal_commitment
+    /// 12. thermal_startup
+    /// 13. thermal_shutdown
+    /// 14. hydro_commitment
+    /// 15. network_flow_slack
+    /// 16. operational_limit_slack
     pub fn compute_column_offsets(&self, horizon: usize) -> ColumnOffsets {
         let mut offset = 0;
 
@@ -222,9 +221,6 @@ impl Indexing {
         if self.future_cost_enabled {
             offset += 1;
         }
-
-        let deficit = offset;
-        offset += self.submarkets * horizon;
 
         let renewable_generation = offset;
         offset += self.renewable_plants * horizon;
@@ -265,7 +261,6 @@ impl Indexing {
             pumping,
             hydro_volume,
             future_cost,
-            deficit,
             renewable_generation,
             interchange,
             thermal_commitment,
@@ -409,7 +404,6 @@ pub struct ColumnOffsets {
     pub pumping: usize,
     pub hydro_volume: usize,
     pub future_cost: usize,
-    pub deficit: usize,
     pub renewable_generation: usize,
     pub interchange: usize,
     pub thermal_commitment: usize,
@@ -646,9 +640,6 @@ mod tests {
             "future_cost offset mismatch"
         );
         expected_offset += variables.future_cost.len();
-
-        assert_eq!(col_offsets.deficit, expected_offset, "deficit offset mismatch");
-        expected_offset += variables.deficit.len();
 
         assert_eq!(
             col_offsets.renewable_generation, expected_offset,

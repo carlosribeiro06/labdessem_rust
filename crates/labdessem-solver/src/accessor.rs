@@ -157,15 +157,6 @@ impl<'a> SolutionAccessor<'a> {
         self.solution.primal[self.col_offsets.future_cost]
     }
 
-    /// Deficit for submarket at given period.
-    #[must_use]
-    pub fn deficit(&self, submarket_idx: usize, period: usize) -> f64 {
-        debug_assert!(submarket_idx < self.num_submarkets);
-        debug_assert!(period < self.horizon);
-        let idx = self.col_offsets.deficit + submarket_idx * self.horizon + period;
-        self.solution.primal[idx]
-    }
-
     /// Renewable generation for plant at given period.
     #[must_use]
     pub fn renewable_generation(&self, plant_idx: usize, period: usize) -> f64 {

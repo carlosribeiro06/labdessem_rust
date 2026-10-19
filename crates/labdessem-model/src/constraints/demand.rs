@@ -122,8 +122,5 @@ fn demand_balance_terms(
         }
     }
 
-    let deficit = &variables.deficit[submarket_idx * horizon + period];
-    terms.push(term(deficit, 1.0));
-
     terms
 }
