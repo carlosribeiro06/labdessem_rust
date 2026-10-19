@@ -956,31 +956,6 @@ fn flow_slack_name(prefix: &str, branch_name: &str, period: usize) -> String {
     format!("{prefix}[branch={branch_name},t={}]", period + 1)
 }
 
-fn operational_limit_slack_name(
-    is_lower: bool,
-    plant_name: &str,
-    variable: OperationalLimitVariable,
-    period: usize,
-) -> String {
-    let bound = if is_lower { "lower" } else { "upper" };
-    format!(
-        "operational_limit_slack_{bound}[p={plant_name},var={},t={period}]",
-        operational_limit_variable_label(variable)
-    )
-}
-
-fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
-    match variable {
-        OperationalLimitVariable::Generation => "GHID",
-        OperationalLimitVariable::Volume => "VOL",
-        OperationalLimitVariable::Spillage => "VERT",
-        OperationalLimitVariable::Defluence => "DEFL",
-        OperationalLimitVariable::Turbining => "TURB",
-        OperationalLimitVariable::Diversion => "DIV",
-        OperationalLimitVariable::Pumping => "QBOM",
-    }
-}
-
 fn model_dimensions(model: &Model) -> (usize, usize) {
     let variables = &model.variables;
     let variable_count = variables.thermal_generation.len()
