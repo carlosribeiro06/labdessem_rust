@@ -127,7 +127,6 @@ fn collect_variables(model: &Model) -> Vec<&Variable> {
     all.extend(vars.pumping.iter());
     all.extend(vars.hydro_volume.iter());
     all.extend(vars.future_cost.iter());
-    all.extend(vars.deficit.iter());
     all.extend(vars.renewable_generation.iter());
     all.extend(vars.interchange.iter());
     all.extend(vars.thermal_commitment.iter());
