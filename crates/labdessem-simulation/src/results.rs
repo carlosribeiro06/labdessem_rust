@@ -1,5 +1,6 @@
 //! Result types for simulation outputs.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use labdessem_core::{
@@ -9,6 +10,13 @@ use labdessem_core::{
 use labdessem_solver::LpSolution;
 
 use crate::IterationStage;
+
+/// Maps flow cut keys to their constraint row indices in the LP model.
+#[derive(Debug, Clone, Default)]
+pub struct FlowCutMapping {
+    /// Maps (branch_idx, period) -> (upper_row_idx, lower_row_idx)
+    pub indices: HashMap<(usize, usize), (usize, usize)>,
+}
 
 /// Represents a flow constraint violation on a branch.
 #[derive(Debug, Clone, PartialEq)]

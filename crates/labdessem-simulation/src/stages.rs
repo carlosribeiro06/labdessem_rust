@@ -23,7 +23,7 @@ use crate::network::{
     flow_terms_for_cut, DcNetworkModel, FlowCutKey,
 };
 use crate::results::{
-    AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
+    AddedFlowCutLineResult, FlowCutMapping, FlowViolation, IterationReport, IterativeSimulationResult,
     LineFlowResult, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
 use crate::workflow::{ExecutionOption, IterationStage};
@@ -656,7 +656,10 @@ fn add_flow_cuts(
     cut_keys: &BTreeSet<FlowCutKey>,
     dc_network: &DcNetworkModel,
     use_slack_variables: bool,
-) {
+) -> FlowCutMapping {
+    let mut mapping = FlowCutMapping::default();
+    let start_row = model.constraints.linear_constraints.len();
+
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
         let rhs_shift = constant_load_shift(system, dc_network, cut_key.branch_idx, cut_key.period);
@@ -688,6 +691,7 @@ fn add_flow_cuts(
             });
         }
 
+        let upper_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
             name: format!(
                 "flow_cut_upper[branch={},t={}]",
@@ -698,6 +702,8 @@ fn add_flow_cuts(
             sense: ConstraintSense::LessOrEqual,
             rhs: branch.thermal_limit_mw + rhs_shift,
         });
+
+        let lower_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
             name: format!(
                 "flow_cut_lower[branch={},t={}]",
@@ -708,7 +714,13 @@ fn add_flow_cuts(
             sense: ConstraintSense::GreaterOrEqual,
             rhs: -branch.thermal_limit_mw + rhs_shift,
         });
+
+        mapping
+            .indices
+            .insert((cut_key.branch_idx, cut_key.period), (upper_row_idx, lower_row_idx));
     }
+
+    mapping
 }
 
 fn add_network_flow_slack_variable(model: &mut Model, name: &str) {

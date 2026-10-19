@@ -6,9 +6,11 @@ use labdessem_core::{ids::BusId, system::System};
 
 use crate::SimulationError;
 
+mod dual_extraction;
 mod flow;
 mod ptdf;
 
+pub use dual_extraction::extract_flow_duals;
 pub use flow::{
     all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,
     flow_terms_for_cut,
