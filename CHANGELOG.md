@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-19
+
+### Fixed
+- Fixed hydro volume offset calculation: use `(horizon + 1)` instead of `horizon` for volume variables that exist from t=0 to t=horizon
+- Fixed conditional variable allocation in `Indexing`: future_cost, thermal commitment, and hydro commitment offsets now correctly account for disabled features (FCF=0, UCT=0, UCH=0)
+- Fixed dual extraction in LP-CALC-CMO: commitment variables now use `Continuous` domain with fixed values instead of `Binary`, allowing proper LP dual extraction
+- Fixed case-sensitive infeasibility detection in HiGHS backend: error messages are now compared case-insensitively ("Infeasible" vs "infeasible")
+
+### Added
+- Regression test `column_offsets_match_variable_counts` to verify offset consistency with actual variable counts
+- Flags `future_cost_enabled`, `thermal_unit_commitment_enabled`, `hydro_unit_commitment_enabled` to `Indexing` struct
+
 ## [0.7.0] - 2026-10-19
 
 ### Changed
