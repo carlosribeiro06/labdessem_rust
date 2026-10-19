@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-19
+
+### Changed
+- **BREAKING**: Refactored `labdessem-solver` with clean trait-based architecture
+- New `Solver` trait with `SolverBackend` abstraction for multiple solver support
+- Extracted core types (`SparseColumn`, `SparseRow`, `Bound`, `Objective`) to dedicated modules
+- New `SolutionAccessor` for unified access to primal/dual values
+- HiGHS backend implementation with proper separation of concerns
+- `Indexing` now includes `ColumnOffsets` and `ConstraintOffsets` for direct solution access
+- Removed legacy solver functions from `labdessem-simulation`
+
+### Added
+- Integration tests for solver interface (`solve_simple_bounded_lp`, `statistics_accumulate_across_solves`)
+- `SolverStatistics` for tracking solve time and iteration counts
+- `BasisStatus` enum for LP basis information
+- `SolverError` with structured error variants
+
 ## [0.6.3] - 2026-10-15
 
 ### Fixed

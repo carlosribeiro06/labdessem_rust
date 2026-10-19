@@ -203,8 +203,8 @@ mod tests {
 
         let system = read_study_from_path(&case_path).expect("24Barras should be readable");
         assert_eq!(system.submarkets.len(), 2);
-        assert_eq!(system.buses.len(), 2);
-        assert!(system.branches.is_empty());
+        assert_eq!(system.buses.len(), 24);
+        assert!(!system.branches.is_empty());
         assert_eq!(system.thermal_plants.len(), 3);
         assert_eq!(system.hydro_plants.len(), 4);
         assert!(!system.hydro_unit_commitment_enabled);
@@ -215,7 +215,7 @@ mod tests {
         let config_path = examples_24barras_path().join("study_config.json");
 
         let config = read_study_config(&config_path).expect("study config should be readable");
-        assert_eq!(config.rede, 0);
+        assert_eq!(config.rede, 1);
         assert!(config.uct <= 1);
         assert!(config.uch <= 1);
         assert!(config.fcf <= 1);
@@ -229,7 +229,7 @@ mod tests {
         let system =
             read_study_from_path(&case_path).expect("study config should build a valid system");
         assert_eq!(system.submarkets.len(), 2);
-        assert_eq!(system.buses.len(), 2);
+        assert_eq!(system.buses.len(), 24);
     }
 
     #[test]
