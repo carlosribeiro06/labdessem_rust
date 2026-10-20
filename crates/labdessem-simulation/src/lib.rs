@@ -1,5 +1,4 @@
 mod error;
-mod network;
 mod output;
 mod results;
 mod stages;

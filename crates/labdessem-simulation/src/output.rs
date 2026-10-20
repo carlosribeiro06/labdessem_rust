@@ -18,7 +18,7 @@ use labdessem_model::names::{
 use labdessem_solver::SolutionAccessor;
 
 use crate::error::SimulationError;
-use crate::network::CmbRecord;
+use labdessem_network::CmbRecord;
 use crate::results::{
     AddedFlowCutLineResult, IterationReport, IterativeSimulationResult, LineFlowResult,
     NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,

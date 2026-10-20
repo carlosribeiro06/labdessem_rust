@@ -19,10 +19,11 @@ use labdessem_solver::{
 };
 
 use crate::error::SimulationError;
-use crate::network::{
-    CmbRecord, DcNetworkModel, FlowCutKey, all_flow_constraints, compute_cmb_per_bus,
-    compute_cmo_from_cmb, compute_line_flows, constant_load_shift, detect_flow_violations,
-    extract_flow_duals, flow_terms_for_cut,
+use labdessem_network::{
+    CmbRecord, DcNetworkModel, FlowCutKey,
+    all_flow_constraints, compute_cmb_per_bus, compute_cmo_from_cmb, compute_line_flows,
+    constant_load_shift, detect_flow_violations, extract_flow_duals,
+    constraints::{build_flow_cut_terms, FlowCutInput, GeneratorEntry, PumpingEntry},
 };
 use crate::results::{
     AddedFlowCutLineResult, FlowCutMapping, FlowViolation, IterationReport,
@@ -32,6 +33,64 @@ use crate::results::{
 use crate::workflow::{ExecutionOption, IterationStage};
 
 const NETWORK_FLOW_SLACK_PENALTY_PER_MW: f64 = 1_000_000.0;
+
+/// Build flow cut terms by adapting Model/System to FlowCutInput.
+///
+/// This adapter function bridges `labdessem-network::constraints::build_flow_cut_terms`
+/// with the simulation's Model type by building a FlowCutInput from Model/System data.
+fn flow_terms_for_cut(
+    model: &Model,
+    system: &System,
+    dc_network: &DcNetworkModel,
+    branch_idx: usize,
+    period: usize,
+) -> Vec<LinearTerm> {
+    let horizon = system.horizon.periods;
+    let flow_conversion = system.horizon.period_duration_hours * 0.0036;
+
+    let mut input = FlowCutInput::new(flow_conversion);
+
+    // Build thermal entries
+    for (entry_idx, entry) in model.indexing.thermal_unit_entries.iter().enumerate() {
+        let plant = &system.thermal_plants[entry.plant_idx];
+        let variable = &model.variables.thermal_generation[entry_idx * horizon + period];
+        input.add_thermal(GeneratorEntry::new(plant.bus_id, &variable.name));
+    }
+
+    // Build hydro entries
+    for (entry_idx, entry) in model.indexing.hydro_unit_entries.iter().enumerate() {
+        let plant = &system.hydro_plants[entry.plant_idx];
+        let variable = &model.variables.hydro_generation[entry_idx * horizon + period];
+        input.add_hydro(GeneratorEntry::new(plant.bus_id, &variable.name));
+    }
+
+    // Build renewable entries
+    for (entry_idx, entry) in model.indexing.renewable_plant_entries.iter().enumerate() {
+        let plant = &system.renewable_plants[entry.plant_idx];
+        let variable = &model.variables.renewable_generation[entry_idx * horizon + period];
+        input.add_renewable(GeneratorEntry::new(plant.bus_id, &variable.name));
+    }
+
+    // Build pumping entries
+    for (entry_idx, entry) in model.indexing.pumping_plant_entries.iter().enumerate() {
+        let plant = &system.pumping_plants[entry.plant_idx];
+        let variable = &model.variables.pumping[entry_idx * horizon + period];
+        input.add_pumping(PumpingEntry::new(
+            plant.bus_id,
+            &variable.name,
+            plant.specific_consumption_mw_per_m3s,
+        ));
+    }
+
+    // Call network crate function and convert to LinearTerm
+    build_flow_cut_terms(dc_network, branch_idx, &input)
+        .into_iter()
+        .map(|term| LinearTerm {
+            variable: term.variable_name,
+            coefficient: term.coefficient,
+        })
+        .collect()
+}
 
 /// Solve a model using the HiGHS solver, returning LpSolution directly.
 fn solve_model_direct(solver: &mut HighsSolver, model: &Model) -> Result<LpSolution, SolverError> {

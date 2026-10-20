@@ -19,7 +19,7 @@ pub mod linalg;
 pub mod topology;
 mod types;
 
-pub use constraints::{FlowCutInput, GeneratorEntry, PumpingEntry};
+pub use constraints::{FlowCutInput, GeneratorEntry, PumpingEntry, build_flow_cut_terms};
 pub use duals::{CmbRecord, compute_cmb_per_bus, compute_cmo_from_cmb, extract_flow_duals};
 pub use error::NetworkError;
 pub use flow::{
