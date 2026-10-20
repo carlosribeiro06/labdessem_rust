@@ -15,6 +15,7 @@ mod cmb;
 mod dual_extraction;
 mod error;
 mod flow;
+pub mod linalg;
 mod model;
 mod ptdf;
 mod types;
@@ -25,9 +26,7 @@ pub use error::NetworkError;
 pub use flow::{
     all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,
 };
+pub use linalg::{dot, invert_matrix, multiply_matrices, round_to_digits, solve_linear_system};
 pub use model::{DcNetworkModel, FlowCutKey};
-pub use ptdf::{
-    build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance, dot,
-    invert_matrix, multiply_matrices, round_to_digits, solve_linear_system,
-};
+pub use ptdf::{build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance};
 pub use types::{AddedFlowCutLineResult, FlowCutMapping, FlowViolation, LineFlowResult};

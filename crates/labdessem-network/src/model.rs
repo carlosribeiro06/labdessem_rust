@@ -5,10 +5,8 @@ use std::collections::HashMap;
 use labdessem_core::{ids::BusId, system::System};
 
 use crate::error::NetworkError;
-use crate::ptdf::{
-    build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance,
-    invert_matrix, multiply_matrices,
-};
+use crate::linalg::{invert_matrix, multiply_matrices};
+use crate::ptdf::{build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance};
 
 /// Key identifying a flow cut by branch index and period.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

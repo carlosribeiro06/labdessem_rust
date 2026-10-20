@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use labdessem_core::{ColumnOffsets, system::System};
 
 use crate::model::{DcNetworkModel, FlowCutKey};
-use crate::ptdf::{dot, round_to_digits};
+use crate::linalg::{dot, round_to_digits};
 use crate::types::{FlowViolation, LineFlowResult};
 
 /// Generate all possible flow cut keys for a system.
