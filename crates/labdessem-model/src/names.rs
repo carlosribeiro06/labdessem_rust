@@ -147,18 +147,6 @@ pub fn renewable_generation_name(plant_name: &str, period: usize) -> String {
 }
 
 // =============================================================================
-// Network variable names
-// =============================================================================
-
-pub fn bus_angle_name(bus_id: usize, period: usize) -> String {
-    format!("bus_angle[b={},t={}]", bus_id, display_period(period))
-}
-
-pub fn branch_flow_name(branch_id: usize, period: usize) -> String {
-    format!("branch_flow[l={},t={}]", branch_id, display_period(period))
-}
-
-// =============================================================================
 // Constraint names (for dual extraction)
 // =============================================================================
 
