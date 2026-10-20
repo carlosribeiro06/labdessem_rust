@@ -19,7 +19,7 @@ mod model;
 mod ptdf;
 mod types;
 
-pub use cmb::{compute_cmb_per_bus, compute_cmo_from_cmb, CmbRecord};
+pub use cmb::{CmbRecord, compute_cmb_per_bus, compute_cmo_from_cmb};
 pub use dual_extraction::extract_flow_duals;
 pub use error::NetworkError;
 pub use flow::{

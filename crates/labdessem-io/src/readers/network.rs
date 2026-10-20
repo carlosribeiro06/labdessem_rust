@@ -12,10 +12,7 @@ use crate::error::IoError;
 use crate::readers::common::read_csv;
 
 /// Read buses from OPER_CARGA_BARRA.csv for network-enabled cases.
-pub fn read_buses(
-    oper_path: &Path,
-    horizon: &StudyHorizon,
-) -> Result<Vec<Bus>, IoError> {
+pub fn read_buses(oper_path: &Path, horizon: &StudyHorizon) -> Result<Vec<Bus>, IoError> {
     let rows: Vec<BusOperationRow> = read_csv(&oper_path.join("OPER_CARGA_BARRA.csv"))?;
     build_buses(&rows, horizon)
 }

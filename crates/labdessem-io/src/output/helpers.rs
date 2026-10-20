@@ -6,7 +6,9 @@ use labdessem_core::system::System;
 
 /// Get internal period indices for an original period (1-indexed).
 pub fn original_period_internal_indices(system: &System, original_period: usize) -> Vec<usize> {
-    system.horizon.internal_periods_for_original(original_period)
+    system
+        .horizon
+        .internal_periods_for_original(original_period)
 }
 
 /// Get the duration in hours for an original period (1-indexed).

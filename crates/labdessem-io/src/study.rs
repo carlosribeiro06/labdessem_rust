@@ -3,10 +3,7 @@
 //! This module provides the entry point for loading a complete study case
 //! from the filesystem.
 
-use std::{
-    fs,
-    path::Path,
-};
+use std::{fs, path::Path};
 
 use labdessem_core::system::System;
 use serde::Deserialize;
@@ -263,7 +260,10 @@ mod tests {
 
         assert_eq!(
             unit1.startup_trajectory_mw,
-            vec![0.0, 0.0, 20.0, 20.0, 60.0, 80.0, 120.0, 160.0, 180.0, 220.0, 280.0, 410.0, 450.0, 523.0]
+            vec![
+                0.0, 0.0, 20.0, 20.0, 60.0, 80.0, 120.0, 160.0, 180.0, 220.0, 280.0, 410.0, 450.0,
+                523.0
+            ]
         );
         assert_eq!(unit1.shutdown_trajectory_mw, vec![255.0, 0.0]);
     }

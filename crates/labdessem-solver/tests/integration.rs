@@ -128,7 +128,11 @@ fn solve_two_var_lp() {
         "objective should be 1.0, got {}",
         sol.objective
     );
-    assert!(sol.primal[0] >= 0.99, "x should be ~1.0, got {}", sol.primal[0]);
+    assert!(
+        sol.primal[0] >= 0.99,
+        "x should be ~1.0, got {}",
+        sol.primal[0]
+    );
 }
 
 #[test]
@@ -232,7 +236,9 @@ fn apply_profile_does_not_crash() {
     solver.apply_profile(&profile);
 
     solver.load_model(&simple_bounded_lp());
-    let sol = solver.solve(None).expect("should solve with custom profile");
+    let sol = solver
+        .solve(None)
+        .expect("should solve with custom profile");
     assert!((sol.objective - 1.0).abs() < 1e-6);
 }
 

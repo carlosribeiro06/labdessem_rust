@@ -209,6 +209,7 @@ version = "0.8.0"
 dependencies = [
  "labdessem-core",
  "labdessem-io",
+ "labdessem-uc",
 ]
 
 [[package]]
@@ -237,6 +238,13 @@ dependencies = [
  "good_lp",
  "labdessem-io",
  "labdessem-model",
+]
+
+[[package]]
+name = "labdessem-uc"
+version = "0.8.0"
+dependencies = [
+ "labdessem-core",
 ]
 
 [[package]]

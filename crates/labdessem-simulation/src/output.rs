@@ -31,8 +31,8 @@ pub fn write_results_csvs(
     output_dir: impl AsRef<Path>,
     network_enabled: bool,
 ) -> Result<(), SimulationError> {
-    use std::collections::HashMap;
     use labdessem_model::names;
+    use std::collections::HashMap;
 
     let output_dir = output_dir.as_ref();
     std::fs::create_dir_all(output_dir).map_err(|error| {
@@ -47,7 +47,9 @@ pub fn write_results_csvs(
     let params = ConstraintOffsetParams {
         horizon: system.horizon.periods,
         fpha_enabled: system.fpha_enabled,
-        num_fpha_segments: system.hydro_plants.iter()
+        num_fpha_segments: system
+            .hydro_plants
+            .iter()
             .flat_map(|p| &p.fpha_segments)
             .count(),
         future_cost_enabled: system.future_cost_enabled,
@@ -62,7 +64,7 @@ pub fn write_results_csvs(
 
     // Build temporary variable_values HashMap for IO functions
     let mut variable_values = HashMap::new();
-    
+
     // Thermal generation
     let mut unit_idx = 0;
     for plant in &system.thermal_plants {
@@ -187,7 +189,9 @@ pub fn write_results_csvs(
 // --- Period Helpers ---
 
 fn original_period_internal_indices(system: &System, original_period: usize) -> Vec<usize> {
-    system.horizon.internal_periods_for_original(original_period)
+    system
+        .horizon
+        .internal_periods_for_original(original_period)
 }
 
 fn original_period_duration_hours(system: &System, original_period: usize) -> f64 {
@@ -369,40 +373,85 @@ fn write_hydro_csv(
     constraint_duals: &std::collections::HashMap<String, f64>,
     output_dir: &Path,
 ) -> Result<(), SimulationError> {
-    let summary = SummaryCompat { variable_values, constraint_duals };
+    let summary = SummaryCompat {
+        variable_values,
+        constraint_duals,
+    };
     let mut csv = csv_with_header(
         "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
         &[
             ("Usina", "nome da usina hidreletrica"),
-            ("Conjunto", "codigo do conjunto; 99 indica agregado da usina"),
+            (
+                "Conjunto",
+                "codigo do conjunto; 99 indica agregado da usina",
+            ),
             ("Unidade", "codigo da unidade; 99 indica agregado da usina"),
             ("Periodo", "periodo do horizonte de estudo"),
             ("VolumeHM3", "volume armazenado em hm3"),
             ("VolumeUtilHM3", "volume util armazenado em hm3"),
             ("VolumeUtilMaxHM3", "volume util maximo da usina em hm3"),
-            ("VolumeUtilPct", "volume util armazenado em percentual do volume util maximo"),
+            (
+                "VolumeUtilPct",
+                "volume util armazenado em percentual do volume util maximo",
+            ),
             ("GeracaoMW", "geracao hidreletrica em MW"),
-            ("PmaxMW", "potencia maxima cadastrada da unidade em MW; no agregado, soma das unidades"),
-            ("GeracaoMaxPontoMW", "capacidade maxima de geracao da usina com o volume do ponto de operacao"),
-            ("StatusOn", "fracao do periodo original em que a unidade ficou ligada"),
-            ("StatusOff", "fracao do periodo original em que a unidade ficou desligada"),
+            (
+                "PmaxMW",
+                "potencia maxima cadastrada da unidade em MW; no agregado, soma das unidades",
+            ),
+            (
+                "GeracaoMaxPontoMW",
+                "capacidade maxima de geracao da usina com o volume do ponto de operacao",
+            ),
+            (
+                "StatusOn",
+                "fracao do periodo original em que a unidade ficou ligada",
+            ),
+            (
+                "StatusOff",
+                "fracao do periodo original em que a unidade ficou desligada",
+            ),
             ("TurbinamentoHM3", "turbinamento no periodo em hm3"),
             ("TurbinamentoM3s", "turbinamento medio no periodo em m3/s"),
-            ("TurbinamentoMaxHM3", "turbinamento maximo da unidade no periodo em hm3"),
-            ("TurbinamentoMaxM3s", "turbinamento maximo medio da unidade no periodo em m3/s"),
+            (
+                "TurbinamentoMaxHM3",
+                "turbinamento maximo da unidade no periodo em hm3",
+            ),
+            (
+                "TurbinamentoMaxM3s",
+                "turbinamento maximo medio da unidade no periodo em m3/s",
+            ),
             ("VertimentoHM3", "vertimento no periodo em hm3"),
             ("VertimentoM3s", "vertimento medio no periodo em m3/s"),
             ("DesvioHM3", "vazao desviada no periodo em hm3"),
             ("DesvioM3s", "vazao desviada media no periodo em m3/s"),
             ("AfluenciaM3s", "afluencia natural media no periodo em m3/s"),
             ("AfluenciaHM3", "afluencia natural no periodo em hm3"),
-            ("RetiradaM3s", "retirada media para usos alternativos no periodo em m3/s"),
-            ("RetiradaHM3", "retirada para usos alternativos no periodo em hm3"),
-            ("BombeamentoHM3", "saida de agua por bombeamento no periodo em hm3"),
-            ("BombeamentoM3s", "saida media de agua por bombeamento no periodo em m3/s"),
-            ("Qmon", "entrada media de agua de montante no periodo em m3/s"),
+            (
+                "RetiradaM3s",
+                "retirada media para usos alternativos no periodo em m3/s",
+            ),
+            (
+                "RetiradaHM3",
+                "retirada para usos alternativos no periodo em hm3",
+            ),
+            (
+                "BombeamentoHM3",
+                "saida de agua por bombeamento no periodo em hm3",
+            ),
+            (
+                "BombeamentoM3s",
+                "saida media de agua por bombeamento no periodo em m3/s",
+            ),
+            (
+                "Qmon",
+                "entrada media de agua de montante no periodo em m3/s",
+            ),
             ("Vmon", "entrada de agua de montante no periodo em hm3"),
-            ("PiBalHidr", "dual do balanco hidrico no LP-CALC-CMO em R$/hm3"),
+            (
+                "PiBalHidr",
+                "dual do balanco hidrico no LP-CALC-CMO em R$/hm3",
+            ),
         ],
     );
 
@@ -418,7 +467,10 @@ fn write_hydro_csv(
             // Volume
             let volume = summary
                 .variable_values
-                .get(&hydro_volume_name(plant.name.as_str(), last_internal_period + 1))
+                .get(&hydro_volume_name(
+                    plant.name.as_str(),
+                    last_internal_period + 1,
+                ))
                 .copied()
                 .unwrap_or(0.0);
             let useful_volume_hm3 = volume - plant.reservoir.min_volume_hm3;
@@ -679,8 +731,14 @@ fn write_process_iterations_csv(
         &[
             ("Etapa", "etapa do processo iterativo"),
             ("Iteracao", "numero da iteracao dentro da etapa"),
-            ("NumeroRestricoes", "quantidade de restricoes do problema resolvido"),
-            ("NumeroVariaveis", "quantidade de variaveis do problema resolvido"),
+            (
+                "NumeroRestricoes",
+                "quantidade de restricoes do problema resolvido",
+            ),
+            (
+                "NumeroVariaveis",
+                "quantidade de variaveis do problema resolvido",
+            ),
             ("ValorFuncaoObjetivo", "valor da funcao objetivo em R$"),
             ("StatusSolucao", "status retornado para a solucao"),
             ("TempoResolucaoSeg", "tempo de resolucao em segundos"),
@@ -858,18 +916,12 @@ fn write_cmb_csv(
     );
 
     // Build bus lookup
-    let bus_lookup: std::collections::HashMap<_, _> = system
-        .buses
-        .iter()
-        .map(|bus| (bus.id, bus))
-        .collect();
+    let bus_lookup: std::collections::HashMap<_, _> =
+        system.buses.iter().map(|bus| (bus.id, bus)).collect();
 
     // Build submarket lookup
-    let submarket_lookup: std::collections::HashMap<_, _> = system
-        .submarkets
-        .iter()
-        .map(|sbm| (sbm.id, sbm))
-        .collect();
+    let submarket_lookup: std::collections::HashMap<_, _> =
+        system.submarkets.iter().map(|sbm| (sbm.id, sbm)).collect();
 
     // Aggregate internal periods to original periods
     #[derive(Default)]
@@ -885,7 +937,11 @@ fn write_cmb_csv(
 
     for record in cmb_records {
         let internal_period = record.period;
-        let Some(&original_period) = system.horizon.internal_to_original_period.get(internal_period) else {
+        let Some(&original_period) = system
+            .horizon
+            .internal_to_original_period
+            .get(internal_period)
+        else {
             continue;
         };
 

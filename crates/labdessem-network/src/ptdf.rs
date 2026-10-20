@@ -263,7 +263,6 @@ pub fn round_to_digits(value: f64, digits: u32) -> f64 {
     (value * factor).round() / factor
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

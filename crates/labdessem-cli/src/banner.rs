@@ -1,6 +1,6 @@
 //! Terminal banner and display utilities for the labdessem CLI.
 
-use std::io::{stderr, IsTerminal};
+use std::io::{IsTerminal, stderr};
 
 /// Check if colored output should be used.
 /// Returns true when stderr is connected to a TTY.
@@ -99,7 +99,7 @@ fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{render_banner, render_execution_info, ExecutionInfo};
+    use super::{ExecutionInfo, render_banner, render_execution_info};
 
     #[test]
     fn render_banner_plain_contains_version() {
@@ -198,4 +198,3 @@ mod tests {
         assert!(output.contains("HiGHS"));
     }
 }
-

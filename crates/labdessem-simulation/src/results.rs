@@ -3,10 +3,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use labdessem_core::{
-    ids::SubmarketId,
-    system::OperationalLimitVariable,
-};
+use labdessem_core::{ids::SubmarketId, system::OperationalLimitVariable};
 use labdessem_solver::LpSolution;
 
 use crate::IterationStage;

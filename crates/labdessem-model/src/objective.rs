@@ -84,52 +84,52 @@ impl Objective {
             solve_mode,
             SolveMode::MixedIntegerLinearProgramming
                 | SolveMode::LinearProgrammingWithFixedCommitment
-        )
-            && system.thermal_unit_commitment_enabled {
-                for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
-                    let plant = &system.thermal_plants[entry.plant_idx];
-                    let unit = &plant.units[entry.unit_idx];
+        ) && system.thermal_unit_commitment_enabled
+        {
+            for (entry_idx, entry) in indexing.thermal_unit_entries.iter().enumerate() {
+                let plant = &system.thermal_plants[entry.plant_idx];
+                let unit = &plant.units[entry.unit_idx];
 
-                    for period in 0..horizon {
-                        let startup = &variables.thermal_startup[entry_idx * horizon + period];
-                        let shutdown = &variables.thermal_shutdown[entry_idx * horizon + period];
-                        terms.push(term(startup, unit.startup_cost));
-                        terms.push(term(shutdown, unit.shutdown_cost));
-                        if system.ton_residual_enabled {
-                            let cmo = system.residual_costs.iter().find_map(|residual_cost| {
-                                (residual_cost.submarket_id == plant.submarket_id)
-                                    .then_some(residual_cost.cmo_per_mwh)
-                            });
-                            if let Some(cmo_per_mwh) = cmo {
-                                let startup_residual_cost =
-                                    thermal_startup_residual_cost_for_period(
-                                        system,
-                                        unit,
-                                        period,
-                                        cmo_per_mwh,
-                                    );
-                                terms.push(term(startup, startup_residual_cost));
+                for period in 0..horizon {
+                    let startup = &variables.thermal_startup[entry_idx * horizon + period];
+                    let shutdown = &variables.thermal_shutdown[entry_idx * horizon + period];
+                    terms.push(term(startup, unit.startup_cost));
+                    terms.push(term(shutdown, unit.shutdown_cost));
+                    if system.ton_residual_enabled {
+                        let cmo = system.residual_costs.iter().find_map(|residual_cost| {
+                            (residual_cost.submarket_id == plant.submarket_id)
+                                .then_some(residual_cost.cmo_per_mwh)
+                        });
+                        if let Some(cmo_per_mwh) = cmo {
+                            let startup_residual_cost = thermal_startup_residual_cost_for_period(
+                                system,
+                                unit,
+                                period,
+                                cmo_per_mwh,
+                            );
+                            terms.push(term(startup, startup_residual_cost));
 
-                                if period + 1 == horizon {
-                                    let on =
-                                        &variables.thermal_commitment[entry_idx * horizon + period];
-                                    let shutdown_residual_cost = thermal_shutdown_residual_cost(
-                                        unit,
-                                        cmo_per_mwh,
-                                        period_duration_hours,
-                                    );
-                                    terms.push(term(on, shutdown_residual_cost));
-                                }
+                            if period + 1 == horizon {
+                                let on =
+                                    &variables.thermal_commitment[entry_idx * horizon + period];
+                                let shutdown_residual_cost = thermal_shutdown_residual_cost(
+                                    unit,
+                                    cmo_per_mwh,
+                                    period_duration_hours,
+                                );
+                                terms.push(term(on, shutdown_residual_cost));
                             }
                         }
                     }
                 }
             }
+        }
 
         if system.future_cost_enabled
-            && let Some(future_cost) = variables.future_cost.first() {
-                terms.push(term(future_cost, 1.0));
-            }
+            && let Some(future_cost) = variables.future_cost.first()
+        {
+            terms.push(term(future_cost, 1.0));
+        }
 
         Self {
             sense: ObjectiveSense::Minimize,
@@ -155,7 +155,9 @@ fn thermal_startup_residual_cost_for_period(
         * system.horizon.period_duration_hours
 }
 
-fn thermal_startup_residual_profile(unit: &labdessem_core::entities::thermal::ThermalUnit) -> Vec<f64> {
+fn thermal_startup_residual_profile(
+    unit: &labdessem_core::entities::thermal::ThermalUnit,
+) -> Vec<f64> {
     let mut profile = unit.startup_trajectory_mw.clone();
     let steady_periods = unit
         .min_up_time

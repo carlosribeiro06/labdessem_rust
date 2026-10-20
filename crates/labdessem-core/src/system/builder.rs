@@ -1,8 +1,8 @@
 //! System construction via builder pattern.
 
 use super::{
-    validate_system, FutureCostCut, InterchangeLimit, OperationalLimit, ResidualCost,
-    StudyHorizon, System,
+    FutureCostCut, InterchangeLimit, OperationalLimit, ResidualCost, StudyHorizon, System,
+    validate_system,
 };
 use crate::entities::{
     Branch, Bus, HydroPlant, PumpingPlant, RenewablePlant, Submarket, ThermalPlant,
@@ -140,9 +140,9 @@ impl SystemBuilder {
     ///
     /// Returns [`CoreError`] if the horizon is missing or validation fails.
     pub fn build(self) -> Result<System, CoreError> {
-        let horizon = self.horizon.ok_or_else(|| {
-            CoreError::validation("SystemBuilder: horizon is required")
-        })?;
+        let horizon = self
+            .horizon
+            .ok_or_else(|| CoreError::validation("SystemBuilder: horizon is required"))?;
 
         let system = System {
             horizon,

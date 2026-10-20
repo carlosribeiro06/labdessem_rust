@@ -413,7 +413,6 @@ pub struct ConstraintOffsetParams {
     pub is_commitment_mode: bool,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -421,19 +420,38 @@ mod tests {
     fn minimal_indexing() -> Indexing {
         Indexing {
             hydro_plant_entries: vec![
-                HydroPlantIndex { plant_idx: 0, submarket_idx: 0 },
-                HydroPlantIndex { plant_idx: 1, submarket_idx: 0 },
+                HydroPlantIndex {
+                    plant_idx: 0,
+                    submarket_idx: 0,
+                },
+                HydroPlantIndex {
+                    plant_idx: 1,
+                    submarket_idx: 0,
+                },
             ],
-            thermal_unit_entries: vec![
-                ThermalUnitIndex { plant_idx: 0, unit_idx: 0, submarket_idx: 0 },
-            ],
+            thermal_unit_entries: vec![ThermalUnitIndex {
+                plant_idx: 0,
+                unit_idx: 0,
+                submarket_idx: 0,
+            }],
             hydro_unit_entries: vec![
-                HydroUnitIndex { plant_idx: 0, group_idx: 0, unit_idx: 0, submarket_idx: 0 },
-                HydroUnitIndex { plant_idx: 1, group_idx: 0, unit_idx: 0, submarket_idx: 0 },
+                HydroUnitIndex {
+                    plant_idx: 0,
+                    group_idx: 0,
+                    unit_idx: 0,
+                    submarket_idx: 0,
+                },
+                HydroUnitIndex {
+                    plant_idx: 1,
+                    group_idx: 0,
+                    unit_idx: 0,
+                    submarket_idx: 0,
+                },
             ],
-            renewable_plant_entries: vec![
-                RenewablePlantIndex { plant_idx: 0, submarket_idx: 0 },
-            ],
+            renewable_plant_entries: vec![RenewablePlantIndex {
+                plant_idx: 0,
+                submarket_idx: 0,
+            }],
             pumping_plant_entries: vec![],
             interchange_entries: vec![],
             submarket_ids: vec![labdessem_core::ids::SubmarketId(1)],
@@ -522,7 +540,7 @@ mod tests {
 
     #[test]
     fn column_offsets_match_variable_counts() {
-        use crate::{variables::Variables, SolveMode};
+        use crate::{SolveMode, variables::Variables};
         use labdessem_io::read_study_from_path;
         use std::path::PathBuf;
 
@@ -565,7 +583,10 @@ mod tests {
         );
         expected_offset += variables.hydro_diversion.len();
 
-        assert_eq!(col_offsets.pumping, expected_offset, "pumping offset mismatch");
+        assert_eq!(
+            col_offsets.pumping, expected_offset,
+            "pumping offset mismatch"
+        );
         expected_offset += variables.pumping.len();
 
         assert_eq!(

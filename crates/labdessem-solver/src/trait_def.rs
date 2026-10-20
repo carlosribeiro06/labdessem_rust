@@ -1,8 +1,6 @@
 //! Solver interface trait definition.
 
-use crate::{
-    Basis, LpTemplate, RowBatch, SolutionView, SolverError, SolverStatistics,
-};
+use crate::{Basis, LpTemplate, RowBatch, SolutionView, SolverError, SolverStatistics};
 
 /// Backend-agnostic interface for LP/MILP solvers.
 ///

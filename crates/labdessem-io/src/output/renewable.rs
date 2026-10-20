@@ -7,8 +7,9 @@ use labdessem_model::names::renewable_generation_name;
 
 use crate::error::IoError;
 use crate::output::{
-    csv_with_header, write_csv_file,
+    csv_with_header,
     helpers::{average_internal_values, original_period_internal_indices},
+    write_csv_file,
 };
 
 /// Write renewable plant results to CSV.
@@ -24,7 +25,10 @@ pub fn write_renewable_csv(
             ("Codigo", "codigo da usina renovavel"),
             ("Nome", "nome da usina renovavel"),
             ("Submercado", "submercado da usina renovavel"),
-            ("GerProg", "geracao programada maxima media no periodo em MW"),
+            (
+                "GerProg",
+                "geracao programada maxima media no periodo em MW",
+            ),
             ("GeracaoMW", "geracao renovavel em MW"),
         ],
     );

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use labdessem_core::{system::System, ColumnOffsets};
+use labdessem_core::{ColumnOffsets, system::System};
 
 use crate::model::{DcNetworkModel, FlowCutKey};
 use crate::ptdf::{dot, round_to_digits};

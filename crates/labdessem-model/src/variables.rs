@@ -1,5 +1,13 @@
 use crate::{SolveMode, indexing::Indexing};
 use labdessem_core::system::System;
+use labdessem_uc::types::CommitmentDomain;
+use labdessem_uc::{
+    hydro::{HydroUnitInfo, build_hydro_commitment_variables},
+    thermal::{
+        ThermalUnitInfo, build_thermal_commitment_variables, build_thermal_shutdown_variables,
+        build_thermal_startup_variables,
+    },
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VariableDomain {
@@ -242,78 +250,10 @@ impl Variables {
             })
             .collect();
 
-        let thermal_commitment = if system.thermal_unit_commitment_enabled {
-            build_commitment_variables(
-                indexing
-                    .thermal_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.thermal_plants[entry.plant_idx];
-                        let unit = &plant.units[entry.unit_idx];
-                        format!("thermal_on[p={},u={}", plant.name, unit.name)
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
-
-        let hydro_commitment = if system.hydro_unit_commitment_enabled {
-            build_commitment_variables(
-                indexing
-                    .hydro_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.hydro_plants[entry.plant_idx];
-                        let group = &plant.groups[entry.group_idx];
-                        let unit = &group.units[entry.unit_idx];
-                        format!("hydro_on[p={},g={},u={}", plant.name, group.name, unit.name)
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
-
-        let thermal_startup = if system.thermal_unit_commitment_enabled {
-            build_unit_interval_variables(
-                indexing
-                    .thermal_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.thermal_plants[entry.plant_idx];
-                        let unit = &plant.units[entry.unit_idx];
-                        format!("thermal_startup[p={},u={}", plant.name, unit.name)
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
-
-        let thermal_shutdown = if system.thermal_unit_commitment_enabled {
-            build_commitment_variables(
-                indexing
-                    .thermal_unit_entries
-                    .iter()
-                    .map(|entry| {
-                        let plant = &system.thermal_plants[entry.plant_idx];
-                        let unit = &plant.units[entry.unit_idx];
-                        format!("thermal_shutdown[p={},u={}", plant.name, unit.name)
-                    })
-                    .collect(),
-                horizon,
-                solve_mode,
-            )
-        } else {
-            Vec::new()
-        };
+        let thermal_commitment = build_thermal_commitment(system, indexing, solve_mode, horizon);
+        let thermal_startup = build_thermal_startup(system, indexing, solve_mode, horizon);
+        let thermal_shutdown = build_thermal_shutdown(system, indexing, solve_mode, horizon);
+        let hydro_commitment = build_hydro_commitment(system, indexing, solve_mode, horizon);
 
         Self {
             thermal_generation,
@@ -336,68 +276,153 @@ impl Variables {
     }
 }
 
-fn build_commitment_variables(
-    base_names: Vec<String>,
-    horizon: usize,
-    solve_mode: SolveMode,
-) -> Vec<Variable> {
+fn uc_domain_from_solve_mode(solve_mode: SolveMode) -> CommitmentDomain {
     match solve_mode {
-        SolveMode::LinearProgramming => Vec::new(),
-        SolveMode::MixedIntegerLinearProgramming => base_names
-            .into_iter()
-            .flat_map(|base_name| {
-                (0..horizon).map(move |period| Variable {
-                    name: format!("{base_name},t={}]", display_period(period)),
-                    lower_bound: 0.0,
-                    upper_bound: Some(1.0),
-                    domain: VariableDomain::Binary,
-                    fixed_value: None,
-                })
-            })
-            .collect(),
-        SolveMode::LinearProgrammingWithFixedCommitment => base_names
-            .into_iter()
-            .flat_map(|base_name| {
-                (0..horizon).map(move |period| Variable {
-                    name: format!("{base_name},t={}]", display_period(period)),
-                    lower_bound: 0.0,
-                    upper_bound: Some(1.0),
-                    domain: VariableDomain::Continuous,
-                    fixed_value: Some(0.0),
-                })
-            })
-            .collect(),
+        SolveMode::LinearProgramming => CommitmentDomain::Inactive,
+        SolveMode::MixedIntegerLinearProgramming => CommitmentDomain::Binary,
+        SolveMode::LinearProgrammingWithFixedCommitment => CommitmentDomain::Fixed(0),
     }
 }
 
-fn build_unit_interval_variables(
-    base_names: Vec<String>,
-    horizon: usize,
-    solve_mode: SolveMode,
-) -> Vec<Variable> {
-    match solve_mode {
-        SolveMode::LinearProgramming => Vec::new(),
-        SolveMode::MixedIntegerLinearProgramming
-        | SolveMode::LinearProgrammingWithFixedCommitment => base_names
-            .into_iter()
-            .flat_map(|base_name| {
-                (0..horizon).map(move |period| Variable {
-                    name: format!("{base_name},t={}]", display_period(period)),
-                    lower_bound: 0.0,
-                    upper_bound: Some(1.0),
-                    domain: VariableDomain::Continuous,
-                    fixed_value: if matches!(
-                        solve_mode,
-                        SolveMode::LinearProgrammingWithFixedCommitment
-                    ) {
-                        Some(0.0)
-                    } else {
-                        None
-                    },
-                })
-            })
-            .collect(),
+fn uc_variable_to_variable(uc_var: labdessem_uc::types::UcVariable) -> Variable {
+    let (domain, fixed_value) = match uc_var.domain {
+        CommitmentDomain::Binary => (VariableDomain::Binary, None),
+        CommitmentDomain::Fixed(v) => (VariableDomain::Continuous, Some(f64::from(v))),
+        CommitmentDomain::Inactive => (VariableDomain::Continuous, None),
+    };
+    Variable {
+        name: uc_var.name,
+        lower_bound: uc_var.lower_bound,
+        upper_bound: Some(uc_var.upper_bound),
+        domain,
+        fixed_value,
     }
+}
+
+fn build_thermal_commitment(
+    system: &System,
+    indexing: &Indexing,
+    solve_mode: SolveMode,
+    horizon: usize,
+) -> Vec<Variable> {
+    if !system.thermal_unit_commitment_enabled {
+        return Vec::new();
+    }
+    let domain = uc_domain_from_solve_mode(solve_mode);
+    if !domain.is_active() {
+        return Vec::new();
+    }
+    let units: Vec<_> = indexing
+        .thermal_unit_entries
+        .iter()
+        .map(|entry| {
+            let plant = &system.thermal_plants[entry.plant_idx];
+            let unit = &plant.units[entry.unit_idx];
+            ThermalUnitInfo {
+                plant_name: &plant.name,
+                unit_name: &unit.name,
+            }
+        })
+        .collect();
+    build_thermal_commitment_variables(&units, horizon, domain)
+        .into_iter()
+        .map(uc_variable_to_variable)
+        .collect()
+}
+
+fn build_thermal_startup(
+    system: &System,
+    indexing: &Indexing,
+    solve_mode: SolveMode,
+    horizon: usize,
+) -> Vec<Variable> {
+    if !system.thermal_unit_commitment_enabled {
+        return Vec::new();
+    }
+    let domain = uc_domain_from_solve_mode(solve_mode);
+    if !domain.is_active() {
+        return Vec::new();
+    }
+    let units: Vec<_> = indexing
+        .thermal_unit_entries
+        .iter()
+        .map(|entry| {
+            let plant = &system.thermal_plants[entry.plant_idx];
+            let unit = &plant.units[entry.unit_idx];
+            ThermalUnitInfo {
+                plant_name: &plant.name,
+                unit_name: &unit.name,
+            }
+        })
+        .collect();
+    build_thermal_startup_variables(&units, horizon, domain)
+        .into_iter()
+        .map(uc_variable_to_variable)
+        .collect()
+}
+
+fn build_thermal_shutdown(
+    system: &System,
+    indexing: &Indexing,
+    solve_mode: SolveMode,
+    horizon: usize,
+) -> Vec<Variable> {
+    if !system.thermal_unit_commitment_enabled {
+        return Vec::new();
+    }
+    let domain = uc_domain_from_solve_mode(solve_mode);
+    if !domain.is_active() {
+        return Vec::new();
+    }
+    let units: Vec<_> = indexing
+        .thermal_unit_entries
+        .iter()
+        .map(|entry| {
+            let plant = &system.thermal_plants[entry.plant_idx];
+            let unit = &plant.units[entry.unit_idx];
+            ThermalUnitInfo {
+                plant_name: &plant.name,
+                unit_name: &unit.name,
+            }
+        })
+        .collect();
+    build_thermal_shutdown_variables(&units, horizon, domain)
+        .into_iter()
+        .map(uc_variable_to_variable)
+        .collect()
+}
+
+fn build_hydro_commitment(
+    system: &System,
+    indexing: &Indexing,
+    solve_mode: SolveMode,
+    horizon: usize,
+) -> Vec<Variable> {
+    if !system.hydro_unit_commitment_enabled {
+        return Vec::new();
+    }
+    let domain = uc_domain_from_solve_mode(solve_mode);
+    if !domain.is_active() {
+        return Vec::new();
+    }
+    let units: Vec<_> = indexing
+        .hydro_unit_entries
+        .iter()
+        .map(|entry| {
+            let plant = &system.hydro_plants[entry.plant_idx];
+            let group = &plant.groups[entry.group_idx];
+            let unit = &group.units[entry.unit_idx];
+            HydroUnitInfo {
+                plant_name: &plant.name,
+                group_name: &group.name,
+                unit_name: &unit.name,
+            }
+        })
+        .collect();
+    build_hydro_commitment_variables(&units, horizon, domain)
+        .into_iter()
+        .map(uc_variable_to_variable)
+        .collect()
 }
 
 fn display_period(period: usize) -> usize {

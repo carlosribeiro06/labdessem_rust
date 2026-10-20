@@ -53,7 +53,8 @@ labdessem_rust/
 |   |-- labdessem-io
 |   |-- labdessem-model
 |   |-- labdessem-simulation
-|   `-- labdessem-solver
+|   |-- labdessem-solver
+|   `-- labdessem-uc
 |-- docs/
 |-- examples/
 |-- Cargo.toml
@@ -74,11 +75,14 @@ labdessem_rust/
 - `labdessem-model`
   Indexing, variables, objective function, and algebraic constraints.
 
+- `labdessem-simulation`
+  End-to-end orchestration: solve workflow, network-cut iterations, dual extraction, and CSV export.
+
 - `labdessem-solver`
   Optimization backend integration through `good_lp`.
 
-- `labdessem-simulation`
-  End-to-end orchestration: solve workflow, network-cut iterations, dual extraction, and CSV export.
+- `labdessem-uc`
+  Solver-agnostic unit commitment formulation: thermal and hydro UC variables and constraints.
 
 ## Execution Modes
 

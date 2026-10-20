@@ -3,8 +3,8 @@
 use std::time::Instant;
 
 use good_lp::{
-    constraint, default_solver, variable, DualValues, Expression, ProblemVariables, Solution,
-    SolutionWithDual, SolverModel, Variable,
+    DualValues, Expression, ProblemVariables, Solution, SolutionWithDual, SolverModel, Variable,
+    constraint, default_solver, variable,
 };
 
 use crate::{
@@ -479,7 +479,10 @@ mod tests {
 
         let sol = solver.solve(None).expect("should solve");
 
-        assert!((sol.objective - 1.0).abs() < 1e-6, "objective should be 1.0");
+        assert!(
+            (sol.objective - 1.0).abs() < 1e-6,
+            "objective should be 1.0"
+        );
         assert!(
             (sol.primal[0] - 1.0).abs() < 1e-6,
             "x should be at lower bound 1.0"

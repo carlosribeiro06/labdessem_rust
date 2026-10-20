@@ -1,6 +1,8 @@
 //! Solution accessor for typed, index-based access to LP solution data.
 
-use labdessem_model::indexing::{ColumnOffsets, ConstraintOffsetParams, ConstraintOffsets, Indexing};
+use labdessem_model::indexing::{
+    ColumnOffsets, ConstraintOffsetParams, ConstraintOffsets, Indexing,
+};
 
 use crate::types::LpSolution;
 
@@ -257,22 +259,35 @@ mod tests {
         // SubmarketId is re-exported from labdessem_core via labdessem_model
         // We access it through a full path since solver doesn't depend on core
         Indexing {
-            hydro_plant_entries: vec![
-                HydroPlantIndex { plant_idx: 0, submarket_idx: 0 },
-            ],
+            hydro_plant_entries: vec![HydroPlantIndex {
+                plant_idx: 0,
+                submarket_idx: 0,
+            }],
             thermal_unit_entries: vec![
-                ThermalUnitIndex { plant_idx: 0, unit_idx: 0, submarket_idx: 0 },
-                ThermalUnitIndex { plant_idx: 0, unit_idx: 1, submarket_idx: 0 },
+                ThermalUnitIndex {
+                    plant_idx: 0,
+                    unit_idx: 0,
+                    submarket_idx: 0,
+                },
+                ThermalUnitIndex {
+                    plant_idx: 0,
+                    unit_idx: 1,
+                    submarket_idx: 0,
+                },
             ],
-            hydro_unit_entries: vec![
-                HydroUnitIndex { plant_idx: 0, group_idx: 0, unit_idx: 0, submarket_idx: 0 },
-            ],
-            renewable_plant_entries: vec![
-                RenewablePlantIndex { plant_idx: 0, submarket_idx: 0 },
-            ],
+            hydro_unit_entries: vec![HydroUnitIndex {
+                plant_idx: 0,
+                group_idx: 0,
+                unit_idx: 0,
+                submarket_idx: 0,
+            }],
+            renewable_plant_entries: vec![RenewablePlantIndex {
+                plant_idx: 0,
+                submarket_idx: 0,
+            }],
             pumping_plant_entries: vec![],
             interchange_entries: vec![],
-            submarket_ids: vec![],  // Empty - not used in accessor tests
+            submarket_ids: vec![], // Empty - not used in accessor tests
             thermal_units: 2,
             hydro_units: 1,
             renewable_plants: 1,

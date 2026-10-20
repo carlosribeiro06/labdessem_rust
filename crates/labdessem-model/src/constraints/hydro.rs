@@ -8,7 +8,7 @@ use labdessem_core::system::System;
 use crate::indexing::Indexing;
 use crate::variables::Variables;
 
-use super::{ConstraintSense, LinearConstraint, display_period, term};
+use super::{ConstraintSense, LinearConstraint, display_period, term, uc_constraint_to_linear};
 
 /// Build hydraulic balance constraints for all hydro plants.
 pub fn build_hydro_balance_constraints(
@@ -357,44 +357,52 @@ pub fn build_hydro_commitment_channeling_constraints(
     variables: &Variables,
 ) -> Vec<LinearConstraint> {
     let horizon = system.horizon.periods;
-    let mut constraints = Vec::new();
 
-    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
-        let plant = &system.hydro_plants[entry.plant_idx];
-        let group = &plant.groups[entry.group_idx];
-        let unit = &group.units[entry.unit_idx];
-
-        for period in 0..horizon {
-            let generation = &variables.hydro_generation[entry_idx * horizon + period];
-            let on = &variables.hydro_commitment[entry_idx * horizon + period];
-
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "channeling_hydro_upper[p={},g={},u={},t={}]",
-                    plant.name,
-                    group.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(generation, 1.0), term(on, -unit.max_generation_mw)],
-                sense: ConstraintSense::LessOrEqual,
-                rhs: 0.0,
-            });
-
-            constraints.push(LinearConstraint {
-                name: format!(
-                    "channeling_hydro_lower[p={},g={},u={},t={}]",
-                    plant.name,
-                    group.name,
-                    unit.name,
-                    display_period(period)
-                ),
-                terms: vec![term(generation, 1.0), term(on, -unit.min_generation_mw)],
-                sense: ConstraintSense::GreaterOrEqual,
-                rhs: 0.0,
-            });
-        }
+    if variables.hydro_commitment.is_empty() {
+        return Vec::new();
     }
 
-    constraints
+    let gen_var_names: Vec<_> = variables
+        .hydro_generation
+        .iter()
+        .map(|v| v.name.clone())
+        .collect();
+
+    let commitment_vars: Vec<_> = variables
+        .hydro_commitment
+        .iter()
+        .map(|v| labdessem_uc::UcVariable {
+            name: v.name.clone(),
+            lower_bound: v.lower_bound,
+            upper_bound: v.upper_bound.unwrap_or(1.0),
+            domain: labdessem_uc::CommitmentDomain::Binary,
+        })
+        .collect();
+
+    let channeling_infos: Vec<_> = indexing
+        .hydro_unit_entries
+        .iter()
+        .map(|entry| {
+            let plant = &system.hydro_plants[entry.plant_idx];
+            let group = &plant.groups[entry.group_idx];
+            let unit = &group.units[entry.unit_idx];
+            labdessem_uc::hydro::HydroUnitChannelingInfo {
+                plant_name: &plant.name,
+                group_name: &group.name,
+                unit_name: &unit.name,
+                min_generation_mw: unit.min_generation_mw,
+                max_generation_mw: unit.max_generation_mw,
+            }
+        })
+        .collect();
+
+    labdessem_uc::hydro::build_hydro_channeling_constraints(
+        &channeling_infos,
+        &gen_var_names,
+        &commitment_vars,
+        horizon,
+    )
+    .into_iter()
+    .map(uc_constraint_to_linear)
+    .collect()
 }
