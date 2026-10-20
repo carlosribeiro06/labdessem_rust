@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use labdessem_core::{ColumnOffsets, system::System};
 
-use crate::model::{DcNetworkModel, FlowCutKey};
+use crate::topology::model::{DcNetworkModel, FlowCutKey};
 use crate::linalg::{dot, round_to_digits};
 use crate::types::{FlowViolation, LineFlowResult};
 

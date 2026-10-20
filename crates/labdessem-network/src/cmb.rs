@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use labdessem_core::ids::{BusId, SubmarketId};
 use labdessem_core::system::System;
 
-use crate::model::DcNetworkModel;
+use crate::topology::model::DcNetworkModel;
 
 /// CMB record for a single bus and period.
 #[derive(Debug, Clone, PartialEq)]

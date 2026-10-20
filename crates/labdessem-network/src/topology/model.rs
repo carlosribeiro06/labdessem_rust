@@ -4,9 +4,8 @@ use std::collections::HashMap;
 
 use labdessem_core::{ids::BusId, system::System};
 
+use super::ptdf::compute_ptdf;
 use crate::error::NetworkError;
-use crate::linalg::{invert_matrix, multiply_matrices};
-use crate::ptdf::{build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance};
 
 /// Key identifying a flow cut by branch index and period.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -60,13 +59,7 @@ impl DcNetworkModel {
             });
         }
 
-        let reduced_b = build_reduced_susceptance(system, &non_slack_bus_positions);
-        let branch_susceptance_diag = build_branch_susceptance_diag(system);
-        let reduced_incidence = build_reduced_incidence(system, &non_slack_bus_positions);
-        let inverse_reduced_b = invert_matrix(&reduced_b)?;
-        let branch_times_incidence =
-            multiply_matrices(&branch_susceptance_diag, &reduced_incidence)?;
-        let ptdf_rows = multiply_matrices(&branch_times_incidence, &inverse_reduced_b)?;
+        let ptdf_rows = compute_ptdf(system, &non_slack_bus_positions)?;
 
         Ok(Self {
             non_slack_bus_ids,

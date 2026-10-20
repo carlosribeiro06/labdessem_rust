@@ -16,8 +16,7 @@ mod dual_extraction;
 mod error;
 mod flow;
 pub mod linalg;
-mod model;
-mod ptdf;
+pub mod topology;
 mod types;
 
 pub use cmb::{CmbRecord, compute_cmb_per_bus, compute_cmo_from_cmb};
@@ -27,6 +26,11 @@ pub use flow::{
     all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,
 };
 pub use linalg::{dot, invert_matrix, multiply_matrices, round_to_digits, solve_linear_system};
-pub use model::{DcNetworkModel, FlowCutKey};
-pub use ptdf::{build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance};
-pub use types::{AddedFlowCutLineResult, FlowCutMapping, FlowViolation, LineFlowResult};
+pub use topology::model::{DcNetworkModel, FlowCutKey};
+pub use topology::{
+    build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance, compute_ptdf,
+};
+pub use types::{
+    AddedFlowCutLineResult, ConstraintSense, FlowCutMapping, FlowViolation, LineFlowResult,
+    NetworkConstraint, NetworkTerm,
+};
