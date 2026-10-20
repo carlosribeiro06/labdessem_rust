@@ -11,16 +11,16 @@
 //! The crate is independent of the LP/MILP model formulation. It receives
 //! solution values as pure slices (`&[f64]`) rather than solver-specific types.
 
-mod cmb;
-mod dual_extraction;
+pub mod constraints;
+pub mod duals;
 mod error;
-mod flow;
+pub mod flow;
 pub mod linalg;
 pub mod topology;
 mod types;
 
-pub use cmb::{CmbRecord, compute_cmb_per_bus, compute_cmo_from_cmb};
-pub use dual_extraction::extract_flow_duals;
+pub use constraints::{FlowCutInput, GeneratorEntry, PumpingEntry};
+pub use duals::{CmbRecord, compute_cmb_per_bus, compute_cmo_from_cmb, extract_flow_duals};
 pub use error::NetworkError;
 pub use flow::{
     all_flow_constraints, compute_line_flows, constant_load_shift, detect_flow_violations,

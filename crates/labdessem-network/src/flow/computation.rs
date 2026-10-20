@@ -1,70 +1,10 @@
-//! Flow computation and violation detection.
+//! Flow computation for DC power flow analysis.
 
-use std::collections::BTreeSet;
+use labdessem_core::{ids::BusId, ColumnOffsets, system::System};
 
-use labdessem_core::{ColumnOffsets, system::System};
-
-use crate::topology::model::{DcNetworkModel, FlowCutKey};
-use crate::linalg::{dot, round_to_digits};
-use crate::types::{FlowViolation, LineFlowResult};
-
-/// Generate all possible flow cut keys for a system.
-pub fn all_flow_constraints(system: &System) -> BTreeSet<FlowCutKey> {
-    (0..system.branches.len())
-        .flat_map(|branch_idx| {
-            (0..system.horizon.periods).map(move |period| FlowCutKey { branch_idx, period })
-        })
-        .collect()
-}
-
-/// Compute the constant load shift for a branch and period.
-#[allow(clippy::expect_used)]
-pub fn constant_load_shift(
-    system: &System,
-    dc_network: &DcNetworkModel,
-    branch_idx: usize,
-    period: usize,
-) -> f64 {
-    dc_network
-        .non_slack_bus_ids
-        .iter()
-        .enumerate()
-        .map(|(bus_pos, bus_id)| {
-            let bus = system
-                .buses
-                .iter()
-                .find(|candidate| candidate.id == *bus_id)
-                .expect("bus should exist for non-slack PTDF position");
-            dc_network.ptdf_rows[branch_idx][bus_pos] * bus.demand_mw[period]
-        })
-        .sum()
-}
-
-/// Detect flow violations from primal solution values.
-pub fn detect_flow_violations(
-    system: &System,
-    dc_network: &DcNetworkModel,
-    primal_values: &[f64],
-    col_offsets: &ColumnOffsets,
-) -> Vec<FlowViolation> {
-    let line_flows = compute_line_flows(system, dc_network, primal_values, col_offsets);
-    let mut violations = Vec::new();
-
-    for line_flow in line_flows {
-        let rounded_flow = round_to_digits(line_flow.flow_mw, 4);
-        if rounded_flow.abs() > line_flow.limit_mw {
-            violations.push(FlowViolation {
-                branch_id: line_flow.branch_id,
-                branch_name: line_flow.branch_name,
-                period: line_flow.period,
-                flow_mw: line_flow.flow_mw,
-                limit_mw: line_flow.limit_mw,
-            });
-        }
-    }
-
-    violations
-}
+use crate::linalg::dot;
+use crate::topology::model::DcNetworkModel;
+use crate::types::LineFlowResult;
 
 /// Compute line flows for all branches and periods.
 pub fn compute_line_flows(
@@ -94,7 +34,7 @@ pub fn compute_line_flows(
     line_flows
 }
 
-fn bus_name(system: &System, bus_id: labdessem_core::ids::BusId) -> String {
+pub(crate) fn bus_name(system: &System, bus_id: BusId) -> String {
     system
         .buses
         .iter()
@@ -103,7 +43,7 @@ fn bus_name(system: &System, bus_id: labdessem_core::ids::BusId) -> String {
 }
 
 #[allow(clippy::expect_used)]
-fn injections_by_period(
+pub(crate) fn injections_by_period(
     system: &System,
     dc_network: &DcNetworkModel,
     primal_values: &[f64],
