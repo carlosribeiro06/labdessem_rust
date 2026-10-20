@@ -12,5 +12,14 @@
 //! solution values as pure slices (`&[f64]`) rather than solver-specific types.
 
 mod error;
+mod model;
+mod ptdf;
+mod types;
 
 pub use error::NetworkError;
+pub use model::{DcNetworkModel, FlowCutKey};
+pub use ptdf::{
+    build_branch_susceptance_diag, build_reduced_incidence, build_reduced_susceptance, dot,
+    invert_matrix, multiply_matrices, round_to_digits, solve_linear_system,
+};
+pub use types::{AddedFlowCutLineResult, FlowCutMapping, FlowViolation, LineFlowResult};
