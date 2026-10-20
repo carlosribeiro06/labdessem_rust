@@ -40,3 +40,60 @@ pub fn extract_flow_duals(
 
     result
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_single_branch_period() {
+        let duals = vec![0.0, 100.0, -30.0];
+        let mut indices = HashMap::new();
+        indices.insert((0, 0), (0, 1));
+        let mapping = FlowCutMapping { indices };
+
+        let result = extract_flow_duals(&duals, &mapping, 1);
+
+        assert_eq!(result.len(), 1);
+        assert!((result[&(0, 0)] - 70.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_extract_multiple_branches() {
+        let duals = vec![0.0, 10.0, -5.0, 20.0, -8.0];
+        let mut indices = HashMap::new();
+        indices.insert((0, 0), (0, 1));
+        indices.insert((1, 0), (2, 3));
+        let mapping = FlowCutMapping { indices };
+
+        let result = extract_flow_duals(&duals, &mapping, 1);
+
+        assert_eq!(result.len(), 2);
+        assert!((result[&(0, 0)] - 5.0).abs() < 1e-9);
+        assert!((result[&(1, 0)] - 12.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_extract_empty_mapping() {
+        let duals = vec![0.0, 10.0];
+        let mapping = FlowCutMapping {
+            indices: HashMap::new(),
+        };
+
+        let result = extract_flow_duals(&duals, &mapping, 0);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "row index out of bounds")]
+    fn test_extract_panics_on_invalid_index() {
+        let duals = vec![0.0, 10.0];
+        let mut indices = HashMap::new();
+        indices.insert((0, 0), (0, 5));
+        let mapping = FlowCutMapping { indices };
+
+        extract_flow_duals(&duals, &mapping, 0);
+    }
+}

@@ -262,3 +262,92 @@ pub fn round_to_digits(value: f64, digits: u32) -> f64 {
     let factor = 10_f64.powi(digits as i32);
     (value * factor).round() / factor
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invert_2x2_matrix() {
+        // Known: [[4, 7], [2, 6]] has inverse [[0.6, -0.7], [-0.2, 0.4]]
+        let matrix = vec![vec![4.0, 7.0], vec![2.0, 6.0]];
+        let inverse = invert_matrix(&matrix).expect("should invert");
+
+        assert!((inverse[0][0] - 0.6).abs() < 1e-9);
+        assert!((inverse[0][1] - (-0.7)).abs() < 1e-9);
+        assert!((inverse[1][0] - (-0.2)).abs() < 1e-9);
+        assert!((inverse[1][1] - 0.4).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_invert_identity_returns_identity() {
+        let identity = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let inverse = invert_matrix(&identity).expect("should invert identity");
+
+        assert!((inverse[0][0] - 1.0).abs() < 1e-9);
+        assert!((inverse[0][1] - 0.0).abs() < 1e-9);
+        assert!((inverse[1][0] - 0.0).abs() < 1e-9);
+        assert!((inverse[1][1] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_invert_singular_matrix_fails() {
+        // Singular: [[1, 2], [2, 4]] (row2 = 2*row1)
+        let singular = vec![vec![1.0, 2.0], vec![2.0, 4.0]];
+        assert!(invert_matrix(&singular).is_err());
+    }
+
+    #[test]
+    fn test_invert_empty_matrix() {
+        let empty: Vec<Vec<f64>> = vec![];
+        let result = invert_matrix(&empty).expect("empty inversion should succeed");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_multiply_matrices() {
+        // [[1, 2], [3, 4]] × [[5, 6], [7, 8]] = [[19, 22], [43, 50]]
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let b = vec![vec![5.0, 6.0], vec![7.0, 8.0]];
+        let c = multiply_matrices(&a, &b).expect("should multiply");
+
+        assert!((c[0][0] - 19.0).abs() < 1e-9);
+        assert!((c[0][1] - 22.0).abs() < 1e-9);
+        assert!((c[1][0] - 43.0).abs() < 1e-9);
+        assert!((c[1][1] - 50.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_multiply_dimension_mismatch() {
+        let a = vec![vec![1.0, 2.0, 3.0]]; // 1x3
+        let b = vec![vec![1.0, 2.0]]; // 1x2
+        assert!(multiply_matrices(&a, &b).is_err());
+    }
+
+    #[test]
+    fn test_solve_linear_system() {
+        // [[2, 1], [1, 3]] × [x, y] = [5, 5] → x=2, y=1
+        let matrix = vec![vec![2.0, 1.0], vec![1.0, 3.0]];
+        let rhs = vec![5.0, 5.0];
+        let solution = solve_linear_system(&matrix, &rhs).expect("should solve");
+
+        assert!((solution[0] - 2.0).abs() < 1e-9);
+        assert!((solution[1] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_dot_product() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![4.0, 5.0, 6.0];
+        // 1*4 + 2*5 + 3*6 = 32
+        assert!((dot(&a, &b) - 32.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_round_to_digits() {
+        assert!((round_to_digits(1.2345, 2) - 1.23).abs() < 1e-9);
+        assert!((round_to_digits(1.2355, 2) - 1.24).abs() < 1e-9);
+        assert!((round_to_digits(-1.2345, 2) - (-1.23)).abs() < 1e-9);
+    }
+}
