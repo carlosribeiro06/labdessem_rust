@@ -226,6 +226,7 @@ dependencies = [
  "labdessem-core",
  "labdessem-io",
  "labdessem-model",
+ "labdessem-network",
  "labdessem-solver",
 ]
 
