@@ -71,7 +71,9 @@ pub fn build_trajectory_bounds_constraints(
             constraints.push(UcConstraint::geq(
                 format!(
                     "thermal_ramp_lower[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 lower_terms,
                 lower_rhs,
@@ -103,7 +105,9 @@ pub fn build_trajectory_bounds_constraints(
             constraints.push(UcConstraint::leq(
                 format!(
                     "thermal_ramp_upper[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 upper_terms,
                 upper_rhs,
@@ -150,14 +154,20 @@ fn build_shutdown_terms(
         if period + k < horizon {
             let name = &shutdown_vars[unit_idx * horizon + (period + k)].name;
             sum_terms.push(UcTerm::new(name, 1.0));
-            weighted_terms.push(UcTerm::new(name, unit.shutdown_trajectory_mw[shutdown_len - k]));
+            weighted_terms.push(UcTerm::new(
+                name,
+                unit.shutdown_trajectory_mw[shutdown_len - k],
+            ));
         }
     }
 
     (sum_terms, weighted_terms)
 }
 
-fn compute_initial_startup_effect(unit: &ThermalUnitTrajectoryInfo<'_>, period: usize) -> (f64, f64) {
+fn compute_initial_startup_effect(
+    unit: &ThermalUnitTrajectoryInfo<'_>,
+    period: usize,
+) -> (f64, f64) {
     match unit.initial_startup_remaining {
         Some(remaining) if period < remaining.len() => (1.0, remaining[period]),
         _ => (0.0, 0.0),
@@ -178,8 +188,8 @@ fn compute_initial_shutdown_effect(
 mod tests {
     use super::*;
     use crate::thermal::variables::{
-        build_thermal_commitment_variables, build_thermal_shutdown_variables,
-        build_thermal_startup_variables, ThermalUnitInfo,
+        ThermalUnitInfo, build_thermal_commitment_variables, build_thermal_shutdown_variables,
+        build_thermal_startup_variables,
     };
     use crate::types::CommitmentDomain;
 
@@ -221,7 +231,12 @@ mod tests {
         let (commitment, startup, shutdown) = uc_vars(3);
 
         let constraints = build_trajectory_bounds_constraints(
-            &units, &gen_names, &commitment, &startup, &shutdown, 3,
+            &units,
+            &gen_names,
+            &commitment,
+            &startup,
+            &shutdown,
+            3,
         );
 
         assert_eq!(constraints.len(), 6);
@@ -234,7 +249,12 @@ mod tests {
         let (commitment, startup, shutdown) = uc_vars(2);
 
         let constraints = build_trajectory_bounds_constraints(
-            &units, &gen_names, &commitment, &startup, &shutdown, 2,
+            &units,
+            &gen_names,
+            &commitment,
+            &startup,
+            &shutdown,
+            2,
         );
 
         assert!(constraints[0].name.contains("thermal_ramp_lower"));
@@ -246,8 +266,7 @@ mod tests {
         let units = vec![sample_unit()];
         let gen_names = gen_var_names(3);
 
-        let constraints =
-            build_trajectory_bounds_constraints(&units, &gen_names, &[], &[], &[], 3);
+        let constraints = build_trajectory_bounds_constraints(&units, &gen_names, &[], &[], &[], 3);
 
         assert!(constraints.is_empty());
     }

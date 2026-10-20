@@ -8,8 +8,9 @@ use labdessem_model::names::demand_balance_constraint_name;
 
 use crate::error::IoError;
 use crate::output::{
-    csv_with_header, write_csv_file,
+    csv_with_header,
     helpers::{average_internal_values, original_period_internal_indices},
+    write_csv_file,
 };
 
 /// Write marginal operating cost (CMO) results to CSV.
@@ -42,8 +43,7 @@ pub fn write_cmosist_csv(
         let internal_periods = original_period_internal_indices(system, original_period);
         for submarket in &system.submarkets {
             let pi_demand = average_internal_values(system, &internal_periods, |period| {
-                let constraint_name =
-                    demand_balance_constraint_name(&submarket.name, period);
+                let constraint_name = demand_balance_constraint_name(&submarket.name, period);
                 let raw_pi_demand = constraint_duals
                     .get(&constraint_name)
                     .copied()
@@ -53,11 +53,12 @@ pub fn write_cmosist_csv(
 
             // CMO: use provided values if available, otherwise equals PiDemanda
             let cmo = match cmo_values {
-                Some(values) => {
-                    average_internal_values(system, &internal_periods, |period| {
-                        values.get(&(submarket.id, period)).copied().unwrap_or(pi_demand)
-                    })
-                }
+                Some(values) => average_internal_values(system, &internal_periods, |period| {
+                    values
+                        .get(&(submarket.id, period))
+                        .copied()
+                        .unwrap_or(pi_demand)
+                }),
                 None => pi_demand,
             };
 

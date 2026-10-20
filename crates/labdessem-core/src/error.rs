@@ -119,7 +119,10 @@ impl fmt::Display for ValidationError {
                 write!(f, "duplicate {entity_type} id: {id}")
             }
             Self::HydroCascadeCycle { cycle_plant_ids } => {
-                let ids: Vec<_> = cycle_plant_ids.iter().map(std::string::ToString::to_string).collect();
+                let ids: Vec<_> = cycle_plant_ids
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect();
                 write!(f, "hydro cascade contains cycle: [{}]", ids.join(" -> "))
             }
             Self::DimensionMismatch {

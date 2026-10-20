@@ -3,11 +3,11 @@
 // Rationale: Tests use expect() for cleaner failure messages
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use crate::{constraints, objective, Model, SolveMode};
+use crate::{Model, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
-        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
-        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
+        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -534,14 +534,17 @@ fn builds_hydro_balance_for_first_period_with_boundary_condition() {
 
     assert_eq!(first.sense, constraints::ConstraintSense::Equal);
     assert_eq!(first.rhs, 1.0);
-    assert!(first
-        .terms
-        .iter()
-        .any(|term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == 1.0));
     assert!(
-        first.terms.iter().any(
-            |term| term.variable == "hydro_volume[p=UHE-1,t=0]" && term.coefficient == -1.0
-        )
+        first
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == 1.0)
+    );
+    assert!(
+        first
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=0]" && term.coefficient == -1.0)
     );
     assert!(first.terms.iter().any(|term| {
         term.variable == "hydro_turbining[p=UHE-1,g=CJ-1,u=UG-1,t=1]" && term.coefficient == 1.0
@@ -550,13 +553,13 @@ fn builds_hydro_balance_for_first_period_with_boundary_condition() {
         first
             .terms
             .iter()
-            .any(|term| term.variable == "hydro_spillage[p=UHE-1,t=1]"
-                && term.coefficient == 1.0)
+            .any(|term| term.variable == "hydro_spillage[p=UHE-1,t=1]" && term.coefficient == 1.0)
     );
     assert!(
-        !first.terms.iter().any(
-            |term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -1.0
-        )
+        !first
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -1.0)
     );
 }
 
@@ -574,14 +577,17 @@ fn builds_hydro_balance_for_later_periods_with_previous_volume() {
 
     assert_eq!(second.sense, constraints::ConstraintSense::Equal);
     assert_eq!(second.rhs, 1.0);
-    assert!(second
-        .terms
-        .iter()
-        .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == 1.0));
     assert!(
-        second.terms.iter().any(
-            |term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == -1.0
-        )
+        second
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == 1.0)
+    );
+    assert!(
+        second
+            .terms
+            .iter()
+            .any(|term| term.variable == "hydro_volume[p=UHE-1,t=1]" && term.coefficient == -1.0)
     );
 }
 
@@ -594,9 +600,7 @@ fn builds_hydro_turbining_spillage_and_fpha_constraints() {
         .constraints
         .hydro_turbining_limits()
         .into_iter()
-        .find(|constraint| {
-            constraint.name == "hydro_turbining_upper[p=UHE-1,g=CJ-1,u=UG-1,t=1]"
-        })
+        .find(|constraint| constraint.name == "hydro_turbining_upper[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
         .expect("hydro turbining upper limit should exist");
     assert_eq!(turbining_upper.rhs, 20.0);
 
@@ -646,8 +650,7 @@ fn sums_all_upstream_plants_in_hydro_balance() {
         balance
             .terms
             .iter()
-            .any(|term| term.variable == "hydro_spillage[p=UHE-A,t=1]"
-                && term.coefficient == -1.0)
+            .any(|term| term.variable == "hydro_spillage[p=UHE-A,t=1]" && term.coefficient == -1.0)
     );
     assert!(balance.terms.iter().any(|term| term.variable
         == "hydro_turbining[p=UHE-B,g=CJ-B,u=UG-B,t=1]"
@@ -656,8 +659,7 @@ fn sums_all_upstream_plants_in_hydro_balance() {
         balance
             .terms
             .iter()
-            .any(|term| term.variable == "hydro_spillage[p=UHE-B,t=1]"
-                && term.coefficient == -1.0)
+            .any(|term| term.variable == "hydro_spillage[p=UHE-B,t=1]" && term.coefficient == -1.0)
     );
 }
 
@@ -702,9 +704,7 @@ fn builds_channeling_constraints_for_commitment_modes() {
 
     let hydro_lower = channeling
         .iter()
-        .find(|constraint| {
-            constraint.name == "channeling_hydro_lower[p=UHE-1,g=CJ-1,u=UG-1,t=2]"
-        })
+        .find(|constraint| constraint.name == "channeling_hydro_lower[p=UHE-1,g=CJ-1,u=UG-1,t=2]")
         .expect("hydro lower channeling should exist");
     assert_eq!(
         hydro_lower.sense,
@@ -912,12 +912,16 @@ fn builds_thermal_min_up_down_constraints_with_remaining_initial_on_time() {
             .any(|term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]"
                 && term.coefficient == -3.0)
     );
-    assert!(first_ton.terms.iter().any(|term| term.variable
-        == "thermal_on[p=UTE-1,u=GT-1,t=2]"
-        && term.coefficient == 1.0));
-    assert!(first_ton.terms.iter().any(|term| term.variable
-        == "thermal_on[p=UTE-1,u=GT-1,t=3]"
-        && term.coefficient == 1.0));
+    assert!(
+        first_ton.terms.iter().any(
+            |term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=2]" && term.coefficient == 1.0
+        )
+    );
+    assert!(
+        first_ton.terms.iter().any(
+            |term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=3]" && term.coefficient == 1.0
+        )
+    );
 }
 
 #[test]
@@ -944,9 +948,11 @@ fn builds_thermal_ramp_constraints_for_commitment_modes() {
         .expect("first thermal transition constraint should exist");
     assert_eq!(first_transition.sense, constraints::ConstraintSense::Equal);
     assert_eq!(first_transition.rhs, 1.0);
-    assert!(first_transition.terms.iter().any(|term| term.variable
-        == "thermal_on[p=UTE-1,u=GT-1,t=1]"
-        && term.coefficient == 1.0));
+    assert!(
+        first_transition.terms.iter().any(
+            |term| term.variable == "thermal_on[p=UTE-1,u=GT-1,t=1]" && term.coefficient == 1.0
+        )
+    );
     assert!(first_transition.terms.iter().any(|term| term.variable
         == "thermal_startup[p=UTE-1,u=GT-1,t=1]"
         && term.coefficient == -1.0));
@@ -1100,9 +1106,11 @@ fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
             .iter()
             .any(|term| term.variable == "future_cost" && term.coefficient == 1.0)
     );
-    assert!(future_cost_constraint.terms.iter().any(|term| {
-        term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -2.0
-    }));
+    assert!(
+        future_cost_constraint.terms.iter().any(|term| {
+            term.variable == "hydro_volume[p=UHE-1,t=2]" && term.coefficient == -2.0
+        })
+    );
     assert!(
         !model
             .constraints

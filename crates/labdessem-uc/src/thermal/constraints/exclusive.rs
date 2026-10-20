@@ -30,7 +30,9 @@ pub fn build_startup_shutdown_exclusive_constraints(
             constraints.push(UcConstraint::leq(
                 format!(
                     "thermal_startup_shutdown_exclusive[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 vec![
                     UcTerm::new(&startup_var.name, 1.0),
@@ -48,7 +50,7 @@ pub fn build_startup_shutdown_exclusive_constraints(
 mod tests {
     use super::*;
     use crate::thermal::variables::{
-        build_thermal_shutdown_variables, build_thermal_startup_variables, ThermalUnitInfo,
+        ThermalUnitInfo, build_thermal_shutdown_variables, build_thermal_startup_variables,
     };
     use crate::types::CommitmentDomain;
 

@@ -41,7 +41,6 @@ pub fn extract_flow_duals(
     result
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

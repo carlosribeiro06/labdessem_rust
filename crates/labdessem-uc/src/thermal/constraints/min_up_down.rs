@@ -32,7 +32,8 @@ pub fn build_initial_state_fixing_constraints(
         let remaining_off = if unit.initial_is_on {
             0
         } else {
-            unit.min_down_time.saturating_sub(unit.initial_time_in_state)
+            unit.min_down_time
+                .saturating_sub(unit.initial_time_in_state)
         };
 
         for period in 0..remaining_on.min(horizon) {
@@ -41,7 +42,9 @@ pub fn build_initial_state_fixing_constraints(
             constraints.push(UcConstraint::equal(
                 format!(
                     "thermal_initial_on_fix[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 vec![UcTerm::new(&on_var.name, 1.0)],
                 1.0,
@@ -54,7 +57,9 @@ pub fn build_initial_state_fixing_constraints(
             constraints.push(UcConstraint::equal(
                 format!(
                     "thermal_initial_off_fix[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 vec![UcTerm::new(&on_var.name, 1.0)],
                 0.0,
@@ -110,7 +115,9 @@ pub fn build_min_up_time_constraints(
             constraints.push(UcConstraint::geq(
                 format!(
                     "thermal_min_up[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 terms,
                 rhs,
@@ -166,7 +173,9 @@ pub fn build_min_down_time_constraints(
             constraints.push(UcConstraint::leq(
                 format!(
                     "thermal_min_down[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 terms,
                 rhs,
@@ -180,7 +189,7 @@ pub fn build_min_down_time_constraints(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::thermal::variables::{build_thermal_commitment_variables, ThermalUnitInfo};
+    use crate::thermal::variables::{ThermalUnitInfo, build_thermal_commitment_variables};
     use crate::types::CommitmentDomain;
 
     fn sample_unit(is_on: bool, time_in_state: usize) -> ThermalUnitMinUpDownInfo<'static> {

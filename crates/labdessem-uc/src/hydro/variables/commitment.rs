@@ -24,7 +24,10 @@ pub fn build_hydro_commitment_variables(
             (0..horizon).map(move |period| {
                 let name = format!(
                     "hydro_on[p={},g={},u={},t={}]",
-                    unit.plant_name, unit.group_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.group_name,
+                    unit.unit_name,
+                    period + 1
                 );
                 match domain {
                     CommitmentDomain::Binary => UcVariable::binary(name),

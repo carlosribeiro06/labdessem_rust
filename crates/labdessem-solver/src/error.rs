@@ -66,7 +66,10 @@ impl fmt::Display for SolverError {
             Self::IterationLimit { iterations } => {
                 write!(f, "iteration limit exceeded after {iterations} iterations")
             }
-            Self::InternalError { message, error_code } => {
+            Self::InternalError {
+                message,
+                error_code,
+            } => {
                 if let Some(code) = error_code {
                     write!(f, "internal solver error (code {code}): {message}")
                 } else {
@@ -75,7 +78,10 @@ impl fmt::Display for SolverError {
             }
             Self::BasisInconsistent => write!(f, "basis is inconsistent with LP structure"),
             Self::BasisRowCountMismatch { expected, got } => {
-                write!(f, "basis row count mismatch: expected {expected}, got {got}")
+                write!(
+                    f,
+                    "basis row count mismatch: expected {expected}, got {got}"
+                )
             }
             Self::Io(message) => write!(f, "I/O error: {message}"),
         }

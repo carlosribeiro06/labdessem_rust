@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn mode2_calls_lp_calc_cmo_without_network() {
-        use super::{run_simulation, ExecutionOption, IterationStage};
+        use super::{ExecutionOption, IterationStage, run_simulation};
 
         let system = build_system();
         let result = run_simulation(&system, false, ExecutionOption::SingleMilp)
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn mode2_calls_lp_calc_cmo_with_network() {
-        use super::{run_simulation, ExecutionOption, IterationStage};
+        use super::{ExecutionOption, IterationStage, run_simulation};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::SingleMilp)
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn mode1_and_mode2_both_produce_lp_calc_cmo_without_network() {
-        use super::{run_simulation, ExecutionOption, IterationStage};
+        use super::{ExecutionOption, IterationStage, run_simulation};
 
         let system = build_system();
 
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn mode1_with_network_skips_lp_fixed_when_no_violations() {
-        use super::{run_simulation, ExecutionOption, IterationStage};
+        use super::{ExecutionOption, IterationStage, run_simulation};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::Iterative)
@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn mode1_output_comes_from_cmo_solution() {
-        use super::{run_simulation, ExecutionOption};
+        use super::{ExecutionOption, run_simulation};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::Iterative)

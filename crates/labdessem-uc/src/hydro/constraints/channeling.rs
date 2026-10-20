@@ -32,7 +32,10 @@ pub fn build_hydro_channeling_constraints(
             constraints.push(UcConstraint::leq(
                 format!(
                     "channeling_hydro_upper[p={},g={},u={},t={}]",
-                    unit.plant_name, unit.group_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.group_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 vec![
                     UcTerm::new(gen_var_name, 1.0),
@@ -44,7 +47,10 @@ pub fn build_hydro_channeling_constraints(
             constraints.push(UcConstraint::geq(
                 format!(
                     "channeling_hydro_lower[p={},g={},u={},t={}]",
-                    unit.plant_name, unit.group_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.group_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 vec![
                     UcTerm::new(gen_var_name, 1.0),
@@ -61,7 +67,7 @@ pub fn build_hydro_channeling_constraints(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hydro::variables::{build_hydro_commitment_variables, HydroUnitInfo};
+    use crate::hydro::variables::{HydroUnitInfo, build_hydro_commitment_variables};
     use crate::types::CommitmentDomain;
 
     fn sample_unit() -> HydroUnitChannelingInfo<'static> {
@@ -95,8 +101,7 @@ mod tests {
         let gen_names = gen_var_names(3);
         let commitment = commitment_vars(3);
 
-        let constraints =
-            build_hydro_channeling_constraints(&units, &gen_names, &commitment, 3);
+        let constraints = build_hydro_channeling_constraints(&units, &gen_names, &commitment, 3);
 
         assert_eq!(constraints.len(), 6);
     }
@@ -107,8 +112,7 @@ mod tests {
         let gen_names = gen_var_names(1);
         let commitment = commitment_vars(1);
 
-        let constraints =
-            build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
+        let constraints = build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
 
         assert!(constraints[0].name.contains("channeling_hydro_upper"));
         assert!(constraints[1].name.contains("channeling_hydro_lower"));
@@ -120,8 +124,7 @@ mod tests {
         let gen_names = gen_var_names(1);
         let commitment = commitment_vars(1);
 
-        let constraints =
-            build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
+        let constraints = build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
 
         let upper = &constraints[0];
         assert_eq!(upper.terms[1].coefficient, -200.0);
@@ -133,8 +136,7 @@ mod tests {
         let gen_names = gen_var_names(1);
         let commitment = commitment_vars(1);
 
-        let constraints =
-            build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
+        let constraints = build_hydro_channeling_constraints(&units, &gen_names, &commitment, 1);
 
         let lower = &constraints[1];
         assert_eq!(lower.terms[1].coefficient, -50.0);

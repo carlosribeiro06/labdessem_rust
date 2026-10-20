@@ -7,8 +7,11 @@ use labdessem_model::names::pumping_name;
 
 use crate::error::IoError;
 use crate::output::{
-    csv_with_header, volume_hm3_to_flow_m3s, write_csv_file,
-    helpers::{original_period_duration_hours, original_period_internal_indices, sum_internal_values},
+    csv_with_header,
+    helpers::{
+        original_period_duration_hours, original_period_internal_indices, sum_internal_values,
+    },
+    volume_hm3_to_flow_m3s, write_csv_file,
 };
 
 /// Write pumping plant results to CSV.

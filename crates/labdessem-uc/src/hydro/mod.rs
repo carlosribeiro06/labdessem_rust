@@ -3,5 +3,5 @@
 pub mod constraints;
 pub mod variables;
 
-pub use constraints::{build_hydro_channeling_constraints, HydroUnitChannelingInfo};
-pub use variables::{build_hydro_commitment_variables, HydroUnitInfo};
+pub use constraints::{HydroUnitChannelingInfo, build_hydro_channeling_constraints};
+pub use variables::{HydroUnitInfo, build_hydro_commitment_variables};

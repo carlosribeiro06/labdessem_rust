@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 
 use labdessem_model::{
+    Model,
     constraints::ConstraintSense,
     variables::{Variable, VariableDomain as ModelVariableDomain},
-    Model,
 };
 
 use crate::{LpTemplate, VariableDomain};

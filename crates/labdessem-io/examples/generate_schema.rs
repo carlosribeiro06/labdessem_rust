@@ -10,8 +10,8 @@ use std::path::Path;
 
 fn main() {
     let schema = generate_study_config_schema();
-    let output_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../schemas/study_config.schema.json");
+    let output_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/study_config.schema.json");
     std::fs::write(&output_path, &schema).expect("failed to write schema");
     println!("Generated {}", output_path.display());
 }

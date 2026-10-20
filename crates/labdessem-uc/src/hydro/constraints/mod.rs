@@ -2,4 +2,4 @@
 
 mod channeling;
 
-pub use channeling::{build_hydro_channeling_constraints, HydroUnitChannelingInfo};
+pub use channeling::{HydroUnitChannelingInfo, build_hydro_channeling_constraints};

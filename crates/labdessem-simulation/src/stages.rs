@@ -8,21 +8,21 @@ use labdessem_core::ids::SubmarketId;
 use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 use labdessem_io::output::volume_hm3_to_flow_m3s;
 use labdessem_model::{
+    Model, SolveMode,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
     indexing::ColumnOffsets,
     objective::ObjectiveTerm,
     variables::{Variable, VariableDomain},
-    Model, SolveMode,
 };
 use labdessem_solver::{
-    model_to_lp_template, HighsSolver, LpSolution, SolverError, SolverInterface,
+    HighsSolver, LpSolution, SolverError, SolverInterface, model_to_lp_template,
 };
 
 use crate::error::SimulationError;
 use crate::network::{
-    all_flow_constraints, compute_cmb_per_bus, compute_cmo_from_cmb, compute_line_flows,
-    constant_load_shift, detect_flow_violations, extract_flow_duals, flow_terms_for_cut,
-    CmbRecord, DcNetworkModel, FlowCutKey,
+    CmbRecord, DcNetworkModel, FlowCutKey, all_flow_constraints, compute_cmb_per_bus,
+    compute_cmo_from_cmb, compute_line_flows, constant_load_shift, detect_flow_violations,
+    extract_flow_duals, flow_terms_for_cut,
 };
 use crate::results::{
     AddedFlowCutLineResult, FlowCutMapping, FlowViolation, IterationReport,
@@ -34,10 +34,7 @@ use crate::workflow::{ExecutionOption, IterationStage};
 const NETWORK_FLOW_SLACK_PENALTY_PER_MW: f64 = 1_000_000.0;
 
 /// Solve a model using the HiGHS solver, returning LpSolution directly.
-fn solve_model_direct(
-    solver: &mut HighsSolver,
-    model: &Model,
-) -> Result<LpSolution, SolverError> {
+fn solve_model_direct(solver: &mut HighsSolver, model: &Model) -> Result<LpSolution, SolverError> {
     let template = model_to_lp_template(model);
     solver.load_model(&template);
     solver.solve(None).map(|view| view.to_owned())
@@ -50,9 +47,8 @@ pub fn run_simulation(
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     // Create solver once and reuse across all stages
-    let mut solver = HighsSolver::new().map_err(|e| {
-        SimulationError::IterativeProcess(format!("Failed to create solver: {e}"))
-    })?;
+    let mut solver = HighsSolver::new()
+        .map_err(|e| SimulationError::IterativeProcess(format!("Failed to create solver: {e}")))?;
 
     match execution_option {
         ExecutionOption::Iterative => {
@@ -122,7 +118,8 @@ fn run_iterative_simulation_strategy(
         .0;
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+        let final_line_flows =
+            compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -202,7 +199,8 @@ fn run_iterative_simulation_strategy(
 
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+    let final_line_flows =
+        compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
     let added_flow_cut_lines =
         summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -267,7 +265,8 @@ fn run_single_milp_simulation(
 
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+        let final_line_flows =
+            compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -479,7 +478,12 @@ fn solve_stage(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
+                apply_commitment_fixes(
+                    &mut relaxed_model,
+                    commitment_source,
+                    &col_offsets,
+                    horizon,
+                );
             }
             add_flow_cuts(
                 &mut relaxed_model,
@@ -567,7 +571,9 @@ fn solve_stage_without_network(
     let started_at = Instant::now();
     let summary = match solve_model_direct(solver, &model) {
         Ok(summary) => summary,
-        Err(SolverError::Infeasible) | Err(SolverError::Unbounded) if !system.operational_limits.is_empty() => {
+        Err(SolverError::Infeasible) | Err(SolverError::Unbounded)
+            if !system.operational_limits.is_empty() =>
+        {
             println!(
                 "{} #{:02} inviavel com restricoes de limite. Adicionando folgas...",
                 stage.label(),
@@ -577,7 +583,12 @@ fn solve_stage_without_network(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
+                apply_commitment_fixes(
+                    &mut relaxed_model,
+                    commitment_source,
+                    &col_offsets,
+                    horizon,
+                );
             }
             add_operational_limit_slacks(&mut relaxed_model);
 
@@ -750,9 +761,10 @@ fn add_flow_cuts(
             rhs: -branch.thermal_limit_mw + rhs_shift,
         });
 
-        mapping
-            .indices
-            .insert((cut_key.branch_idx, cut_key.period), (upper_row_idx, lower_row_idx));
+        mapping.indices.insert(
+            (cut_key.branch_idx, cut_key.period),
+            (upper_row_idx, lower_row_idx),
+        );
     }
 
     mapping
@@ -772,7 +784,11 @@ fn compute_cmb_cmo_data(
     dc_network: Option<&DcNetworkModel>,
     cmo_solution: &LpSolution,
     all_cuts: &BTreeSet<FlowCutKey>,
-) -> (Vec<CmbRecord>, HashMap<(SubmarketId, usize), f64>, Option<FlowCutMapping>) {
+) -> (
+    Vec<CmbRecord>,
+    HashMap<(SubmarketId, usize), f64>,
+    Option<FlowCutMapping>,
+) {
     let horizon = system.horizon.periods;
     let periods: Vec<usize> = (0..horizon).collect();
 
@@ -786,7 +802,11 @@ fn compute_cmb_cmo_data(
             let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
                 horizon,
                 fpha_enabled: system.fpha_enabled,
-                num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+                num_fpha_segments: system
+                    .hydro_plants
+                    .iter()
+                    .map(|p| p.fpha_segments.len())
+                    .sum(),
                 future_cost_enabled: system.future_cost_enabled,
                 num_future_cost_cuts: system.future_cost_cuts.len(),
                 num_operational_limits: system.operational_limits.len(),
@@ -813,14 +833,21 @@ fn compute_cmb_cmo_data(
     // BEFORE flow cuts. The flow cuts add 2 constraints per cut (upper + lower).
     // Total duals = base_constraints + 2 * num_cuts
     let num_flow_cut_constraints = all_cuts.len() * 2;
-    let base_constraint_count = cmo_solution.dual.len().saturating_sub(num_flow_cut_constraints);
+    let base_constraint_count = cmo_solution
+        .dual
+        .len()
+        .saturating_sub(num_flow_cut_constraints);
 
     // Extract demand balance duals
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
     let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
         horizon,
         fpha_enabled: system.fpha_enabled,
-        num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+        num_fpha_segments: system
+            .hydro_plants
+            .iter()
+            .map(|p| p.fpha_segments.len())
+            .sum(),
         future_cost_enabled: system.future_cost_enabled,
         num_future_cost_cuts: system.future_cost_cuts.len(),
         num_operational_limits: system.operational_limits.len(),
@@ -897,21 +924,23 @@ fn collect_network_infeasibilities(
     let mut slack_idx = 0;
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
-        
+
         // Upper slack
-        let upper_violation = solution.primal
+        let upper_violation = solution
+            .primal
             .get(col_offsets.network_flow_slack + slack_idx)
             .copied()
             .unwrap_or(0.0);
         slack_idx += 1;
-        
+
         // Lower slack
-        let lower_violation = solution.primal
+        let lower_violation = solution
+            .primal
             .get(col_offsets.network_flow_slack + slack_idx)
             .copied()
             .unwrap_or(0.0);
         slack_idx += 1;
-        
+
         let violation_mw = upper_violation + lower_violation;
 
         if violation_mw > 1e-8 {
@@ -982,7 +1011,7 @@ fn collect_operational_limit_infeasibilities(
     // They are added in pairs (lower, upper) for each operational limit constraint.
     // The order follows the constraint iteration order in add_operational_limit_slacks.
     let mut slack_idx = 0;
-    
+
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
             OperationalLimitTarget::ThermalPlant(id) => id.0,
@@ -992,14 +1021,16 @@ fn collect_operational_limit_infeasibilities(
 
         for period in limit.start_period..=limit.end_period {
             // Lower bound slack
-            let lower_violation = solution.primal
+            let lower_violation = solution
+                .primal
                 .get(col_offsets.operational_limit_slack + slack_idx)
                 .copied()
                 .unwrap_or(0.0);
             slack_idx += 1;
-            
-            // Upper bound slack  
-            let upper_violation = solution.primal
+
+            // Upper bound slack
+            let upper_violation = solution
+                .primal
                 .get(col_offsets.operational_limit_slack + slack_idx)
                 .copied()
                 .unwrap_or(0.0);
@@ -1093,8 +1124,7 @@ pub fn summarize_added_flow_cut_lines(
             })
             .max_by(|left, right| left.flow_mw.abs().total_cmp(&right.flow_mw.abs()));
 
-        let flow_mw = selected_flow
-            .map_or(0.0, |line_flow| line_flow.flow_mw);
+        let flow_mw = selected_flow.map_or(0.0, |line_flow| line_flow.flow_mw);
 
         output.push(AddedFlowCutLineResult {
             branch_id: branch.id,

@@ -35,7 +35,10 @@ pub fn log_read_file(path: &Path) {
 
 /// Extract the file name from a path for display purposes.
 pub fn file_label(path: &Path) -> String {
-    path.file_name().map_or_else(|| path.display().to_string(), |name| name.to_string_lossy().into_owned())
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 
 /// Convert a duration in hours to a number of periods, rounding up.
@@ -62,10 +65,7 @@ pub fn hours_to_periods(
 }
 
 /// Find a submarket by name and return its ID.
-pub fn submarket_id_by_name(
-    submarkets: &[Submarket],
-    value: &str,
-) -> Result<SubmarketId, IoError> {
+pub fn submarket_id_by_name(submarkets: &[Submarket], value: &str) -> Result<SubmarketId, IoError> {
     let submarket_name = value.trim();
     submarkets
         .iter()

@@ -2,16 +2,16 @@
 
 use labdessem_core::system::System;
 
-use crate::{indexing::Indexing, variables::Variables, SolveMode};
+use crate::{SolveMode, indexing::Indexing, variables::Variables};
 
 use super::{
-    build_demand_balance_constraints, build_future_cost_constraints,
-    build_hydro_balance_constraints, build_hydro_commitment_channeling_constraints,
-    build_hydro_fpha_constraints, build_hydro_generation_turbining_coupling_constraints,
-    build_hydro_productivity_constraints, build_hydro_spillage_nonnegativity_constraints,
-    build_hydro_turbining_limit_constraints, build_interchange_limit_constraints,
-    build_operational_limit_constraints, build_thermal_min_up_down_constraints,
-    build_thermal_ramp_constraints, ConstraintSense, LinearConstraint,
+    ConstraintSense, LinearConstraint, build_demand_balance_constraints,
+    build_future_cost_constraints, build_hydro_balance_constraints,
+    build_hydro_commitment_channeling_constraints, build_hydro_fpha_constraints,
+    build_hydro_generation_turbining_coupling_constraints, build_hydro_productivity_constraints,
+    build_hydro_spillage_nonnegativity_constraints, build_hydro_turbining_limit_constraints,
+    build_interchange_limit_constraints, build_operational_limit_constraints,
+    build_thermal_min_up_down_constraints, build_thermal_ramp_constraints,
 };
 
 #[derive(Debug, Clone, PartialEq)]

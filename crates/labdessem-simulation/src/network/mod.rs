@@ -7,9 +7,9 @@ mod flow;
 
 // Re-export everything from labdessem-network
 pub use labdessem_network::{
-    all_flow_constraints, compute_cmb_per_bus, compute_cmo_from_cmb, compute_line_flows,
-    constant_load_shift, detect_flow_violations, extract_flow_duals, CmbRecord, DcNetworkModel,
-    FlowCutKey,
+    CmbRecord, DcNetworkModel, FlowCutKey, all_flow_constraints, compute_cmb_per_bus,
+    compute_cmo_from_cmb, compute_line_flows, constant_load_shift, detect_flow_violations,
+    extract_flow_duals,
 };
 
 // flow_terms_for_cut stays here (depends on Model)

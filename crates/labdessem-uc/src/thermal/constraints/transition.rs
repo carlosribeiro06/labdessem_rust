@@ -49,7 +49,9 @@ pub fn build_thermal_transition_constraints(
             constraints.push(UcConstraint::equal(
                 format!(
                     "thermal_transition[p={},u={},t={}]",
-                    unit.plant_name, unit.unit_name, period + 1
+                    unit.plant_name,
+                    unit.unit_name,
+                    period + 1
                 ),
                 terms,
                 rhs,
@@ -64,8 +66,8 @@ pub fn build_thermal_transition_constraints(
 mod tests {
     use super::*;
     use crate::thermal::variables::{
-        build_thermal_commitment_variables, build_thermal_shutdown_variables,
-        build_thermal_startup_variables, ThermalUnitInfo,
+        ThermalUnitInfo, build_thermal_commitment_variables, build_thermal_shutdown_variables,
+        build_thermal_startup_variables,
     };
     use crate::types::CommitmentDomain;
 

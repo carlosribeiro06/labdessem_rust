@@ -8,7 +8,9 @@ use labdessem_core::ids::{BusId, PumpingPlantId};
 use labdessem_core::system::PumpingPlant;
 
 use crate::error::IoError;
-use crate::readers::common::{bus_id_or_dummy, flow_m3s_to_hm3, log_read_file, submarket_id_by_name};
+use crate::readers::common::{
+    bus_id_or_dummy, flow_m3s_to_hm3, log_read_file, submarket_id_by_name,
+};
 
 /// Read pumping plants from CAD_USIE.csv.
 pub fn read_pumping_plants(

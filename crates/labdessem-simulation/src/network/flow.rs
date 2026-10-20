@@ -1,7 +1,7 @@
 //! Flow constraint term generation (glue between network and model).
 
 use labdessem_core::system::System;
-use labdessem_model::{constraints::LinearTerm, Model};
+use labdessem_model::{Model, constraints::LinearTerm};
 use labdessem_network::DcNetworkModel;
 
 /// Build the linear terms for a flow cut constraint.
@@ -79,9 +79,8 @@ pub fn flow_terms_for_cut(
             continue;
         };
         let ptdf_row = dc_network.ptdf_row_for_branch(branch_idx);
-        let coefficient = -ptdf_row[bus_pos]
-            * plant.specific_consumption_mw_per_m3s
-            / flow_conversion;
+        let coefficient =
+            -ptdf_row[bus_pos] * plant.specific_consumption_mw_per_m3s / flow_conversion;
         if coefficient.abs() <= 1e-12 {
             continue;
         }

@@ -95,7 +95,8 @@ pub fn build_thermal_min_up_down_constraints(
 
     // Build initial state fixing constraints
     let min_up_down_infos = build_min_up_down_infos(system, indexing);
-    let uc_initial = build_initial_state_fixing_constraints(&min_up_down_infos, &commitment_vars, horizon);
+    let uc_initial =
+        build_initial_state_fixing_constraints(&min_up_down_infos, &commitment_vars, horizon);
     constraints.extend(uc_initial.into_iter().map(uc_constraint_to_linear));
 
     // Build min up time constraints
@@ -103,7 +104,8 @@ pub fn build_thermal_min_up_down_constraints(
     constraints.extend(uc_min_up.into_iter().map(uc_constraint_to_linear));
 
     // Build min down time constraints
-    let uc_min_down = build_min_down_time_constraints(&min_up_down_infos, &commitment_vars, horizon);
+    let uc_min_down =
+        build_min_down_time_constraints(&min_up_down_infos, &commitment_vars, horizon);
     constraints.extend(uc_min_down.into_iter().map(uc_constraint_to_linear));
 
     constraints

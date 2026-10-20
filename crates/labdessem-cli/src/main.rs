@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
 use labdessem_io::{read_study_config, read_study_from_path};
-use labdessem_simulation::{run_simulation, write_results_csvs, ExecutionOption};
+use labdessem_simulation::{ExecutionOption, run_simulation, write_results_csvs};
 
 mod banner;
 
@@ -17,8 +17,10 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
 
-            let case_path = args
-                .get(2).map_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")), PathBuf::from);
+            let case_path = args.get(2).map_or_else(
+                || env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+                PathBuf::from,
+            );
 
             match run_and_print(&case_path) {
                 Ok(()) => ExitCode::SUCCESS,
@@ -140,10 +142,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     eprintln!();
     eprintln!("Summary");
-    eprintln!(
-        "  Objective:   {:.4}",
-        result.cmo_solution.objective
-    );
+    eprintln!("  Objective:   {:.4}", result.cmo_solution.objective);
     eprintln!("  Flow cuts:   {}", result.accumulated_flow_cuts);
     eprintln!("  Violations:  {}", result.final_violations.len());
     eprintln!(
