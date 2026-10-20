@@ -4,6 +4,7 @@ members = [
     "crates/labdessem-core",
     "crates/labdessem-io",
     "crates/labdessem-model",
+    "crates/labdessem-network",
     "crates/labdessem-simulation",
     "crates/labdessem-solver"
 ]

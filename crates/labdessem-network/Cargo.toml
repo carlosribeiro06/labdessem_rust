@@ -1,0 +1,17 @@
+[package]
+name = "labdessem-network"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "DC network model and power flow algorithms for LABDESSEM"
+
+[dependencies]
+labdessem-core = { path = "../labdessem-core" }
+thiserror = "2.0"
+
+[dev-dependencies]
+
+[lints]
+workspace = true
