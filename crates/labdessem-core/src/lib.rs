@@ -1,6 +1,7 @@
 pub mod entities;
 pub mod error;
 pub mod ids;
+pub mod offsets;
 pub mod system;
 
 #[cfg(test)]
@@ -11,3 +12,4 @@ pub use entities::{
     Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
 };
 pub use error::{CoreError, ValidationError};
+pub use offsets::ColumnOffsets;

@@ -122,7 +122,7 @@ fn run_iterative_simulation_strategy(
         .0;
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -202,7 +202,7 @@ fn run_iterative_simulation_strategy(
 
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
+    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
     let added_flow_cut_lines =
         summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -267,7 +267,7 @@ fn run_single_milp_simulation(
 
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution, &col_offsets);
+        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
         let added_flow_cut_lines =
             summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
@@ -511,7 +511,7 @@ fn solve_stage(
         Err(error) => return Err(error.into()),
     };
     let solve_time = started_at.elapsed();
-    let violations = detect_flow_violations(system, dc_network, &summary, &col_offsets);
+    let violations = detect_flow_violations(system, dc_network, &summary.primal, &col_offsets);
 
     println!(
         "{} #{:02} concluido | objective = {:.4} | flow violations = {} | solve time = {:.3} s",
@@ -851,7 +851,7 @@ fn compute_cmb_cmo_data(
     }
 
     // Extract flow duals
-    let flow_duals = extract_flow_duals(cmo_solution, &mapping, base_constraint_count);
+    let flow_duals = extract_flow_duals(&cmo_solution.dual, &mapping, base_constraint_count);
 
     // Compute CMB per bus
     let cmb_records = compute_cmb_per_bus(system, dc_network, &demand_duals, &flow_duals, &periods);

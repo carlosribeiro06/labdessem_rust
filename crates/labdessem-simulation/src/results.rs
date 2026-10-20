@@ -4,30 +4,17 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use labdessem_core::{
-    ids::{BranchId, BusId, SubmarketId},
+    ids::SubmarketId,
     system::OperationalLimitVariable,
 };
 use labdessem_solver::LpSolution;
 
-use crate::network::CmbRecord;
 use crate::IterationStage;
 
-/// Maps flow cut keys to their constraint row indices in the LP model.
-#[derive(Debug, Clone, Default)]
-pub struct FlowCutMapping {
-    /// Maps (branch_idx, period) -> (upper_row_idx, lower_row_idx)
-    pub indices: HashMap<(usize, usize), (usize, usize)>,
-}
-
-/// Represents a flow constraint violation on a branch.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FlowViolation {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub period: usize,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
-}
+// Re-export network types for backward compatibility
+pub use labdessem_network::{
+    AddedFlowCutLineResult, CmbRecord, FlowCutMapping, FlowViolation, LineFlowResult,
+};
 
 /// Report for a single iteration step in the simulation.
 #[derive(Debug, Clone)]
@@ -59,29 +46,6 @@ pub struct IterativeSimulationResult {
     pub cmo_values: HashMap<(SubmarketId, usize), f64>,
     /// Flow cut mapping from LP-CALC-CMO stage — None when network disabled
     pub flow_cut_mapping: Option<FlowCutMapping>,
-}
-
-/// Line flow result for network output.
-#[derive(Debug, Clone, PartialEq)]
-pub struct LineFlowResult {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub from_bus_name: String,
-    pub to_bus_name: String,
-    pub period: usize,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
-}
-
-/// Record of a flow cut line added during iterations.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AddedFlowCutLineResult {
-    pub branch_id: BranchId,
-    pub branch_name: String,
-    pub from_bus_id: BusId,
-    pub to_bus_id: BusId,
-    pub flow_mw: f64,
-    pub limit_mw: f64,
 }
 
 /// Record of a network infeasibility.

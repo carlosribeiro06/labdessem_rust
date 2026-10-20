@@ -1,5 +1,7 @@
 use labdessem_core::{ids::SubmarketId, system::System};
 
+pub use labdessem_core::ColumnOffsets;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThermalUnitIndex {
     pub plant_idx: usize,
@@ -176,23 +178,7 @@ impl Indexing {
 
     /// Compute column offsets for variable types.
     ///
-    /// Variable ordering follows the layout in `Variables::for_system`:
-    /// 1. thermal_generation
-    /// 2. hydro_generation  
-    /// 3. hydro_turbining
-    /// 4. hydro_spillage
-    /// 5. hydro_diversion
-    /// 6. pumping
-    /// 7. hydro_volume
-    /// 8. future_cost
-    /// 9. renewable_generation
-    /// 10. interchange
-    /// 11. thermal_commitment
-    /// 12. thermal_startup
-    /// 13. thermal_shutdown
-    /// 14. hydro_commitment
-    /// 15. network_flow_slack
-    /// 16. operational_limit_slack
+    /// Variable ordering follows the layout in `Variables::for_system`.
     pub fn compute_column_offsets(&self, horizon: usize) -> ColumnOffsets {
         let mut offset = 0;
 
@@ -275,20 +261,7 @@ impl Indexing {
 
     /// Compute row offsets for constraint types.
     ///
-    /// Constraint ordering follows the layout in `ConstraintSet::for_system`:
-    /// 1. demand_balance (submarkets × horizon)
-    /// 2. hydro_balance (hydro_plants × horizon)
-    /// 3. interchange_limit (interchange_entries with limits)
-    /// 4. hydro_turbining_upper (hydro_units × horizon)
-    /// 5. hydro_turbining_lower (hydro_units × horizon)
-    /// 6. hydro_spillage_nonnegativity (hydro_plants × horizon)
-    /// 7. hydro_fpha OR hydro_productivity (mutually exclusive)
-    /// 8. hydro_generation_turbining_coupling (only if FPHA)
-    /// 9. future_cost_cut (if FCF enabled)
-    /// 10. operational_limit_lower and operational_limit_upper
-    /// 11. thermal_min_up_down (if UCT and commitment mode)
-    /// 12. thermal_ramps (if UCT and commitment mode)
-    /// 13. hydro_commitment_channeling (if UCH and commitment mode)
+    /// Constraint ordering follows the layout in `ConstraintSet::for_system`.
     pub fn compute_constraint_offsets(&self, params: &ConstraintOffsetParams) -> ConstraintOffsets {
         let horizon = params.horizon;
         let mut offset = 0;
@@ -393,28 +366,6 @@ impl Indexing {
     }
 }
 
-/// Column offsets for each variable type in the LP matrix.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ColumnOffsets {
-    pub thermal_generation: usize,
-    pub hydro_generation: usize,
-    pub hydro_turbining: usize,
-    pub hydro_spillage: usize,
-    pub hydro_diversion: usize,
-    pub pumping: usize,
-    pub hydro_volume: usize,
-    pub future_cost: usize,
-    pub renewable_generation: usize,
-    pub interchange: usize,
-    pub thermal_commitment: usize,
-    pub thermal_startup: usize,
-    pub thermal_shutdown: usize,
-    pub hydro_commitment: usize,
-    pub network_flow_slack: usize,
-    pub operational_limit_slack: usize,
-    pub total: usize,
-}
-
 fn submarket_position(submarket_ids: &[SubmarketId], submarket_id: SubmarketId) -> usize {
     // Rationale: expect() is safe because System validation guarantees valid submarket IDs
     #[allow(clippy::expect_used)]
@@ -426,19 +377,7 @@ fn submarket_position(submarket_ids: &[SubmarketId], submarket_id: SubmarketId) 
 
 /// Row offsets for each constraint type in the LP matrix.
 ///
-/// Constraint ordering follows `ConstraintSet::for_system`:
-/// 1. demand_balance
-/// 2. hydro_balance
-/// 3. interchange_limit
-/// 4. hydro_turbining_limit (min and max)
-/// 5. hydro_spillage_nonnegativity
-/// 6. hydro_fpha OR hydro_productivity (mutually exclusive)
-/// 7. hydro_generation_turbining_coupling (only if FPHA enabled)
-/// 8. future_cost_cut (only if FCF enabled)
-/// 9. operational_limit (lower and upper)
-/// 10. thermal_min_up_down (only in MILP/LP-FIXED modes with UCT)
-/// 11. thermal_ramps (only in MILP/LP-FIXED modes with UCT)
-/// 12. hydro_commitment_channeling (only in MILP/LP-FIXED modes with UCH)
+/// Constraint ordering follows `ConstraintSet::for_system`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstraintOffsets {
     pub demand_balance: usize,
