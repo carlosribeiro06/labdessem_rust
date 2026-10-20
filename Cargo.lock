@@ -209,6 +209,7 @@ version = "0.8.0"
 dependencies = [
  "labdessem-core",
  "labdessem-io",
+ "labdessem-uc",
 ]
 
 [[package]]

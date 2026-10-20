@@ -34,6 +34,27 @@ pub(crate) fn term(variable: &Variable, coefficient: f64) -> LinearTerm {
     }
 }
 
+pub(crate) fn uc_constraint_to_linear(uc: labdessem_uc::UcConstraint) -> LinearConstraint {
+    let sense = match uc.sense {
+        labdessem_uc::ConstraintSense::LessOrEqual => ConstraintSense::LessOrEqual,
+        labdessem_uc::ConstraintSense::GreaterOrEqual => ConstraintSense::GreaterOrEqual,
+        labdessem_uc::ConstraintSense::Equal => ConstraintSense::Equal,
+    };
+    LinearConstraint {
+        name: uc.name,
+        terms: uc
+            .terms
+            .into_iter()
+            .map(|t| LinearTerm {
+                variable: t.variable,
+                coefficient: t.coefficient,
+            })
+            .collect(),
+        sense,
+        rhs: uc.rhs,
+    }
+}
+
 pub(crate) fn display_period(period: usize) -> usize {
     period + 1
 }

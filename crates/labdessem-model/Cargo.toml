@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
+labdessem-uc = { path = "../labdessem-uc" }
 
 [dev-dependencies]
 labdessem-io = { path = "../labdessem-io" }
