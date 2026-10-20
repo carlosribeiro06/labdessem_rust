@@ -347,7 +347,7 @@ fn builds_model_skeleton() {
         model
             .constraints
             .names()
-            .contains(&"linearized_network_flow")
+            .contains(&"__network_flow_cuts_marker__")
     );
     assert!(model.constraints.names().contains(&"unit_commitment"));
 }

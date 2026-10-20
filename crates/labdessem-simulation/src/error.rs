@@ -15,8 +15,6 @@ pub enum SimulationError {
     Io(IoError),
     /// Error from network model construction or computation.
     Network(NetworkError),
-    /// Invalid network configuration (legacy, kept for compatibility).
-    InvalidNetwork(String),
     /// Error in iterative process.
     IterativeProcess(String),
 }
@@ -27,9 +25,7 @@ impl fmt::Display for SimulationError {
             Self::Solver(error) => write!(f, "{error}"),
             Self::Io(error) => write!(f, "{error}"),
             Self::Network(error) => write!(f, "{error}"),
-            Self::InvalidNetwork(message) | Self::IterativeProcess(message) => {
-                write!(f, "{message}")
-            }
+            Self::IterativeProcess(message) => write!(f, "{message}"),
         }
     }
 }
@@ -40,7 +36,7 @@ impl Error for SimulationError {
             Self::Solver(error) => Some(error),
             Self::Io(error) => Some(error),
             Self::Network(error) => Some(error),
-            Self::InvalidNetwork(_) | Self::IterativeProcess(_) => None,
+            Self::IterativeProcess(_) => None,
         }
     }
 }

@@ -73,8 +73,9 @@ impl ConstraintSet {
             }
         }
 
+        // Marker for network flow cut insertion point
         linear_constraints.push(LinearConstraint {
-            name: "linearized_network_flow".into(),
+            name: "__network_flow_cuts_marker__".into(),
             terms: Vec::new(),
             sense: ConstraintSense::Equal,
             rhs: 0.0,

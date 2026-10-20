@@ -19,4 +19,7 @@ pub enum NetworkError {
 
     #[error("linear system dimensions are inconsistent")]
     InconsistentDimensions,
+
+    #[error("invalid network configuration: {0}")]
+    InvalidConfiguration(String),
 }
