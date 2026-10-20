@@ -240,6 +240,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "labdessem-uc"
+version = "0.8.0"
+dependencies = [
+ "labdessem-core",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.184"
 source = "registry+https://github.com/rust-lang/crates.io-index"

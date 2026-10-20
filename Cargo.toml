@@ -6,7 +6,8 @@ members = [
     "crates/labdessem-model",
     "crates/labdessem-network",
     "crates/labdessem-simulation",
-    "crates/labdessem-solver"
+    "crates/labdessem-solver",
+    "crates/labdessem-uc",
 ]
 resolver = "2"
 
