@@ -1,4 +1,26 @@
-//! CSV output writers for simulation results.
+//! Result CSV writers.
+//!
+//! ## Entry Point
+//!
+//! Use [`write_all_results`] to write all simulation outputs at once.
+//!
+//! ## Individual Writers
+//!
+//! | Writer | Output File |
+//! |--------|-------------|
+//! | [`write_hydro_csv`] | resultado_hidreletricas.csv |
+//! | [`write_thermal_csv`] | resultado_termicas.csv |
+//! | [`write_pumping_csv`] | resultado_elevatorias.csv |
+//! | [`write_renewable_csv`] | resultado_renovaveis.csv |
+//! | [`write_cmosist_csv`] | resultado_cmosist.csv |
+//! | [`write_process_iterations_csv`] | resultado_processo_iter.csv |
+//! | [`write_operational_limits_csv`] | resultado_rest_lim.csv |
+//! | [`write_operational_limit_infeasibility_csv`] | resultado_inviabilidade_lim.csv |
+//! | [`write_future_cost_eco_csv`] | resultado_fcf_eco.csv |
+//! | [`write_network_csv`] | resultado_rede.csv |
+//! | [`write_added_flow_cut_lines_csv`] | resultado_linhas_adicionadas.csv |
+//! | [`write_network_infeasibility_csv`] | resultado_inviabilidade_rede.csv |
+//! | [`write_cmb_csv`] | resultado_cmobar.csv |
 
 pub mod common;
 pub mod helpers;

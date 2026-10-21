@@ -70,13 +70,13 @@ labdessem_rust/
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
 - `labdessem-io`
-  Case reader. Loads `study_config.json` and the CSV files under `CAD/` and `OPER/`.
+  File I/O. Reads study input (`study_config.json`, `CAD/`, `OPER/`) and writes all result CSVs.
 
 - `labdessem-model`
   Indexing, variables, objective function, and algebraic constraints.
 
 - `labdessem-simulation`
-  End-to-end orchestration: solve workflow, network-cut iterations, dual extraction, and CSV export.
+  End-to-end orchestration: solve workflow, network-cut iterations, and dual extraction.
 
 - `labdessem-solver`
   Optimization backend integration through `good_lp`.
