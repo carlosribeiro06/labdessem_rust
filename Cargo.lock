@@ -222,6 +222,16 @@ name = "labdessem-core"
 version = "0.8.0"
 
 [[package]]
+name = "labdessem-fpha"
+version = "0.8.0"
+dependencies = [
+ "cc",
+ "labdessem-core",
+ "log",
+ "thiserror",
+]
+
+[[package]]
 name = "labdessem-io"
 version = "0.8.0"
 dependencies = [
