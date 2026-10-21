@@ -3,11 +3,14 @@
 //! This crate provides the convex hull fitting algorithm to compute
 //! FPHA hyperplanes from reservoir geometry (VHA tables).
 
+pub mod config;
 pub mod error;
 pub mod fitting;
 pub mod hull;
+pub mod io;
 pub mod types;
 
+pub use config::{FphaMode, FphaPlantConfig};
 pub use error::FphaFittingError;
 pub use fitting::{
     build_cloud, build_grid, collect_fit_deviation_points, compute_alpha_fpha, compute_fit_deviation,
@@ -17,4 +20,8 @@ pub use fitting::{
     PlaneReductionConfig, ProductionFunction, RawPlane, TailraceSource, VhaRow,
 };
 pub use hull::{convex_hull_3d, HullError, Hyperplane3d};
+pub use io::{
+    read_fpha_config, read_geometry_table, read_tailrace_table, write_fpha_results,
+    FphaConfigRow, FphaPlantResult, GeometryRow, TailraceRow,
+};
 pub use types::TailraceModel;

@@ -31,4 +31,7 @@ pub enum FphaFittingError {
         plane_index: usize,
         detail: String,
     },
+
+    #[error("I/O error reading {path}: {detail}")]
+    IoError { path: String, detail: String },
 }
