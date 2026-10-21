@@ -1,9 +1,12 @@
 //! Study loading orchestration.
 
-use std::{fs, path::Path};
+use std::{fmt, fs, path::Path};
 
 use labdessem_core::system::System;
-use serde::Deserialize;
+use schemars::r#gen::SchemaGenerator;
+use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
+use schemars::JsonSchema;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::IoError;
 use crate::readers::{
@@ -12,10 +15,112 @@ use crate::readers::{
     read_renewable_plants, read_residual_costs, read_submarkets, read_thermal_plants,
 };
 
-use schemars::JsonSchema;
+/// FPHA mode selection for hydro generation formulation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FphaOption {
+    /// FPHA disabled: generation = productivity × turbining.
+    Disabled,
+    /// FPHA precomputed: read hyperplanes from OPER_FPHA.csv.
+    Precomputed,
+    /// FPHA computed: compute hyperplanes from VHA geometry at runtime.
+    Computed,
+}
+
+impl FphaOption {
+    /// Returns true if FPHA is enabled (precomputed or computed).
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        !matches!(self, FphaOption::Disabled)
+    }
+
+    /// Returns true if FPHA mode is computed.
+    #[must_use]
+    pub fn is_computed(&self) -> bool {
+        matches!(self, FphaOption::Computed)
+    }
+
+    /// Returns true if FPHA mode is precomputed.
+    #[must_use]
+    pub fn is_precomputed(&self) -> bool {
+        matches!(self, FphaOption::Precomputed)
+    }
+}
+
+impl fmt::Display for FphaOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FphaOption::Disabled => write!(f, "disabled"),
+            FphaOption::Precomputed => write!(f, "precomputed"),
+            FphaOption::Computed => write!(f, "computed"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FphaOption {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum FphaOptionRaw {
+            Numeric(u8),
+            String(String),
+        }
+
+        let raw = FphaOptionRaw::deserialize(deserializer)?;
+        match raw {
+            FphaOptionRaw::Numeric(0) => Ok(FphaOption::Disabled),
+            FphaOptionRaw::Numeric(1) => Ok(FphaOption::Precomputed),
+            FphaOptionRaw::String(s) if s == "computed" => Ok(FphaOption::Computed),
+            FphaOptionRaw::Numeric(n) => Err(serde::de::Error::custom(format!(
+                "invalid FPHA value {n}, expected 0, 1, or \"computed\""
+            ))),
+            FphaOptionRaw::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid FPHA value \"{s}\", expected 0, 1, or \"computed\""
+            ))),
+        }
+    }
+}
+
+impl Serialize for FphaOption {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            FphaOption::Disabled => serializer.serialize_u8(0),
+            FphaOption::Precomputed => serializer.serialize_u8(1),
+            FphaOption::Computed => serializer.serialize_str("computed"),
+        }
+    }
+}
+
+impl JsonSchema for FphaOption {
+    fn schema_name() -> String {
+        "FphaOption".to_owned()
+    }
+
+    fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
+        let schema = SchemaObject {
+            instance_type: Some(SingleOrVec::Vec(vec![
+                InstanceType::Integer,
+                InstanceType::String,
+            ])),
+            metadata: Some(Box::new(schemars::schema::Metadata {
+                description: Some(
+                    "FPHA mode: 0 (disabled), 1 (precomputed), or \"computed\"".to_owned(),
+                ),
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+        Schema::Object(schema)
+    }
+}
 
 /// Study configuration read from study_config.json.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 pub struct StudyConfig {
     /// Execution mode: 1 for iterative (LP→MILP→LP-FIXED→LP-CMO), 2 for single MILP.
     pub opcao_execucao: u8,
@@ -27,9 +132,9 @@ pub struct StudyConfig {
     /// Enable hydro unit commitment (0 = disabled, 1 = enabled).
     #[serde(rename = "UCH")]
     pub uch: u8,
-    /// Enable FPHA hydro generation formulation (0 = disabled, 1 = enabled).
+    /// FPHA mode: 0 (disabled), 1 (precomputed), or "computed".
     #[serde(rename = "FPHA")]
-    pub fpha: u8,
+    pub fpha: FphaOption,
     /// Enable future cost function (0 = disabled, 1 = enabled).
     #[serde(rename = "FCF", default)]
     pub fcf: u8,
@@ -71,7 +176,7 @@ pub fn read_study_from_path(case_path: impl AsRef<Path>) -> Result<System, IoErr
         config.rede != 0,
         config.uct != 0,
         config.uch != 0,
-        config.fpha != 0,
+        config.fpha.is_enabled(),
         config.fcf != 0,
     )
 }
@@ -272,5 +377,133 @@ mod tests {
             serde_json::from_str(&schema).expect("schema should be valid JSON");
         assert!(parsed.get("$schema").is_some());
         assert!(parsed.get("properties").is_some());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod fpha_option_tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_disabled() {
+        let json = r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let config: StudyConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.fpha, FphaOption::Disabled);
+        assert!(!config.fpha.is_enabled());
+        assert!(!config.fpha.is_computed());
+        assert!(!config.fpha.is_precomputed());
+    }
+
+    #[test]
+    fn deserialize_precomputed() {
+        let json = r#"{"FPHA": 1, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let config: StudyConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.fpha, FphaOption::Precomputed);
+        assert!(config.fpha.is_enabled());
+        assert!(config.fpha.is_precomputed());
+        assert!(!config.fpha.is_computed());
+    }
+
+    #[test]
+    fn deserialize_computed() {
+        let json = r#"{"FPHA": "computed", "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let config: StudyConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.fpha, FphaOption::Computed);
+        assert!(config.fpha.is_enabled());
+        assert!(config.fpha.is_computed());
+        assert!(!config.fpha.is_precomputed());
+    }
+
+    #[test]
+    fn deserialize_invalid_number() {
+        let json = r#"{"FPHA": 2, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let result: Result<StudyConfig, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("invalid FPHA"));
+    }
+
+    #[test]
+    fn deserialize_invalid_string() {
+        let json = r#"{"FPHA": "invalid", "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let result: Result<StudyConfig, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("invalid FPHA"));
+    }
+
+    #[test]
+    fn serialize_disabled() {
+        let config = StudyConfig {
+            opcao_execucao: 1,
+            rede: 0,
+            uct: 0,
+            uch: 0,
+            fpha: FphaOption::Disabled,
+            fcf: 0,
+            ton_residual: 0,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains(r#""FPHA":0"#));
+    }
+
+    #[test]
+    fn serialize_precomputed() {
+        let config = StudyConfig {
+            opcao_execucao: 1,
+            rede: 0,
+            uct: 0,
+            uch: 0,
+            fpha: FphaOption::Precomputed,
+            fcf: 0,
+            ton_residual: 0,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains(r#""FPHA":1"#));
+    }
+
+    #[test]
+    fn serialize_computed() {
+        let config = StudyConfig {
+            opcao_execucao: 1,
+            rede: 0,
+            uct: 0,
+            uch: 0,
+            fpha: FphaOption::Computed,
+            fcf: 0,
+            ton_residual: 0,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains(r#""FPHA":"computed""#));
+    }
+
+    #[test]
+    fn display_trait() {
+        assert_eq!(FphaOption::Disabled.to_string(), "disabled");
+        assert_eq!(FphaOption::Precomputed.to_string(), "precomputed");
+        assert_eq!(FphaOption::Computed.to_string(), "computed");
+    }
+
+    #[test]
+    fn roundtrip_all_variants() {
+        for (original, _) in [
+            (FphaOption::Disabled, "0"),
+            (FphaOption::Precomputed, "1"),
+            (FphaOption::Computed, "computed"),
+        ] {
+            let config = StudyConfig {
+                opcao_execucao: 1,
+                rede: 0,
+                uct: 0,
+                uch: 0,
+                fpha: original,
+                fcf: 0,
+                ton_residual: 0,
+            };
+            let json = serde_json::to_string(&config).unwrap();
+            let parsed: StudyConfig = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed.fpha, original);
+        }
     }
 }
