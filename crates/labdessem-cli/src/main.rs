@@ -5,6 +5,7 @@ use labdessem_simulation::{ExecutionOption, run_simulation};
 
 mod banner;
 mod conversions;
+mod fpha_integration;
 mod output_prep;
 
 fn main() -> ExitCode {
@@ -105,7 +106,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         network_enabled: config.rede != 0,
         uct_enabled: config.uct != 0,
         uch_enabled: config.uch != 0,
-        fpha_enabled: config.fpha != 0,
+        fpha_mode: config.fpha,
         fcf_enabled: config.fcf != 0,
         ton_residual_enabled: config.ton_residual != 0,
     });
