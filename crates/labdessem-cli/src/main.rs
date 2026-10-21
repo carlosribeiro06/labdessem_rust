@@ -1,10 +1,11 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
-use labdessem_io::{read_study_config, read_study_from_path};
+use labdessem_io::{output::write_hydro_csv, read_study_config, read_study_from_path};
 use labdessem_simulation::{ExecutionOption, run_simulation};
 
 mod banner;
 mod conversions;
+mod output_prep;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -127,8 +128,17 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     let _output_data = conversions::convert_to_output_data(&result);
 
     let output_dir = case_path.join("RESULTADOS");
+    std::fs::create_dir_all(&output_dir)?;
 
     eprintln!("Writing output files...");
+
+    // Build maps from solution
+    let variable_values = output_prep::build_variable_values(&system, &result.cmo_solution);
+    let constraint_duals = output_prep::build_constraint_duals(&system, &result.cmo_solution);
+
+    // Write hydro CSV
+    write_hydro_csv(&system, &variable_values, &constraint_duals, &output_dir)?;
+
     // TODO: labdessem_io::output::write_all_results(&system, &_output_data, &output_dir, network_enabled)?;
     let display_output_dir = output_dir.clone();
 
