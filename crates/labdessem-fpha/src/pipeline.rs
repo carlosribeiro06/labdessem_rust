@@ -4,8 +4,8 @@ use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
 use crate::fitting::{
     compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
-    reduce_planes, scale_planes, validate_fitted_planes, ForebayTable, PlaneReductionConfig,
-    ProductionFunction, TailraceSource,
+    reduce_planes, scale_planes, validate_fitted_planes, ForebayTable, ProductionFunction,
+    TailraceSource,
 };
 use crate::io::FphaPlantResult;
 use crate::types::TailraceModel;
