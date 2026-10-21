@@ -1,6 +1,6 @@
 //! Flow computation for DC power flow analysis.
 
-use labdessem_core::{ids::BusId, ColumnOffsets, system::System};
+use labdessem_core::{ColumnOffsets, ids::BusId, system::System};
 
 use crate::linalg::dot;
 use crate::topology::model::DcNetworkModel;

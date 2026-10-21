@@ -68,8 +68,7 @@ pub fn build_flow_cut_terms(
     for entry in &input.pumping_entries {
         if let Some(bus_pos) = dc_network.position_of_bus(entry.bus_id) {
             if bus_pos < ptdf_row.len() {
-                let coefficient = -ptdf_row[bus_pos]
-                    * entry.specific_consumption_mw_per_m3s
+                let coefficient = -ptdf_row[bus_pos] * entry.specific_consumption_mw_per_m3s
                     / input.flow_conversion;
                 if coefficient.abs() > 1e-12 {
                     terms.push(NetworkTerm::new(&entry.variable_name, coefficient));

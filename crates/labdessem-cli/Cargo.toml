@@ -11,9 +11,12 @@ name = "labdessem"
 path = "src/main.rs"
 
 [dependencies]
+labdessem-core = { path = "../labdessem-core" }
 labdessem-io = { path = "../labdessem-io" }
 labdessem-model = { path = "../labdessem-model" }
+labdessem-network = { path = "../labdessem-network" }
 labdessem-simulation = { path = "../labdessem-simulation" }
+labdessem-solver = { path = "../labdessem-solver" }
 
 [lints]
 workspace = true

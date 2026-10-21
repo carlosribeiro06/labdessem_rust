@@ -8,8 +8,10 @@ repository.workspace = true
 
 [dependencies]
 labdessem-model = { path = "../labdessem-model" }
-labdessem-io = { path = "../labdessem-io" }
 good_lp = { version = "1.15", default-features = false, features = ["highs"] }
+
+[dev-dependencies]
+labdessem-io = { path = "../labdessem-io" }
 
 [lints]
 workspace = true

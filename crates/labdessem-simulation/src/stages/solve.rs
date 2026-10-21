@@ -13,8 +13,7 @@ use labdessem_solver::{
 
 use crate::error::SimulationError;
 use crate::results::{
-    FlowViolation, IterationReport, NetworkInfeasibilityRecord,
-    OperationalLimitInfeasibilityRecord,
+    FlowViolation, IterationReport, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
 use crate::workflow::IterationStage;
 
@@ -154,9 +153,20 @@ pub(crate) fn solve_stage(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
+                apply_commitment_fixes(
+                    &mut relaxed_model,
+                    commitment_source,
+                    &col_offsets,
+                    horizon,
+                );
             }
-            add_flow_cuts(&mut relaxed_model, system, accumulated_cuts, dc_network, true);
+            add_flow_cuts(
+                &mut relaxed_model,
+                system,
+                accumulated_cuts,
+                dc_network,
+                true,
+            );
             add_operational_limit_slacks(&mut relaxed_model);
 
             let relaxed_summary = solve_model_direct(solver, &relaxed_model)?;
@@ -198,7 +208,11 @@ pub(crate) fn solve_stage(
         variable_count,
         constraint_count,
         objective_value: summary.objective,
-        solution_status: if used_slacks { "OPTIMAL_WITH_SLACK".into() } else { "OPTIMAL".into() },
+        solution_status: if used_slacks {
+            "OPTIMAL_WITH_SLACK".into()
+        } else {
+            "OPTIMAL".into()
+        },
         solve_time,
         violation_count: violations.len(),
     });
@@ -244,7 +258,12 @@ pub(crate) fn solve_stage_without_network(
 
             let mut relaxed_model = Model::from_system(system, solve_mode);
             if let Some(commitment_source) = commitment_source {
-                apply_commitment_fixes(&mut relaxed_model, commitment_source, &col_offsets, horizon);
+                apply_commitment_fixes(
+                    &mut relaxed_model,
+                    commitment_source,
+                    &col_offsets,
+                    horizon,
+                );
             }
             add_operational_limit_slacks(&mut relaxed_model);
 

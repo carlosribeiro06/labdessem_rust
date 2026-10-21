@@ -1,5 +1,18 @@
+//! # labdessem-simulation
+//!
+//! Simulation orchestration for LABDESSEM.
+//!
+//! This crate provides:
+//! - Iterative solve workflow (LP → MILP → LP-FIXED → LP-CALC-CMO)
+//! - Network constraint iteration
+//! - Dual extraction for marginal costs
+//!
+//! ## Note
+//!
+//! This crate does NOT perform file I/O. All input reading and output writing
+//! is handled by the `labdessem-io` crate.
+
 mod error;
-mod output;
 mod results;
 mod stages;
 mod workflow;
@@ -28,15 +41,6 @@ pub fn run_simulation(
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     stages::run_simulation(system, network_enabled, execution_option)
-}
-
-pub fn write_results_csvs(
-    system: &labdessem_core::system::System,
-    result: &IterativeSimulationResult,
-    output_dir: impl AsRef<std::path::Path>,
-    network_enabled: bool,
-) -> Result<(), SimulationError> {
-    output::write_results_csvs(system, result, output_dir, network_enabled)
 }
 
 #[cfg(test)]
