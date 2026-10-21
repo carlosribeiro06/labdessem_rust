@@ -122,8 +122,16 @@ Current keys:
 
 - `FPHA`
   Selects hydro generation formulation:
-  - `1`: read `OPER_FPHA.csv` and enforce FPHA cuts
-  - `0`: ignore FPHA cuts and use plant productivity times turbining
+  - `0`: FPHA disabled — use plant productivity times turbining
+  - `1`: precomputed — read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
+  - `"computed"`: compute FPHA hyperplanes from VHA geometry at runtime
+
+  When `"computed"` mode is active, the solver reads:
+  - `CAD/CAD_GEOMETRIA_UHE.csv` — VHA geometry table (volume × turbining × generation)
+  - `CAD/CAD_TAILRACE.csv` — tailrace level table (optional, for future expansion)
+  - `CAD/CAD_FPHA_CONFIG.csv` — fitting parameters per plant (optional)
+
+  The computed hyperplanes are injected into the hydro plant model and written to `RESULTADOS/resultado_fpha_computed.csv`.
 
 - `FCF`
   Enables or disables future cost function:
