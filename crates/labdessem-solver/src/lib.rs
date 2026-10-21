@@ -2,18 +2,6 @@
 //!
 //! Provides a unified interface for LP/MILP solving through the [`SolverInterface`] trait,
 //! with [`HighsSolver`] as the primary backend.
-//!
-//! # Quick Start
-//!
-//! ```ignore
-//! use labdessem_solver::{HighsSolver, SolverInterface, model_to_lp_template};
-//!
-//! let mut solver = HighsSolver::new()?;
-//! let template = model_to_lp_template(&model);
-//! solver.load_model(&template);
-//! let solution = solver.solve(None)?;
-//! println!("Objective: {}", solution.objective);
-//! ```
 
 pub mod accessor;
 pub mod backends;

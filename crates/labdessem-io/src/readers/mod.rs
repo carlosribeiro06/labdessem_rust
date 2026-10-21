@@ -1,23 +1,4 @@
 //! CSV and binary readers for each entity type.
-//!
-//! This module provides entity-specific readers extracted from `study.rs`.
-//!
-//! # Structure
-//!
-//! ```text
-//! readers/
-//! ├── mod.rs          # This file
-//! ├── common.rs       # Shared utilities (csv parsing, period conversion)
-//! ├── future_cost.rs  # read_future_cost_cuts() - FlatBuffers binary reader
-//! ├── horizon.rs      # read_horizon() - Study horizon from OPER_DURACAO.csv
-//! ├── hydro.rs        # read_hydro_plants()
-//! ├── limits.rs       # read_operational_limits(), read_residual_costs(), read_interchange_limits()
-//! ├── network.rs      # read_buses(), read_branches(), build_dummy_buses()
-//! ├── pumping.rs      # read_pumping_plants()
-//! ├── renewable.rs    # read_renewable_plants()
-//! ├── submarket.rs    # read_submarkets()
-//! └── thermal.rs      # read_thermal_plants()
-//! ```
 
 pub mod common;
 pub mod future_cost;

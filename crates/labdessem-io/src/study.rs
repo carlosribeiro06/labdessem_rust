@@ -1,7 +1,4 @@
 //! Study loading orchestration.
-//!
-//! This module provides the entry point for loading a complete study case
-//! from the filesystem.
 
 use std::{fs, path::Path};
 

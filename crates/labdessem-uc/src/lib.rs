@@ -1,7 +1,4 @@
-//! Unit Commitment formulation for LABDESSEM.
-//!
-//! This crate provides solver-agnostic construction of variables and constraints
-//! for thermal and hydro unit commitment problems.
+//! Solver-agnostic unit commitment formulation for thermal and hydro plants.
 
 pub mod hydro;
 pub mod thermal;

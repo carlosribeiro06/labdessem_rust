@@ -1,7 +1,6 @@
 //! Test support utilities for labdessem-core.
 //!
 //! Provides builders for creating minimal entities and systems in tests.
-//! This module is only compiled when running tests.
 
 use crate::entities::{
     Bus, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,

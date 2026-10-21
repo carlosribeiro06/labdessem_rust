@@ -2,13 +2,6 @@
 //!
 //! The [`System`] struct is the immutable container for all power system data
 //! used in optimization. It is constructed via [`SystemBuilder`].
-//!
-//! # Module Structure
-//!
-//! - [`horizon`] - Study horizon and temporal discretization
-//! - [`operational_limit`] - Operational limit constraints
-//! - [`builder`] - System construction API
-//! - [`validate`] - System validation logic
 
 mod builder;
 mod helpers;

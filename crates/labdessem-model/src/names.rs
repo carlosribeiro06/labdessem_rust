@@ -1,7 +1,4 @@
 //! Variable naming functions for model construction and result extraction.
-//!
-//! These functions generate consistent variable names used both when building
-//! the optimization model and when reading results from the solver.
 
 /// Format period number for display (1-indexed).
 #[inline]

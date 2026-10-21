@@ -1,7 +1,4 @@
 //! CSV output writers for simulation results.
-//!
-//! This module provides functions to write result CSV files under the
-//! RESULTADOS directory of each study case.
 
 pub mod common;
 pub mod helpers;

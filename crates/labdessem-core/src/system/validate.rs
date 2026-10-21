@@ -1,21 +1,9 @@
 //! System validation logic.
-//!
-//! This module provides the entry point for system validation.
-//! The actual validation logic is currently in `System::validate()`,
-//! but this module serves as the public API for validation.
 
 use super::System;
 use crate::error::CoreError;
 
 /// Validate all invariants of a constructed system.
-///
-/// This function validates:
-/// - Study horizon consistency
-/// - Unique IDs for all entity types
-/// - Valid cross-references (bus_id, submarket_id, etc.)
-/// - Hydro cascade consistency (upstream/downstream links)
-/// - Array dimensions match horizon.periods
-/// - Operational limit validity
 ///
 /// # Errors
 ///

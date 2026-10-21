@@ -2,10 +2,7 @@
 
 use std::{error::Error, fmt};
 
-/// Generic error type for core operations.
-///
-/// This is the current error type used throughout the codebase.
-/// For new code, prefer using [`ValidationError`] for more structured errors.
+/// Generic error wrapper; prefer [`ValidationError`] for structured validation errors.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreError {
     Validation(String),
@@ -28,9 +25,6 @@ impl fmt::Display for CoreError {
 impl Error for CoreError {}
 
 /// Typed validation error with structured context.
-///
-/// This error type provides more detailed information about validation
-/// failures, enabling pattern matching and better error messages.
 #[derive(Debug, Clone)]
 pub enum ValidationError {
     /// A required field is missing.
