@@ -2,7 +2,6 @@
 
 use std::{error::Error, fmt};
 
-
 use labdessem_network::NetworkError;
 use labdessem_solver::SolverError;
 
@@ -45,8 +44,6 @@ impl From<SolverError> for SimulationError {
         Self::Solver(value)
     }
 }
-
-
 
 impl From<NetworkError> for SimulationError {
     fn from(value: NetworkError) -> Self {

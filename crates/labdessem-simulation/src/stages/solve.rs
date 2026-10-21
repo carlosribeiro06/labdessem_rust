@@ -6,9 +6,9 @@ use std::time::Instant;
 
 use labdessem_core::system::System;
 use labdessem_model::{Model, SolveMode};
-use labdessem_network::{detect_flow_violations, DcNetworkModel, FlowCutKey};
+use labdessem_network::{DcNetworkModel, FlowCutKey, detect_flow_violations};
 use labdessem_solver::{
-    model_to_lp_template, HighsSolver, LpSolution, SolverError, SolverInterface,
+    HighsSolver, LpSolution, SolverError, SolverInterface, model_to_lp_template,
 };
 
 use crate::error::SimulationError;

@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use labdessem_core::system::System;
 use labdessem_model::SolveMode;
-use labdessem_network::{all_flow_constraints, compute_line_flows, DcNetworkModel, FlowCutKey};
+use labdessem_network::{DcNetworkModel, FlowCutKey, all_flow_constraints, compute_line_flows};
 use labdessem_solver::HighsSolver;
 
 use crate::error::SimulationError;
