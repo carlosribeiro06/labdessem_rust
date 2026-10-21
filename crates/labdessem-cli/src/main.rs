@@ -112,7 +112,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     });
 
     eprintln!("Reading input data...");
-    let system = read_study_from_path(case_path)?;
+    let mut system = read_study_from_path(case_path)?;
 
     eprintln!(
         "Loaded: {} submarkets, {} thermal plants, {} hydro plants",
@@ -120,6 +120,21 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         system.thermal_plants.len(),
         system.hydro_plants.len(),
     );
+
+    if config.fpha.is_computed() {
+        eprintln!("Computing FPHA hyperplanes from VHA geometry...");
+        let fpha_result = fpha_integration::compute_fpha(case_path, &system.hydro_plants)?;
+        fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
+        fpha_integration::write_computed_results(
+            case_path,
+            &fpha_result.plant_results,
+            &system.hydro_plants,
+        )?;
+        eprintln!(
+            "  Processed {} plants, {} skipped",
+            fpha_result.plants_processed, fpha_result.plants_skipped
+        );
+    }
 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;

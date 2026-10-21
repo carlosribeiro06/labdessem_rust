@@ -37,19 +37,29 @@ pub struct TailraceData {
 
 #[derive(Debug, Deserialize)]
 struct VhaRow {
-    codigo_usina: u32,
+    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    codigo: u32,
+    #[serde(alias = "Volume_hm3", alias = "VOLUME_HM3")]
     volume_hm3: f64,
+    #[serde(alias = "Cota_m", alias = "COTA_M")]
     cota_m: f64,
+    #[serde(alias = "Area_km2", alias = "AREA_KM2")]
     area_km2: f64,
 }
 
 #[derive(Debug, Deserialize)]
 struct TailraceRow {
-    codigo_usina: u32,
+    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    codigo: u32,
+    #[serde(alias = "A0")]
     a0: f64,
+    #[serde(alias = "A1")]
     a1: f64,
+    #[serde(alias = "A2")]
     a2: f64,
+    #[serde(alias = "A3")]
     a3: f64,
+    #[serde(alias = "A4")]
     a4: f64,
 }
 
@@ -86,7 +96,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
         if row.volume_hm3 < 0.0 {
             return Err(IoError::invalid_data(format!(
                 "plant {} has negative volume {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo_usina,
+                row.codigo,
                 row.volume_hm3,
                 line_idx + 2
             )));
@@ -95,7 +105,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
         if row.cota_m < 0.0 {
             return Err(IoError::invalid_data(format!(
                 "plant {} has negative height {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo_usina,
+                row.codigo,
                 row.cota_m,
                 line_idx + 2
             )));
@@ -104,13 +114,13 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
         if row.area_km2 < 0.0 {
             return Err(IoError::invalid_data(format!(
                 "plant {} has negative area {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo_usina,
+                row.codigo,
                 row.area_km2,
                 line_idx + 2
             )));
         }
 
-        grouped.entry(row.codigo_usina).or_default().push(VhaPoint {
+        grouped.entry(row.codigo).or_default().push(VhaPoint {
             volume_hm3: row.volume_hm3,
             height_m: row.cota_m,
             area_km2: row.area_km2,
@@ -168,9 +178,9 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
         })?;
 
         result.insert(
-            row.codigo_usina,
+            row.codigo,
             TailraceData {
-                plant_code: row.codigo_usina,
+                plant_code: row.codigo,
                 coefficients: [row.a0, row.a1, row.a2, row.a3, row.a4],
             },
         );
@@ -194,14 +204,15 @@ pub struct FphaPlantConfig {
 
 #[derive(Debug, Deserialize)]
 struct FphaConfigRow {
-    codigo_usina: u32,
-    #[serde(default)]
+    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    codigo: u32,
+    #[serde(default, alias = "MaxPlanes", alias = "max_planes")]
     num_planes: Option<usize>,
-    #[serde(default)]
+    #[serde(default, alias = "ReductionTolerance", alias = "Tolerance")]
     tolerance: Option<f64>,
-    #[serde(default)]
+    #[serde(default, alias = "MinVolumePct")]
     min_volume_pct: Option<f64>,
-    #[serde(default)]
+    #[serde(default, alias = "MaxVolumePct")]
     max_volume_pct: Option<f64>,
 }
 
@@ -239,7 +250,7 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             if tol < 0.0 {
                 return Err(IoError::invalid_data(format!(
                     "plant {} has negative tolerance {} at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo_usina,
+                    row.codigo,
                     tol,
                     line_idx + 2
                 )));
@@ -250,7 +261,7 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             if !(0.0..=1.0).contains(&pct) {
                 return Err(IoError::invalid_data(format!(
                     "plant {} has invalid min_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo_usina,
+                    row.codigo,
                     pct,
                     line_idx + 2
                 )));
@@ -261,7 +272,7 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             if !(0.0..=1.0).contains(&pct) {
                 return Err(IoError::invalid_data(format!(
                     "plant {} has invalid max_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo_usina,
+                    row.codigo,
                     pct,
                     line_idx + 2
                 )));
@@ -269,7 +280,7 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
         }
 
         result.insert(
-            row.codigo_usina,
+            row.codigo,
             FphaPlantConfig {
                 num_planes: row.num_planes,
                 tolerance: row.tolerance,

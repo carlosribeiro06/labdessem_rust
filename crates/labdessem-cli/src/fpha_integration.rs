@@ -1,10 +1,7 @@
 //! FPHA fitting orchestration for computed mode.
 //!
 //! This module provides the infrastructure for computing FPHA hyperplanes
-//! from VHA geometry at runtime. The functions are ready for integration
-//! into the main CLI workflow when `FPHA: "computed"` is set.
-
-#![allow(dead_code)]
+//! from VHA geometry at runtime when `FPHA: "computed"` is set in study_config.json.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -36,6 +33,7 @@ pub struct FphaComputeResult {
 #[derive(Debug)]
 pub enum FphaComputeError {
     Io(String),
+    #[allow(dead_code)]
     Fitting(String),
 }
 
@@ -214,7 +212,7 @@ fn build_fpha_config(config: Option<&IoFphaPlantConfig>) -> FphaPlantConfig {
     fpha_config
 }
 
-fn write_computed_results(
+pub fn write_computed_results(
     case_path: &Path,
     results: &[FphaPlantResult],
     plants: &[HydroPlant],
