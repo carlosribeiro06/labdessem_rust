@@ -1,4 +1,10 @@
 //! FPHA fitting orchestration for computed mode.
+//!
+//! This module provides the infrastructure for computing FPHA hyperplanes
+//! from VHA geometry at runtime. The functions are ready for integration
+//! into the main CLI workflow when `FPHA: "computed"` is set.
+
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::path::Path;
