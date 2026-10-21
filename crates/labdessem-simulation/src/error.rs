@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt};
 
-use labdessem_io::IoError;
+
 use labdessem_network::NetworkError;
 use labdessem_solver::SolverError;
 
@@ -11,8 +11,7 @@ use labdessem_solver::SolverError;
 pub enum SimulationError {
     /// Error from the optimization solver.
     Solver(SolverError),
-    /// Error from I/O operations.
-    Io(IoError),
+
     /// Error from network model construction or computation.
     Network(NetworkError),
     /// Error in iterative process.
@@ -23,7 +22,7 @@ impl fmt::Display for SimulationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Solver(error) => write!(f, "{error}"),
-            Self::Io(error) => write!(f, "{error}"),
+
             Self::Network(error) => write!(f, "{error}"),
             Self::IterativeProcess(message) => write!(f, "{message}"),
         }
@@ -34,7 +33,7 @@ impl Error for SimulationError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Solver(error) => Some(error),
-            Self::Io(error) => Some(error),
+
             Self::Network(error) => Some(error),
             Self::IterativeProcess(_) => None,
         }
@@ -47,11 +46,7 @@ impl From<SolverError> for SimulationError {
     }
 }
 
-impl From<IoError> for SimulationError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
+
 
 impl From<NetworkError> for SimulationError {
     fn from(value: NetworkError) -> Self {

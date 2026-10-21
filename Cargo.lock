@@ -184,6 +184,7 @@ version = "0.8.0"
 dependencies = [
  "labdessem-io",
  "labdessem-model",
+ "labdessem-network",
  "labdessem-simulation",
 ]
 
@@ -198,6 +199,7 @@ dependencies = [
  "csv",
  "labdessem-core",
  "labdessem-model",
+ "labdessem-solver",
  "schemars",
  "serde",
  "serde_json",
@@ -225,7 +227,6 @@ name = "labdessem-simulation"
 version = "0.8.0"
 dependencies = [
  "labdessem-core",
- "labdessem-io",
  "labdessem-model",
  "labdessem-network",
  "labdessem-solver",

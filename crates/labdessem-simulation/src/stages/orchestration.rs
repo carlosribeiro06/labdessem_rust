@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use labdessem_core::system::System;
 use labdessem_model::SolveMode;
-use labdessem_network::{DcNetworkModel, FlowCutKey, all_flow_constraints, compute_line_flows};
+use labdessem_network::{all_flow_constraints, compute_line_flows, DcNetworkModel, FlowCutKey};
 use labdessem_solver::HighsSolver;
 
 use crate::error::SimulationError;
@@ -24,8 +24,12 @@ pub fn run_simulation(
         .map_err(|e| SimulationError::IterativeProcess(format!("Failed to create solver: {e}")))?;
 
     match execution_option {
-        ExecutionOption::Iterative => run_iterative_simulation_strategy(system, network_enabled, &mut solver),
-        ExecutionOption::SingleMilp => run_single_milp_simulation(system, network_enabled, &mut solver),
+        ExecutionOption::Iterative => {
+            run_iterative_simulation_strategy(system, network_enabled, &mut solver)
+        }
+        ExecutionOption::SingleMilp => {
+            run_single_milp_simulation(system, network_enabled, &mut solver)
+        }
     }
 }
 
@@ -82,12 +86,15 @@ fn run_iterative_simulation_strategy(
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
             solver,
-        )?.0;
+        )?
+        .0;
 
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
-        let added_flow_cut_lines = summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+        let final_line_flows =
+            compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+        let added_flow_cut_lines =
+            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         let (cmb_records, cmo_values, flow_cut_mapping) =
             compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &all_cuts);
@@ -159,12 +166,15 @@ fn run_iterative_simulation_strategy(
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
         solver,
-    )?.0;
+    )?
+    .0;
 
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-    let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
-    let added_flow_cut_lines = summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+    let final_line_flows =
+        compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+    let added_flow_cut_lines =
+        summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
     let (cmb_records, cmo_values, flow_cut_mapping) =
         compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &all_cuts);
@@ -222,12 +232,15 @@ fn run_single_milp_simulation(
             &mut network_infeasibilities,
             &mut operational_limit_infeasibilities,
             solver,
-        )?.0;
+        )?
+        .0;
 
         let indexing = labdessem_model::indexing::Indexing::from_system(system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
-        let final_line_flows = compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
-        let added_flow_cut_lines = summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
+        let final_line_flows =
+            compute_line_flows(system, &dc_network, &cmo_solution.primal, &col_offsets);
+        let added_flow_cut_lines =
+            summarize_added_flow_cut_lines(system, &accumulated_cuts, &final_line_flows);
 
         let (cmb_records, cmo_values, flow_cut_mapping) =
             compute_cmb_cmo_data(system, Some(&dc_network), &cmo_solution, &accumulated_cuts);

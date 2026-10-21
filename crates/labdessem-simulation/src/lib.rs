@@ -1,5 +1,4 @@
 mod error;
-mod output;
 mod results;
 mod stages;
 mod workflow;
@@ -28,15 +27,6 @@ pub fn run_simulation(
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     stages::run_simulation(system, network_enabled, execution_option)
-}
-
-pub fn write_results_csvs(
-    system: &labdessem_core::system::System,
-    result: &IterativeSimulationResult,
-    output_dir: impl AsRef<std::path::Path>,
-    network_enabled: bool,
-) -> Result<(), SimulationError> {
-    output::write_results_csvs(system, result, output_dir, network_enabled)
 }
 
 #[cfg(test)]
@@ -209,7 +199,7 @@ mod tests {
 
     #[test]
     fn mode2_calls_lp_calc_cmo_without_network() {
-        use super::{ExecutionOption, IterationStage, run_simulation};
+        use super::{run_simulation, ExecutionOption, IterationStage};
 
         let system = build_system();
         let result = run_simulation(&system, false, ExecutionOption::SingleMilp)
@@ -236,7 +226,7 @@ mod tests {
 
     #[test]
     fn mode2_calls_lp_calc_cmo_with_network() {
-        use super::{ExecutionOption, IterationStage, run_simulation};
+        use super::{run_simulation, ExecutionOption, IterationStage};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::SingleMilp)
@@ -271,7 +261,7 @@ mod tests {
 
     #[test]
     fn mode1_and_mode2_both_produce_lp_calc_cmo_without_network() {
-        use super::{ExecutionOption, IterationStage, run_simulation};
+        use super::{run_simulation, ExecutionOption, IterationStage};
 
         let system = build_system();
 
@@ -309,7 +299,7 @@ mod tests {
 
     #[test]
     fn mode1_with_network_skips_lp_fixed_when_no_violations() {
-        use super::{ExecutionOption, IterationStage, run_simulation};
+        use super::{run_simulation, ExecutionOption, IterationStage};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::Iterative)
@@ -352,7 +342,7 @@ mod tests {
 
     #[test]
     fn mode1_output_comes_from_cmo_solution() {
-        use super::{ExecutionOption, run_simulation};
+        use super::{run_simulation, ExecutionOption};
 
         let system = build_system();
         let result = run_simulation(&system, true, ExecutionOption::Iterative)

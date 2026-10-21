@@ -10,18 +10,17 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use labdessem_core::ids::SubmarketId;
 use labdessem_core::system::{OperationalLimitVariable, System};
-use labdessem_io::output::volume_hm3_to_flow_m3s;
 use labdessem_model::{
-    Model,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
     indexing::ColumnOffsets,
     objective::ObjectiveTerm,
     variables::{Variable, VariableDomain},
+    Model,
 };
 use labdessem_network::{
-    CmbRecord, DcNetworkModel, FlowCutKey, compute_cmb_per_bus, compute_cmo_from_cmb,
-    constant_load_shift, extract_flow_duals,
+    compute_cmb_per_bus, compute_cmo_from_cmb, constant_load_shift,
     constraints::{build_flow_cut_terms, FlowCutInput, GeneratorEntry, PumpingEntry},
+    extract_flow_duals, CmbRecord, DcNetworkModel, FlowCutKey,
 };
 use labdessem_solver::LpSolution;
 
@@ -32,6 +31,14 @@ use crate::results::{
 use crate::workflow::IterationStage;
 
 use super::common::NETWORK_FLOW_SLACK_PENALTY_PER_MW;
+
+/// Convert volume in hm³ to flow in m³/s given duration in hours.
+fn volume_hm3_to_flow_m3s(volume_hm3: f64, duration_hours: f64) -> f64 {
+    if duration_hours.abs() < 1e-12 {
+        return 0.0;
+    }
+    volume_hm3 * 1_000_000.0 / (duration_hours * 3600.0)
+}
 
 /// Build flow cut terms by adapting Model/System to FlowCutInput.
 pub(crate) fn flow_terms_for_cut(
@@ -139,13 +146,21 @@ pub(crate) fn add_flow_cuts(
     for cut_key in cut_keys {
         let branch = &system.branches[cut_key.branch_idx];
         let rhs_shift = constant_load_shift(system, dc_network, cut_key.branch_idx, cut_key.period);
-        let terms = flow_terms_for_cut(model, system, dc_network, cut_key.branch_idx, cut_key.period);
+        let terms = flow_terms_for_cut(
+            model,
+            system,
+            dc_network,
+            cut_key.branch_idx,
+            cut_key.period,
+        );
         let mut upper_terms = terms.clone();
         let mut lower_terms = terms;
 
         if use_slack_variables {
-            let upper_slack_name = flow_slack_name("flow_slack_upper", branch.name.as_str(), cut_key.period);
-            let lower_slack_name = flow_slack_name("flow_slack_lower", branch.name.as_str(), cut_key.period);
+            let upper_slack_name =
+                flow_slack_name("flow_slack_upper", branch.name.as_str(), cut_key.period);
+            let lower_slack_name =
+                flow_slack_name("flow_slack_lower", branch.name.as_str(), cut_key.period);
             add_network_flow_slack_variable(model, &upper_slack_name);
             add_network_flow_slack_variable(model, &lower_slack_name);
 
@@ -161,7 +176,11 @@ pub(crate) fn add_flow_cuts(
 
         let upper_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
-            name: format!("flow_cut_upper[branch={},t={}]", branch.name, cut_key.period + 1),
+            name: format!(
+                "flow_cut_upper[branch={},t={}]",
+                branch.name,
+                cut_key.period + 1
+            ),
             terms: upper_terms,
             sense: ConstraintSense::LessOrEqual,
             rhs: branch.thermal_limit_mw + rhs_shift,
@@ -169,7 +188,11 @@ pub(crate) fn add_flow_cuts(
 
         let lower_row_idx = model.constraints.linear_constraints.len() - start_row;
         model.constraints.linear_constraints.push(LinearConstraint {
-            name: format!("flow_cut_lower[branch={},t={}]", branch.name, cut_key.period + 1),
+            name: format!(
+                "flow_cut_lower[branch={},t={}]",
+                branch.name,
+                cut_key.period + 1
+            ),
             terms: lower_terms,
             sense: ConstraintSense::GreaterOrEqual,
             rhs: -branch.thermal_limit_mw + rhs_shift,
@@ -189,9 +212,17 @@ pub(crate) fn add_operational_limit_slacks(model: &mut Model) {
 
     for (constraint_idx, constraint) in model.constraints.linear_constraints.iter().enumerate() {
         if let Some(suffix) = constraint.name.strip_prefix("operational_limit_lower") {
-            slack_specs.push((constraint_idx, format!("operational_limit_slack_lower{suffix}"), 1.0));
+            slack_specs.push((
+                constraint_idx,
+                format!("operational_limit_slack_lower{suffix}"),
+                1.0,
+            ));
         } else if let Some(suffix) = constraint.name.strip_prefix("operational_limit_upper") {
-            slack_specs.push((constraint_idx, format!("operational_limit_slack_upper{suffix}"), -1.0));
+            slack_specs.push((
+                constraint_idx,
+                format!("operational_limit_slack_upper{suffix}"),
+                -1.0,
+            ));
         }
     }
 
@@ -207,10 +238,12 @@ pub(crate) fn add_operational_limit_slacks(model: &mut Model) {
             variable: slack_name.clone(),
             coefficient: NETWORK_FLOW_SLACK_PENALTY_PER_MW,
         });
-        model.constraints.linear_constraints[constraint_idx].terms.push(LinearTerm {
-            variable: slack_name,
-            coefficient,
-        });
+        model.constraints.linear_constraints[constraint_idx]
+            .terms
+            .push(LinearTerm {
+                variable: slack_name,
+                coefficient,
+            });
     }
 }
 
@@ -265,7 +298,8 @@ pub(crate) fn collect_operational_limit_infeasibilities(
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<OperationalLimitInfeasibilityRecord> {
-    let mut aggregated = BTreeMap::<(usize, usize, String, OperationalLimitVariable), (f64, f64)>::new();
+    let mut aggregated =
+        BTreeMap::<(usize, usize, String, OperationalLimitVariable), (f64, f64)>::new();
     let mut slack_idx = 0;
 
     for limit in &system.operational_limits {
@@ -294,8 +328,10 @@ pub(crate) fn collect_operational_limit_infeasibilities(
                 continue;
             }
 
-            let lower_violation = operational_limit_violation_for_output(system, limit.variable, lower_violation);
-            let upper_violation = operational_limit_violation_for_output(system, limit.variable, upper_violation);
+            let lower_violation =
+                operational_limit_violation_for_output(system, limit.variable, lower_violation);
+            let upper_violation =
+                operational_limit_violation_for_output(system, limit.variable, upper_violation);
             let entry = aggregated
                 .entry((period, plant_code, limit.plant_name.clone(), limit.variable))
                 .or_insert((0.0, 0.0));
@@ -306,19 +342,21 @@ pub(crate) fn collect_operational_limit_infeasibilities(
 
     aggregated
         .into_iter()
-        .map(|((period, plant_code, plant_name, variable), (lower_violation, upper_violation))| {
-            OperationalLimitInfeasibilityRecord {
-                stage,
-                iteration,
-                period,
-                plant_code,
-                plant_name,
-                variable,
-                unit: operational_limit_output_unit(variable),
-                lower_violation,
-                upper_violation,
-            }
-        })
+        .map(
+            |((period, plant_code, plant_name, variable), (lower_violation, upper_violation))| {
+                OperationalLimitInfeasibilityRecord {
+                    stage,
+                    iteration,
+                    period,
+                    plant_code,
+                    plant_name,
+                    variable,
+                    unit: operational_limit_output_unit(variable),
+                    lower_violation,
+                    upper_violation,
+                }
+            },
+        )
         .collect()
 }
 
@@ -395,7 +433,11 @@ pub(crate) fn compute_cmb_cmo_data(
     dc_network: Option<&DcNetworkModel>,
     cmo_solution: &LpSolution,
     all_cuts: &BTreeSet<FlowCutKey>,
-) -> (Vec<CmbRecord>, HashMap<(SubmarketId, usize), f64>, Option<FlowCutMapping>) {
+) -> (
+    Vec<CmbRecord>,
+    HashMap<(SubmarketId, usize), f64>,
+    Option<FlowCutMapping>,
+) {
     let horizon = system.horizon.periods;
     let periods: Vec<usize> = (0..horizon).collect();
 
@@ -406,7 +448,11 @@ pub(crate) fn compute_cmb_cmo_data(
             let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
                 horizon,
                 fpha_enabled: system.fpha_enabled,
-                num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+                num_fpha_segments: system
+                    .hydro_plants
+                    .iter()
+                    .map(|p| p.fpha_segments.len())
+                    .sum(),
                 future_cost_enabled: system.future_cost_enabled,
                 num_future_cost_cuts: system.future_cost_cuts.len(),
                 num_operational_limits: system.operational_limits.len(),
@@ -430,13 +476,20 @@ pub(crate) fn compute_cmb_cmo_data(
     };
 
     let num_flow_cut_constraints = all_cuts.len() * 2;
-    let base_constraint_count = cmo_solution.dual.len().saturating_sub(num_flow_cut_constraints);
+    let base_constraint_count = cmo_solution
+        .dual
+        .len()
+        .saturating_sub(num_flow_cut_constraints);
 
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
     let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
         horizon,
         fpha_enabled: system.fpha_enabled,
-        num_fpha_segments: system.hydro_plants.iter().map(|p| p.fpha_segments.len()).sum(),
+        num_fpha_segments: system
+            .hydro_plants
+            .iter()
+            .map(|p| p.fpha_segments.len())
+            .sum(),
         future_cost_enabled: system.future_cost_enabled,
         num_future_cost_cuts: system.future_cost_cuts.len(),
         num_operational_limits: system.operational_limits.len(),
@@ -459,7 +512,10 @@ pub(crate) fn compute_cmb_cmo_data(
     for (idx, cut_key) in all_cuts.iter().enumerate() {
         let upper_row_idx = idx * 2;
         let lower_row_idx = idx * 2 + 1;
-        mapping.indices.insert((cut_key.branch_idx, cut_key.period), (upper_row_idx, lower_row_idx));
+        mapping.indices.insert(
+            (cut_key.branch_idx, cut_key.period),
+            (upper_row_idx, lower_row_idx),
+        );
     }
 
     let flow_duals = extract_flow_duals(&cmo_solution.dual, &mapping, base_constraint_count);

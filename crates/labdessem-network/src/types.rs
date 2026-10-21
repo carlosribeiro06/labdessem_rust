@@ -149,6 +149,9 @@ mod tests {
     #[test]
     fn test_constraint_sense_equality() {
         assert_eq!(ConstraintSense::LessOrEqual, ConstraintSense::LessOrEqual);
-        assert_ne!(ConstraintSense::LessOrEqual, ConstraintSense::GreaterOrEqual);
+        assert_ne!(
+            ConstraintSense::LessOrEqual,
+            ConstraintSense::GreaterOrEqual
+        );
     }
 }

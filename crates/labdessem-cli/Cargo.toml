@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 labdessem-io = { path = "../labdessem-io" }
 labdessem-model = { path = "../labdessem-model" }
+labdessem-network = { path = "../labdessem-network" }
 labdessem-simulation = { path = "../labdessem-simulation" }
 
 [lints]

@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
 labdessem-model = { path = "../labdessem-model" }
+labdessem-solver = { path = "../labdessem-solver" }
 csv = "1.3"
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }

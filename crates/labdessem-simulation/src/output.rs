@@ -1,4 +1,8 @@
-//! Output writers for simulation results.
+//! DEPRECATED: This module will be deleted after migration completes.
+//! Output writers are being moved to labdessem-io.
+
+#![allow(dead_code)]
+#![allow(unused_imports)]
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -18,11 +22,11 @@ use labdessem_model::names::{
 use labdessem_solver::SolutionAccessor;
 
 use crate::error::SimulationError;
-use labdessem_network::CmbRecord;
 use crate::results::{
     AddedFlowCutLineResult, IterationReport, IterativeSimulationResult, LineFlowResult,
     NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
+use labdessem_network::CmbRecord;
 
 /// Write all result CSV files for a simulation run.
 pub fn write_results_csvs(
