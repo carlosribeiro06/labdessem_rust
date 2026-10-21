@@ -8,6 +8,7 @@ pub mod error;
 pub mod fitting;
 pub mod hull;
 pub mod io;
+pub mod pipeline;
 pub mod types;
 
 pub use config::{FphaMode, FphaPlantConfig};
@@ -24,4 +25,5 @@ pub use io::{
     read_fpha_config, read_geometry_table, read_tailrace_table, write_fpha_results,
     FphaConfigRow, FphaPlantResult, GeometryRow, TailraceRow,
 };
+pub use pipeline::{fit_plant, fit_plants, FitPlantParams};
 pub use types::TailraceModel;
