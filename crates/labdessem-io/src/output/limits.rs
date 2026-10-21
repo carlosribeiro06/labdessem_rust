@@ -2,23 +2,10 @@
 
 use std::{collections::BTreeSet, path::Path};
 
-use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
+use labdessem_core::system::{OperationalLimitTarget, System};
 
 use crate::error::IoError;
-use crate::output::{csv_with_header, write_csv_file};
-
-/// Get display label for operational limit variable.
-fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
-    match variable {
-        OperationalLimitVariable::Generation => "GER",
-        OperationalLimitVariable::Spillage => "VERT",
-        OperationalLimitVariable::Volume => "VOL",
-        OperationalLimitVariable::Defluence => "DEFLU",
-        OperationalLimitVariable::Turbining => "TURB",
-        OperationalLimitVariable::Diversion => "QDES",
-        OperationalLimitVariable::Pumping => "QBOM",
-    }
-}
+use crate::output::{csv_with_header, operational_limit_variable_label, write_csv_file};
 
 /// Write operational limits configuration to CSV.
 pub fn write_operational_limits_csv(system: &System, output_dir: &Path) -> Result<(), IoError> {

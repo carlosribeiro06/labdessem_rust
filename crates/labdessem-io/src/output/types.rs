@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use labdessem_core::{ids::SubmarketId, system::OperationalLimitVariable};
-use labdessem_solver::LpSolution;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IterationStageLabel {
@@ -60,13 +59,13 @@ pub struct OperationalLimitInfeasibilityDto {
 
 #[derive(Debug, Clone)]
 pub struct LineFlowResultDto {
-    pub branch_id: usize,
     pub branch_name: String,
     pub from_bus_name: String,
     pub to_bus_name: String,
-    pub period: usize,
+    pub original_period: usize,
     pub flow_mw: f64,
     pub limit_mw: f64,
+    pub violated: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -81,22 +80,35 @@ pub struct AddedFlowCutLineDto {
 
 #[derive(Debug, Clone)]
 pub struct CmbRecordDto {
+    pub original_period: usize,
     pub bus_id: usize,
-    pub period: usize,
+    pub bus_name: String,
+    pub submarket_name: String,
     pub cmb: f64,
-    pub submarket_id: usize,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputData {
+    /// Iteration reports from each solve step
     pub steps: Vec<IterationReportDto>,
-    pub cmo_solution: Option<LpSolution>,
-    pub cmo_values: HashMap<(SubmarketId, usize), f64>,
+
+    /// Final line flows (network enabled only)
     pub final_line_flows: Vec<LineFlowResultDto>,
+
+    /// Added flow cut lines across all iterations
     pub added_flow_cut_lines: Vec<AddedFlowCutLineDto>,
-    pub network_infeasibilities: Vec<NetworkInfeasibilityDto>,
-    pub operational_limit_infeasibilities: Vec<OperationalLimitInfeasibilityDto>,
+
+    /// Nodal marginal costs (network enabled only)
     pub cmb_records: Vec<CmbRecordDto>,
+
+    /// Network infeasibility records
+    pub network_infeasibilities: Vec<NetworkInfeasibilityDto>,
+
+    /// Operational limit infeasibility records
+    pub operational_limit_infeasibilities: Vec<OperationalLimitInfeasibilityDto>,
+
+    /// CMO values for network cases (submarket, period -> cmo)
+    pub cmo_values: Option<HashMap<(SubmarketId, usize), f64>>,
 }
 
 #[cfg(test)]
@@ -116,7 +128,6 @@ mod tests {
         let data = OutputData::default();
         assert!(data.steps.is_empty());
         assert!(data.final_line_flows.is_empty());
-        assert!(data.cmo_solution.is_none());
-        assert!(data.cmo_values.is_empty());
+        assert!(data.cmo_values.is_none());
     }
 }

@@ -1,5 +1,6 @@
 //! Conversion functions from simulation result types to I/O DTOs.
 
+use labdessem_core::system::System;
 use labdessem_io::output::{
     AddedFlowCutLineDto, CmbRecordDto, IterationReportDto, IterationStageLabel, LineFlowResultDto,
     NetworkInfeasibilityDto, OperationalLimitInfeasibilityDto, OutputData,
@@ -11,11 +12,16 @@ use labdessem_simulation::{
 };
 
 /// Convert simulation results to output DTOs.
-pub fn convert_to_output_data(result: &IterativeSimulationResult) -> OutputData {
+pub fn convert_to_output_data(system: &System, result: &IterativeSimulationResult) -> OutputData {
+    let cmo_values = if result.cmo_values.is_empty() {
+        None
+    } else {
+        Some(result.cmo_values.clone())
+    };
+
     OutputData {
         steps: result.steps.iter().map(convert_iteration_report).collect(),
-        cmo_solution: Some(result.cmo_solution.clone()),
-        cmo_values: result.cmo_values.clone(),
+        cmo_values,
         final_line_flows: result
             .final_line_flows
             .iter()
@@ -36,7 +42,11 @@ pub fn convert_to_output_data(result: &IterativeSimulationResult) -> OutputData 
             .iter()
             .map(convert_operational_limit_infeasibility)
             .collect(),
-        cmb_records: result.cmb_records.iter().map(convert_cmb_record).collect(),
+        cmb_records: result
+            .cmb_records
+            .iter()
+            .map(|record| convert_cmb_record(system, record))
+            .collect(),
     }
 }
 
@@ -64,13 +74,13 @@ fn convert_iteration_report(report: &IterationReport) -> IterationReportDto {
 
 fn convert_line_flow(flow: &LineFlowResult) -> LineFlowResultDto {
     LineFlowResultDto {
-        branch_id: flow.branch_id.0,
         branch_name: flow.branch_name.clone(),
         from_bus_name: flow.from_bus_name.clone(),
         to_bus_name: flow.to_bus_name.clone(),
-        period: flow.period,
+        original_period: flow.period,
         flow_mw: flow.flow_mw,
         limit_mw: flow.limit_mw,
+        violated: flow.flow_mw.abs() > flow.limit_mw,
     }
 }
 
@@ -111,12 +121,28 @@ fn convert_operational_limit_infeasibility(
     }
 }
 
-fn convert_cmb_record(record: &CmbRecord) -> CmbRecordDto {
+fn convert_cmb_record(system: &System, record: &CmbRecord) -> CmbRecordDto {
+    // Find bus and submarket names from system
+    let bus_name = system
+        .buses
+        .iter()
+        .find(|b| b.id == record.bus_id)
+        .map(|b| b.name.clone())
+        .unwrap_or_default();
+
+    let submarket_name = system
+        .submarkets
+        .iter()
+        .find(|s| s.id == record.submarket_id)
+        .map(|s| s.name.clone())
+        .unwrap_or_default();
+
     CmbRecordDto {
+        original_period: record.period,
         bus_id: record.bus_id.0,
-        period: record.period,
+        bus_name,
+        submarket_name,
         cmb: record.cmb,
-        submarket_id: record.submarket_id.0,
     }
 }
 

@@ -1,15 +1,26 @@
 //! Helper functions for output generation.
-//!
-//! These functions extract and aggregate simulation results for CSV output.
 
 use std::collections::HashMap;
 
 use labdessem_core::entities::hydro::HydroPlant;
 use labdessem_core::ids::HydroPlantId;
-use labdessem_core::system::System;
+use labdessem_core::system::{OperationalLimitVariable, System};
 use labdessem_model::names::{
     hydro_diversion_name, hydro_spillage_name, hydro_turbining_name, pumping_name,
 };
+
+/// Get display label for operational limit variable.
+pub fn operational_limit_variable_label(variable: OperationalLimitVariable) -> &'static str {
+    match variable {
+        OperationalLimitVariable::Generation => "GER",
+        OperationalLimitVariable::Spillage => "VERT",
+        OperationalLimitVariable::Volume => "VOL",
+        OperationalLimitVariable::Defluence => "DEFLU",
+        OperationalLimitVariable::Turbining => "TURB",
+        OperationalLimitVariable::Diversion => "QDES",
+        OperationalLimitVariable::Pumping => "QBOM",
+    }
+}
 
 /// Get internal period indices for an original period (1-indexed).
 pub fn original_period_internal_indices(system: &System, original_period: usize) -> Vec<usize> {
@@ -29,10 +40,6 @@ pub fn average_internal_values(
     periods: &[usize],
     values: impl Fn(usize) -> f64,
 ) -> f64 {
-    if periods.is_empty() {
-        return 0.0;
-    }
-
     let mut weighted_sum = 0.0;
     let mut total_duration = 0.0;
 
