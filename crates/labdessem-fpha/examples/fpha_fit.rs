@@ -7,14 +7,14 @@
 
 use std::collections::HashMap;
 use std::env;
-use std::fs;
 use std::path::Path;
 
-use csv::ReaderBuilder;
 use labdessem_fpha::{
-    fit_plant, read_fpha_config, read_geometry_table, read_tailrace_table, write_fpha_results,
-    FitPlantParams, FphaPlantConfig, PlaneReductionConfig,
+    fit_plant, forebay_from_vha, tailrace_from_data,
+    FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig,
 };
+use labdessem_io::output::{write_fpha_computed, ComputedFphaRecord};
+use labdessem_io::readers::{read_csv, read_fpha_config, read_tailrace, read_vha_geometry};
 use serde::Deserialize;
 
 /// Plant parameters from CAD_UHE_PARAMS.csv
@@ -37,16 +37,8 @@ struct PlantParams {
 }
 
 fn read_plant_params(path: &Path) -> Result<HashMap<i32, PlantParams>, Box<dyn std::error::Error>> {
-    let mut reader = ReaderBuilder::new()
-        .delimiter(b';')
-        .has_headers(true)
-        .from_path(path)?;
-
-    let mut params = HashMap::new();
-    for result in reader.deserialize() {
-        let row: PlantParams = result?;
-        params.insert(row.codigo, row);
-    }
+    let rows: Vec<PlantParams> = read_csv(path)?;
+    let params = rows.into_iter().map(|r| (r.codigo, r)).collect();
     Ok(params)
 }
 
@@ -59,7 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let cad_path = case_path.join("CAD");
-    let result_path = case_path.join("RESULTADOS");
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║              LABDESSEM-FPHA — FPHA Fitting Example               ║");
@@ -68,15 +59,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Case: {}", case_path.display());
     println!();
 
-    // Read input files
+    // Read input files using labdessem-io readers
     println!("Reading input files...");
-    let geometry = read_geometry_table(cad_path.join("CAD_GEOMETRIA_UHE.csv"))?;
-    println!("  ✓ CAD_GEOMETRIA_UHE.csv: {} plants", geometry.len());
+    let vha_data = read_vha_geometry(case_path)?;
+    println!("  ✓ CAD_GEOMETRIA_UHE.csv: {} plants", vha_data.len());
 
-    let tailrace = read_tailrace_table(cad_path.join("CAD_TAILRACE.csv"))?;
-    println!("  ✓ CAD_TAILRACE.csv: {} plants", tailrace.len());
+    let tailrace_data = read_tailrace(case_path)?;
+    println!("  ✓ CAD_TAILRACE.csv: {} plants", tailrace_data.len());
 
-    let configs = read_fpha_config(cad_path.join("CAD_FPHA_CONFIG.csv"))?;
+    let configs = read_fpha_config(case_path)?;
     println!("  ✓ CAD_FPHA_CONFIG.csv: {} plants", configs.len());
 
     let plant_params = read_plant_params(&cad_path.join("CAD_UHE_PARAMS.csv"))?;
@@ -87,10 +78,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Fitting FPHA hyperplanes...");
     println!("─────────────────────────────────────────────────────────────────────");
 
-    let mut results = Vec::new();
+    let mut results: Vec<FphaPlantResult> = Vec::new();
+    let mut plant_names: HashMap<i32, String> = HashMap::new();
 
-    for (codigo, forebay) in &geometry {
-        let params = match plant_params.get(codigo) {
+    for (codigo, vha) in &vha_data {
+        let codigo_i32 = *codigo as i32;
+
+        let params = match plant_params.get(&codigo_i32) {
             Some(p) => p,
             None => {
                 println!("  ⚠ Plant {} not found in CAD_UHE_PARAMS.csv, skipping", codigo);
@@ -98,14 +92,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let config = configs.get(codigo).cloned().unwrap_or_else(|| {
+        // Convert VHA geometry using from_io conversion
+        let forebay = match forebay_from_vha(vha, &params.nome) {
+            Ok(fb) => fb,
+            Err(e) => {
+                println!("  ⚠ Plant {} geometry conversion failed: {}, skipping", codigo, e);
+                continue;
+            }
+        };
+
+        let fpha_config = configs.get(codigo).map(|c| {
+            let mut config = FphaPlantConfig::computed(8, 6, 6, PlaneReductionConfig::default());
+            if let Some(n) = c.num_planes {
+                config.max_planes = n;
+            }
+            config
+        }).unwrap_or_else(|| {
             FphaPlantConfig::computed(8, 6, 6, PlaneReductionConfig::default())
         });
 
-        let tailrace_model = tailrace.get(codigo).cloned();
+        // Convert tailrace using from_io conversion
+        let tailrace_model = tailrace_data.get(codigo).map(tailrace_from_data);
 
         let fit_params = FitPlantParams {
-            codigo: *codigo,
+            codigo: codigo_i32,
             nome: params.nome.clone(),
             forebay: forebay.clone(),
             tailrace: tailrace_model,
@@ -114,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             max_turbined_m3s: params.max_turbined_m3s,
             max_generation_mw: params.max_generation_mw,
             long_term_mean_inflow_m3s: params.mean_inflow_m3s,
-            config,
+            config: fpha_config,
         };
 
         match fit_plant(&fit_params) {
@@ -131,6 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     result.deviation.mean_abs_mw,
                     result.deviation.max_abs_mw,
                 );
+                plant_names.insert(codigo_i32, params.nome.clone());
                 results.push(result);
             }
             Err(e) => {
@@ -142,15 +153,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("─────────────────────────────────────────────────────────────────────");
     println!();
 
-    // Write results
-    fs::create_dir_all(&result_path)?;
-    let output_file = result_path.join("resultado_fpha_computed.csv");
-    write_fpha_results(&results, &output_file)?;
-    println!("Results written to: {}", output_file.display());
+    // Write results using labdessem-io output
+    let records: Vec<ComputedFphaRecord> = results
+        .iter()
+        .flat_map(|r| {
+            let name = plant_names.get(&r.codigo).cloned().unwrap_or_else(|| "UNKNOWN".to_string());
+            r.planes.iter().enumerate().map(move |(idx, plane)| {
+                ComputedFphaRecord {
+                    codigo_usina: r.codigo as u32,
+                    nome_usina: name.clone(),
+                    plane_index: idx,
+                    gamma_0: plane.gamma_0,
+                    gamma_v: plane.gamma_v,
+                    gamma_q: plane.gamma_q,
+                    gamma_s: plane.gamma_s,
+                    alpha: r.alpha,
+                    max_deviation_mw: Some(r.deviation.max_abs_mw),
+                    mean_deviation_mw: Some(r.deviation.mean_abs_mw),
+                    rms_deviation_mw: Some(r.deviation.rms_mw),
+                }
+            })
+        })
+        .collect();
+
+    write_fpha_computed(case_path, &records)?;
+    println!("Results written to: {}/RESULTADOS/resultado_fpha_computed.csv", case_path.display());
 
     // Print summary
     let total_planes: usize = results.iter().map(|r| r.planes.len()).sum();
-    let avg_mae: f64 = results.iter().map(|r| r.deviation.mean_abs_mw).sum::<f64>() / results.len() as f64;
+    let avg_mae: f64 = if results.is_empty() {
+        0.0
+    } else {
+        results.iter().map(|r| r.deviation.mean_abs_mw).sum::<f64>() / results.len() as f64
+    };
 
     println!();
     println!("╔══════════════════════════════════════════════════════════════════╗");

@@ -6,8 +6,8 @@
 pub mod config;
 pub mod error;
 pub mod fitting;
+pub mod from_io;
 pub mod hull;
-pub mod io;
 pub mod pipeline;
 pub mod types;
 
@@ -20,10 +20,7 @@ pub use fitting::{
     FittingBounds, ForebayTable, FphaDeviationPoint, FphaFitDeviation, GridParams,
     PlaneReductionConfig, ProductionFunction, RawPlane, TailraceSource, VhaRow,
 };
+pub use from_io::{forebay_from_vha, tailrace_from_data};
 pub use hull::{convex_hull_3d, HullError, Hyperplane3d};
-pub use io::{
-    read_fpha_config, read_geometry_table, read_tailrace_table, write_fpha_results,
-    FphaConfigRow, FphaPlantResult, GeometryRow, TailraceRow,
-};
-pub use pipeline::{fit_plant, fit_plants, FitPlantParams};
+pub use pipeline::{fit_plant, fit_plants, FitPlantParams, FphaPlantResult};
 pub use types::TailraceModel;

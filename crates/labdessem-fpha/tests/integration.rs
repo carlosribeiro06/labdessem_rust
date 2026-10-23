@@ -3,17 +3,11 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use labdessem_fpha::{
-    fit_plant, fit_plants, read_geometry_table, read_tailrace_table, write_fpha_results,
-    FitPlantParams, ForebayTable, FphaPlantConfig, PlaneReductionConfig, TailraceModel, VhaRow,
+    fit_plant, fit_plants, forebay_from_vha, tailrace_from_data,
+    FitPlantParams, ForebayTable, FphaPlantConfig,
+    PlaneReductionConfig, TailraceModel, VhaRow,
 };
-use std::io::Write;
-use tempfile::{NamedTempFile, TempDir};
-
-fn write_test_csv(content: &str) -> NamedTempFile {
-    let mut file = NamedTempFile::new().unwrap();
-    file.write_all(content.as_bytes()).unwrap();
-    file
-}
+use labdessem_io::readers::{TailraceData, VhaGeometryData, VhaPoint};
 
 fn storage_plant_params() -> FitPlantParams {
     let rows = vec![
@@ -127,26 +121,30 @@ fn batch_fit_multiple_plant_types() {
 
 #[test]
 fn full_io_roundtrip() {
-    let geometry_csv = "Codigo;Nome;Volume_hm3;Cota_m;Area_km2\n\
-                        1;FURNAS;0.00;380.00;1000.00\n\
-                        1;FURNAS;30000.00;408.00;1400.00";
-    let tailrace_csv = "Codigo;Nome;Coef0;Coef1;Coef2;Coef3;Coef4\n\
-                        1;FURNAS;0.0;0.0008;-2e-8;0;0";
+    // Create VHA geometry data using labdessem_io types
+    let vha_data = VhaGeometryData {
+        plant_code: 1,
+        points: vec![
+            VhaPoint { volume_hm3: 0.0, height_m: 380.0, area_km2: 1000.0 },
+            VhaPoint { volume_hm3: 30000.0, height_m: 408.0, area_km2: 1400.0 },
+        ],
+    };
 
-    let geometry_file = write_test_csv(geometry_csv);
-    let tailrace_file = write_test_csv(tailrace_csv);
+    // Create tailrace data using labdessem_io types
+    let tailrace_data = TailraceData {
+        plant_code: 1,
+        coefficients: [0.0, 0.0008, -2e-8, 0.0, 0.0],
+    };
 
-    let geometry = read_geometry_table(geometry_file.path()).unwrap();
-    let tailrace = read_tailrace_table(tailrace_file.path()).unwrap();
-
-    assert!(geometry.contains_key(&1));
-    assert!(tailrace.contains_key(&1));
+    // Convert to domain types using from_io utilities
+    let forebay = forebay_from_vha(&vha_data, "FURNAS").unwrap();
+    let tailrace = tailrace_from_data(&tailrace_data);
 
     let params = FitPlantParams {
         codigo: 1,
         nome: "FURNAS".to_string(),
-        forebay: geometry[&1].clone(),
-        tailrace: tailrace.get(&1).cloned(),
+        forebay,
+        tailrace: Some(tailrace),
         hydraulic_loss_m: Some(2.0),
         efficiency: Some(0.92),
         max_turbined_m3s: 3_000.0,
@@ -157,13 +155,10 @@ fn full_io_roundtrip() {
 
     let result = fit_plant(&params).unwrap();
 
-    let dir = TempDir::new().unwrap();
-    let output_path = dir.path().join("resultado_fpha_computed.csv");
-    write_fpha_results(&[result], &output_path).unwrap();
-
-    let content = std::fs::read_to_string(&output_path).unwrap();
-    assert!(content.contains("FURNAS"));
-    assert!(content.contains("Gamma0"));
+    // Verify the fitting produces valid results
+    assert!(!result.planes.is_empty(), "should produce at least one plane");
+    assert!(result.alpha > 0.0, "α must be positive");
+    assert!(result.deviation.mean_abs_mw.is_finite(), "deviation must be finite");
 }
 
 #[test]

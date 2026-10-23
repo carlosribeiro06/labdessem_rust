@@ -5,12 +5,21 @@ use crate::error::FphaFittingError;
 use crate::fitting::{
     compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
     reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes, ForebayTable,
-    ProductionFunction, TailraceSource,
+    FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
 };
 #[cfg(test)]
 use crate::fitting::PlaneReductionConfig;
-use crate::io::FphaPlantResult;
 use crate::types::TailraceModel;
+
+/// A fitted plant's FPHA result.
+#[derive(Debug, Clone)]
+pub struct FphaPlantResult {
+    pub codigo: i32,
+    pub nome: String,
+    pub planes: Vec<RawPlane>,
+    pub alpha: f64,
+    pub deviation: FphaFitDeviation,
+}
 
 /// Parameters for fitting a single plant.
 #[derive(Debug, Clone)]
