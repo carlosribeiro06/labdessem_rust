@@ -50,8 +50,10 @@ labdessem_rust/
 |-- crates/
 |   |-- labdessem-cli
 |   |-- labdessem-core
+|   |-- labdessem-fpha
 |   |-- labdessem-io
 |   |-- labdessem-model
+|   |-- labdessem-network
 |   |-- labdessem-simulation
 |   |-- labdessem-solver
 |   `-- labdessem-uc
@@ -69,11 +71,17 @@ labdessem_rust/
 - `labdessem-core`
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
+- `labdessem-fpha`
+  FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline. Computes hyperplanes from VHA geometry using convex hull fitting.
+
 - `labdessem-io`
   File I/O. Reads study input (`study_config.json`, `CAD/`, `OPER/`) and writes all result CSVs.
 
 - `labdessem-model`
   Indexing, variables, objective function, and algebraic constraints.
+
+- `labdessem-network`
+  DC network flow computation, PTDF matrices, flow cut constraints, and CMB/CMO dual extraction.
 
 - `labdessem-simulation`
   End-to-end orchestration: solve workflow, network-cut iterations, and dual extraction.
@@ -245,6 +253,7 @@ Current outputs include:
 - `resultado_rest_lim.csv`
 - `resultado_inviabilidade_lim.csv`
 - `resultado_fcf_eco.csv` when `FCF = 1`
+- `resultado_fpha_computed.csv` when `FPHA = "computed"`
 
 When network treatment is enabled, the run also writes:
 

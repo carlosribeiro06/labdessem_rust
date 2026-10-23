@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-23
+
+### Added
+- **New crate `labdessem-fpha`**: FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline
+  - Computes hyperplanes from VHA geometry using Qhull convex hull
+  - Pipeline stages: hull fitting → α correction → γₛ secant → plane reduction → deviation metrics
+  - Supports run-of-river plants with single-point VHA tables
+  - New `fpha_fit` example binary for standalone fitting
+- **New crate `labdessem-network`**: DC network flow computation extracted from simulation
+  - PTDF matrix computation and incidence matrices
+  - Flow cut constraint generation
+  - CMB/CMO dual extraction algorithms
+  - Linear algebra module for matrix operations
+- **New crate `labdessem-uc`**: Solver-agnostic unit commitment formulation
+  - Thermal UC: commitment, startup, shutdown variables and constraints
+  - Hydro UC: commitment variables and channeling constraints
+  - Extracted from `labdessem-model` for better modularity
+- **FPHA computed mode** (`FPHA = "computed"`): compute FPHA hyperplanes at runtime
+  - Reads `CAD/CAD_GEOMETRIA_UHE.csv` (VHA geometry table)
+  - Reads `CAD/CAD_FPHA_CONFIG.csv` (optional fitting parameters per plant)
+  - Writes `resultado_fpha_computed.csv` with fitted hyperplanes
+- **New example case `caso_sin_computed`**: Full SIN case for FPHA computed mode testing
+- **I/O orchestrator**: centralized output writing in `labdessem-io`
+
+### Changed
+- **I/O centralization**: migrated all CSV writers from `labdessem-simulation` to `labdessem-io`
+  - Hydro, thermal, renewable, pumping, network, and infeasibility writers
+  - Unified FPHA I/O with column aliases and deviation columns
+- **Simulation refactoring**: decomposed monolithic `stages.rs` into `stages/` module
+  - `common.rs`, `helpers.rs`, `orchestration.rs`, `solve.rs`
+- Network flow logic migrated to `labdessem-network` crate
+- Legacy network code removed from `labdessem-simulation`
+
+### Fixed
+- FPHA computed mode loading and unit conversion
+- Run-of-river plant handling in FPHA fitting
+
 ## [0.9.0] - 2026-10-19
 
 ### Added

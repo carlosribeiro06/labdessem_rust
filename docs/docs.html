@@ -93,10 +93,13 @@ labdessem run --help</code></pre>
 ├── crates/
 │   ├── labdessem-cli        # Command-line interface
 │   ├── labdessem-core       # Domain entities, IDs, validation
+│   ├── labdessem-fpha       # FPHA fitting pipeline (convex hull)
 │   ├── labdessem-io         # Case reader and output writers
 │   ├── labdessem-model      # Variables, objective, constraints
+│   ├── labdessem-network    # DC network flow, PTDF, CMB/CMO
 │   ├── labdessem-simulation # Workflow orchestration
-│   └── labdessem-solver     # Optimization backend (HiGHS)
+│   ├── labdessem-solver     # Optimization backend (HiGHS)
+│   └── labdessem-uc         # Unit commitment formulation
 ├── docs/                    # This website
 ├── examples/                # Example study cases
 ├── schemas/                 # JSON Schema for study_config.json
@@ -120,6 +123,10 @@ labdessem run --help</code></pre>
               <td>Domain entities, identifiers, validations, horizon representation.</td>
             </tr>
             <tr>
+              <td><code>labdessem-fpha</code></td>
+              <td>FPHA fitting pipeline. Computes hyperplanes from VHA geometry using convex hull.</td>
+            </tr>
+            <tr>
               <td><code>labdessem-io</code></td>
               <td>Case reader. Loads <code>study_config.json</code> and CSV files from <code>CAD/</code> and <code>OPER/</code>.</td>
             </tr>
@@ -128,12 +135,20 @@ labdessem run --help</code></pre>
               <td>Indexing, variables, objective function, and algebraic constraints.</td>
             </tr>
             <tr>
+              <td><code>labdessem-network</code></td>
+              <td>DC network flow, PTDF matrices, flow cut constraints, CMB/CMO dual extraction.</td>
+            </tr>
+            <tr>
               <td><code>labdessem-solver</code></td>
               <td>Optimization backend integration through <code>good_lp</code> with HiGHS.</td>
             </tr>
             <tr>
               <td><code>labdessem-simulation</code></td>
               <td>End-to-end orchestration: solve workflow, network iterations, output export.</td>
+            </tr>
+            <tr>
+              <td><code>labdessem-uc</code></td>
+              <td>Solver-agnostic unit commitment formulation: thermal and hydro UC variables/constraints.</td>
             </tr>
           </tbody>
         </table>
@@ -154,6 +169,8 @@ labdessem run --help</code></pre>
           <li><code>CAD_CONJ_UHE.csv</code> — Hydro groups and units</li>
           <li><code>CAD_REN.csv</code> — Renewable plants</li>
           <li><code>CAD_USIE.csv</code> — Pumping plants</li>
+          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry (when <code>FPHA="computed"</code>)</li>
+          <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional)</li>
         </ul>
 
         <h3>OPER Files (Operational)</h3>
@@ -175,6 +192,7 @@ labdessem run --help</code></pre>
           <li><code>resultado_elevatorias.csv</code> — Pumping plant operation</li>
           <li><code>resultado_cmosist.csv</code> — Marginal operating costs (PiDemanda and CMO)</li>
           <li><code>resultado_fcf_eco.csv</code> — Future cost cut values (when <code>FCF=1</code>)</li>
+          <li><code>resultado_fpha_computed.csv</code> — Computed FPHA hyperplanes (when <code>FPHA="computed"</code>)</li>
           <li><code>resultado_rede.csv</code> — Network flows (when <code>rede=1</code>)</li>
           <li><code>resultado_cmobar.csv</code> — Nodal marginal costs per bus (when <code>rede=1</code>)</li>
         </ul>
