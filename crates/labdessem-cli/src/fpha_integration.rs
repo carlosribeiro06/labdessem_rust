@@ -125,8 +125,6 @@ pub fn compute_fpha(
         }
     }
 
-    write_computed_results(case_path, &results, plants)?;
-
     eprintln!(
         "FPHA computation complete: {} plants processed, {} skipped",
         processed, skipped
