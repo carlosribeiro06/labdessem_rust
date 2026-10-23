@@ -176,7 +176,7 @@ pub fn read_study_from_path(case_path: impl AsRef<Path>) -> Result<System, IoErr
         config.rede != 0,
         config.uct != 0,
         config.uch != 0,
-        config.fpha.is_enabled(),
+        config.fpha.is_precomputed(),
         config.fcf != 0,
     )
 }

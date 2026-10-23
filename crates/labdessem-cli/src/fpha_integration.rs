@@ -58,6 +58,7 @@ impl From<labdessem_io::IoError> for FphaComputeError {
 pub fn compute_fpha(
     case_path: &Path,
     plants: &[HydroPlant],
+    period_duration_hours: f64,
 ) -> Result<FphaComputeResult, FphaComputeError> {
     eprintln!("Computing FPHA planes from geometry data...");
 
@@ -90,7 +91,7 @@ pub fn compute_fpha(
             continue;
         };
 
-        let params = match build_fit_params(plant, vha, tailrace_data.get(&plant_code), fpha_config.get(&plant_code)) {
+        let params = match build_fit_params(plant, vha, tailrace_data.get(&plant_code), fpha_config.get(&plant_code), period_duration_hours) {
             Ok(p) => p,
             Err(e) => {
                 eprintln!(
@@ -143,6 +144,7 @@ fn build_fit_params(
     vha: &VhaGeometryData,
     tailrace: Option<&TailraceData>,
     config: Option<&IoFphaPlantConfig>,
+    period_duration_hours: f64,
 ) -> Result<FitPlantParams, String> {
     let vha_rows: Vec<VhaRow> = vha
         .points
@@ -165,7 +167,7 @@ fn build_fit_params(
         .groups
         .iter()
         .map(|g| g.units.iter().map(|u| u.max_turbining_hm3).sum::<f64>())
-        .sum::<f64>() * 1e6 / 3600.0;  // Convert hm3 to m3/s (assuming 1h period)
+        .sum::<f64>() * 1e6 / (period_duration_hours * 3600.0);
 
     let max_generation_mw = plant
         .groups
@@ -177,7 +179,7 @@ fn build_fit_params(
         0.0
     } else {
         let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>() / plant.natural_inflow_hm3.len() as f64;
-        mean_hm3 * 1e6 / 3600.0
+        mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
     };
 
     let fpha_config = build_fpha_config(config);
