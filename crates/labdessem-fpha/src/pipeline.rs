@@ -4,8 +4,8 @@ use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
 use crate::fitting::{
     compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
-    reduce_planes, scale_planes, validate_fitted_planes, ForebayTable, ProductionFunction,
-    TailraceSource,
+    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes, ForebayTable,
+    ProductionFunction, TailraceSource,
 };
 #[cfg(test)]
 use crate::fitting::PlaneReductionConfig;
@@ -39,9 +39,22 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
         params.nome.clone(),
     );
 
-    let bounds = params.config.to_fitting_bounds(
+    // Get config-based bounds first (n_volume_points, n_flow_points, etc.)
+    let config_bounds = params.config.to_fitting_bounds(
         params.forebay.v_min(),
         params.forebay.v_max(),
+    );
+
+    // For run-of-river detection, useful storage is the forebay table span.
+    // Single-point tables yield 0.0, triggering minimum half-width.
+    let useful_storage_hm3 = params.forebay.v_max() - params.forebay.v_min();
+
+    // Resolve bounds with single-volume synthesis for run-of-river plants
+    let bounds = resolve_fitting_bounds(
+        params.forebay.v_min(),
+        params.forebay.v_max(),
+        useful_storage_hm3,
+        &config_bounds,
     );
 
     // Stage 1: Hull fitting
@@ -177,6 +190,38 @@ mod tests {
             assert_eq!(p1.gamma_v.to_bits(), p2.gamma_v.to_bits());
             assert_eq!(p1.gamma_q.to_bits(), p2.gamma_q.to_bits());
             assert_eq!(p1.gamma_s.to_bits(), p2.gamma_s.to_bits());
+        }
+    }
+
+    #[test]
+    fn fit_plant_run_of_river() {
+        // Single-point forebay table
+        let rows = vec![VhaRow { volume_hm3: 500.0, height_m: 400.0, area_km2: 5.0 }];
+        let forebay = ForebayTable::new(&rows, "FioAgua").unwrap();
+
+        let params = FitPlantParams {
+            codigo: 99,
+            nome: "FIO_AGUA".to_string(),
+            forebay,
+            tailrace: Some(TailraceModel::Constant { level_m: 350.0 }),
+            hydraulic_loss_m: Some(1.0),
+            efficiency: Some(0.9),
+            max_turbined_m3s: 100.0,
+            max_generation_mw: 50.0,
+            long_term_mean_inflow_m3s: 80.0,
+            config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
+        };
+
+        let result = fit_plant(&params);
+        assert!(result.is_ok(), "run-of-river plant should fit successfully");
+
+        let result = result.unwrap();
+        for plane in &result.planes {
+            assert_eq!(
+                plane.gamma_v.to_bits(),
+                0.0_f64.to_bits(),
+                "run-of-river plant must have γ_V = 0"
+            );
         }
     }
 }

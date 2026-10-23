@@ -22,18 +22,21 @@ pub struct ForebayTable {
 
 impl ForebayTable {
     /// Construct from VHA rows, sorting by volume and validating.
+    ///
+    /// Single-point tables are accepted and represent run-of-river plants
+    /// with constant forebay height. Empty tables are rejected.
     pub fn new(rows: &[VhaRow], hydro_name: &str) -> Result<Self, FphaFittingError> {
-        if rows.len() < 2 {
+        if rows.is_empty() {
             return Err(FphaFittingError::InsufficientPoints {
                 hydro_name: hydro_name.to_owned(),
-                count: rows.len(),
+                count: 0,
             });
         }
 
         let mut sorted: Vec<VhaRow> = rows.to_vec();
         sorted.sort_by(|a, b| a.volume_hm3.total_cmp(&b.volume_hm3));
 
-        // Check for duplicate volumes
+        // Check for duplicate volumes (only relevant for multi-point tables)
         for w in sorted.windows(2) {
             if (w[0].volume_hm3 - w[1].volume_hm3).abs() < 1e-9 {
                 return Err(FphaFittingError::DuplicateVolume {
@@ -50,7 +53,14 @@ impl ForebayTable {
     }
 
     /// Forebay height (m) at reservoir volume (hm³), clamped to table bounds.
+    ///
+    /// For single-row tables (run-of-river plants), returns constant height.
     pub fn height(&self, volume_hm3: f64) -> f64 {
+        // Single-row table: constant forebay height
+        if self.rows.len() == 1 {
+            return self.rows[0].height_m;
+        }
+
         let n = self.rows.len();
         let v_min = self.rows[0].volume_hm3;
         let v_max = self.rows[n - 1].volume_hm3;
@@ -166,10 +176,39 @@ mod tests {
     }
 
     #[test]
-    fn rejects_insufficient_points() {
-        let rows = vec![VhaRow { volume_hm3: 100.0, height_m: 850.0, area_km2: 10.0 }];
-        let result = ForebayTable::new(&rows, "Short");
-        assert!(matches!(result, Err(FphaFittingError::InsufficientPoints { .. })));
+    fn rejects_empty_table() {
+        let rows: Vec<VhaRow> = vec![];
+        let result = ForebayTable::new(&rows, "Empty");
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::InsufficientPoints { count: 0, .. })
+        ));
+    }
+
+    #[test]
+    fn single_row_table_accepted() {
+        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let table = ForebayTable::new(&rows, "SinglePoint");
+        assert!(table.is_ok());
+    }
+
+    #[test]
+    fn single_row_height_is_constant() {
+        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
+
+        assert_eq!(table.height(0.0), 386.5);
+        assert_eq!(table.height(1500.0), 386.5);
+        assert_eq!(table.height(9999.0), 386.5);
+    }
+
+    #[test]
+    fn single_row_bounds() {
+        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
+
+        assert_eq!(table.v_min(), 1500.0);
+        assert_eq!(table.v_max(), 1500.0);
     }
 
     #[test]

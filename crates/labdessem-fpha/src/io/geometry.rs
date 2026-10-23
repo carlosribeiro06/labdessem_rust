@@ -108,11 +108,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_plant_with_single_row() {
+    fn accepts_single_row_plant() {
         let csv = "Codigo;Nome;Volume_hm3;Cota_m;Area_km2\n\
                    1;SINGLE;5000.00;760.00;1200.00";
         let file = write_test_csv(csv);
-        let result = read_geometry_table(file.path());
-        assert!(result.is_err());
+        let tables = read_geometry_table(file.path()).unwrap();
+
+        assert_eq!(tables.len(), 1);
+        let single = tables.get(&1).unwrap();
+        // Single-row table returns constant height
+        assert_eq!(single.height(0.0), 760.0);
+        assert_eq!(single.height(9999.0), 760.0);
     }
 }
