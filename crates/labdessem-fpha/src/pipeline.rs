@@ -7,6 +7,8 @@ use crate::fitting::{
     reduce_planes, scale_planes, validate_fitted_planes, ForebayTable, ProductionFunction,
     TailraceSource,
 };
+#[cfg(test)]
+use crate::fitting::PlaneReductionConfig;
 use crate::io::FphaPlantResult;
 use crate::types::TailraceModel;
 
