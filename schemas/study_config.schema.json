@@ -20,10 +20,19 @@
       "minimum": 0.0
     },
     "FPHA": {
-      "description": "Enable FPHA hydro generation formulation (0 = disabled, 1 = enabled).",
-      "type": "integer",
-      "format": "uint8",
-      "minimum": 0.0
+      "description": "FPHA mode: 0 (disabled), 1 (precomputed from OPER_FPHA.csv), or \"computed\" (compute from VHA geometry).",
+      "oneOf": [
+        {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "0 = disabled, 1 = precomputed"
+        },
+        {
+          "type": "string",
+          "enum": ["computed"],
+          "description": "compute from VHA geometry at runtime"
+        }
+      ]
     },
     "TON_Residual": {
       "description": "Enable thermal residual TON treatment (0 = disabled, 1 = enabled).",

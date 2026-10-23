@@ -1,6 +1,8 @@
 //! Terminal banner and display utilities for the labdessem CLI.
 
-use std::io::{IsTerminal, stderr};
+use std::io::{stderr, IsTerminal};
+
+use labdessem_io::FphaOption;
 
 /// Check if colored output should be used.
 /// Returns true when stderr is connected to a TTY.
@@ -37,7 +39,7 @@ pub struct ExecutionInfo<'a> {
     pub network_enabled: bool,
     pub uct_enabled: bool,
     pub uch_enabled: bool,
-    pub fpha_enabled: bool,
+    pub fpha_mode: FphaOption,
     pub fcf_enabled: bool,
     pub ton_residual_enabled: bool,
 }
@@ -52,29 +54,23 @@ pub fn print_execution_info(info: &ExecutionInfo) {
 fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
     let mut flags = Vec::new();
     if info.uct_enabled {
-        flags.push("UCT");
+        flags.push("UCT".to_string());
     }
     if info.uch_enabled {
-        flags.push("UCH");
+        flags.push("UCH".to_string());
     }
-    if info.fpha_enabled {
-        flags.push("FPHA");
-    }
+    flags.push(format!("FPHA={}", info.fpha_mode));
     if info.fcf_enabled {
-        flags.push("FCF");
+        flags.push("FCF".to_string());
     }
     if info.ton_residual_enabled {
-        flags.push("TON_Residual");
+        flags.push("TON_Residual".to_string());
     }
     if info.network_enabled {
-        flags.push("rede");
+        flags.push("rede".to_string());
     }
 
-    let flags_str = if flags.is_empty() {
-        "none".to_string()
-    } else {
-        flags.join(", ")
-    };
+    let flags_str = flags.join(", ");
 
     if use_color {
         format!(
@@ -99,7 +95,8 @@ fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionInfo, render_banner, render_execution_info};
+    use super::{render_banner, render_execution_info, ExecutionInfo};
+    use labdessem_io::FphaOption;
 
     #[test]
     fn render_banner_plain_contains_version() {
@@ -135,7 +132,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: true,
             uch_enabled: false,
-            fpha_enabled: false,
+            fpha_mode: FphaOption::Disabled,
             fcf_enabled: true,
             ton_residual_enabled: false,
         };
@@ -143,24 +140,40 @@ mod tests {
         assert!(output.contains("UCT"));
         assert!(output.contains("FCF"));
         assert!(!output.contains("UCH"));
-        assert!(!output.contains("FPHA"));
+        assert!(output.contains("FPHA=disabled"));
         assert!(!output.contains("rede"));
     }
 
     #[test]
-    fn render_execution_info_shows_none_when_no_flags() {
+    fn render_execution_info_shows_fpha_mode() {
         let info = ExecutionInfo {
             case_path: "/test/path",
             execution_mode: "MILP único",
             network_enabled: false,
             uct_enabled: false,
             uch_enabled: false,
-            fpha_enabled: false,
+            fpha_mode: FphaOption::Computed,
             fcf_enabled: false,
             ton_residual_enabled: false,
         };
         let output = render_execution_info(&info, false);
-        assert!(output.contains("Flags:     none"));
+        assert!(output.contains("FPHA=computed"));
+    }
+
+    #[test]
+    fn render_execution_info_shows_fpha_precomputed() {
+        let info = ExecutionInfo {
+            case_path: "/test/path",
+            execution_mode: "MILP único",
+            network_enabled: false,
+            uct_enabled: false,
+            uch_enabled: false,
+            fpha_mode: FphaOption::Precomputed,
+            fcf_enabled: false,
+            ton_residual_enabled: false,
+        };
+        let output = render_execution_info(&info, false);
+        assert!(output.contains("FPHA=precomputed"));
     }
 
     #[test]
@@ -171,7 +184,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: true,
             uch_enabled: false,
-            fpha_enabled: false,
+            fpha_mode: FphaOption::Disabled,
             fcf_enabled: false,
             ton_residual_enabled: false,
         };
@@ -188,7 +201,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: false,
             uch_enabled: false,
-            fpha_enabled: false,
+            fpha_mode: FphaOption::Disabled,
             fcf_enabled: false,
             ton_residual_enabled: false,
         };

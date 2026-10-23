@@ -1,6 +1,7 @@
 //! CSV and binary readers for each entity type.
 
 pub mod common;
+pub mod fpha_geometry;
 pub mod future_cost;
 pub mod horizon;
 pub mod hydro;
@@ -12,6 +13,10 @@ pub mod submarket;
 pub mod thermal;
 
 pub use common::read_csv;
+pub use fpha_geometry::{
+    read_fpha_config, read_tailrace, read_vha_geometry, FphaPlantConfig, TailraceData,
+    VhaGeometryData, VhaPoint,
+};
 pub use future_cost::read_future_cost_cuts;
 pub use horizon::read_horizon;
 pub use hydro::read_hydro_plants;

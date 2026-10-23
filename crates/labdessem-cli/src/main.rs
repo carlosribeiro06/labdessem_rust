@@ -5,6 +5,7 @@ use labdessem_simulation::{ExecutionOption, run_simulation};
 
 mod banner;
 mod conversions;
+mod fpha_integration;
 mod output_prep;
 
 fn main() -> ExitCode {
@@ -105,13 +106,13 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         network_enabled: config.rede != 0,
         uct_enabled: config.uct != 0,
         uch_enabled: config.uch != 0,
-        fpha_enabled: config.fpha != 0,
+        fpha_mode: config.fpha,
         fcf_enabled: config.fcf != 0,
         ton_residual_enabled: config.ton_residual != 0,
     });
 
     eprintln!("Reading input data...");
-    let system = read_study_from_path(case_path)?;
+    let mut system = read_study_from_path(case_path)?;
 
     eprintln!(
         "Loaded: {} submarkets, {} thermal plants, {} hydro plants",
@@ -119,6 +120,26 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         system.thermal_plants.len(),
         system.hydro_plants.len(),
     );
+
+    if config.fpha.is_computed() {
+        eprintln!("Computing FPHA hyperplanes from VHA geometry...");
+        let fpha_result = fpha_integration::compute_fpha(
+            case_path,
+            &system.hydro_plants,
+            system.horizon.period_duration_hours,
+        )?;
+        fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
+        system.fpha_enabled = true;
+        fpha_integration::write_computed_results(
+            case_path,
+            &fpha_result.plant_results,
+            &system.hydro_plants,
+        )?;
+        eprintln!(
+            "  Processed {} plants, {} skipped",
+            fpha_result.plants_processed, fpha_result.plants_skipped
+        );
+    }
 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;

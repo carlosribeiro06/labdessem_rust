@@ -2,6 +2,7 @@
 members = [
     "crates/labdessem-cli",
     "crates/labdessem-core",
+    "crates/labdessem-fpha",
     "crates/labdessem-io",
     "crates/labdessem-model",
     "crates/labdessem-network",
