@@ -3,8 +3,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
 use labdessem_fpha::{
-    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes, fit_plant,
-    reduce_planes, scale_planes, FitPlantParams, FittingBounds, ForebayTable, FphaPlantConfig,
+    compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
+    scale_planes, FitPlantParams, FittingBounds, ForebayTable, FphaPlantConfig,
     PlaneReductionConfig, ProductionFunction, TailraceModel, TailraceSource, VhaRow,
 };
 

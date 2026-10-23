@@ -197,7 +197,6 @@ mod tests {
         let v_pts = [0.0_f64, 30_000.0];
         let q_pts = [0.0_f64, pf.max_turbined_m3s()];
         let mut sum_abs = 0.0_f64;
-        let mut sum_signed = 0.0_f64;
         let mut max_abs = 0.0_f64;
         let mut peak = 0.0_f64;
         for &v in &v_pts {
@@ -206,7 +205,6 @@ mod tests {
                 let exact = pf.evaluate_capped(v, q, 0.0);
                 let signed = fitted - exact;
                 sum_abs += signed.abs();
-                sum_signed += signed;
                 max_abs = max_abs.max(signed.abs());
                 peak = peak.max(exact);
             }
