@@ -236,6 +236,9 @@ pub fn write_computed_results(
                     gamma_q: plane.gamma_q,
                     gamma_s: plane.gamma_s,
                     alpha: r.alpha,
+                    max_deviation_mw: Some(r.deviation.max_abs_mw),
+                    mean_deviation_mw: Some(r.deviation.mean_abs_mw),
+                    rms_deviation_mw: Some(r.deviation.rms_mw),
                 }
             })
         })
