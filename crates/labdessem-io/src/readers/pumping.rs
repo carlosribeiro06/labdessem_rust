@@ -115,9 +115,9 @@ fn read_pumping_table(path: impl AsRef<Path>) -> Result<Vec<PumpingPlantRow>, Io
     let submarket_idx = column(&["SUBMERCADO", "NOMESIST"])?;
     let downstream_idx = column(&["JUSANTE", "USIHJUS"])?;
     let upstream_idx = column(&["MONTANTE", "MONTATE", "USIHMON"])?;
-    let min_idx = column(&["QBOMBMIN"])?;
-    let max_idx = column(&["QBOMBMAX"])?;
-    let consumption_idx = column(&["CONSUMO", "CONSESPEC"])?;
+    let min_idx = column(&["QBOMBMIN.M3/S"])?;
+    let max_idx = column(&["QBOMBMAX.M3/S"])?;
+    let consumption_idx = column(&["CONSUMO.MW/M3S"])?;
     let bus_idx = headers.iter().position(|header| header == "BARRA");
 
     let mut rows = Vec::new();

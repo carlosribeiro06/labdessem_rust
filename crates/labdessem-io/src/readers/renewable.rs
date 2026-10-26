@@ -164,7 +164,7 @@ fn read_renewable_operation_table(
     let periodo_idx = column("PERIODO")?;
     let codigo_idx = column("CODIGO")?;
     let nome_idx = column("NOME")?;
-    let ger_prog_idx = column("GERPROG")?;
+    let ger_prog_idx = column("GERPROG.MW")?;
 
     let mut rows = Vec::new();
     for record in reader.records() {
