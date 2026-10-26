@@ -138,6 +138,11 @@ Current keys:
   - `1`: read `OPER_FCF.bin` and add Benders cuts to the model
   - `0`: ignore future cost (default)
 
+- `EngMax`
+  Enables or disables dynamic maximum swallowing constraint:
+  - `1`: calculate head-dependent turbining limits and add EngMax constraints
+  - `0`: disable EngMax (default)
+
 Example:
 
 ```json

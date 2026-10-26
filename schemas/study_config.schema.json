@@ -12,6 +12,12 @@
     "rede"
   ],
   "properties": {
+    "EngMax": {
+      "description": "Enable dynamic maximum swallowing constraint (0 = disabled, 1 = enabled).",
+      "default": 0,
+      "type": "integer",
+      "enum": [0, 1]
+    },
     "FCF": {
       "description": "Enable future cost function (0 = disabled, 1 = enabled).",
       "default": 0,

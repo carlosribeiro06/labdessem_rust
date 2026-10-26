@@ -4,7 +4,7 @@
 
 use crate::entities::{
     Bus, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
-    Submarket, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+    Submarket, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
 };
 use crate::ids::{
     BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId, ThermalUnitId,
@@ -109,6 +109,7 @@ pub fn minimal_hydro(
                 min_generation_mw: 0.0,
                 max_generation_mw: productivity * max_turbining_hm3 * 1000.0,
                 max_turbining_hm3,
+                effective_head_m: 0.0,
                 initial_condition: HydroInitialCondition {
                     is_on: true,
                     generation_mw: 0.0,
@@ -128,6 +129,7 @@ pub fn minimal_hydro(
         downstream_plant_id: None,
         diversion_upstream_plant_ids: vec![],
         diversion_plant_id: None,
+        turbine_type: TurbineType::default(),
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{Model, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
-        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -149,6 +149,7 @@ fn build_system() -> System {
                     min_generation_mw: 5.0,
                     max_generation_mw: 50.0,
                     max_turbining_hm3: 20.0,
+                    effective_head_m: 0.0,
                     initial_condition: HydroInitialCondition {
                         is_on: true,
                         generation_mw: 5.0,
@@ -156,6 +157,7 @@ fn build_system() -> System {
                     },
                 }],
             }],
+            turbine_type: TurbineType::default(),
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![
@@ -243,6 +245,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -250,6 +253,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
             },
             HydroPlant {
                 id: HydroPlantId(2),
@@ -282,6 +286,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -289,6 +294,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
             },
             HydroPlant {
                 id: HydroPlantId(3),
@@ -321,6 +327,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -328,6 +335,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
             },
         ],
         pumping_plants: Vec::new(),
@@ -845,6 +853,7 @@ fn builds_pumping_operational_limits() {
                 min_generation_mw: 0.0,
                 max_generation_mw: 1.0,
                 max_turbining_hm3: 1.0,
+                effective_head_m: 0.0,
                 initial_condition: HydroInitialCondition {
                     is_on: false,
                     generation_mw: 0.0,
@@ -852,6 +861,7 @@ fn builds_pumping_operational_limits() {
                 },
             }],
         }],
+        turbine_type: TurbineType::default(),
     });
     system.operational_limits = vec![OperationalLimit {
         target: OperationalLimitTarget::PumpingPlant(PumpingPlantId(1)),

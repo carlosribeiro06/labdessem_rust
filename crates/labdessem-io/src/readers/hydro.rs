@@ -6,7 +6,7 @@ use std::path::Path;
 use csv::{ReaderBuilder, StringRecord};
 use labdessem_core::entities::{
     HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
-    Submarket,
+    Submarket, TurbineType,
 };
 use labdessem_core::ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId};
 use labdessem_core::system::StudyHorizon;
@@ -241,6 +241,7 @@ fn build_hydro_plants(
                                 unit_row.max_turb,
                                 period_duration_hours,
                             ),
+                            effective_head_m: unit_row.effective_head_m,
                             initial_condition: HydroInitialCondition {
                                 is_on,
                                 generation_mw: if is_on { unit_row.pmin } else { 0.0 },
@@ -296,6 +297,12 @@ fn build_hydro_plants(
             };
 
             let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
+            let turbine_type = row
+                .turbina
+                .trim()
+                .parse::<i32>()
+                .map(TurbineType::from)
+                .unwrap_or_default();
             Ok(HydroPlant {
                 id: HydroPlantId(row.codigo),
                 name: row.nome.trim().to_string(),
@@ -324,6 +331,7 @@ fn build_hydro_plants(
                 efficiency: row.eficiencia,
                 fpha_segments,
                 groups,
+                turbine_type,
             })
         })
         .collect()
@@ -419,7 +427,7 @@ struct HydroPlantRow {
     #[serde(rename = "Prod.mw/m3s")]
     prod: f64,
     #[serde(rename = "Turbina")]
-    _turbina: String,
+    turbina: String,
     #[serde(rename = "Perda.m", default)]
     perda: Option<f64>,
     #[serde(rename = "Eficiencia", default)]
@@ -457,8 +465,8 @@ struct HydroUnitRow {
     barra: Option<usize>,
     #[serde(rename = "MaxTurb.m3/s")]
     max_turb: f64,
-    #[serde(rename = "Hef.m")]
-    _hef: f64,
+    #[serde(rename = "Hef.m", default)]
+    effective_head_m: f64,
 }
 
 #[derive(Debug, Deserialize)]

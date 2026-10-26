@@ -7,7 +7,7 @@ use super::*;
 use crate::{
     entities::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
-        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
     },
     ids::{
         BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, RenewablePlantId, SubmarketId,
@@ -116,6 +116,7 @@ fn valid_system() -> System {
                     min_generation_mw: 10.0,
                     max_generation_mw: 80.0,
                     max_turbining_hm3: 40.0,
+                    effective_head_m: 0.0,
                     initial_condition: HydroInitialCondition {
                         is_on: true,
                         generation_mw: 20.0,
@@ -123,6 +124,7 @@ fn valid_system() -> System {
                     },
                 }],
             }],
+            turbine_type: TurbineType::default(),
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![RenewablePlant {
@@ -197,6 +199,7 @@ fn rejects_inconsistent_hydro_cascade_links() {
                 min_generation_mw: 5.0,
                 max_generation_mw: 30.0,
                 max_turbining_hm3: 15.0,
+                effective_head_m: 0.0,
                 initial_condition: HydroInitialCondition {
                     is_on: true,
                     generation_mw: 10.0,
@@ -204,6 +207,7 @@ fn rejects_inconsistent_hydro_cascade_links() {
                 },
             }],
         }],
+        turbine_type: TurbineType::default(),
     });
 
     system.hydro_plants[0].downstream_plant_id = Some(HydroPlantId(2));
@@ -245,6 +249,7 @@ fn rejects_duplicated_upstream_reference() {
                 min_generation_mw: 5.0,
                 max_generation_mw: 30.0,
                 max_turbining_hm3: 15.0,
+                effective_head_m: 0.0,
                 initial_condition: HydroInitialCondition {
                     is_on: true,
                     generation_mw: 10.0,
@@ -252,6 +257,7 @@ fn rejects_duplicated_upstream_reference() {
                 },
             }],
         }],
+        turbine_type: TurbineType::default(),
     });
     system.hydro_plants[0].upstream_plant_ids = vec![HydroPlantId(2), HydroPlantId(2)];
 

@@ -3,6 +3,38 @@ use crate::{
     ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId},
 };
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TurbineType {
+    Francis,
+    Kaplan,
+    #[default]
+    Unknown,
+}
+
+impl TurbineType {
+    #[inline]
+    pub const fn alpha(&self) -> f64 {
+        match self {
+            Self::Francis => 0.5,
+            Self::Kaplan => 0.2,
+            Self::Unknown => 0.5,
+        }
+    }
+}
+
+impl From<i32> for TurbineType {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => Self::Francis,
+            2 => Self::Kaplan,
+            other => {
+                tracing::warn!(turbine_code = other, "unknown turbine type, defaulting to Unknown");
+                Self::Unknown
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct HydroInitialCondition {
     pub is_on: bool,
@@ -17,6 +49,7 @@ pub struct HydroUnit {
     pub min_generation_mw: f64,
     pub max_generation_mw: f64,
     pub max_turbining_hm3: f64,
+    pub effective_head_m: f64,
     pub initial_condition: HydroInitialCondition,
 }
 
@@ -180,6 +213,7 @@ pub struct HydroPlant {
     pub efficiency: Option<f64>,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
+    pub turbine_type: TurbineType,
 }
 
 impl HydroPlant {
@@ -268,5 +302,50 @@ impl HydroPlant {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn turbine_type_francis_alpha() {
+        assert!((TurbineType::Francis.alpha() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn turbine_type_kaplan_alpha() {
+        assert!((TurbineType::Kaplan.alpha() - 0.2).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn turbine_type_unknown_alpha() {
+        assert!((TurbineType::Unknown.alpha() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn turbine_type_from_1_is_francis() {
+        assert_eq!(TurbineType::from(1_i32), TurbineType::Francis);
+    }
+
+    #[test]
+    fn turbine_type_from_2_is_kaplan() {
+        assert_eq!(TurbineType::from(2_i32), TurbineType::Kaplan);
+    }
+
+    #[test]
+    fn turbine_type_from_0_is_unknown() {
+        assert_eq!(TurbineType::from(0_i32), TurbineType::Unknown);
+    }
+
+    #[test]
+    fn turbine_type_from_99_is_unknown() {
+        assert_eq!(TurbineType::from(99_i32), TurbineType::Unknown);
+    }
+
+    #[test]
+    fn turbine_type_default_is_unknown() {
+        assert_eq!(TurbineType::default(), TurbineType::Unknown);
     }
 }

@@ -16,6 +16,7 @@ pub use branch::Branch;
 pub use bus::Bus;
 pub use hydro::{
     HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+    TurbineType,
 };
 pub use inflow_history::InflowHistoryRow;
 pub use pumping::PumpingPlant;

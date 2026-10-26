@@ -51,7 +51,7 @@ mod tests {
     use labdessem_core::{
         entities::{
             HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
-            ThermalInitialCondition, ThermalPlant, ThermalUnit,
+            ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
         },
         ids::{
             BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
@@ -184,6 +184,7 @@ mod tests {
                         min_generation_mw: 0.0,
                         max_generation_mw: 200.0,
                         max_turbining_hm3: 500.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 0.0,
@@ -191,6 +192,7 @@ mod tests {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
             }],
             pumping_plants: Vec::new(),
             renewable_plants: vec![],
