@@ -1250,3 +1250,83 @@ fn fpha_computed_flow_adds_constraints_correctly() {
         "Generation-turbining coupling constraints should be generated with FPHA"
     );
 }
+
+#[test]
+fn extend_with_engmax_adds_constraints_when_enabled_and_bounds_exist() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    // plant index 0 (UHE-1), unit index 0 (UG-1), periods 0 and 1
+    let mut engmax_bounds = EngMaxBounds::new(10);
+    engmax_bounds.set(0, 0, 0, 15.0);
+    engmax_bounds.set(0, 0, 1, 18.0);
+
+    assert!(model.constraints.engmax().is_empty());
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        true,
+    );
+
+    let engmax_constraints = model.constraints.engmax();
+    assert_eq!(engmax_constraints.len(), 2);
+
+    let c1 = engmax_constraints
+        .iter()
+        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+        .expect("engmax constraint for t=1 should exist");
+    assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
+    assert!((c1.rhs - 15.0).abs() < 1e-6);
+
+    let c2 = engmax_constraints
+        .iter()
+        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=2]")
+        .expect("engmax constraint for t=2 should exist");
+    assert!((c2.rhs - 18.0).abs() < 1e-6);
+}
+
+#[test]
+fn extend_with_engmax_does_nothing_when_disabled() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    let mut engmax_bounds = EngMaxBounds::new(10);
+    engmax_bounds.set(0, 0, 0, 15.0);
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        false,
+    );
+
+    assert!(model.constraints.engmax().is_empty());
+}
+
+#[test]
+fn extend_with_engmax_skips_units_without_bounds() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    let engmax_bounds = EngMaxBounds::new(10);
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        true,
+    );
+
+    assert!(model.constraints.engmax().is_empty());
+}

@@ -751,6 +751,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -792,9 +793,11 @@ name = "labdessem-simulation"
 version = "0.8.0"
 dependencies = [
  "labdessem-core",
+ "labdessem-fpha",
  "labdessem-model",
  "labdessem-network",
  "labdessem-solver",
+ "tracing",
 ]
 
 [[package]]

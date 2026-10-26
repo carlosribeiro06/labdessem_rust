@@ -5,6 +5,7 @@
 
 pub mod branch;
 pub mod bus;
+pub mod engmax_bounds;
 pub mod hydro;
 pub mod inflow_history;
 pub mod pumping;
@@ -14,6 +15,7 @@ pub mod thermal;
 
 pub use branch::Branch;
 pub use bus::Bus;
+pub use engmax_bounds::EngMaxBounds;
 pub use hydro::{
     HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
     TurbineType,

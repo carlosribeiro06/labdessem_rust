@@ -6,17 +6,20 @@
 //! - Iterative solve workflow (LP → MILP → LP-FIXED → LP-CALC-CMO)
 //! - Network constraint iteration
 //! - Dual extraction for marginal costs
+//! - EngMax inter-stage recalculation
 //!
 //! ## Note
 //!
 //! This crate does NOT perform file I/O. All input reading and output writing
 //! is handled by the `labdessem-io` crate.
 
+mod engmax;
 mod error;
 mod results;
 mod stages;
 mod workflow;
 
+pub use engmax::{initialize_engmax_bounds, recalculate_engmax_bounds};
 pub use error::SimulationError;
 pub use results::{
     AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
@@ -41,6 +44,16 @@ pub fn run_simulation(
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     stages::run_simulation(system, network_enabled, execution_option)
+}
+
+/// Run simulation with specified execution option and optional EngMax.
+pub fn run_simulation_with_engmax(
+    system: &System,
+    network_enabled: bool,
+    execution_option: ExecutionOption,
+    engmax_enabled: bool,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    stages::run_simulation_with_engmax(system, network_enabled, execution_option, engmax_enabled)
 }
 
 #[cfg(test)]
@@ -375,6 +388,53 @@ mod tests {
         assert!(
             !result.cmo_solution.dual.is_empty(),
             "cmo_solution should have dual values for CMO extraction"
+        );
+    }
+
+    #[test]
+    fn engmax_enabled_simulation_runs_without_error() {
+        use super::{ExecutionOption, run_simulation_with_engmax};
+
+        let system = build_system();
+        let result = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, true)
+            .expect("Simulation with EngMax enabled should succeed");
+
+        assert!(
+            !result.steps.is_empty(),
+            "Should have at least one iteration step"
+        );
+        assert!(
+            !result.cmo_solution.primal.is_empty(),
+            "Should have primal values"
+        );
+    }
+
+    #[test]
+    fn engmax_disabled_simulation_equivalent_to_regular() {
+        use super::{ExecutionOption, run_simulation, run_simulation_with_engmax};
+
+        let system = build_system();
+
+        let result_regular = run_simulation(&system, false, ExecutionOption::Iterative)
+            .expect("Regular simulation should succeed");
+
+        let result_engmax_off = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
+            .expect("Simulation with EngMax disabled should succeed");
+
+        // Same number of stages
+        assert_eq!(
+            result_regular.steps.len(),
+            result_engmax_off.steps.len(),
+            "Should have same number of stages"
+        );
+
+        // Same objective value (within tolerance)
+        let obj_diff = (result_regular.cmo_solution.objective - result_engmax_off.cmo_solution.objective).abs();
+        assert!(
+            obj_diff < 1e-6,
+            "Objective values should match: {} vs {}",
+            result_regular.cmo_solution.objective,
+            result_engmax_off.cmo_solution.objective
         );
     }
 }
