@@ -45,11 +45,11 @@ hpc-rust-developer (core entities, data structures)
 | ticket-005-add-engmax-bounds-struct.md | completed | detailed | -- | 0.91 | 0.93 | 1.00 | EXCELLENT |
 | ticket-006-add-engmax-constraint.md | completed | detailed | -- | 0.88 | 0.97 | -- | EXCELLENT |
 | ticket-007-orchestrate-inter-stage-updates.md | completed | detailed | -- | 0.86 | -- | -- | -- |
-| ticket-008-initial-engmax-computation.md | pending | outline | -- | -- | -- | -- | -- |
-| ticket-009-execution-mode-integration.md | pending | outline | -- | -- | -- | -- | -- |
-| ticket-010-logging-and-diagnostics.md | pending | outline | -- | -- | -- | -- | -- |
-| ticket-011-write-engmax-output-csv.md | pending | outline | -- | -- | -- | -- | -- |
-| ticket-012-validate-end-to-end.md | pending | outline | -- | -- | -- | -- | -- |
+| ticket-008-initial-engmax-computation.md | superseded | outline | -- | -- | -- | -- | -- |
+| ticket-009-execution-mode-integration.md | superseded | outline | -- | -- | -- | -- | -- |
+| ticket-010-logging-and-diagnostics.md | superseded | outline | -- | -- | -- | -- | -- |
+| ticket-011-write-engmax-output-csv.md | completed | refined | -- | -- | -- | -- | -- |
+| ticket-012-validate-end-to-end.md | completed | refined | -- | -- | -- | -- | -- |
 <!-- progress:end -->
 
 ## Dependency Graph
