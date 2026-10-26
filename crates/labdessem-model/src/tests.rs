@@ -174,6 +174,7 @@ fn build_system() -> System {
                 available_generation_mw: vec![8.0, 7.0],
             },
         ],
+        inflow_history: vec![],
     }
 }
 
@@ -331,6 +332,7 @@ fn build_system_with_multiple_upstreams() -> System {
         ],
         pumping_plants: Vec::new(),
         renewable_plants: vec![],
+        inflow_history: vec![],
     }
 }
 

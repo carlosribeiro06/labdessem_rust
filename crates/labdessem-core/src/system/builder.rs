@@ -5,7 +5,7 @@ use super::{
     validate_system,
 };
 use crate::entities::{
-    Branch, Bus, HydroPlant, PumpingPlant, RenewablePlant, Submarket, ThermalPlant,
+    Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket, ThermalPlant,
 };
 use crate::error::CoreError;
 
@@ -34,6 +34,7 @@ pub struct SystemBuilder {
     interchange_limits: Vec<InterchangeLimit>,
     residual_costs: Vec<ResidualCost>,
     future_cost_cuts: Vec<FutureCostCut>,
+    inflow_history: Vec<InflowHistoryRow>,
 
     thermal_unit_commitment_enabled: bool,
     hydro_unit_commitment_enabled: bool,
@@ -117,6 +118,12 @@ impl SystemBuilder {
         self
     }
 
+    /// Set the inflow history observations.
+    pub fn with_inflow_history(mut self, inflow_history: Vec<InflowHistoryRow>) -> Self {
+        self.inflow_history = inflow_history;
+        self
+    }
+
     /// Set all configuration flags at once.
     pub fn with_flags(
         mut self,
@@ -162,6 +169,7 @@ impl SystemBuilder {
             hydro_plants: self.hydro_plants,
             pumping_plants: self.pumping_plants,
             renewable_plants: self.renewable_plants,
+            inflow_history: self.inflow_history,
         };
 
         // Validation is performed via the validate module

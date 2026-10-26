@@ -270,6 +270,7 @@ fn read_study_from_path_with_options(
         hydro_plants,
         pumping_plants,
         renewable_plants,
+        inflow_history: Vec::new(),
     };
 
     system.validate()?;

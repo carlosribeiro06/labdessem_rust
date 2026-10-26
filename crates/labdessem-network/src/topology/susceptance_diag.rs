@@ -66,6 +66,7 @@ mod tests {
             hydro_plants: vec![],
             renewable_plants: vec![],
             pumping_plants: vec![],
+            inflow_history: vec![],
         }
     }
 

@@ -132,6 +132,7 @@ fn valid_system() -> System {
             bus_id: BusId(1),
             available_generation_mw: vec![40.0, 40.0],
         }],
+        inflow_history: vec![],
     }
 }
 

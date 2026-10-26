@@ -194,6 +194,7 @@ mod tests {
             }],
             pumping_plants: Vec::new(),
             renewable_plants: vec![],
+            inflow_history: vec![],
         }
     }
 
