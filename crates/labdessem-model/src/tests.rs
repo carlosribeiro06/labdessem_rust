@@ -138,6 +138,8 @@ fn build_system() -> System {
             spillage_cost_per_hm3: 0.0,
             turbining_cost_per_hm3: 0.0,
             specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
             groups: vec![HydroGroup {
                 id: HydroGroupId(1),
                 name: "CJ-1".into(),
@@ -229,6 +231,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-A".into(),
@@ -266,6 +270,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(2),
                     name: "CJ-B".into(),
@@ -303,6 +309,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(3),
                     name: "CJ-C".into(),
@@ -824,6 +832,8 @@ fn builds_pumping_operational_limits() {
         spillage_cost_per_hm3: 0.0,
         turbining_cost_per_hm3: 0.0,
         specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
         groups: vec![HydroGroup {
             id: HydroGroupId(1),
             name: "CJ-1".into(),

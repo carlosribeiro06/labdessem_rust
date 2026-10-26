@@ -122,6 +122,8 @@ pub fn minimal_hydro(
         spillage_cost_per_hm3: 0.0,
         turbining_cost_per_hm3: 0.0,
         specific_productivity_mw_per_m3s: productivity,
+        hydraulic_loss_m: None,
+        efficiency: None,
         upstream_plant_ids: vec![],
         downstream_plant_id: None,
         diversion_upstream_plant_ids: vec![],
