@@ -722,6 +722,7 @@ dependencies = [
 name = "labdessem-cli"
 version = "0.8.0"
 dependencies = [
+ "chrono",
  "labdessem-core",
  "labdessem-fpha",
  "labdessem-io",
