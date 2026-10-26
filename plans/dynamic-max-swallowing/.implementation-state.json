@@ -1,6 +1,6 @@
 {
   "plan": "dynamic-max-swallowing",
-  "last_updated": "2026-10-26T20:57:56Z",
+  "last_updated": "2026-10-26T20:58:31Z",
   "progressive": true,
   "tickets": {
     "ticket-001-add-turbine-type-enum.md": {
@@ -328,5 +328,13 @@
   "rigor": "full",
   "scaffolded": false,
   "execution_strategy": "continuous",
-  "plan_base_tree": "852845d4ad655aaf619af1e8eddbbbdc35a7e425"
+  "plan_base_tree": "852845d4ad655aaf619af1e8eddbbbdc35a7e425",
+  "plan_completed": true,
+  "plan_completion_timestamp": "2026-10-26T20:58:31Z",
+  "final_quality_mean": 0.91,
+  "final_quality_min": 0.75,
+  "final_quality_max": 1.0,
+  "tickets_completed": 9,
+  "tickets_superseded": 3,
+  "tickets_total": 12
 }
