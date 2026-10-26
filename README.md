@@ -33,8 +33,8 @@ The current model supports:
 - thermal residual TON cost treatment at the end of the horizon
 - hydro scheduling with cascades, water diversion, pumping plants, and hydraulic balance
 - two hydro generation formulations:
-  - `FPHA = 1`: generation limited by FPHA cuts
-  - `FPHA = 0`: generation linked to turbining through plant productivity
+  - `FPHA = "precomputed"` or `"computed"`: generation limited by FPHA cuts
+  - `FPHA = "constant_productivity"`: generation linked to turbining through plant productivity
 - future cost function via Benders cuts read from binary file
 - generic renewable plants with dispatch bounded by programmed generation
 - submarket demand balance with optional network representation
@@ -122,8 +122,8 @@ Current keys:
 
 - `FPHA`
   Selects hydro generation formulation:
-  - `0`: FPHA disabled — use plant productivity times turbining
-  - `1`: precomputed — read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
+  - `"constant_productivity"`: use plant productivity times turbining
+  - `"precomputed"`: read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
   - `"computed"`: compute FPHA hyperplanes from VHA geometry at runtime
 
   When `"computed"` mode is active, the solver reads:
@@ -148,7 +148,7 @@ Example:
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
-  "FPHA": 0,
+  "FPHA": "constant_productivity",
   "FCF": 1
 }
 ```

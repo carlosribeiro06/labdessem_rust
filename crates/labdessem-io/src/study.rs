@@ -6,7 +6,7 @@ use labdessem_core::system::System;
 use schemars::r#gen::SchemaGenerator;
 use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
 use schemars::JsonSchema;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::error::IoError;
 use crate::readers::{
@@ -17,10 +17,11 @@ use crate::readers::{
 };
 
 /// FPHA mode selection for hydro generation formulation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum FphaOption {
-    /// FPHA disabled: generation = productivity × turbining.
-    Disabled,
+    /// Constant productivity: generation = productivity × turbining.
+    ConstantProductivity,
     /// FPHA precomputed: read hyperplanes from OPER_FPHA.csv.
     Precomputed,
     /// FPHA computed: compute hyperplanes from VHA geometry at runtime.
@@ -31,7 +32,7 @@ impl FphaOption {
     /// Returns true if FPHA is enabled (precomputed or computed).
     #[must_use]
     pub fn is_enabled(&self) -> bool {
-        !matches!(self, FphaOption::Disabled)
+        !matches!(self, FphaOption::ConstantProductivity)
     }
 
     /// Returns true if FPHA mode is computed.
@@ -50,49 +51,9 @@ impl FphaOption {
 impl fmt::Display for FphaOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FphaOption::Disabled => write!(f, "disabled"),
+            FphaOption::ConstantProductivity => write!(f, "constant_productivity"),
             FphaOption::Precomputed => write!(f, "precomputed"),
             FphaOption::Computed => write!(f, "computed"),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FphaOption {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum FphaOptionRaw {
-            Numeric(u8),
-            String(String),
-        }
-
-        let raw = FphaOptionRaw::deserialize(deserializer)?;
-        match raw {
-            FphaOptionRaw::Numeric(0) => Ok(FphaOption::Disabled),
-            FphaOptionRaw::Numeric(1) => Ok(FphaOption::Precomputed),
-            FphaOptionRaw::String(s) if s == "computed" => Ok(FphaOption::Computed),
-            FphaOptionRaw::Numeric(n) => Err(serde::de::Error::custom(format!(
-                "invalid FPHA value {n}, expected 0, 1, or \"computed\""
-            ))),
-            FphaOptionRaw::String(s) => Err(serde::de::Error::custom(format!(
-                "invalid FPHA value \"{s}\", expected 0, 1, or \"computed\""
-            ))),
-        }
-    }
-}
-
-impl Serialize for FphaOption {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            FphaOption::Disabled => serializer.serialize_u8(0),
-            FphaOption::Precomputed => serializer.serialize_u8(1),
-            FphaOption::Computed => serializer.serialize_str("computed"),
         }
     }
 }
@@ -104,13 +65,15 @@ impl JsonSchema for FphaOption {
 
     fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
         let schema = SchemaObject {
-            instance_type: Some(SingleOrVec::Vec(vec![
-                InstanceType::Integer,
-                InstanceType::String,
-            ])),
+            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
+            enum_values: Some(vec![
+                serde_json::Value::String("constant_productivity".to_owned()),
+                serde_json::Value::String("precomputed".to_owned()),
+                serde_json::Value::String("computed".to_owned()),
+            ]),
             metadata: Some(Box::new(schemars::schema::Metadata {
                 description: Some(
-                    "FPHA mode: 0 (disabled), 1 (precomputed), or \"computed\"".to_owned(),
+                    "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\"".to_owned(),
                 ),
                 ..Default::default()
             })),
@@ -389,10 +352,10 @@ mod fpha_option_tests {
     use super::*;
 
     #[test]
-    fn deserialize_disabled() {
-        let json = r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+    fn deserialize_constant_productivity() {
+        let json = r#"{"FPHA": "constant_productivity", "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
         let config: StudyConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.fpha, FphaOption::Disabled);
+        assert_eq!(config.fpha, FphaOption::ConstantProductivity);
         assert!(!config.fpha.is_enabled());
         assert!(!config.fpha.is_computed());
         assert!(!config.fpha.is_precomputed());
@@ -400,7 +363,7 @@ mod fpha_option_tests {
 
     #[test]
     fn deserialize_precomputed() {
-        let json = r#"{"FPHA": 1, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let json = r#"{"FPHA": "precomputed", "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
         let config: StudyConfig = serde_json::from_str(json).unwrap();
         assert_eq!(config.fpha, FphaOption::Precomputed);
         assert!(config.fpha.is_enabled());
@@ -419,36 +382,32 @@ mod fpha_option_tests {
     }
 
     #[test]
-    fn deserialize_invalid_number() {
-        let json = r#"{"FPHA": 2, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
-        let result: Result<StudyConfig, _> = serde_json::from_str(json);
-        assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("invalid FPHA"));
-    }
-
-    #[test]
     fn deserialize_invalid_string() {
         let json = r#"{"FPHA": "invalid", "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
         let result: Result<StudyConfig, _> = serde_json::from_str(json);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("invalid FPHA"));
     }
 
     #[test]
-    fn serialize_disabled() {
+    fn deserialize_number_fails() {
+        let json = r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let result: Result<StudyConfig, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn serialize_constant_productivity() {
         let config = StudyConfig {
             opcao_execucao: 1,
             rede: 0,
             uct: 0,
             uch: 0,
-            fpha: FphaOption::Disabled,
+            fpha: FphaOption::ConstantProductivity,
             fcf: 0,
             ton_residual: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains(r#""FPHA":0"#));
+        assert!(json.contains(r#""FPHA":"constant_productivity""#));
     }
 
     #[test]
@@ -463,7 +422,7 @@ mod fpha_option_tests {
             ton_residual: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains(r#""FPHA":1"#));
+        assert!(json.contains(r#""FPHA":"precomputed""#));
     }
 
     #[test]
@@ -483,17 +442,17 @@ mod fpha_option_tests {
 
     #[test]
     fn display_trait() {
-        assert_eq!(FphaOption::Disabled.to_string(), "disabled");
+        assert_eq!(FphaOption::ConstantProductivity.to_string(), "constant_productivity");
         assert_eq!(FphaOption::Precomputed.to_string(), "precomputed");
         assert_eq!(FphaOption::Computed.to_string(), "computed");
     }
 
     #[test]
     fn roundtrip_all_variants() {
-        for (original, _) in [
-            (FphaOption::Disabled, "0"),
-            (FphaOption::Precomputed, "1"),
-            (FphaOption::Computed, "computed"),
+        for original in [
+            FphaOption::ConstantProductivity,
+            FphaOption::Precomputed,
+            FphaOption::Computed,
         ] {
             let config = StudyConfig {
                 opcao_execucao: 1,

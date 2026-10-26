@@ -132,7 +132,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: true,
             uch_enabled: false,
-            fpha_mode: FphaOption::Disabled,
+            fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: true,
             ton_residual_enabled: false,
         };
@@ -140,7 +140,7 @@ mod tests {
         assert!(output.contains("UCT"));
         assert!(output.contains("FCF"));
         assert!(!output.contains("UCH"));
-        assert!(output.contains("FPHA=disabled"));
+        assert!(output.contains("FPHA=constant_productivity"));
         assert!(!output.contains("rede"));
     }
 
@@ -184,7 +184,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: true,
             uch_enabled: false,
-            fpha_mode: FphaOption::Disabled,
+            fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: false,
             ton_residual_enabled: false,
         };
@@ -201,7 +201,7 @@ mod tests {
             network_enabled: false,
             uct_enabled: false,
             uch_enabled: false,
-            fpha_mode: FphaOption::Disabled,
+            fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: false,
             ton_residual_enabled: false,
         };
