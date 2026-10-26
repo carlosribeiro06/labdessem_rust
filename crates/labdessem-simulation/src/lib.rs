@@ -173,6 +173,8 @@ mod tests {
                 spillage_cost_per_hm3: 0.1,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+                hydraulic_loss_m: None,
+                efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ1".into(),

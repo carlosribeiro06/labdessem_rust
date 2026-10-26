@@ -37,29 +37,29 @@ pub struct TailraceData {
 
 #[derive(Debug, Deserialize)]
 struct VhaRow {
-    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    #[serde(rename = "codigo_usina")]
     codigo: u32,
-    #[serde(alias = "Volume_hm3", alias = "VOLUME_HM3", alias = "volume_hm3")]
+    #[serde(rename = "volume.hm3")]
     volume_hm3: f64,
-    #[serde(alias = "Cota_m", alias = "COTA_M", alias = "cota_m")]
+    #[serde(rename = "cota.m")]
     cota_m: f64,
-    #[serde(alias = "Area_km2", alias = "AREA_KM2", alias = "area_km2")]
+    #[serde(rename = "area.km2")]
     area_km2: f64,
 }
 
 #[derive(Debug, Deserialize)]
 struct TailraceRow {
-    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    #[serde(rename = "codigo_usina")]
     codigo: u32,
-    #[serde(alias = "A0", alias = "Coef0", alias = "COEF0", alias = "coef0")]
+    #[serde(rename = "a0.m")]
     a0: f64,
-    #[serde(alias = "A1", alias = "Coef1", alias = "COEF1", alias = "coef1", default)]
+    #[serde(rename = "a1.m/m3s", default)]
     a1: f64,
-    #[serde(alias = "A2", alias = "Coef2", alias = "COEF2", alias = "coef2", default)]
+    #[serde(rename = "a2.m/m3s2", default)]
     a2: f64,
-    #[serde(alias = "A3", alias = "Coef3", alias = "COEF3", alias = "coef3", default)]
+    #[serde(rename = "a3.m/m3s3", default)]
     a3: f64,
-    #[serde(alias = "A4", alias = "Coef4", alias = "COEF4", alias = "coef4", default)]
+    #[serde(rename = "a4.m/m3s4", default)]
     a4: f64,
 }
 
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn read_vha_geometry_valid_single_plant() {
         let content =
-            "codigo_usina;volume_hm3;cota_m;area_km2\n1;1000.0;250.0;50.0\n1;2000.0;260.0;75.0";
+            "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;50.0\n1;2000.0;260.0;75.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path()).unwrap();
@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     fn read_vha_geometry_sorts_by_volume() {
-        let content = "codigo_usina;volume_hm3;cota_m;area_km2\n1;3000.0;270.0;100.0\n1;1000.0;250.0;50.0\n1;2000.0;260.0;75.0";
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;3000.0;270.0;100.0\n1;1000.0;250.0;50.0\n1;2000.0;260.0;75.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path()).unwrap();
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn read_vha_geometry_multiple_plants() {
-        let content = "codigo_usina;volume_hm3;cota_m;area_km2\n1;1000.0;250.0;50.0\n2;500.0;180.0;25.0\n1;2000.0;260.0;75.0";
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;50.0\n2;500.0;180.0;25.0\n1;2000.0;260.0;75.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path()).unwrap();
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn read_vha_geometry_negative_volume_error() {
-        let content = "codigo_usina;volume_hm3;cota_m;area_km2\n1;-100.0;250.0;50.0";
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;-100.0;250.0;50.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path());
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn read_vha_geometry_negative_height_error() {
-        let content = "codigo_usina;volume_hm3;cota_m;area_km2\n1;1000.0;-50.0;50.0";
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;-50.0;50.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path());
@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn read_vha_geometry_negative_area_error() {
-        let content = "codigo_usina;volume_hm3;cota_m;area_km2\n1;1000.0;250.0;-50.0";
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;-50.0";
         let dir = create_test_case(Some(content), None);
 
         let result = read_vha_geometry(dir.path());
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn read_tailrace_valid() {
-        let content = "codigo_usina;a0;a1;a2;a3;a4\n1;120.5;0.001;-0.00001;0.0;0.0";
+        let content = "codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4\n1;120.5;0.001;-0.00001;0.0;0.0";
         let dir = create_test_case(None, Some(content));
 
         let result = read_tailrace(dir.path()).unwrap();
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn read_tailrace_multiple_plants() {
-        let content = "codigo_usina;a0;a1;a2;a3;a4\n1;120.5;0.001;-0.00001;0.0;0.0\n2;95.2;0.002;0.0;0.0;0.0";
+        let content = "codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4\n1;120.5;0.001;-0.00001;0.0;0.0\n2;95.2;0.002;0.0;0.0;0.0";
         let dir = create_test_case(None, Some(content));
 
         let result = read_tailrace(dir.path()).unwrap();
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn read_tailrace_malformed_csv_error() {
-        let content = "codigo_usina;a0;a1;a2;a3;a4\n1;120.5;invalid;-0.00001;0.0;0.0";
+        let content = "codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4\n1;120.5;invalid;-0.00001;0.0;0.0";
         let dir = create_test_case(None, Some(content));
 
         let result = read_tailrace(dir.path());
@@ -438,61 +438,6 @@ mod tests {
     }
 
     // Tailrace coefficient alias tests
-
-    #[test]
-    fn read_tailrace_with_coef_aliases() {
-        // Uses Coef0..Coef4 naming convention (labdessem-fpha style)
-        let content = "Codigo;Coef0;Coef1;Coef2;Coef3;Coef4\n1;120.5;0.001;-0.00001;0.0;0.0";
-        let dir = create_test_case(None, Some(content));
-
-        let result = read_tailrace(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&1].coefficients[0], 120.5);
-        assert_eq!(result[&1].coefficients[1], 0.001);
-        assert_eq!(result[&1].coefficients[2], -0.00001);
-    }
-
-    #[test]
-    fn read_tailrace_with_uppercase_coef_aliases() {
-        // Uses COEF0..COEF4 naming convention
-        let content = "CODIGO;COEF0;COEF1;COEF2;COEF3;COEF4\n2;95.2;0.002;0.0;0.0;0.0";
-        let dir = create_test_case(None, Some(content));
-
-        let result = read_tailrace(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&2].coefficients[0], 95.2);
-        assert_eq!(result[&2].coefficients[1], 0.002);
-    }
-
-    #[test]
-    fn read_tailrace_with_partial_coefficients() {
-        // Only Coef0, Coef1, Coef2 present - higher order coefficients default to 0.0
-        let content = "Codigo;Coef0;Coef1;Coef2\n3;100.0;0.005;-1e-8";
-        let dir = create_test_case(None, Some(content));
-
-        let result = read_tailrace(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&3].coefficients[0], 100.0);
-        assert_eq!(result[&3].coefficients[1], 0.005);
-        assert_eq!(result[&3].coefficients[2], -1e-8);
-        assert_eq!(result[&3].coefficients[3], 0.0);
-        assert_eq!(result[&3].coefficients[4], 0.0);
-    }
-
-    #[test]
-    fn read_tailrace_with_constant_coefficient_only() {
-        // Only Coef0 present - constant tailrace
-        let content = "Codigo;Coef0\n4;50.0";
-        let dir = create_test_case(None, Some(content));
-
-        let result = read_tailrace(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&4].coefficients[0], 50.0);
-        assert_eq!(result[&4].coefficients[1], 0.0);
-        assert_eq!(result[&4].coefficients[2], 0.0);
-        assert_eq!(result[&4].coefficients[3], 0.0);
-        assert_eq!(result[&4].coefficients[4], 0.0);
-    }
 
     fn create_config_test_case(config_content: Option<&str>) -> TempDir {
         let dir = TempDir::new().unwrap();
@@ -588,54 +533,4 @@ mod tests {
 
     // Column alias tests for VHA geometry
 
-    #[test]
-    fn read_vha_geometry_with_codigo_alias() {
-        // Uses 'Codigo' instead of 'codigo_usina'
-        let content = "Codigo;Volume_hm3;Cota_m;Area_km2\n1;1000.0;250.0;50.0";
-        let dir = create_test_case(Some(content), None);
-
-        let result = read_vha_geometry(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&1].plant_code, 1);
-        assert_eq!(result[&1].points[0].volume_hm3, 1000.0);
-    }
-
-    #[test]
-    fn read_vha_geometry_with_all_uppercase_columns() {
-        // Uses all uppercase column names
-        let content = "CODIGO;VOLUME_HM3;COTA_M;AREA_KM2\n2;500.0;180.0;25.0";
-        let dir = create_test_case(Some(content), None);
-
-        let result = read_vha_geometry(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&2].plant_code, 2);
-        assert_eq!(result[&2].points[0].volume_hm3, 500.0);
-        assert_eq!(result[&2].points[0].height_m, 180.0);
-        assert_eq!(result[&2].points[0].area_km2, 25.0);
-    }
-
-    #[test]
-    fn read_vha_geometry_with_all_lowercase_columns() {
-        // Uses all lowercase column names
-        let content = "codigo;volume_hm3;cota_m;area_km2\n3;750.0;200.0;35.0";
-        let dir = create_test_case(Some(content), None);
-
-        let result = read_vha_geometry(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&3].plant_code, 3);
-        assert_eq!(result[&3].points[0].volume_hm3, 750.0);
-    }
-
-    #[test]
-    fn read_vha_geometry_with_mixed_case_columns() {
-        // Uses MixedCase column names matching labdessem-fpha convention
-        let content = "Codigo;Volume_hm3;Cota_m;Area_km2\n4;1200.0;220.0;45.0\n4;2400.0;240.0;60.0";
-        let dir = create_test_case(Some(content), None);
-
-        let result = read_vha_geometry(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[&4].points.len(), 2);
-        assert_eq!(result[&4].points[0].volume_hm3, 1200.0);
-        assert_eq!(result[&4].points[1].volume_hm3, 2400.0);
-    }
 }

@@ -1,4 +1,4 @@
-codigo_usina;volume_hm3;cota_m;area_km2
+codigo_usina;volume.hm3;cota.m;area.km2
 1;0;750.00;100.0
 1;5000;758.00;150.0
 1;10000;764.00;200.0

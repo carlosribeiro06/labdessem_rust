@@ -132,7 +132,7 @@ struct BusOperationRow {
     nome_barra: String,
     #[serde(rename = "Periodo")]
     periodo: usize,
-    #[serde(rename = "Carga")]
+    #[serde(rename = "Carga.mw")]
     carga: f64,
     #[serde(rename = "CodigoSubmercado")]
     codigo_submercado: usize,
@@ -147,9 +147,9 @@ struct BranchRow {
     de: usize,
     #[serde(rename = "Para")]
     para: usize,
-    #[serde(rename = "Capacidade")]
+    #[serde(rename = "Capacidade.mw")]
     capacidade: f64,
-    #[serde(rename = "Reatancia")]
+    #[serde(rename = "Reatancia.pu")]
     reatancia: f64,
     #[serde(rename = "CodigoLinha")]
     codigo_linha: usize,

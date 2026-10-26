@@ -85,6 +85,6 @@ struct SubmarketOperationRow {
     codigo_submercado: usize,
     #[serde(rename = "Periodo")]
     periodo: usize,
-    #[serde(rename = "Demanda")]
+    #[serde(rename = "Demanda.mw")]
     demanda: f64,
 }

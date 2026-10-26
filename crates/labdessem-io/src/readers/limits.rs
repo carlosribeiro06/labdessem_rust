@@ -245,9 +245,9 @@ struct InterchangeRow {
     sbm_de: usize,
     #[serde(rename = "SbmPara")]
     sbm_para: usize,
-    #[serde(rename = "Limite")]
+    #[serde(rename = "Limite.mw")]
     limite: f64,
-    #[serde(rename = "Penalidade")]
+    #[serde(rename = "Penalidade.R$/MWh")]
     penalidade: f64,
 }
 
@@ -255,7 +255,7 @@ struct InterchangeRow {
 struct ResidualCostRow {
     #[serde(rename = "Submercado")]
     submercado: usize,
-    #[serde(rename = "CMO")]
+    #[serde(rename = "CMO.R$/MWh")]
     cmo: f64,
 }
 

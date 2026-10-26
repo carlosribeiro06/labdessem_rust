@@ -1,4 +1,4 @@
-Codigo;Nome;Conjunto;Unidades;Pmin;Pmax;StatusInic;Tinic;Barra;MaxTurb;Hef
+Codigo;Nome;Conjunto;Unidades;Pmin.mw;Pmax.mw;StatusInic;Tinic.h;Barra;MaxTurb.m3/s;Hef.m
 0; CAMARGOS     ;1;2;2.3;23;0;0;18;107;24.6
 1; ITUTINGA     ;1;2;1.25;12.5;0;0;21;58;25
 1; ITUTINGA     ;2;1;1.4;14;0;0;21;65;25

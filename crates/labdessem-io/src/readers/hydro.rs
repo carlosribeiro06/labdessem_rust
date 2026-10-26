@@ -75,10 +75,10 @@ fn read_fpha_table(path: impl AsRef<Path>) -> Result<Vec<HydroFphaRow>, IoError>
     let codigo_idx = column("USIH")?;
     let segmento_idx = column("SEGFPHA")?;
     let fator_idx = column("FCORREC")?;
-    let rhs_idx = column("RHS")?;
-    let volume_idx = column("VARM")?;
-    let turbining_idx = column("QTUR")?;
-    let lateral_idx = column("QLAT")?;
+    let rhs_idx = column("RHS.MW")?;
+    let volume_idx = column("VARM.MW/HM3")?;
+    let turbining_idx = column("QTUR.MW/M3S")?;
+    let lateral_idx = column("QLAT.MW/M3S")?;
 
     let mut rows = Vec::new();
     for record in reader.records() {
@@ -320,6 +320,8 @@ fn build_hydro_plants(
                 spillage_cost_per_hm3: row.penal_vert,
                 turbining_cost_per_hm3: row.penal_turb,
                 specific_productivity_mw_per_m3s: row.prod_esp,
+                hydraulic_loss_m: row.perda,
+                efficiency: row.eficiencia,
                 fpha_segments,
                 groups,
             })
@@ -396,11 +398,11 @@ struct HydroPlantRow {
     codigo: usize,
     #[serde(rename = "Nome")]
     nome: String,
-    #[serde(rename = "VolInic")]
+    #[serde(rename = "VolInic.hm3")]
     vol_inic: f64,
-    #[serde(rename = "Vmin")]
+    #[serde(rename = "Vmin.hm3")]
     vmin: f64,
-    #[serde(rename = "Vmax")]
+    #[serde(rename = "Vmax.hm3")]
     vmax: f64,
     #[serde(rename = "Tipo")]
     _tipo: String,
@@ -410,12 +412,18 @@ struct HydroPlantRow {
     desvio: String,
     #[serde(rename = "Submercado")]
     submercado: String,
-    #[serde(rename = "PenalVert")]
+    #[serde(rename = "PenalVert.R$/hm3")]
     penal_vert: f64,
-    #[serde(rename = "PenalTurb")]
+    #[serde(rename = "PenalTurb.R$/hm3")]
     penal_turb: f64,
-    #[serde(rename = "ProdEsp")]
+    #[serde(rename = "ProdEsp.mw/m3s")]
     prod_esp: f64,
+    #[serde(rename = "Turbina")]
+    _turbina: String,
+    #[serde(rename = "Perda.m", default)]
+    perda: Option<f64>,
+    #[serde(rename = "Eficiencia", default)]
+    eficiencia: Option<f64>,
 }
 
 #[derive(Debug)]
@@ -437,18 +445,20 @@ struct HydroUnitRow {
     conjunto: usize,
     #[serde(rename = "Unidades")]
     unidades: usize,
-    #[serde(rename = "Pmin")]
+    #[serde(rename = "Pmin.mw")]
     pmin: f64,
-    #[serde(rename = "Pmax")]
+    #[serde(rename = "Pmax.mw")]
     pmax: f64,
     #[serde(rename = "StatusInic")]
     status_inic: usize,
-    #[serde(rename = "Tinic")]
+    #[serde(rename = "Tinic.h")]
     tinic: f64,
     #[serde(rename = "Barra")]
     barra: Option<usize>,
-    #[serde(rename = "MaxTurb")]
+    #[serde(rename = "MaxTurb.m3/s")]
     max_turb: f64,
+    #[serde(rename = "Hef.m")]
+    _hef: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -459,8 +469,8 @@ struct HydroInflowRow {
     periodo: usize,
     #[serde(rename = "Nome")]
     _nome: String,
-    #[serde(rename = "Afluencia")]
+    #[serde(rename = "Afluencia.m3/s")]
     afluencia: f64,
-    #[serde(rename = "Retirada")]
+    #[serde(rename = "Retirada.m3/s")]
     retirada: f64,
 }

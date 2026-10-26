@@ -176,6 +176,8 @@ pub struct HydroPlant {
     pub spillage_cost_per_hm3: f64,
     pub turbining_cost_per_hm3: f64,
     pub specific_productivity_mw_per_m3s: f64,
+    pub hydraulic_loss_m: Option<f64>,
+    pub efficiency: Option<f64>,
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
 }
@@ -246,6 +248,23 @@ impl HydroPlant {
 
         for group in &self.groups {
             group.validate()?;
+        }
+
+        if let Some(eff) = self.efficiency {
+            if !(0.0..=1.0).contains(&eff) {
+                return Err(CoreError::validation(format!(
+                    "hydro plant {:?} efficiency must be between 0 and 1, got {}",
+                    self.id, eff
+                )));
+            }
+        }
+        if let Some(loss) = self.hydraulic_loss_m {
+            if loss < 0.0 {
+                return Err(CoreError::validation(format!(
+                    "hydro plant {:?} hydraulic loss cannot be negative",
+                    self.id
+                )));
+            }
         }
 
         Ok(())

@@ -138,6 +138,8 @@ fn build_system() -> System {
             spillage_cost_per_hm3: 0.0,
             turbining_cost_per_hm3: 0.0,
             specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
             groups: vec![HydroGroup {
                 id: HydroGroupId(1),
                 name: "CJ-1".into(),
@@ -229,6 +231,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-A".into(),
@@ -266,6 +270,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(2),
                     name: "CJ-B".into(),
@@ -303,6 +309,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(3),
                     name: "CJ-C".into(),
@@ -824,6 +832,8 @@ fn builds_pumping_operational_limits() {
         spillage_cost_per_hm3: 0.0,
         turbining_cost_per_hm3: 0.0,
         specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
         groups: vec![HydroGroup {
             id: HydroGroupId(1),
             name: "CJ-1".into(),
@@ -1117,5 +1127,114 @@ fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
             .future_cost()
             .into_iter()
             .any(|constraint| constraint.name == "future_cost_cut[stage=2,cut=8]")
+    );
+}
+
+/// Test that verifies the FPHA computed workflow:
+/// 1. System starts with fpha_enabled=false and empty fpha_segments
+/// 2. FPHA segments are injected dynamically (simulating compute_fpha + inject_fpha_segments)
+/// 3. fpha_enabled is set to true
+/// 4. Model is built and FPHA constraints are correctly generated
+///
+/// This tests the exact flow used in CLI when FPHA="computed" is configured.
+#[test]
+fn fpha_computed_flow_adds_constraints_correctly() {
+    // Step 1: Create system with fpha_enabled=false (as read_study_from_path does for computed mode)
+    let mut system = build_system();
+    system.fpha_enabled = false;
+    system.hydro_plants[0].fpha_segments.clear();
+
+    // Verify initial state: no FPHA constraints
+    let model_before = Model::from_system(&system, SolveMode::LinearProgramming);
+    assert_eq!(
+        model_before.constraints.hydro_fpha().len(),
+        0,
+        "Before injection, no FPHA constraints should exist"
+    );
+    assert_eq!(
+        model_before.constraints.hydro_productivity().len(),
+        2,
+        "Before injection, productivity constraints should be used"
+    );
+
+    // Step 2: Simulate inject_fpha_segments - inject computed segments
+    let computed_segments = vec![
+        HydroFphaSegment {
+            segment: 1,
+            correction_factor: 0.95,
+            rhs: 100.0,
+            volume_coefficient: 0.01,
+            turbining_coefficient: 2.5,
+            lateral_flow_coefficient: -0.005,
+        },
+        HydroFphaSegment {
+            segment: 2,
+            correction_factor: 0.95,
+            rhs: 80.0,
+            volume_coefficient: 0.008,
+            turbining_coefficient: 2.2,
+            lateral_flow_coefficient: -0.003,
+        },
+    ];
+    system.hydro_plants[0].fpha_segments = computed_segments;
+
+    // Step 3: Set fpha_enabled = true (as main.rs does after inject_fpha_segments)
+    system.fpha_enabled = true;
+
+    // Step 4: Build model and verify FPHA constraints are generated
+    let model_after = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    // With 2 segments and 2 periods, we expect 4 FPHA constraints
+    let fpha_constraints = model_after.constraints.hydro_fpha();
+    assert_eq!(
+        fpha_constraints.len(),
+        4,
+        "After injection, should have 4 FPHA constraints (2 segments × 2 periods)"
+    );
+
+    // Verify productivity constraints are NOT generated when FPHA is enabled
+    assert_eq!(
+        model_after.constraints.hydro_productivity().len(),
+        0,
+        "After injection, productivity constraints should NOT be used"
+    );
+
+    // Verify constraint names follow expected pattern
+    let constraint_names: Vec<&str> = fpha_constraints.iter().map(|c| c.name.as_str()).collect();
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=1,t=1]"),
+        "Missing constraint for segment 1, period 1"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=1,t=2]"),
+        "Missing constraint for segment 1, period 2"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=2,t=1]"),
+        "Missing constraint for segment 2, period 1"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=2,t=2]"),
+        "Missing constraint for segment 2, period 2"
+    );
+
+    // Verify RHS values include correction factor
+    let seg1_t1 = fpha_constraints
+        .iter()
+        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=1]")
+        .expect("constraint should exist");
+    assert!(
+        (seg1_t1.rhs - 0.95 * 100.0).abs() < 1e-6,
+        "RHS should be correction_factor * rhs = 0.95 * 100.0 = 95.0, got {}",
+        seg1_t1.rhs
+    );
+
+    // Verify generation-turbining coupling constraints are also generated
+    assert!(
+        !model_after
+            .constraints
+            .hydro_generation_turbining_coupling()
+            .is_empty(),
+        "Generation-turbining coupling constraints should be generated with FPHA"
     );
 }
