@@ -319,7 +319,7 @@ fn build_hydro_plants(
                 water_withdrawal_hm3,
                 spillage_cost_per_hm3: row.penal_vert,
                 turbining_cost_per_hm3: row.penal_turb,
-                specific_productivity_mw_per_m3s: row.prod_esp,
+                specific_productivity_mw_per_m3s: row.prod,
                 hydraulic_loss_m: row.perda,
                 efficiency: row.eficiencia,
                 fpha_segments,
@@ -416,8 +416,8 @@ struct HydroPlantRow {
     penal_vert: f64,
     #[serde(rename = "PenalTurb.R$/hm3")]
     penal_turb: f64,
-    #[serde(rename = "ProdEsp.mw/m3s")]
-    prod_esp: f64,
+    #[serde(rename = "Prod.mw/m3s")]
+    prod: f64,
     #[serde(rename = "Turbina")]
     _turbina: String,
     #[serde(rename = "Perda.m", default)]
