@@ -11,8 +11,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::error::IoError;
 use crate::readers::{
     build_dummy_buses, read_branches, read_buses, read_future_cost_cuts, read_horizon,
-    read_hydro_plants, read_interchange_limits, read_operational_limits, read_pumping_plants,
-    read_renewable_plants, read_residual_costs, read_submarkets, read_thermal_plants,
+    read_hydro_plants, read_inflow_history, read_interchange_limits, read_operational_limits,
+    read_pumping_plants, read_renewable_plants, read_residual_costs, read_submarkets,
+    read_thermal_plants,
 };
 
 /// FPHA mode selection for hydro generation formulation.
@@ -251,6 +252,7 @@ fn read_study_from_path_with_options(
         &pumping_plants,
         &horizon,
     )?;
+    let inflow_history = read_inflow_history(&oper_path)?;
 
     let system = System {
         horizon,
@@ -270,6 +272,7 @@ fn read_study_from_path_with_options(
         hydro_plants,
         pumping_plants,
         renewable_plants,
+        inflow_history,
     };
 
     system.validate()?;

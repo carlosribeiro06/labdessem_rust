@@ -19,5 +19,8 @@ labdessem-network = { path = "../labdessem-network" }
 labdessem-simulation = { path = "../labdessem-simulation" }
 labdessem-solver = { path = "../labdessem-solver" }
 
+[dev-dependencies]
+chrono = "0.4"
+
 [lints]
 workspace = true

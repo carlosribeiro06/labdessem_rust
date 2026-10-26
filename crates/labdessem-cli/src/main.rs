@@ -125,8 +125,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
         let fpha_result = fpha_integration::compute_fpha(
             case_path,
-            &system.hydro_plants,
-            system.horizon.period_duration_hours,
+            &system,
         )?;
         fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
         system.fpha_enabled = true;
