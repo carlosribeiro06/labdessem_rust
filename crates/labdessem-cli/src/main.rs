@@ -1,7 +1,8 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
 use labdessem_io::{output::write_all_results, read_study_config, read_study_from_path};
-use labdessem_simulation::{ExecutionOption, run_simulation};
+use labdessem_simulation::{ExecutionOption, initialize_engmax_bounds, recalculate_engmax_bounds, run_simulation_with_engmax};
+use labdessem_model::indexing::Indexing;
 
 mod banner;
 mod conversions;
@@ -109,6 +110,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         fpha_mode: config.fpha,
         fcf_enabled: config.fcf != 0,
         ton_residual_enabled: config.ton_residual != 0,
+        engmax_enabled: config.engmax != 0,
     });
 
     eprintln!("Reading input data...");
@@ -142,9 +144,9 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;
-    let result = run_simulation(&system, network_enabled, execution_option)?;
+    let engmax_enabled = config.engmax != 0;
+    let result = run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
 
-    // Convert to output DTOs
     let output_data = conversions::convert_to_output_data(&system, &result);
 
     let output_dir = case_path.join("RESULTADOS");
@@ -152,11 +154,18 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     eprintln!("Writing output files...");
 
-    // Build maps from solution
     let variable_values = output_prep::build_variable_values(&system, &result.cmo_solution);
     let constraint_duals = output_prep::build_constraint_duals(&system, &result.cmo_solution);
 
-    // Write all results via orchestrator
+    let engmax_bounds = if engmax_enabled {
+        let indexing = Indexing::from_system(&system);
+        let mut bounds = initialize_engmax_bounds(&system);
+        recalculate_engmax_bounds(&system, &result.cmo_solution, &indexing, &mut bounds);
+        Some(bounds)
+    } else {
+        None
+    };
+
     write_all_results(
         &system,
         &output_data,
@@ -164,6 +173,8 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         &constraint_duals,
         &output_dir,
         network_enabled,
+        engmax_bounds.as_ref(),
+        engmax_enabled,
     )?;
 
     let display_output_dir = output_dir.clone();

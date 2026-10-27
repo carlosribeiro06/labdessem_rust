@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use labdessem_core::entities::engmax_bounds::EngMaxBounds;
 use labdessem_core::system::System;
 
 use crate::error::IoError;
@@ -25,6 +26,8 @@ use super::{
 /// * `constraint_duals` - Map of constraint names to dual values from LP-CALC-CMO solution
 /// * `output_dir` - Directory to write output files
 /// * `network_enabled` - Whether network treatment is enabled
+/// * `engmax_bounds` - Optional EngMax bounds for hydro output
+/// * `engmax_enabled` - Whether EngMax is enabled in study config
 ///
 /// # Errors
 /// Returns `IoError` if any writer fails.
@@ -35,11 +38,20 @@ pub fn write_all_results(
     constraint_duals: &HashMap<String, f64>,
     output_dir: impl AsRef<Path>,
     network_enabled: bool,
+    engmax_bounds: Option<&EngMaxBounds>,
+    engmax_enabled: bool,
 ) -> Result<(), IoError> {
     let output_dir = output_dir.as_ref();
     std::fs::create_dir_all(output_dir)?;
 
-    write_hydro_csv(system, variable_values, constraint_duals, output_dir)?;
+    write_hydro_csv(
+        system,
+        variable_values,
+        constraint_duals,
+        output_dir,
+        engmax_bounds,
+        engmax_enabled,
+    )?;
     write_thermal_csv(system, variable_values, output_dir)?;
     write_pumping_csv(system, variable_values, output_dir)?;
     write_renewable_csv(system, variable_values, output_dir)?;
@@ -123,6 +135,8 @@ mod tests {
             &constraint_duals,
             &output_dir,
             false,
+            None,
+            false,
         )
         .expect("write_all_results should succeed");
 
@@ -146,6 +160,8 @@ mod tests {
             &variable_values,
             &constraint_duals,
             &output_dir,
+            false,
+            None,
             false,
         )
         .expect("write_all_results should succeed");
@@ -178,6 +194,8 @@ mod tests {
             &constraint_duals,
             &output_dir,
             true,
+            None,
+            false,
         )
         .expect("write_all_results should succeed");
 
@@ -204,6 +222,8 @@ mod tests {
             &variable_values,
             &constraint_duals,
             &output_dir,
+            false,
+            None,
             false,
         )
         .expect("write_all_results should succeed");
