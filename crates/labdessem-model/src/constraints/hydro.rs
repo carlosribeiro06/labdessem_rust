@@ -425,13 +425,22 @@ pub fn build_engmax_constraints(
     let horizon = system.horizon.periods;
     let mut constraints = Vec::new();
 
+    let mut current_plant_idx = usize::MAX;
+    let mut unit_flat_idx = 0usize;
+
     for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
+        // Reset flat index when plant changes (entries are ordered by plant, group, unit)
+        if entry.plant_idx != current_plant_idx {
+            current_plant_idx = entry.plant_idx;
+            unit_flat_idx = 0;
+        }
+
         let plant = &system.hydro_plants[entry.plant_idx];
         let group = &plant.groups[entry.group_idx];
         let unit = &group.units[entry.unit_idx];
 
         for period in 0..horizon {
-            if let Some(engmax_bound) = engmax_bounds.get(entry.plant_idx, entry.unit_idx, period) {
+            if let Some(engmax_bound) = engmax_bounds.get(entry.plant_idx, unit_flat_idx, period) {
                 let turbining = &variables.hydro_turbining[entry_idx * horizon + period];
 
                 constraints.push(LinearConstraint {
@@ -448,6 +457,8 @@ pub fn build_engmax_constraints(
                 });
             }
         }
+
+        unit_flat_idx += 1;
     }
 
     constraints
