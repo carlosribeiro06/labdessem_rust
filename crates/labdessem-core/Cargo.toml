@@ -7,5 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+chrono = "0.4"
+tracing = "0.1"
+
 [lints]
 workspace = true

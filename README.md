@@ -33,8 +33,8 @@ The current model supports:
 - thermal residual TON cost treatment at the end of the horizon
 - hydro scheduling with cascades, water diversion, pumping plants, and hydraulic balance
 - two hydro generation formulations:
-  - `FPHA = 1`: generation limited by FPHA cuts
-  - `FPHA = 0`: generation linked to turbining through plant productivity
+  - `FPHA = "precomputed"` or `"computed"`: generation limited by FPHA cuts
+  - `FPHA = "constant_productivity"`: generation linked to turbining through plant productivity
 - future cost function via Benders cuts read from binary file
 - generic renewable plants with dispatch bounded by programmed generation
 - submarket demand balance with optional network representation
@@ -130,8 +130,8 @@ Current keys:
 
 - `FPHA`
   Selects hydro generation formulation:
-  - `0`: FPHA disabled — use plant productivity times turbining
-  - `1`: precomputed — read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
+  - `"constant_productivity"`: use plant productivity times turbining
+  - `"precomputed"`: read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
   - `"computed"`: compute FPHA hyperplanes from VHA geometry at runtime
 
   When `"computed"` mode is active, the solver reads:
@@ -146,6 +146,11 @@ Current keys:
   - `1`: read `OPER_FCF.bin` and add Benders cuts to the model
   - `0`: ignore future cost (default)
 
+- `EngMax`
+  Enables or disables dynamic maximum swallowing constraint:
+  - `1`: calculate head-dependent turbining limits and add EngMax constraints
+  - `0`: disable EngMax (default)
+
 Example:
 
 ```json
@@ -156,7 +161,7 @@ Example:
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
-  "FPHA": 0,
+  "FPHA": "constant_productivity",
   "FCF": 1
 }
 ```
@@ -195,12 +200,14 @@ Representative files currently used by the reader include:
 - `CAD_CONJ_UHE.csv`
 - `CAD_REN.csv`
 - `CAD_USIE.csv`
+- `CAD_GEOMETRIA_UHE.csv` — VHA geometry for net head calculation (optional, used by EngMax and computed FPHA)
+- `CAD_TAILRACE.csv` — tailrace polynomial coefficients (optional, used by EngMax)
 - `OPER_SBM.csv`
 - `OPER_VAZAO.csv`
 - `OPER_REN.csv`
 - `OPER_REST_LIM.csv`
 - `OPER_CUSTO_RESIDUAL.csv`
-- `OPER_FPHA.csv` when `FPHA = 1`
+- `OPER_FPHA.csv` when `FPHA = "precomputed"`
 - `OPER_FCF.bin` when `FCF = 1`
 
 ## Model Highlights
@@ -221,6 +228,7 @@ Representative files currently used by the reader include:
 - pumping plants with electrical consumption
 - turbining and spillage tracked in both `hm3` and `m3/s` in outputs
 - optional FPHA-based generation envelope or productivity-based generation relation
+- dynamic maximum swallowing (EngMax) constraint based on net head calculation
 
 ### Renewables
 

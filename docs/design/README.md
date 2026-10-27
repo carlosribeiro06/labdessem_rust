@@ -8,9 +8,11 @@ Architectural decisions and domain knowledge for labdessem.
 |----------|-------------|--------|
 | [Iterative Workflow](iterative-workflow.md) | Execution modes and solve stages | ✅ |
 | [FPHA Formulation](fpha-formulation.md) | Hydro generation approximation | ✅ |
+| [EngMax Formulation](engmax-formulation.md) | Dynamic maximum swallowing | ✅ |
 | [Future Cost Function](future-cost-function.md) | Benders cuts and FCF binary format | ✅ |
 | [Network Cuts](network-cuts.md) | DC flow calculation and cut generation | ✅ |
 | [Hydro Modeling](hydro-modeling.md) | Cascade topology, pumping, and diversion | ✅ |
+| [CMB/CMO Formulation](cmb-cmo-formulation.md) | Nodal and submarket marginal costs | ✅ |
 
 ## Purpose
 

@@ -198,31 +198,31 @@ struct ThermalUnitRow {
     nome_ute: String,
     #[serde(rename = "Unidade")]
     unidade: usize,
-    #[serde(rename = "Pmin")]
+    #[serde(rename = "Pmin.mw")]
     pmin: f64,
-    #[serde(rename = "Pmax")]
+    #[serde(rename = "Pmax.mw")]
     pmax: f64,
-    #[serde(rename = "Ton")]
+    #[serde(rename = "Ton.h")]
     ton: f64,
-    #[serde(rename = "Toff")]
+    #[serde(rename = "Toff.h")]
     toff: f64,
-    #[serde(rename = "GerInic")]
+    #[serde(rename = "GerInic.mw")]
     ger_inic: f64,
     #[serde(rename = "StatusInic")]
     status_inic: usize,
-    #[serde(rename = "Tinic")]
+    #[serde(rename = "Tinic.h")]
     tinic: f64,
-    #[serde(rename = "TRampaInic")]
+    #[serde(rename = "TRampaInic.h")]
     trampa_inic: f64,
     #[serde(rename = "RupInic")]
     rup_inic: usize,
     #[serde(rename = "RdownInic")]
     rdown_inic: usize,
-    #[serde(rename = "CVU")]
+    #[serde(rename = "CVU.R$/MWh")]
     cvu: f64,
-    #[serde(rename = "CustoPartida")]
+    #[serde(rename = "CustoPartida.R$")]
     custo_partida: f64,
-    #[serde(rename = "CustoDesliga")]
+    #[serde(rename = "CustoDesliga.R$")]
     custo_desliga: f64,
     #[serde(rename = "Barra")]
     barra: Option<usize>,
@@ -240,7 +240,7 @@ struct ThermalRampRow {
     unidade: usize,
     #[serde(rename = "Traj")]
     traj: String,
-    #[serde(rename = "Passo")]
+    #[serde(rename = "Passo.mw")]
     passo: f64,
     #[serde(rename = " Ipasso")]
     indice_passo: usize,

@@ -1,12 +1,13 @@
 //! Constraint set builder and accessors.
 
+use labdessem_core::entities::EngMaxBounds;
 use labdessem_core::system::System;
 
 use crate::{SolveMode, indexing::Indexing, variables::Variables};
 
 use super::{
     ConstraintSense, LinearConstraint, build_demand_balance_constraints,
-    build_future_cost_constraints, build_hydro_balance_constraints,
+    build_engmax_constraints, build_future_cost_constraints, build_hydro_balance_constraints,
     build_hydro_commitment_channeling_constraints, build_hydro_fpha_constraints,
     build_hydro_generation_turbining_coupling_constraints, build_hydro_productivity_constraints,
     build_hydro_spillage_nonnegativity_constraints, build_hydro_turbining_limit_constraints,
@@ -207,6 +208,29 @@ impl ConstraintSet {
         self.linear_constraints
             .iter()
             .filter(|constraint| constraint.name.starts_with("operational_limit_"))
+            .collect()
+    }
+
+    /// Add EngMax constraints to the constraint set.
+    ///
+    /// Called by the simulation orchestrator after computing EngMax bounds.
+    pub fn extend_with_engmax(
+        &mut self,
+        system: &System,
+        indexing: &Indexing,
+        variables: &Variables,
+        engmax_bounds: &EngMaxBounds,
+        engmax_enabled: bool,
+    ) {
+        let engmax_constraints =
+            build_engmax_constraints(system, indexing, variables, engmax_bounds, engmax_enabled);
+        self.linear_constraints.extend(engmax_constraints);
+    }
+
+    pub fn engmax(&self) -> Vec<&LinearConstraint> {
+        self.linear_constraints
+            .iter()
+            .filter(|constraint| constraint.name.starts_with("engmax["))
             .collect()
     }
 }

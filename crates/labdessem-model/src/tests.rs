@@ -7,7 +7,7 @@ use crate::{Model, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
         HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
-        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit,
+        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -138,6 +138,8 @@ fn build_system() -> System {
             spillage_cost_per_hm3: 0.0,
             turbining_cost_per_hm3: 0.0,
             specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
             groups: vec![HydroGroup {
                 id: HydroGroupId(1),
                 name: "CJ-1".into(),
@@ -147,6 +149,7 @@ fn build_system() -> System {
                     min_generation_mw: 5.0,
                     max_generation_mw: 50.0,
                     max_turbining_hm3: 20.0,
+                    effective_head_m: 0.0,
                     initial_condition: HydroInitialCondition {
                         is_on: true,
                         generation_mw: 5.0,
@@ -154,6 +157,9 @@ fn build_system() -> System {
                     },
                 }],
             }],
+            turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![
@@ -172,6 +178,7 @@ fn build_system() -> System {
                 available_generation_mw: vec![8.0, 7.0],
             },
         ],
+        inflow_history: vec![],
     }
 }
 
@@ -229,6 +236,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-A".into(),
@@ -238,6 +247,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -245,6 +255,9 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
             HydroPlant {
                 id: HydroPlantId(2),
@@ -266,6 +279,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(2),
                     name: "CJ-B".into(),
@@ -275,6 +290,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -282,6 +298,9 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
             HydroPlant {
                 id: HydroPlantId(3),
@@ -303,6 +322,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(3),
                     name: "CJ-C".into(),
@@ -312,6 +333,7 @@ fn build_system_with_multiple_upstreams() -> System {
                         min_generation_mw: 1.0,
                         max_generation_mw: 10.0,
                         max_turbining_hm3: 5.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 1.0,
@@ -319,10 +341,14 @@ fn build_system_with_multiple_upstreams() -> System {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
         ],
         pumping_plants: Vec::new(),
         renewable_plants: vec![],
+        inflow_history: vec![],
     }
 }
 
@@ -824,6 +850,8 @@ fn builds_pumping_operational_limits() {
         spillage_cost_per_hm3: 0.0,
         turbining_cost_per_hm3: 0.0,
         specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
         groups: vec![HydroGroup {
             id: HydroGroupId(1),
             name: "CJ-1".into(),
@@ -833,6 +861,7 @@ fn builds_pumping_operational_limits() {
                 min_generation_mw: 0.0,
                 max_generation_mw: 1.0,
                 max_turbining_hm3: 1.0,
+                effective_head_m: 0.0,
                 initial_condition: HydroInitialCondition {
                     is_on: false,
                     generation_mw: 0.0,
@@ -840,6 +869,9 @@ fn builds_pumping_operational_limits() {
                 },
             }],
         }],
+        turbine_type: TurbineType::default(),
+        volume_level_table: None,
+        tailrace_coefficients: None,
     });
     system.operational_limits = vec![OperationalLimit {
         target: OperationalLimitTarget::PumpingPlant(PumpingPlantId(1)),
@@ -1118,4 +1150,380 @@ fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
             .into_iter()
             .any(|constraint| constraint.name == "future_cost_cut[stage=2,cut=8]")
     );
+}
+
+/// Test that verifies the FPHA computed workflow:
+/// 1. System starts with fpha_enabled=false and empty fpha_segments
+/// 2. FPHA segments are injected dynamically (simulating compute_fpha + inject_fpha_segments)
+/// 3. fpha_enabled is set to true
+/// 4. Model is built and FPHA constraints are correctly generated
+///
+/// This tests the exact flow used in CLI when FPHA="computed" is configured.
+#[test]
+fn fpha_computed_flow_adds_constraints_correctly() {
+    // Step 1: Create system with fpha_enabled=false (as read_study_from_path does for computed mode)
+    let mut system = build_system();
+    system.fpha_enabled = false;
+    system.hydro_plants[0].fpha_segments.clear();
+
+    // Verify initial state: no FPHA constraints
+    let model_before = Model::from_system(&system, SolveMode::LinearProgramming);
+    assert_eq!(
+        model_before.constraints.hydro_fpha().len(),
+        0,
+        "Before injection, no FPHA constraints should exist"
+    );
+    assert_eq!(
+        model_before.constraints.hydro_productivity().len(),
+        2,
+        "Before injection, productivity constraints should be used"
+    );
+
+    // Step 2: Simulate inject_fpha_segments - inject computed segments
+    let computed_segments = vec![
+        HydroFphaSegment {
+            segment: 1,
+            correction_factor: 0.95,
+            rhs: 100.0,
+            volume_coefficient: 0.01,
+            turbining_coefficient: 2.5,
+            lateral_flow_coefficient: -0.005,
+        },
+        HydroFphaSegment {
+            segment: 2,
+            correction_factor: 0.95,
+            rhs: 80.0,
+            volume_coefficient: 0.008,
+            turbining_coefficient: 2.2,
+            lateral_flow_coefficient: -0.003,
+        },
+    ];
+    system.hydro_plants[0].fpha_segments = computed_segments;
+
+    // Step 3: Set fpha_enabled = true (as main.rs does after inject_fpha_segments)
+    system.fpha_enabled = true;
+
+    // Step 4: Build model and verify FPHA constraints are generated
+    let model_after = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    // With 2 segments and 2 periods, we expect 4 FPHA constraints
+    let fpha_constraints = model_after.constraints.hydro_fpha();
+    assert_eq!(
+        fpha_constraints.len(),
+        4,
+        "After injection, should have 4 FPHA constraints (2 segments × 2 periods)"
+    );
+
+    // Verify productivity constraints are NOT generated when FPHA is enabled
+    assert_eq!(
+        model_after.constraints.hydro_productivity().len(),
+        0,
+        "After injection, productivity constraints should NOT be used"
+    );
+
+    // Verify constraint names follow expected pattern
+    let constraint_names: Vec<&str> = fpha_constraints.iter().map(|c| c.name.as_str()).collect();
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=1,t=1]"),
+        "Missing constraint for segment 1, period 1"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=1,t=2]"),
+        "Missing constraint for segment 1, period 2"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=2,t=1]"),
+        "Missing constraint for segment 2, period 1"
+    );
+    assert!(
+        constraint_names.contains(&"hydro_fpha[p=UHE-1,seg=2,t=2]"),
+        "Missing constraint for segment 2, period 2"
+    );
+
+    // Verify RHS values include correction factor
+    let seg1_t1 = fpha_constraints
+        .iter()
+        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=1]")
+        .expect("constraint should exist");
+    assert!(
+        (seg1_t1.rhs - 0.95 * 100.0).abs() < 1e-6,
+        "RHS should be correction_factor * rhs = 0.95 * 100.0 = 95.0, got {}",
+        seg1_t1.rhs
+    );
+
+    // Verify generation-turbining coupling constraints are also generated
+    assert!(
+        !model_after
+            .constraints
+            .hydro_generation_turbining_coupling()
+            .is_empty(),
+        "Generation-turbining coupling constraints should be generated with FPHA"
+    );
+}
+
+#[test]
+fn extend_with_engmax_adds_constraints_when_enabled_and_bounds_exist() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    // plant index 0 (UHE-1), unit index 0 (UG-1), periods 0 and 1
+    let mut engmax_bounds = EngMaxBounds::new(10);
+    engmax_bounds.set(0, 0, 0, 15.0);
+    engmax_bounds.set(0, 0, 1, 18.0);
+
+    assert!(model.constraints.engmax().is_empty());
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        true,
+    );
+
+    let engmax_constraints = model.constraints.engmax();
+    assert_eq!(engmax_constraints.len(), 2);
+
+    let c1 = engmax_constraints
+        .iter()
+        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+        .expect("engmax constraint for t=1 should exist");
+    assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
+    assert!((c1.rhs - 15.0).abs() < 1e-6);
+
+    let c2 = engmax_constraints
+        .iter()
+        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=2]")
+        .expect("engmax constraint for t=2 should exist");
+    assert!((c2.rhs - 18.0).abs() < 1e-6);
+}
+
+#[test]
+fn extend_with_engmax_does_nothing_when_disabled() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    let mut engmax_bounds = EngMaxBounds::new(10);
+    engmax_bounds.set(0, 0, 0, 15.0);
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        false,
+    );
+
+    assert!(model.constraints.engmax().is_empty());
+}
+
+#[test]
+fn extend_with_engmax_skips_units_without_bounds() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    let system = build_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    let engmax_bounds = EngMaxBounds::new(10);
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        true,
+    );
+
+    assert!(model.constraints.engmax().is_empty());
+}
+
+#[test]
+fn build_engmax_constraints_uses_flat_index_for_multi_group_plants() {
+    use labdessem_core::entities::EngMaxBounds;
+
+    // Build system with multi-group plant: 2 groups × 2 units = 4 units
+    let system = build_multi_group_system();
+    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+
+    // Set EngMax bounds using flat index:
+    // Group 1 units (flat 0, 1) get bound = 10.0
+    // Group 2 units (flat 2, 3) get bound = 20.0
+    let mut engmax_bounds = EngMaxBounds::new(20);
+    engmax_bounds.set(0, 0, 0, 10.0); // plant 0, flat unit 0, period 0
+    engmax_bounds.set(0, 1, 0, 10.0); // plant 0, flat unit 1, period 0
+    engmax_bounds.set(0, 2, 0, 20.0); // plant 0, flat unit 2, period 0
+    engmax_bounds.set(0, 3, 0, 20.0); // plant 0, flat unit 3, period 0
+
+    model.constraints.extend_with_engmax(
+        &system,
+        &model.indexing,
+        &model.variables,
+        &engmax_bounds,
+        true,
+    );
+
+    let engmax_constraints = model.constraints.engmax();
+    assert_eq!(engmax_constraints.len(), 4, "Should have 4 constraints (one per unit)");
+
+    // Verify group 1 units have RHS = 10.0
+    let c_g1_u1 = engmax_constraints
+        .iter()
+        .find(|c| c.name.contains("g=CJ-1,u=UG-1"))
+        .expect("constraint for CJ-1/UG-1 should exist");
+    assert!((c_g1_u1.rhs - 10.0).abs() < 1e-6, "Group 1 unit 1 should have bound 10.0");
+
+    let c_g1_u2 = engmax_constraints
+        .iter()
+        .find(|c| c.name.contains("g=CJ-1,u=UG-2"))
+        .expect("constraint for CJ-1/UG-2 should exist");
+    assert!((c_g1_u2.rhs - 10.0).abs() < 1e-6, "Group 1 unit 2 should have bound 10.0");
+
+    // Verify group 2 units have RHS = 20.0 (not 10.0, which would happen with wrong indexing)
+    let c_g2_u3 = engmax_constraints
+        .iter()
+        .find(|c| c.name.contains("g=CJ-2,u=UG-3"))
+        .expect("constraint for CJ-2/UG-3 should exist");
+    assert!((c_g2_u3.rhs - 20.0).abs() < 1e-6, "Group 2 unit 3 should have bound 20.0, not 10.0");
+
+    let c_g2_u4 = engmax_constraints
+        .iter()
+        .find(|c| c.name.contains("g=CJ-2,u=UG-4"))
+        .expect("constraint for CJ-2/UG-4 should exist");
+    assert!((c_g2_u4.rhs - 20.0).abs() < 1e-6, "Group 2 unit 4 should have bound 20.0, not 10.0");
+}
+
+fn build_multi_group_system() -> System {
+    System {
+        horizon: StudyHorizon {
+            periods: 1,
+            period_duration_hours: 1.0,
+            original_periods: 1,
+            original_period_durations_hours: vec![1.0],
+            internal_to_original_period: vec![1],
+            internal_subperiod_index: vec![1],
+        },
+        thermal_unit_commitment_enabled: false,
+        hydro_unit_commitment_enabled: false,
+        ton_residual_enabled: false,
+        fpha_enabled: false,
+        future_cost_enabled: false,
+        residual_costs: vec![],
+        future_cost_cuts: vec![],
+        submarkets: vec![Submarket {
+            id: SubmarketId(1),
+            name: "SE".into(),
+            demand_mw: vec![100.0],
+        }],
+        interchange_limits: vec![],
+        operational_limits: vec![],
+        buses: vec![Bus {
+            id: BusId(1),
+            name: "BUS-1".into(),
+            submarket_id: SubmarketId(1),
+            angle_reference: true,
+            demand_mw: vec![100.0],
+        }],
+        branches: vec![],
+        thermal_plants: vec![],
+        hydro_plants: vec![HydroPlant {
+            id: HydroPlantId(1),
+            name: "UHE-MULTI".into(),
+            submarket_id: SubmarketId(1),
+            bus_id: BusId(1),
+            upstream_plant_ids: vec![],
+            downstream_plant_id: None,
+            diversion_upstream_plant_ids: vec![],
+            diversion_plant_id: None,
+            fpha_segments: vec![],
+            reservoir: Reservoir {
+                min_volume_hm3: 10.0,
+                max_volume_hm3: 100.0,
+                initial_volume_hm3: 50.0,
+            },
+            natural_inflow_hm3: vec![1.0],
+            water_withdrawal_hm3: vec![0.0],
+            spillage_cost_per_hm3: 0.0,
+            turbining_cost_per_hm3: 0.0,
+            specific_productivity_mw_per_m3s: 1.0,
+            hydraulic_loss_m: None,
+            efficiency: None,
+            // 2 groups × 2 units each = 4 units total
+            groups: vec![
+                HydroGroup {
+                    id: HydroGroupId(1),
+                    name: "CJ-1".into(),
+                    units: vec![
+                        HydroUnit {
+                            id: HydroUnitId(1),
+                            name: "UG-1".into(),
+                            min_generation_mw: 0.0,
+                            max_generation_mw: 50.0,
+                            max_turbining_hm3: 10.0,
+                            effective_head_m: 50.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 0.0,
+                                time_in_state: 1,
+                            },
+                        },
+                        HydroUnit {
+                            id: HydroUnitId(2),
+                            name: "UG-2".into(),
+                            min_generation_mw: 0.0,
+                            max_generation_mw: 50.0,
+                            max_turbining_hm3: 10.0,
+                            effective_head_m: 50.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 0.0,
+                                time_in_state: 1,
+                            },
+                        },
+                    ],
+                },
+                HydroGroup {
+                    id: HydroGroupId(2),
+                    name: "CJ-2".into(),
+                    units: vec![
+                        HydroUnit {
+                            id: HydroUnitId(3),
+                            name: "UG-3".into(),
+                            min_generation_mw: 0.0,
+                            max_generation_mw: 50.0,
+                            max_turbining_hm3: 20.0,
+                            effective_head_m: 50.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 0.0,
+                                time_in_state: 1,
+                            },
+                        },
+                        HydroUnit {
+                            id: HydroUnitId(4),
+                            name: "UG-4".into(),
+                            min_generation_mw: 0.0,
+                            max_generation_mw: 50.0,
+                            max_turbining_hm3: 20.0,
+                            effective_head_m: 50.0,
+                            initial_condition: HydroInitialCondition {
+                                is_on: true,
+                                generation_mw: 0.0,
+                                time_in_state: 1,
+                            },
+                        },
+                    ],
+                },
+            ],
+            turbine_type: TurbineType::Francis,
+            volume_level_table: None,
+            tailrace_coefficients: None,
+        }],
+        pumping_plants: vec![],
+        renewable_plants: vec![],
+        inflow_history: vec![],
+    }
 }

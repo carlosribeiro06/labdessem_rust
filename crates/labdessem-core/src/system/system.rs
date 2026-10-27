@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    entities::{Branch, Bus, HydroPlant, PumpingPlant, RenewablePlant, Submarket, ThermalPlant},
+    entities::{Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket, ThermalPlant},
     error::CoreError,
 };
 
@@ -31,6 +31,7 @@ pub struct System {
     pub hydro_plants: Vec<HydroPlant>,
     pub pumping_plants: Vec<PumpingPlant>,
     pub renewable_plants: Vec<RenewablePlant>,
+    pub inflow_history: Vec<InflowHistoryRow>,
 }
 
 impl System {

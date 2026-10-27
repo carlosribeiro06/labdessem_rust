@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use labdessem_core::entities::engmax_bounds::EngMaxBounds;
 use labdessem_core::system::System;
 use labdessem_model::names::{
     hydro_balance_constraint_name, hydro_commitment_name, hydro_diversion_name,
@@ -22,9 +23,11 @@ pub fn write_hydro_csv(
     variable_values: &HashMap<String, f64>,
     constraint_duals: &HashMap<String, f64>,
     output_dir: &Path,
+    engmax_bounds: Option<&EngMaxBounds>,
+    engmax_enabled: bool,
 ) -> Result<(), IoError> {
     let mut csv = csv_with_header(
-        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
+        "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;EngMaxHM3;EngMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
         &[
             ("Usina", "nome da usina hidreletrica"),
             (
@@ -67,6 +70,14 @@ pub fn write_hydro_csv(
                 "TurbinamentoMaxM3s",
                 "turbinamento maximo medio da unidade no periodo em m3/s",
             ),
+            (
+                "EngMaxHM3",
+                "engolimento maximo dinamico no periodo em hm3; vazio se EngMax desabilitado",
+            ),
+            (
+                "EngMaxM3s",
+                "engolimento maximo dinamico medio no periodo em m3/s; vazio se EngMax desabilitado",
+            ),
             ("VertimentoHM3", "vertimento no periodo em hm3"),
             ("VertimentoM3s", "vertimento medio no periodo em m3/s"),
             ("DesvioHM3", "vazao desviada no periodo em hm3"),
@@ -101,7 +112,7 @@ pub fn write_hydro_csv(
         ],
     );
 
-    for plant in &system.hydro_plants {
+    for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
         for original_period in 1..=system.horizon.original_periods {
             let internal_periods = original_period_internal_indices(system, original_period);
             let period_duration_hours = original_period_duration_hours(system, original_period);
@@ -198,7 +209,9 @@ pub fn write_hydro_csv(
             let mut total_generation = 0.0;
             let mut total_turbining = 0.0;
             let mut total_status_fraction = 0.0;
+            let mut total_engmax_hm3 = 0.0;
             let mut unit_count = 0usize;
+            let mut unit_flat_idx = 0usize;
 
             // Unit-level rows
             for group in &plant.groups {
@@ -262,13 +275,31 @@ pub fn write_hydro_csv(
                         volume_hm3_to_flow_m3s(unit_turbining_max_hm3, period_duration_hours);
                     let turbining_m3s = volume_hm3_to_flow_m3s(turbining, period_duration_hours);
 
+                    // EngMax for this unit
+                    let (unit_engmax_hm3_str, unit_engmax_m3s_str) = if engmax_enabled {
+                        if let Some(bounds) = engmax_bounds {
+                            let engmax_hm3 = sum_internal_values(&internal_periods, |period| {
+                                bounds.get(plant_idx, unit_flat_idx, period).unwrap_or(0.0)
+                            });
+                            let engmax_m3s =
+                                volume_hm3_to_flow_m3s(engmax_hm3, period_duration_hours);
+                            total_engmax_hm3 += engmax_hm3;
+                            (format!("{:.6}", engmax_hm3), format!("{:.6}", engmax_m3s))
+                        } else {
+                            (String::new(), String::new())
+                        }
+                    } else {
+                        (String::new(), String::new())
+                    };
+
                     total_generation += generation;
                     total_turbining += turbining;
                     total_status_fraction += status_on_fraction;
                     unit_count += 1;
+                    unit_flat_idx += 1;
 
                     csv.push_str(&format!(
-                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};;{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
+                        "{};{};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};;{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                         plant.name,
                         group.id.0,
                         unit.id.0,
@@ -285,6 +316,8 @@ pub fn write_hydro_csv(
                         turbining_m3s,
                         unit_turbining_max_hm3,
                         unit_turbining_max_m3s,
+                        unit_engmax_hm3_str,
+                        unit_engmax_m3s_str,
                         spillage,
                         spillage_m3s,
                         diversion,
@@ -321,8 +354,21 @@ pub fn write_hydro_csv(
             };
             let aggregate_status_off = 1.0 - aggregate_status_on;
 
+            // Aggregate EngMax
+            let (agg_engmax_hm3_str, agg_engmax_m3s_str) =
+                if engmax_enabled && engmax_bounds.is_some() {
+                    let agg_engmax_m3s =
+                        volume_hm3_to_flow_m3s(total_engmax_hm3, period_duration_hours);
+                    (
+                        format!("{:.6}", total_engmax_hm3),
+                        format!("{:.6}", agg_engmax_m3s),
+                    )
+                } else {
+                    (String::new(), String::new())
+                };
+
             csv.push_str(&format!(
-                "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
+                "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
                 plant.name,
                 original_period,
                 volume,
@@ -338,6 +384,8 @@ pub fn write_hydro_csv(
                 total_turbining_m3s,
                 total_turbining_max_hm3,
                 total_turbining_max_m3s,
+                agg_engmax_hm3_str,
+                agg_engmax_m3s_str,
                 spillage,
                 spillage_m3s,
                 diversion,

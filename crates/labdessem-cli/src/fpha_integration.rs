@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use labdessem_core::entities::{HydroFphaSegment, HydroPlant};
+use labdessem_core::entities::{HydroFphaSegment, HydroPlant, InflowHistoryRow};
 use labdessem_core::system::System;
 use labdessem_fpha::{
     fit_plant, FitPlantParams, FphaPlantConfig, FphaPlantResult,
@@ -35,6 +35,7 @@ pub enum FphaComputeError {
     Io(String),
     #[allow(dead_code)]
     Fitting(String),
+    MissingHydro { hydro_id: i32, hydro_name: String },
 }
 
 impl std::fmt::Display for FphaComputeError {
@@ -42,6 +43,9 @@ impl std::fmt::Display for FphaComputeError {
         match self {
             FphaComputeError::Io(msg) => write!(f, "I/O error: {msg}"),
             FphaComputeError::Fitting(msg) => write!(f, "Fitting error: {msg}"),
+            FphaComputeError::MissingHydro { hydro_id, hydro_name } => {
+                write!(f, "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet")
+            }
         }
     }
 }
@@ -57,10 +61,19 @@ impl From<labdessem_io::IoError> for FphaComputeError {
 /// Compute FPHA planes from VHA geometry for all plants with available data.
 pub fn compute_fpha(
     case_path: &Path,
-    plants: &[HydroPlant],
-    period_duration_hours: f64,
+    system: &System,
 ) -> Result<FphaComputeResult, FphaComputeError> {
     eprintln!("Computing FPHA planes from geometry data...");
+
+    let plants = &system.hydro_plants;
+    let period_duration_hours = system.horizon.period_duration_hours;
+
+    let mlt_table = build_long_term_mean_inflow_table(&system.inflow_history);
+    let parquet_present = !system.inflow_history.is_empty();
+
+    if !parquet_present {
+        eprintln!("Warning: inflow_history.parquet not found; using deck mean for MLT");
+    }
 
     let vha_data = read_vha_geometry(case_path)?;
     let tailrace_data = read_tailrace(case_path)?;
@@ -91,9 +104,21 @@ pub fn compute_fpha(
             continue;
         };
 
-        let params = match build_fit_params(plant, vha, tailrace_data.get(&plant_code), fpha_config.get(&plant_code), period_duration_hours) {
+        let params = match build_fit_params(
+            plant,
+            vha,
+            tailrace_data.get(&plant_code),
+            fpha_config.get(&plant_code),
+            period_duration_hours,
+            &mlt_table,
+            parquet_present,
+        ) {
             Ok(p) => p,
             Err(e) => {
+                // MissingHydro is a fatal error, not a skip
+                if matches!(e, FphaComputeError::MissingHydro { .. }) {
+                    return Err(e);
+                }
                 eprintln!(
                     "Warning: Plant {} ({}): failed to build fit params: {}",
                     plant_code, plant.name, e
@@ -137,13 +162,32 @@ pub fn compute_fpha(
     })
 }
 
+fn build_long_term_mean_inflow_table(inflow_history: &[InflowHistoryRow]) -> HashMap<i32, f64> {
+    let mut acc: HashMap<i32, (f64, u64)> = HashMap::new();
+
+    for row in inflow_history {
+        let entry = acc.entry(row.hydro_id).or_insert((0.0, 0));
+        entry.0 += row.value_m3s;
+        entry.1 += 1;
+    }
+
+    acc.into_iter()
+        .filter(|(_, (_, count))| *count > 0)
+        .map(|(id, (sum, count))| (id, sum / count as f64))
+        .collect()
+}
+
 fn build_fit_params(
     plant: &HydroPlant,
     vha: &VhaGeometryData,
     tailrace: Option<&TailraceData>,
     config: Option<&IoFphaPlantConfig>,
     period_duration_hours: f64,
-) -> Result<FitPlantParams, String> {
+    mlt_table: &HashMap<i32, f64>,
+    parquet_present: bool,
+) -> Result<FitPlantParams, FphaComputeError> {
+    let plant_code = plant.id.0 as i32;
+
     let vha_rows: Vec<VhaRow> = vha
         .points
         .iter()
@@ -155,7 +199,7 @@ fn build_fit_params(
         .collect();
 
     let forebay = ForebayTable::new(&vha_rows, &plant.name)
-        .map_err(|e| format!("ForebayTable creation failed: {e}"))?;
+        .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?;
 
     let tailrace_model = tailrace.map(|t| TailraceModel::Polynomial {
         coefficients: t.coefficients.to_vec(),
@@ -173,22 +217,34 @@ fn build_fit_params(
         .map(|g| g.units.iter().map(|u| u.max_generation_mw).sum::<f64>())
         .sum();
 
-    let long_term_mean_inflow_m3s = if plant.natural_inflow_hm3.is_empty() {
-        0.0
+    // MLT fallback logic: parquet MLT → deck mean → error (if parquet present)
+    let long_term_mean_inflow_m3s = if let Some(&mlt) = mlt_table.get(&plant_code) {
+        mlt
+    } else if !parquet_present {
+        // No parquet: use deck mean
+        if plant.natural_inflow_hm3.is_empty() {
+            0.0
+        } else {
+            let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>() / plant.natural_inflow_hm3.len() as f64;
+            mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
+        }
     } else {
-        let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>() / plant.natural_inflow_hm3.len() as f64;
-        mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
+        // Parquet present but hydro missing
+        return Err(FphaComputeError::MissingHydro {
+            hydro_id: plant_code,
+            hydro_name: plant.name.clone(),
+        });
     };
 
     let fpha_config = build_fpha_config(config);
 
     Ok(FitPlantParams {
-        codigo: plant.id.0 as i32,
+        codigo: plant_code,
         nome: plant.name.clone(),
         forebay,
         tailrace: tailrace_model,
-        hydraulic_loss_m: None,
-        efficiency: None,
+        hydraulic_loss_m: plant.hydraulic_loss_m,
+        efficiency: plant.efficiency,
         max_turbined_m3s,
         max_generation_mw,
         long_term_mean_inflow_m3s,
@@ -421,5 +477,89 @@ mod tests {
 
         let segments = convert_to_fpha_segments(&result);
         assert!(segments.is_empty());
+    }
+
+    #[test]
+    fn build_mlt_table_empty_history() {
+        let table = build_long_term_mean_inflow_table(&[]);
+        assert!(table.is_empty());
+    }
+
+    #[test]
+    fn build_mlt_table_single_hydro() {
+        use chrono::NaiveDate;
+
+        let rows = vec![
+            InflowHistoryRow {
+                hydro_id: 1,
+                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
+                value_m3s: 100.0,
+            },
+            InflowHistoryRow {
+                hydro_id: 1,
+                start_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2020, 3, 1).unwrap(),
+                value_m3s: 200.0,
+            },
+        ];
+
+        let table = build_long_term_mean_inflow_table(&rows);
+
+        assert_eq!(table.len(), 1);
+        assert!((table[&1] - 150.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn build_mlt_table_multiple_hydros() {
+        use chrono::NaiveDate;
+
+        let rows = vec![
+            InflowHistoryRow {
+                hydro_id: 1,
+                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
+                value_m3s: 100.0,
+            },
+            InflowHistoryRow {
+                hydro_id: 2,
+                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
+                value_m3s: 500.0,
+            },
+            InflowHistoryRow {
+                hydro_id: 1,
+                start_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2020, 3, 1).unwrap(),
+                value_m3s: 300.0,
+            },
+        ];
+
+        let table = build_long_term_mean_inflow_table(&rows);
+
+        assert_eq!(table.len(), 2);
+        assert!((table[&1] - 200.0).abs() < 1e-9);
+        assert!((table[&2] - 500.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn fallback_uses_mlt_when_present() {
+        let mut mlt_table = HashMap::new();
+        mlt_table.insert(1, 123.45);
+        
+        // mlt_table has the hydro, so it should return the value
+        assert_eq!(mlt_table.get(&1), Some(&123.45));
+    }
+
+    #[test]
+    fn fallback_missing_hydro_error_format() {
+        let err = FphaComputeError::MissingHydro {
+            hydro_id: 42,
+            hydro_name: "TestPlant".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("42"));
+        assert!(msg.contains("TestPlant"));
+        assert!(msg.contains("inflow_history.parquet"));
     }
 }

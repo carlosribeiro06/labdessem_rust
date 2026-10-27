@@ -3,6 +3,7 @@
 //! This crate provides the convex hull fitting algorithm to compute
 //! FPHA hyperplanes from reservoir geometry (VHA tables).
 
+pub mod calculator;
 pub mod config;
 pub mod error;
 pub mod fitting;
@@ -11,6 +12,7 @@ pub mod hull;
 pub mod pipeline;
 pub mod types;
 
+pub use calculator::calculate_max_swallowing;
 pub use config::{FphaMode, FphaPlantConfig};
 pub use error::FphaFittingError;
 pub use fitting::{

@@ -68,6 +68,8 @@ pub(crate) fn run_lp_cut_loop(
     system: &System,
     dc_network: &DcNetworkModel,
     accumulated_cuts: &mut BTreeSet<FlowCutKey>,
+    engmax_bounds: Option<&labdessem_core::entities::EngMaxBounds>,
+    engmax_enabled: bool,
     steps: &mut Vec<IterationReport>,
     network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
@@ -81,6 +83,8 @@ pub(crate) fn run_lp_cut_loop(
             SolveMode::LinearProgramming,
             accumulated_cuts,
             None,
+            engmax_bounds,
+            engmax_enabled,
             IterationStage::LinearProgramming,
             iteration,
             steps,
@@ -115,6 +119,8 @@ pub(crate) fn solve_stage(
     solve_mode: SolveMode,
     accumulated_cuts: &BTreeSet<FlowCutKey>,
     commitment_source: Option<&LpSolution>,
+    engmax_bounds: Option<&labdessem_core::entities::EngMaxBounds>,
+    engmax_enabled: bool,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
@@ -132,6 +138,12 @@ pub(crate) fn solve_stage(
     let mut model = Model::from_system(system, solve_mode);
     if let Some(commitment_source) = commitment_source {
         apply_commitment_fixes(&mut model, commitment_source, &col_offsets, horizon);
+    }
+    // Add EngMax constraints if enabled and bounds provided
+    if let Some(bounds) = engmax_bounds {
+        model.constraints.extend_with_engmax(
+            system, &indexing, &model.variables, bounds, engmax_enabled
+        );
     }
     add_flow_cuts(&mut model, system, accumulated_cuts, dc_network, false);
     let (variable_count, constraint_count) = model_dimensions(&model);
@@ -158,6 +170,12 @@ pub(crate) fn solve_stage(
                     commitment_source,
                     &col_offsets,
                     horizon,
+                );
+            }
+            // Add EngMax constraints to relaxed model as well
+            if let Some(bounds) = engmax_bounds {
+                relaxed_model.constraints.extend_with_engmax(
+                    system, &indexing, &relaxed_model.variables, bounds, engmax_enabled
                 );
             }
             add_flow_cuts(
@@ -220,10 +238,13 @@ pub(crate) fn solve_stage(
     Ok((summary, violations, used_slacks))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_stage_without_network(
     system: &System,
     solve_mode: SolveMode,
     commitment_source: Option<&LpSolution>,
+    engmax_bounds: Option<&labdessem_core::entities::EngMaxBounds>,
+    engmax_enabled: bool,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
@@ -240,6 +261,12 @@ pub(crate) fn solve_stage_without_network(
     let mut model = Model::from_system(system, solve_mode);
     if let Some(commitment_source) = commitment_source {
         apply_commitment_fixes(&mut model, commitment_source, &col_offsets, horizon);
+    }
+    // Add EngMax constraints if enabled and bounds provided
+    if let Some(bounds) = engmax_bounds {
+        model.constraints.extend_with_engmax(
+            system, &indexing, &model.variables, bounds, engmax_enabled
+        );
     }
     let (variable_count, constraint_count) = model_dimensions(&model);
 
@@ -263,6 +290,12 @@ pub(crate) fn solve_stage_without_network(
                     commitment_source,
                     &col_offsets,
                     horizon,
+                );
+            }
+            // Add EngMax constraints to relaxed model as well
+            if let Some(bounds) = engmax_bounds {
+                relaxed_model.constraints.extend_with_engmax(
+                    system, &indexing, &relaxed_model.variables, bounds, engmax_enabled
                 );
             }
             add_operational_limit_slacks(&mut relaxed_model);

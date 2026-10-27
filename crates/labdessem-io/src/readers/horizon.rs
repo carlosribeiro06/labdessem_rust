@@ -12,7 +12,7 @@ const INTERNAL_PERIOD_DURATION_HOURS: f64 = 0.5;
 struct DurationRow {
     #[serde(rename = "Periodo")]
     periodo: usize,
-    #[serde(rename = "Duracao")]
+    #[serde(rename = "Duracao.h")]
     duracao: f64,
 }
 

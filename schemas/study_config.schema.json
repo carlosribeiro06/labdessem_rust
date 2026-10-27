@@ -12,6 +12,12 @@
     "rede"
   ],
   "properties": {
+    "EngMax": {
+      "description": "Enable dynamic maximum swallowing constraint (0 = disabled, 1 = enabled).",
+      "default": 0,
+      "type": "integer",
+      "enum": [0, 1]
+    },
     "FCF": {
       "description": "Enable future cost function (0 = disabled, 1 = enabled).",
       "default": 0,
@@ -20,19 +26,9 @@
       "minimum": 0.0
     },
     "FPHA": {
-      "description": "FPHA mode: 0 (disabled), 1 (precomputed from OPER_FPHA.csv), or \"computed\" (compute from VHA geometry).",
-      "oneOf": [
-        {
-          "type": "integer",
-          "enum": [0, 1],
-          "description": "0 = disabled, 1 = precomputed"
-        },
-        {
-          "type": "string",
-          "enum": ["computed"],
-          "description": "compute from VHA geometry at runtime"
-        }
-      ]
+      "description": "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\".",
+      "type": "string",
+      "enum": ["constant_productivity", "precomputed", "computed"]
     },
     "TON_Residual": {
       "description": "Enable thermal residual TON treatment (0 = disabled, 1 = enabled).",

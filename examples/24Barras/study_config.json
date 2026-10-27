@@ -5,6 +5,7 @@
   "UCT": 1,
   "UCH": 0,
   "TON_Residual": 0,
-  "FPHA": 0,
-  "FCF": 1
+  "FPHA": "constant_productivity",
+  "FCF": 1,
+  "EngMax": 1
 }

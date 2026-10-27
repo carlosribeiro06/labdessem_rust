@@ -6,17 +6,20 @@
 //! - Iterative solve workflow (LP → MILP → LP-FIXED → LP-CALC-CMO)
 //! - Network constraint iteration
 //! - Dual extraction for marginal costs
+//! - EngMax inter-stage recalculation
 //!
 //! ## Note
 //!
 //! This crate does NOT perform file I/O. All input reading and output writing
 //! is handled by the `labdessem-io` crate.
 
+mod engmax;
 mod error;
 mod results;
 mod stages;
 mod workflow;
 
+pub use engmax::{initialize_engmax_bounds, recalculate_engmax_bounds};
 pub use error::SimulationError;
 pub use results::{
     AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
@@ -43,6 +46,16 @@ pub fn run_simulation(
     stages::run_simulation(system, network_enabled, execution_option)
 }
 
+/// Run simulation with specified execution option and optional EngMax.
+pub fn run_simulation_with_engmax(
+    system: &System,
+    network_enabled: bool,
+    execution_option: ExecutionOption,
+    engmax_enabled: bool,
+) -> Result<IterativeSimulationResult, SimulationError> {
+    stages::run_simulation_with_engmax(system, network_enabled, execution_option, engmax_enabled)
+}
+
 #[cfg(test)]
 // Rationale: Tests use expect() for cleaner failure messages
 #[allow(clippy::unwrap_used, clippy::expect_used)]
@@ -51,7 +64,7 @@ mod tests {
     use labdessem_core::{
         entities::{
             HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
-            ThermalInitialCondition, ThermalPlant, ThermalUnit,
+            ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
         },
         ids::{
             BranchId, BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId, ThermalPlantId,
@@ -173,6 +186,8 @@ mod tests {
                 spillage_cost_per_hm3: 0.1,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
+                hydraulic_loss_m: None,
+                efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ1".into(),
@@ -182,6 +197,7 @@ mod tests {
                         min_generation_mw: 0.0,
                         max_generation_mw: 200.0,
                         max_turbining_hm3: 500.0,
+                        effective_head_m: 0.0,
                         initial_condition: HydroInitialCondition {
                             is_on: true,
                             generation_mw: 0.0,
@@ -189,9 +205,13 @@ mod tests {
                         },
                     }],
                 }],
+                turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             }],
             pumping_plants: Vec::new(),
             renewable_plants: vec![],
+            inflow_history: vec![],
         }
     }
 
@@ -370,6 +390,53 @@ mod tests {
         assert!(
             !result.cmo_solution.dual.is_empty(),
             "cmo_solution should have dual values for CMO extraction"
+        );
+    }
+
+    #[test]
+    fn engmax_enabled_simulation_runs_without_error() {
+        use super::{ExecutionOption, run_simulation_with_engmax};
+
+        let system = build_system();
+        let result = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, true)
+            .expect("Simulation with EngMax enabled should succeed");
+
+        assert!(
+            !result.steps.is_empty(),
+            "Should have at least one iteration step"
+        );
+        assert!(
+            !result.cmo_solution.primal.is_empty(),
+            "Should have primal values"
+        );
+    }
+
+    #[test]
+    fn engmax_disabled_simulation_equivalent_to_regular() {
+        use super::{ExecutionOption, run_simulation, run_simulation_with_engmax};
+
+        let system = build_system();
+
+        let result_regular = run_simulation(&system, false, ExecutionOption::Iterative)
+            .expect("Regular simulation should succeed");
+
+        let result_engmax_off = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
+            .expect("Simulation with EngMax disabled should succeed");
+
+        // Same number of stages
+        assert_eq!(
+            result_regular.steps.len(),
+            result_engmax_off.steps.len(),
+            "Should have same number of stages"
+        );
+
+        // Same objective value (within tolerance)
+        let obj_diff = (result_regular.cmo_solution.objective - result_engmax_off.cmo_solution.objective).abs();
+        assert!(
+            obj_diff < 1e-6,
+            "Objective values should match: {} vs {}",
+            result_regular.cmo_solution.objective,
+            result_engmax_off.cmo_solution.objective
         );
     }
 }

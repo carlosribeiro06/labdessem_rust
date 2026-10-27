@@ -406,3 +406,60 @@ pub fn build_hydro_commitment_channeling_constraints(
     .map(uc_constraint_to_linear)
     .collect()
 }
+
+/// Build EngMax (dynamic maximum swallowing) constraints for hydro units.
+///
+/// These constraints coexist with the static turbining limit constraints.
+/// Only active when `StudyConfig.engmax == 1`.
+pub fn build_engmax_constraints(
+    system: &System,
+    indexing: &Indexing,
+    variables: &Variables,
+    engmax_bounds: &labdessem_core::entities::EngMaxBounds,
+    engmax_enabled: bool,
+) -> Vec<LinearConstraint> {
+    if !engmax_enabled {
+        return Vec::new();
+    }
+
+    let horizon = system.horizon.periods;
+    let mut constraints = Vec::new();
+
+    let mut current_plant_idx = usize::MAX;
+    let mut unit_flat_idx = 0usize;
+
+    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
+        // Reset flat index when plant changes (entries are ordered by plant, group, unit)
+        if entry.plant_idx != current_plant_idx {
+            current_plant_idx = entry.plant_idx;
+            unit_flat_idx = 0;
+        }
+
+        let plant = &system.hydro_plants[entry.plant_idx];
+        let group = &plant.groups[entry.group_idx];
+        let unit = &group.units[entry.unit_idx];
+
+        for period in 0..horizon {
+            if let Some(engmax_bound) = engmax_bounds.get(entry.plant_idx, unit_flat_idx, period) {
+                let turbining = &variables.hydro_turbining[entry_idx * horizon + period];
+
+                constraints.push(LinearConstraint {
+                    name: format!(
+                        "engmax[p={},g={},u={},t={}]",
+                        plant.name,
+                        group.name,
+                        unit.name,
+                        display_period(period)
+                    ),
+                    terms: vec![term(turbining, 1.0)],
+                    sense: ConstraintSense::LessOrEqual,
+                    rhs: engmax_bound,
+                });
+            }
+        }
+
+        unit_flat_idx += 1;
+    }
+
+    constraints
+}
