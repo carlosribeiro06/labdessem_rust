@@ -125,6 +125,8 @@ fn valid_system() -> System {
                 }],
             }],
             turbine_type: TurbineType::default(),
+            volume_level_table: None,
+            tailrace_coefficients: None,
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![RenewablePlant {
@@ -208,6 +210,8 @@ fn rejects_inconsistent_hydro_cascade_links() {
             }],
         }],
         turbine_type: TurbineType::default(),
+        volume_level_table: None,
+        tailrace_coefficients: None,
     });
 
     system.hydro_plants[0].downstream_plant_id = Some(HydroPlantId(2));
@@ -258,6 +262,8 @@ fn rejects_duplicated_upstream_reference() {
             }],
         }],
         turbine_type: TurbineType::default(),
+        volume_level_table: None,
+        tailrace_coefficients: None,
     });
     system.hydro_plants[0].upstream_plant_ids = vec![HydroPlantId(2), HydroPlantId(2)];
 

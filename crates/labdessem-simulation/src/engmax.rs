@@ -39,6 +39,77 @@ use labdessem_solver::accessor::SolutionAccessor;
 use labdessem_solver::types::LpSolution;
 use tracing::info;
 
+use labdessem_core::entities::{HydroPlant, HydroUnit};
+
+/// Linear interpolation in volume-level table.
+/// Clamps to table bounds (no extrapolation).
+fn interpolate_forebay(table: &[(f64, f64)], volume_hm3: f64) -> f64 {
+    if table.is_empty() {
+        return 0.0;
+    }
+    if table.len() == 1 {
+        return table[0].1; // Single point (run-of-river)
+    }
+
+    let v_min = table[0].0;
+    let v_max = table[table.len() - 1].0;
+    let v = volume_hm3.clamp(v_min, v_max);
+
+    // Find bracketing points using binary search
+    let upper = table.partition_point(|(vol, _)| *vol <= v);
+    let hi = upper.min(table.len() - 1).max(1);
+    let lo = hi - 1;
+
+    let (v_lo, h_lo) = table[lo];
+    let (v_hi, h_hi) = table[hi];
+
+    let span = v_hi - v_lo;
+    if span <= 0.0 {
+        h_lo
+    } else {
+        let t = (v - v_lo) / span;
+        h_lo + t * (h_hi - h_lo)
+    }
+}
+
+/// Evaluate tailrace polynomial: a0 + a1*q + a2*q² + a3*q³ + a4*q⁴
+fn evaluate_tailrace(coefficients: &[f64; 5], outflow_m3s: f64) -> f64 {
+    let q = outflow_m3s;
+    coefficients[0]
+        + coefficients[1] * q
+        + coefficients[2] * q * q
+        + coefficients[3] * q * q * q
+        + coefficients[4] * q * q * q * q
+}
+
+/// Calculate net head from volume and outflow using plant geometry.
+///
+/// Returns effective_head_m if geometry data is not available.
+fn calculate_net_head(
+    plant: &HydroPlant,
+    unit: &HydroUnit,
+    volume_hm3: f64,
+    outflow_m3s: f64,
+) -> f64 {
+    // Check if geometry data is available
+    let (vlt, tc) = match (&plant.volume_level_table, &plant.tailrace_coefficients) {
+        (Some(vlt), Some(tc)) => (vlt, tc),
+        _ => return unit.effective_head_m,
+    };
+
+    // Interpolate forebay level
+    let forebay_level = interpolate_forebay(vlt, volume_hm3);
+
+    // Compute tailrace level
+    let tailrace_level = evaluate_tailrace(tc, outflow_m3s);
+
+    // Gross head minus losses
+    let gross_head = forebay_level - tailrace_level;
+    let hydraulic_loss = plant.hydraulic_loss_m.unwrap_or(0.0);
+
+    (gross_head - hydraulic_loss).max(0.0)
+}
+
 /// Recalculate EngMax bounds using solution from previous stage.
 ///
 /// For each hydro unit and period:
@@ -96,15 +167,10 @@ pub fn recalculate_engmax_bounds(
             };
 
             for (unit_flat_idx, (_group_idx, _unit_idx, unit)) in units.iter().enumerate() {
-                // Calculate net head approximation
-                // Use effective_head_m if available, otherwise estimate from volume
-                let net_head_m = if unit.effective_head_m > 0.0 {
-                    unit.effective_head_m
-                } else {
-                    // Simplified estimation: assume head proportional to volume fraction
-                    let vol_fraction = volume_hm3 / plant.reservoir.max_volume_hm3.max(1.0);
-                    vol_fraction * 100.0 // Rough approximation, 100m max head
-                };
+                // Calculate net head using geometry data or fallback to effective_head
+                let max_turbining_m3s = unit.max_turbining_hm3 * 1e6
+                    / (system.horizon.period_duration_hours * 3600.0);
+                let net_head_m = calculate_net_head(plant, unit, volume_hm3, max_turbining_m3s);
 
                 // Reference values for EngMax calculation
                 let q_ef_hm3 = unit.max_turbining_hm3;
@@ -147,13 +213,10 @@ pub fn initialize_engmax_bounds(system: &System) -> EngMaxBounds {
         let mut unit_flat_idx = 0usize;
         for group in &plant.groups {
             for unit in &group.units {
-                // Calculate net head from initial volume
-                let net_head_m = if unit.effective_head_m > 0.0 {
-                    unit.effective_head_m
-                } else {
-                    let vol_fraction = initial_volume / plant.reservoir.max_volume_hm3.max(1.0);
-                    vol_fraction * 100.0
-                };
+                // Calculate net head using geometry data or fallback to effective_head
+                let max_turbining_m3s = unit.max_turbining_hm3 * 1e6
+                    / (system.horizon.period_duration_hours * 3600.0);
+                let net_head_m = calculate_net_head(plant, unit, initial_volume, max_turbining_m3s);
 
                 let q_ef_hm3 = unit.max_turbining_hm3;
                 let h_ef_m = unit.effective_head_m.max(net_head_m);
@@ -256,6 +319,8 @@ mod tests {
                     }],
                 }],
                 turbine_type: TurbineType::Francis,
+                volume_level_table: None,
+                tailrace_coefficients: None,
             }],
             pumping_plants: vec![],
             renewable_plants: vec![],
@@ -404,6 +469,8 @@ mod tests {
                     },
                 ],
                 turbine_type: TurbineType::Francis,
+                volume_level_table: None,
+                tailrace_coefficients: None,
             }],
             pumping_plants: vec![],
             renewable_plants: vec![],

@@ -17,6 +17,7 @@ use crate::readers::common::{
     bus_id_or_dummy, flow_m3s_to_hm3, hours_to_periods, log_read_file, normalize_max_bound,
     read_csv, submarket_id_by_name,
 };
+use crate::readers::fpha_geometry::{read_tailrace, read_vha_geometry, TailraceData, VhaGeometryData};
 
 /// Read hydro plants from CAD_UHE.csv, CAD_CONJ_UHE.csv, OPER_VAZAO.csv, and optionally OPER_FPHA.csv.
 pub fn read_hydro_plants(
@@ -36,6 +37,11 @@ pub fn read_hydro_plants(
         Vec::new()
     };
 
+    // Read geometry data for net head calculation (optional files)
+    let case_path = cad_path.parent().unwrap_or(cad_path);
+    let vha_data = read_vha_geometry(case_path)?;
+    let tailrace_data = read_tailrace(case_path)?;
+
     build_hydro_plants(
         &plant_rows,
         &unit_rows,
@@ -45,6 +51,8 @@ pub fn read_hydro_plants(
         horizon,
         network_enabled,
         fpha_enabled,
+        &vha_data,
+        &tailrace_data,
     )
 }
 
@@ -121,6 +129,8 @@ fn build_hydro_plants(
     horizon: &StudyHorizon,
     network_enabled: bool,
     fpha_enabled: bool,
+    vha_data: &HashMap<u32, VhaGeometryData>,
+    tailrace_data: &HashMap<u32, TailraceData>,
 ) -> Result<Vec<HydroPlant>, IoError> {
     let period_duration_hours = horizon.period_duration_hours;
     let hydro_code_to_id: HashMap<_, _> = plant_rows
@@ -332,6 +342,15 @@ fn build_hydro_plants(
                 fpha_segments,
                 groups,
                 turbine_type,
+                volume_level_table: vha_data.get(&(row.codigo as u32)).map(|vha| {
+                    vha.points
+                        .iter()
+                        .map(|p| (p.volume_hm3, p.height_m))
+                        .collect()
+                }),
+                tailrace_coefficients: tailrace_data
+                    .get(&(row.codigo as u32))
+                    .map(|t| t.coefficients),
             })
         })
         .collect()

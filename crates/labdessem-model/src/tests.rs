@@ -158,6 +158,8 @@ fn build_system() -> System {
                 }],
             }],
             turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![
@@ -254,6 +256,8 @@ fn build_system_with_multiple_upstreams() -> System {
                     }],
                 }],
                 turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
             HydroPlant {
                 id: HydroPlantId(2),
@@ -295,6 +299,8 @@ fn build_system_with_multiple_upstreams() -> System {
                     }],
                 }],
                 turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
             HydroPlant {
                 id: HydroPlantId(3),
@@ -336,6 +342,8 @@ fn build_system_with_multiple_upstreams() -> System {
                     }],
                 }],
                 turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             },
         ],
         pumping_plants: Vec::new(),
@@ -862,6 +870,8 @@ fn builds_pumping_operational_limits() {
             }],
         }],
         turbine_type: TurbineType::default(),
+        volume_level_table: None,
+        tailrace_coefficients: None,
     });
     system.operational_limits = vec![OperationalLimit {
         target: OperationalLimitTarget::PumpingPlant(PumpingPlantId(1)),
@@ -1509,6 +1519,8 @@ fn build_multi_group_system() -> System {
                 },
             ],
             turbine_type: TurbineType::Francis,
+            volume_level_table: None,
+            tailrace_coefficients: None,
         }],
         pumping_plants: vec![],
         renewable_plants: vec![],

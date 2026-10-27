@@ -130,6 +130,8 @@ pub fn minimal_hydro(
         diversion_upstream_plant_ids: vec![],
         diversion_plant_id: None,
         turbine_type: TurbineType::default(),
+        volume_level_table: None,
+        tailrace_coefficients: None,
     }
 }
 

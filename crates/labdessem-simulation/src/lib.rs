@@ -206,6 +206,8 @@ mod tests {
                     }],
                 }],
                 turbine_type: TurbineType::default(),
+                volume_level_table: None,
+                tailrace_coefficients: None,
             }],
             pumping_plants: Vec::new(),
             renewable_plants: vec![],

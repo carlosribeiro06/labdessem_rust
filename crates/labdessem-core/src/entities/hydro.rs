@@ -214,6 +214,17 @@ pub struct HydroPlant {
     pub fpha_segments: Vec<HydroFphaSegment>,
     pub groups: Vec<HydroGroup>,
     pub turbine_type: TurbineType,
+
+    /// Volume-level table for forebay interpolation: Vec<(volume_hm3, level_m)>
+    /// Sorted by volume ascending. Used for net head calculation in EngMax.
+    /// None if geometry data is not available for this plant.
+    pub volume_level_table: Option<Vec<(f64, f64)>>,
+
+    /// Tailrace polynomial coefficients [a0, a1, a2, a3, a4] for:
+    /// tailrace_level(q) = a0 + a1*q + a2*q² + a3*q³ + a4*q⁴
+    /// where q is outflow in m³/s and result is level in meters.
+    /// None if tailrace data is not available for this plant.
+    pub tailrace_coefficients: Option<[f64; 5]>,
 }
 
 impl HydroPlant {
