@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-27
+
+### Added
+- **Dynamic Maximum Swallowing (EngMax)**: Head-dependent turbining limits for hydro units
+  - New `EngMax` flag in `study_config.json` (0 = disabled, 1 = enabled)
+  - Net head calculation from VHA geometry table and tailrace polynomial
+  - Formula: `Q_max = Q_ef × (h_l / h_ef)^α` where α = 0.5 (Francis) or 0.2 (Kaplan)
+  - Inter-stage recalculation using reservoir volumes from optimization solution
+  - New geometry input files: `CAD_GEOMETRIA_UHE.csv` and `CAD_TAILRACE.csv`
+  - EngMax columns in `resultado_hidreletricas.csv`: `EngMaxHM3`, `EngMaxM3s`
+  - Fallback to effective head when geometry data is unavailable
+- New `calculate_max_swallowing()` function in `labdessem-fpha`
+- New `EngMaxBounds` storage in `labdessem-core`
+- New `engmax.rs` module in `labdessem-simulation` for bounds initialization and recalculation
+- Design document: `docs/design/engmax-formulation.md`
+
+### Changed
+- `HydroPlant` struct now includes `volume_level_table` and `tailrace_coefficients` fields
+- Hydro reader loads geometry data from optional CSV files
+- Simulation orchestrator recalculates EngMax bounds after each major solve stage
+- Model constraints include EngMax when enabled via `extend_with_engmax()`
+
 ## [0.9.0] - 2026-10-19
 
 ### Added

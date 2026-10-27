@@ -48,6 +48,7 @@
             <div class="docs-nav-title">Hydro</div>
             <a href="#hydro-balance">Hydraulic Balance</a>
             <a href="#fpha">FPHA Formulation</a>
+            <a href="#engmax">EngMax</a>
             <a href="#fcf">Future Cost Function</a>
           </div>
           <div class="docs-nav-section">
@@ -70,6 +71,7 @@
           <li>Thermal residual TON cost treatment at horizon end</li>
           <li>Hydro scheduling with cascades, water diversion, pumping plants</li>
           <li>Two hydro generation formulations (FPHA cuts or productivity)</li>
+          <li>Dynamic maximum swallowing (EngMax) based on net head</li>
           <li>Future cost function via Benders cuts</li>
           <li>Generic renewable plants bounded by programmed generation</li>
           <li>Submarket demand balance with optional DC network</li>
@@ -113,12 +115,29 @@
 
         <h2 id="fpha">FPHA Formulation</h2>
         <p>The Hydro Production Function Approximation (FPHA) linearizes the nonlinear relationship between generation, head, and turbining.</p>
-        <p>When <code>FPHA=1</code>, generation is bounded by piecewise linear cuts:</p>
+        <p>When <code>FPHA="precomputed"</code> or <code>"computed"</code>, generation is bounded by piecewise linear cuts:</p>
         <pre><code>G[i,t] ≤ α₀ + α₁×V[i,t] + α₂×Q[i,t] + α₃×Qlat[i,t]</code></pre>
-        <p>Cuts are read from <code>OPER_FPHA.csv</code> with coefficients per segment.</p>
-        <p>When <code>FPHA=0</code>, generation is computed directly:</p>
+        <p>Cuts are read from <code>OPER_FPHA.csv</code> (precomputed) or computed at runtime from VHA geometry (computed).</p>
+        <p>When <code>FPHA="constant_productivity"</code>, generation is computed directly:</p>
         <pre><code>G[i,t] = ρ × Q[i,t]</code></pre>
         <p>Where ρ is the specific productivity (MW per m³/s).</p>
+
+        <h2 id="engmax">Dynamic Maximum Swallowing (EngMax)</h2>
+        <p>When <code>EngMax=1</code>, the maximum turbining of each hydro unit is adjusted dynamically based on the net head:</p>
+        <pre><code>Q_max[i,t] = Q_ef × (h_l / h_ef)^α</code></pre>
+        <p>Where:</p>
+        <ul>
+          <li><code>Q_ef</code> — maximum turbining at effective head (from registration)</li>
+          <li><code>h_ef</code> — effective head (from registration)</li>
+          <li><code>h_l</code> — net head calculated from reservoir volume</li>
+          <li><code>α</code> — turbine exponent (0.5 for Francis, 0.2 for Kaplan)</li>
+        </ul>
+        <p>Net head is calculated as:</p>
+        <pre><code>h_l = forebay_level(V) - tailrace_level(Q) - hydraulic_loss</code></pre>
+        <p>The forebay level is interpolated from the VHA table (<code>CAD_GEOMETRIA_UHE.csv</code>), and the tailrace level is computed from a 4th-degree polynomial (<code>CAD_TAILRACE.csv</code>):</p>
+        <pre><code>tailrace = a₀ + a₁×Q + a₂×Q² + a₃×Q³ + a₄×Q⁴</code></pre>
+        <p>EngMax constraints coexist with static turbining limits. When the net head is lower than the effective head, EngMax reduces the turbining limit. When geometry data is unavailable, the effective head from registration is used.</p>
+        <p>Bounds are recalculated between solve stages using the reservoir volumes from the previous solution.</p>
 
         <h2 id="fcf">Future Cost Function</h2>
         <p>The Future Cost Function (FCF) represents the expected cost-to-go from the end of the horizon. It is approximated by Benders cuts:</p>

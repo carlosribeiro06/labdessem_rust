@@ -37,7 +37,7 @@
 
   <main>
     <section class="hero container">
-      <span class="version-badge">v0.9.0</span>
+      <span class="version-badge">v0.10.0</span>
       <h1>Open infrastructure for<br>hydrothermal <span>scheduling</span></h1>
       <p class="hero-subtitle">
         A modular Rust workspace for thermal unit commitment, hydro scheduling,
@@ -56,6 +56,7 @@
       <div class="pills">
         <span class="pill">Thermal UC</span>
         <span class="pill">Hydro FPHA</span>
+        <span class="pill">EngMax</span>
         <span class="pill">Future Cost Function</span>
         <span class="pill">DC Network</span>
         <span class="pill">CMB/CMO Pricing</span>
@@ -134,8 +135,9 @@
   <span class="string">"rede"</span>: 0,
   <span class="string">"UCT"</span>: 1,
   <span class="string">"UCH"</span>: 0,
-  <span class="string">"FPHA"</span>: 0,
-  <span class="string">"FCF"</span>: 1
+  <span class="string">"FPHA"</span>: <span class="string">"constant_productivity"</span>,
+  <span class="string">"FCF"</span>: 1,
+  <span class="string">"EngMax"</span>: 0
 }</pre>
       </div>
     </section>
