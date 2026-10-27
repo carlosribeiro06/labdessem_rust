@@ -23,7 +23,6 @@
 //! | [`write_cmb_csv`] | resultado_cmobar.csv |
 
 pub mod common;
-pub mod engmax;
 pub mod fpha_computed;
 pub mod helpers;
 pub mod hydro;
@@ -39,7 +38,6 @@ pub mod thermal;
 pub mod types;
 
 pub use common::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
-pub use engmax::write_engmax_csv;
 pub use fpha_computed::{write_fpha_computed, ComputedFphaRecord};
 pub use helpers::{
     average_internal_values, hydro_generation_max_at_point_mw, hydro_pumping_out_hm3,
