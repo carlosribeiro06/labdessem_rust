@@ -37,30 +37,26 @@ pub fn run_simulation_with_engmax(
 
     // Initialize EngMax bounds if enabled
     let engmax_bounds = if engmax_enabled {
-        Some(initialize_engmax_bounds(system))
+        Some(initialize_engmax_bounds(system)?)
     } else {
         None
     };
 
     match execution_option {
-        ExecutionOption::Iterative => {
-            run_iterative_simulation_strategy(
-                system,
-                network_enabled,
-                engmax_bounds,
-                engmax_enabled,
-                &mut solver,
-            )
-        }
-        ExecutionOption::SingleMilp => {
-            run_single_milp_simulation(
-                system,
-                network_enabled,
-                engmax_bounds,
-                engmax_enabled,
-                &mut solver,
-            )
-        }
+        ExecutionOption::Iterative => run_iterative_simulation_strategy(
+            system,
+            network_enabled,
+            engmax_bounds,
+            engmax_enabled,
+            &mut solver,
+        ),
+        ExecutionOption::SingleMilp => run_single_milp_simulation(
+            system,
+            network_enabled,
+            engmax_bounds,
+            engmax_enabled,
+            &mut solver,
+        ),
     }
 }
 

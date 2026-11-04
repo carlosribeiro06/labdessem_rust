@@ -1,8 +1,11 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
 use labdessem_io::{output::write_all_results, read_study_config, read_study_from_path};
-use labdessem_simulation::{ExecutionOption, initialize_engmax_bounds, recalculate_engmax_bounds, run_simulation_with_engmax};
 use labdessem_model::indexing::Indexing;
+use labdessem_simulation::{
+    ExecutionOption, initialize_engmax_bounds, recalculate_engmax_bounds,
+    run_simulation_with_engmax,
+};
 
 mod banner;
 mod conversions;
@@ -125,10 +128,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     if config.fpha.is_computed() {
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
-        let fpha_result = fpha_integration::compute_fpha(
-            case_path,
-            &system,
-        )?;
+        let fpha_result = fpha_integration::compute_fpha(case_path, &system)?;
         fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
         system.fpha_enabled = true;
         fpha_integration::write_computed_results(
@@ -145,7 +145,8 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;
     let engmax_enabled = config.engmax != 0;
-    let result = run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
+    let result =
+        run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
 
     let output_data = conversions::convert_to_output_data(&system, &result);
 
@@ -159,7 +160,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     let engmax_bounds = if engmax_enabled {
         let indexing = Indexing::from_system(&system);
-        let mut bounds = initialize_engmax_bounds(&system);
+        let mut bounds = initialize_engmax_bounds(&system)?;
         recalculate_engmax_bounds(&system, &result.cmo_solution, &indexing, &mut bounds);
         Some(bounds)
     } else {
