@@ -168,21 +168,16 @@ pub fn recalculate_engmax_bounds(
 
             for (unit_flat_idx, (_group_idx, _unit_idx, unit)) in units.iter().enumerate() {
                 // Calculate net head using geometry data or fallback to effective_head
-                let max_turbining_m3s = unit.max_turbining_hm3 * 1e6
-                    / (system.horizon.period_duration_hours * 3600.0);
+                let max_turbining_m3s =
+                    unit.max_turbining_hm3 * 1e6 / (system.horizon.period_duration_hours * 3600.0);
                 let net_head_m = calculate_net_head(plant, unit, volume_hm3, max_turbining_m3s);
 
                 // Reference values for EngMax calculation
                 let q_ef_hm3 = unit.max_turbining_hm3;
-                let h_ef_m = unit.effective_head_m.max(net_head_m);
+                let h_ef_m = unit.effective_head_m;
 
                 // Calculate dynamic EngMax
-                let engmax = calculate_max_swallowing(
-                    q_ef_hm3,
-                    h_ef_m,
-                    net_head_m,
-                    turbine_alpha,
-                );
+                let engmax = calculate_max_swallowing(q_ef_hm3, h_ef_m, net_head_m, turbine_alpha);
 
                 engmax_bounds.set(plant_idx, unit_flat_idx, period, engmax);
                 updated_count += 1;
@@ -214,17 +209,18 @@ pub fn initialize_engmax_bounds(system: &System) -> EngMaxBounds {
         for group in &plant.groups {
             for unit in &group.units {
                 // Calculate net head using geometry data or fallback to effective_head
-                let max_turbining_m3s = unit.max_turbining_hm3 * 1e6
-                    / (system.horizon.period_duration_hours * 3600.0);
+                let max_turbining_m3s =
+                    unit.max_turbining_hm3 * 1e6 / (system.horizon.period_duration_hours * 3600.0);
                 let net_head_m = calculate_net_head(plant, unit, initial_volume, max_turbining_m3s);
 
                 let q_ef_hm3 = unit.max_turbining_hm3;
-                let h_ef_m = unit.effective_head_m.max(net_head_m);
+                let h_ef_m = unit.effective_head_m;
 
                 // Initialize bounds for all periods using initial volume head
                 // (these will be updated after each solve stage)
                 for period in 0..system.horizon.periods {
-                    let engmax = calculate_max_swallowing(q_ef_hm3, h_ef_m, net_head_m, turbine_alpha);
+                    let engmax =
+                        calculate_max_swallowing(q_ef_hm3, h_ef_m, net_head_m, turbine_alpha);
                     bounds.set(plant_idx, unit_flat_idx, period, engmax);
                 }
 
@@ -488,15 +484,39 @@ mod tests {
 
         // Verify bounds exist for flat indices 0, 1, 2, 3 (not 0, 2, 2, 4)
         // Period 0
-        assert!(bounds.get(0, 0, 0).is_some(), "Missing bound for unit 0, period 0");
-        assert!(bounds.get(0, 1, 0).is_some(), "Missing bound for unit 1, period 0");
-        assert!(bounds.get(0, 2, 0).is_some(), "Missing bound for unit 2, period 0");
-        assert!(bounds.get(0, 3, 0).is_some(), "Missing bound for unit 3, period 0");
+        assert!(
+            bounds.get(0, 0, 0).is_some(),
+            "Missing bound for unit 0, period 0"
+        );
+        assert!(
+            bounds.get(0, 1, 0).is_some(),
+            "Missing bound for unit 1, period 0"
+        );
+        assert!(
+            bounds.get(0, 2, 0).is_some(),
+            "Missing bound for unit 2, period 0"
+        );
+        assert!(
+            bounds.get(0, 3, 0).is_some(),
+            "Missing bound for unit 3, period 0"
+        );
 
         // Period 1
-        assert!(bounds.get(0, 0, 1).is_some(), "Missing bound for unit 0, period 1");
-        assert!(bounds.get(0, 1, 1).is_some(), "Missing bound for unit 1, period 1");
-        assert!(bounds.get(0, 2, 1).is_some(), "Missing bound for unit 2, period 1");
-        assert!(bounds.get(0, 3, 1).is_some(), "Missing bound for unit 3, period 1");
+        assert!(
+            bounds.get(0, 0, 1).is_some(),
+            "Missing bound for unit 0, period 1"
+        );
+        assert!(
+            bounds.get(0, 1, 1).is_some(),
+            "Missing bound for unit 1, period 1"
+        );
+        assert!(
+            bounds.get(0, 2, 1).is_some(),
+            "Missing bound for unit 2, period 1"
+        );
+        assert!(
+            bounds.get(0, 3, 1).is_some(),
+            "Missing bound for unit 3, period 1"
+        );
     }
 }
