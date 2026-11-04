@@ -778,6 +778,7 @@ dependencies = [
  "labdessem-core",
  "labdessem-io",
  "labdessem-uc",
+ "thiserror",
 ]
 
 [[package]]

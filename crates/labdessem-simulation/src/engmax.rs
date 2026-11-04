@@ -1,45 +1,24 @@
-//! EngMax (dynamic maximum swallowing) inter-stage recalculation.
+//! EngMax (dynamic maximum swallowing) bounds across the solves of one simulation run.
 //!
-//! This module provides functions to calculate and update EngMax bounds
-//! based on reservoir volume state from optimization solutions.
+//! [`EngMaxState`] holds the bounds of one simulation run. `solve_stage` and
+//! `solve_stage_without_network` (in `stages/solve.rs`) build each model from
+//! [`EngMaxState::bounds`] and call [`EngMaxState::after_solve`] once after every solve of
+//! the full-horizon re-solve sequence (LP cut loop, MILP, LP-FIXED, LP-CALC-CMO).
 //!
-//! # Usage in Simulation Orchestration
-//!
-//! The typical workflow for EngMax integration is:
-//!
-//! 1. Before first solve: call `initialize_engmax_bounds()` with initial volumes
-//! 2. Build model with `Model::from_system()`
-//! 3. Extend model with EngMax constraints: `model.constraints.extend_with_engmax()`
-//! 4. Solve stage
-//! 5. Call `recalculate_engmax_bounds()` with the solution
-//! 6. Repeat from step 2 for next stage
-//!
-//! # Example
-//!
-//! ```ignore
-//! // Initialize bounds before first solve
-//! let mut engmax_bounds = initialize_engmax_bounds(&system);
-//!
-//! // Build and solve first stage
-//! let mut model = Model::from_system(&system, solve_mode);
-//! model.constraints.extend_with_engmax(
-//!     &system, &indexing, &model.variables, &engmax_bounds, engmax_enabled
-//! );
-//! let solution = solve_model(solver, &model)?;
-//!
-//! // Recalculate for next stage
-//! recalculate_engmax_bounds(&system, &solution, &indexing, &mut engmax_bounds);
-//! ```
+//! The first solve uses [`initialize_engmax_bounds`] (initial volume); every later solve
+//! uses the bounds recalculated from the solution of the solve before it.
 
 use labdessem_core::entities::{EngMaxBounds, HydroPlant};
 use labdessem_core::system::System;
 use labdessem_fpha::calculator::calculate_max_swallowing;
+use labdessem_model::SolveMode;
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_solver::accessor::SolutionAccessor;
 use labdessem_solver::types::LpSolution;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::error::SimulationError;
+use crate::workflow::IterationStage;
 
 /// Linear interpolation in volume-level table.
 /// Clamps to table bounds (no extrapolation).
@@ -223,8 +202,6 @@ pub fn recalculate_engmax_bounds(
     };
     let accessor = SolutionAccessor::new(solution, indexing, &params);
 
-    let mut updated_count = 0usize;
-
     for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
         let reference = PlantReference::from_plant(plant);
         let tailrace_flow_m3s = plant_max_outflow_m3s(plant, system.horizon.period_duration_hours);
@@ -233,12 +210,11 @@ pub fn recalculate_engmax_bounds(
             let volume_hm3 = period_average_volume_hm3(&accessor, plant_idx, period);
             let bound = plant_bound_hm3(plant, &reference, volume_hm3, tailrace_flow_m3s);
             engmax_bounds.set(plant_idx, period, bound);
-            updated_count += 1;
         }
     }
 
     info!(
-        updated_count,
+        updated_count = system.hydro_plants.len() * system.horizon.periods,
         plants = system.hydro_plants.len(),
         periods = system.horizon.periods,
         "Recalculated EngMax bounds"
@@ -291,21 +267,102 @@ pub fn initialize_engmax_bounds(system: &System) -> Result<EngMaxBounds, Simulat
     Ok(bounds)
 }
 
+/// One `after_solve` call recorded for the path-level tests (ADR-016).
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub(crate) struct EngMaxTraceEntry {
+    pub(crate) stage: IterationStage,
+    pub(crate) iteration: usize,
+    pub(crate) used: EngMaxBounds,
+    pub(crate) objective: f64,
+    pub(crate) produced: EngMaxBounds,
+}
+
+/// EngMax bounds across the solves of one simulation run (R1, ADR-010).
+pub(crate) struct EngMaxState {
+    // bounds the next solve builds its engmax rows from
+    next: EngMaxBounds,
+    // bounds the last finished solve was built from
+    used: EngMaxBounds,
+    #[cfg(test)]
+    trace: Vec<EngMaxTraceEntry>,
+}
+
+impl EngMaxState {
+    /// Start a run: `next` holds the initial-volume bounds and `used` is empty.
+    ///
+    /// # Errors
+    ///
+    /// Propagates [`SimulationError::PartialEffectiveHead`] from [`initialize_engmax_bounds`].
+    pub(crate) fn new(system: &System) -> Result<Self, SimulationError> {
+        Ok(Self {
+            next: initialize_engmax_bounds(system)?,
+            used: EngMaxBounds::default(),
+            #[cfg(test)]
+            trace: Vec::new(),
+        })
+    }
+
+    /// Bounds the next solve builds its engmax rows from.
+    pub(crate) fn bounds(&self) -> &EngMaxBounds {
+        &self.next
+    }
+
+    /// Advance the state after a solve: the bounds that built the solve become `used` and
+    /// `next` is recalculated from `solution`.
+    ///
+    /// Call exactly once per solve, on the solution the solve returns (the relaxed one when
+    /// slack was used), with the `solve_mode` that solve used.
+    pub(crate) fn after_solve(
+        &mut self,
+        system: &System,
+        indexing: &Indexing,
+        stage: IterationStage,
+        iteration: usize,
+        solve_mode: SolveMode,
+        solution: &LpSolution,
+    ) {
+        std::mem::swap(&mut self.used, &mut self.next);
+        recalculate_engmax_bounds(system, solution, indexing, &mut self.next);
+        debug!(
+            stage = stage.label(),
+            iteration,
+            solve_mode = ?solve_mode,
+            "EngMax bounds recalculated after solve"
+        );
+        #[cfg(test)]
+        self.trace.push(EngMaxTraceEntry {
+            stage,
+            iteration,
+            used: self.used.clone(),
+            objective: solution.objective,
+            produced: self.next.clone(),
+        });
+    }
+
+    #[cfg(test)]
+    pub(crate) fn trace(&self) -> &[EngMaxTraceEntry] {
+        &self.trace
+    }
+}
+
 #[cfg(test)]
 // tests: a panic is the failure report
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{
-        PlantReference, calculate_net_head, initialize_engmax_bounds, plant_bound_hm3,
+        EngMaxState, PlantReference, calculate_net_head, initialize_engmax_bounds, plant_bound_hm3,
         recalculate_engmax_bounds,
     };
     use crate::error::SimulationError;
+    use crate::workflow::IterationStage;
     use labdessem_core::entities::{
         EngMaxBounds, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
         TurbineType,
     };
     use labdessem_core::ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId};
     use labdessem_core::system::{StudyHorizon, Submarket, System};
+    use labdessem_model::SolveMode;
     use labdessem_model::indexing::Indexing;
     use labdessem_solver::types::LpSolution;
 
@@ -836,5 +893,70 @@ mod tests {
                 plant_bound_hm3(plant, &reference, head_volumes[period], 200.0),
             );
         }
+    }
+
+    #[test]
+    fn after_solve_swaps_buffers_and_records_trace() {
+        fn assert_bounds(bounds: &EngMaxBounds, expected: f64) {
+            for period in 0..2 {
+                assert_rel(
+                    bounds
+                        .get(0, period)
+                        .expect("bound stored for every period"),
+                    expected,
+                );
+            }
+        }
+
+        let system = geometry_plant_system(30.0, None);
+        let indexing = Indexing::from_system(&system);
+        let mut state = EngMaxState::new(&system).expect("initialize state");
+
+        // Initial volume 250 hm3: 0.72 * (21.616 / 30)^0.5 = 0.611166491228
+        assert_bounds(state.bounds(), 0.611_166_491_228);
+
+        // Uniform 600 hm3 at 200 m3/s: forebay 911.5, net head 25.616,
+        //   0.72 * (25.616 / 30)^0.5 = 0.665315323738
+        let mut first = uniform_solution(&system, 600.0, 0.36);
+        first.objective = 7.0;
+        state.after_solve(
+            &system,
+            &indexing,
+            IterationStage::LinearProgramming,
+            1,
+            SolveMode::LinearProgramming,
+            &first,
+        );
+
+        // Uniform 400 hm3: forebay 910, net head 24.116,
+        //   0.72 * (24.116 / 30)^0.5 = 0.645542004830
+        let second = uniform_solution(&system, 400.0, 0.36);
+        state.after_solve(
+            &system,
+            &indexing,
+            IterationStage::MixedIntegerLinearProgramming,
+            1,
+            SolveMode::MixedIntegerLinearProgramming,
+            &second,
+        );
+
+        let trace = state.trace();
+        assert_eq!(trace.len(), 2);
+
+        assert_eq!(trace[0].stage, IterationStage::LinearProgramming);
+        assert_eq!(trace[0].iteration, 1);
+        assert_rel(trace[0].objective, 7.0);
+        assert_bounds(&trace[0].used, 0.611_166_491_228);
+        assert_bounds(&trace[0].produced, 0.665_315_323_738);
+
+        assert_eq!(
+            trace[1].stage,
+            IterationStage::MixedIntegerLinearProgramming
+        );
+        assert_eq!(trace[1].iteration, 1);
+        assert_bounds(&trace[1].used, 0.665_315_323_738);
+        assert_bounds(&trace[1].produced, 0.645_542_004_830);
+
+        assert_bounds(state.bounds(), 0.645_542_004_830);
     }
 }

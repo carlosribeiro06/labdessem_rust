@@ -3,8 +3,10 @@
 //! Includes hydraulic balance, turbining limits, spillage, FPHA cuts,
 //! productivity coupling, and commitment channeling.
 
+use labdessem_core::entities::EngMaxBounds;
 use labdessem_core::system::System;
 
+use crate::ModelError;
 use crate::indexing::Indexing;
 use crate::variables::Variables;
 
@@ -411,18 +413,15 @@ pub fn build_hydro_commitment_channeling_constraints(
 ///
 /// Each row bounds the sum of the plant's unit turbining by the plant EngMax and
 /// coexists with the static per-unit turbining limit constraints.
-/// Only active when `StudyConfig.engmax == 1`.
+/// The caller decides enablement by calling this only when EngMax is on (the CLI enables it
+/// when `config.engmax != 0`); every (plant with units, period) must have a bound, otherwise
+/// `ModelError::MissingEngMaxBound` is returned.
 pub fn build_engmax_constraints(
     system: &System,
     indexing: &Indexing,
     variables: &Variables,
-    engmax_bounds: &labdessem_core::entities::EngMaxBounds,
-    engmax_enabled: bool,
-) -> Vec<LinearConstraint> {
-    if !engmax_enabled {
-        return Vec::new();
-    }
-
+    engmax_bounds: &EngMaxBounds,
+) -> Result<Vec<LinearConstraint>, ModelError> {
     let horizon = system.horizon.periods;
     let mut constraints = Vec::new();
 
@@ -439,24 +438,28 @@ pub fn build_engmax_constraints(
         }
 
         for period in 0..horizon {
-            if let Some(engmax_bound) = engmax_bounds.get(plant_idx, period) {
-                constraints.push(LinearConstraint {
-                    name: format!("engmax[p={},t={}]", plant.name, display_period(period)),
-                    terms: entry_indices
-                        .iter()
-                        .map(|&entry_idx| {
-                            term(
-                                &variables.hydro_turbining[entry_idx * horizon + period],
-                                1.0,
-                            )
-                        })
-                        .collect(),
-                    sense: ConstraintSense::LessOrEqual,
-                    rhs: engmax_bound,
-                });
-            }
+            let engmax_bound = engmax_bounds.get(plant_idx, period).ok_or_else(|| {
+                ModelError::MissingEngMaxBound {
+                    plant: plant.name.clone(),
+                    period,
+                }
+            })?;
+            constraints.push(LinearConstraint {
+                name: format!("engmax[p={},t={}]", plant.name, display_period(period)),
+                terms: entry_indices
+                    .iter()
+                    .map(|&entry_idx| {
+                        term(
+                            &variables.hydro_turbining[entry_idx * horizon + period],
+                            1.0,
+                        )
+                    })
+                    .collect(),
+                sense: ConstraintSense::LessOrEqual,
+                rhs: engmax_bound,
+            });
         }
     }
 
-    constraints
+    Ok(constraints)
 }

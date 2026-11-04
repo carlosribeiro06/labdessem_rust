@@ -2,13 +2,12 @@
 
 use std::collections::BTreeSet;
 
-use labdessem_core::entities::EngMaxBounds;
 use labdessem_core::system::System;
 use labdessem_model::SolveMode;
 use labdessem_network::{DcNetworkModel, FlowCutKey, all_flow_constraints, compute_line_flows};
 use labdessem_solver::HighsSolver;
 
-use crate::engmax::{initialize_engmax_bounds, recalculate_engmax_bounds};
+use crate::engmax::EngMaxState;
 use crate::error::SimulationError;
 use crate::results::IterativeSimulationResult;
 use crate::workflow::{ExecutionOption, IterationStage};
@@ -32,43 +31,44 @@ pub fn run_simulation_with_engmax(
     execution_option: ExecutionOption,
     engmax_enabled: bool,
 ) -> Result<IterativeSimulationResult, SimulationError> {
+    let mut engmax_state = engmax_enabled
+        .then(|| EngMaxState::new(system))
+        .transpose()?;
+    run_simulation_with_state(
+        system,
+        network_enabled,
+        execution_option,
+        engmax_state.as_mut(),
+    )
+}
+
+pub(super) fn run_simulation_with_state(
+    system: &System,
+    network_enabled: bool,
+    execution_option: ExecutionOption,
+    engmax: Option<&mut EngMaxState>,
+) -> Result<IterativeSimulationResult, SimulationError> {
     let mut solver = HighsSolver::new()
         .map_err(|e| SimulationError::IterativeProcess(format!("Failed to create solver: {e}")))?;
 
-    // Initialize EngMax bounds if enabled
-    let engmax_bounds = if engmax_enabled {
-        Some(initialize_engmax_bounds(system)?)
-    } else {
-        None
-    };
-
     match execution_option {
-        ExecutionOption::Iterative => run_iterative_simulation_strategy(
-            system,
-            network_enabled,
-            engmax_bounds,
-            engmax_enabled,
-            &mut solver,
-        ),
-        ExecutionOption::SingleMilp => run_single_milp_simulation(
-            system,
-            network_enabled,
-            engmax_bounds,
-            engmax_enabled,
-            &mut solver,
-        ),
+        ExecutionOption::Iterative => {
+            run_iterative_simulation_strategy(system, network_enabled, engmax, &mut solver)
+        }
+        ExecutionOption::SingleMilp => {
+            run_single_milp_simulation(system, network_enabled, engmax, &mut solver)
+        }
     }
 }
 
 fn run_iterative_simulation_strategy(
     system: &System,
     network_enabled: bool,
-    mut engmax_bounds: Option<EngMaxBounds>,
-    engmax_enabled: bool,
+    mut engmax: Option<&mut EngMaxState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     if !network_enabled {
-        return run_simulation_without_network(system, engmax_bounds, engmax_enabled, solver);
+        return run_simulation_without_network(system, engmax, solver);
     }
 
     let dc_network = DcNetworkModel::from_system(system)?;
@@ -81,17 +81,12 @@ fn run_iterative_simulation_strategy(
         system,
         &dc_network,
         &mut accumulated_cuts,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax.as_deref_mut(),
         &mut steps,
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
         solver,
     )?;
-
-    // Recalculate EngMax bounds after LP if enabled
-    // Note: LP solution is not preserved in cut loop, so we skip recalculation here
-    // The MILP will use initial bounds
 
     let (milp_summary, milp_violations, milp_used_slacks) = solve_stage(
         system,
@@ -99,8 +94,7 @@ fn run_iterative_simulation_strategy(
         SolveMode::MixedIntegerLinearProgramming,
         &accumulated_cuts,
         None,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -108,12 +102,6 @@ fn run_iterative_simulation_strategy(
         &mut operational_limit_infeasibilities,
         solver,
     )?;
-
-    // Recalculate EngMax bounds after MILP if enabled
-    if let Some(ref mut bounds) = engmax_bounds {
-        let indexing = labdessem_model::indexing::Indexing::from_system(system);
-        recalculate_engmax_bounds(system, &milp_summary, &indexing, bounds);
-    }
 
     if milp_violations.is_empty() || milp_used_slacks {
         let all_cuts = all_flow_constraints(system);
@@ -123,8 +111,7 @@ fn run_iterative_simulation_strategy(
             SolveMode::LinearProgrammingWithFixedCommitment,
             &all_cuts,
             Some(&milp_summary),
-            engmax_bounds.as_ref(),
-            engmax_enabled,
+            engmax.as_deref_mut(),
             IterationStage::LinearProgrammingCalculateCmo,
             1,
             &mut steps,
@@ -164,14 +151,13 @@ fn run_iterative_simulation_strategy(
     let mut fixed_iteration = 1usize;
     let final_violations;
     loop {
-        let (lp_fixed_solution, violations, used_slacks) = solve_stage(
+        let (_, violations, used_slacks) = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
             &accumulated_cuts,
             Some(&milp_summary),
-            engmax_bounds.as_ref(),
-            engmax_enabled,
+            engmax.as_deref_mut(),
             IterationStage::LinearProgrammingWithFixedCommitment,
             fixed_iteration,
             &mut steps,
@@ -179,12 +165,6 @@ fn run_iterative_simulation_strategy(
             &mut operational_limit_infeasibilities,
             solver,
         )?;
-
-        // Recalculate EngMax bounds after LP-FIXED if enabled
-        if let Some(ref mut bounds) = engmax_bounds {
-            let indexing = labdessem_model::indexing::Indexing::from_system(system);
-            recalculate_engmax_bounds(system, &lp_fixed_solution, &indexing, bounds);
-        }
 
         if violations.is_empty() {
             final_violations = violations;
@@ -213,8 +193,7 @@ fn run_iterative_simulation_strategy(
         SolveMode::LinearProgrammingWithFixedCommitment,
         &all_cuts,
         Some(&milp_summary),
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,
@@ -252,8 +231,7 @@ fn run_iterative_simulation_strategy(
 fn run_single_milp_simulation(
     system: &System,
     network_enabled: bool,
-    mut engmax_bounds: Option<EngMaxBounds>,
-    engmax_enabled: bool,
+    mut engmax: Option<&mut EngMaxState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
@@ -269,8 +247,7 @@ fn run_single_milp_simulation(
             SolveMode::MixedIntegerLinearProgramming,
             &accumulated_cuts,
             None,
-            engmax_bounds.as_ref(),
-            engmax_enabled,
+            engmax.as_deref_mut(),
             IterationStage::MixedIntegerLinearProgramming,
             1,
             &mut steps,
@@ -279,20 +256,13 @@ fn run_single_milp_simulation(
             solver,
         )?;
 
-        // Recalculate EngMax bounds after MILP if enabled
-        if let Some(ref mut bounds) = engmax_bounds {
-            let indexing = labdessem_model::indexing::Indexing::from_system(system);
-            recalculate_engmax_bounds(system, &milp_summary, &indexing, bounds);
-        }
-
         let cmo_solution = solve_stage(
             system,
             &dc_network,
             SolveMode::LinearProgrammingWithFixedCommitment,
             &accumulated_cuts,
             Some(&milp_summary),
-            engmax_bounds.as_ref(),
-            engmax_enabled,
+            engmax.as_deref_mut(),
             IterationStage::LinearProgrammingCalculateCmo,
             1,
             &mut steps,
@@ -331,8 +301,7 @@ fn run_single_milp_simulation(
         system,
         SolveMode::MixedIntegerLinearProgramming,
         None,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -340,18 +309,11 @@ fn run_single_milp_simulation(
         solver,
     )?;
 
-    // Recalculate EngMax bounds after MILP if enabled
-    if let Some(ref mut bounds) = engmax_bounds {
-        let indexing = labdessem_model::indexing::Indexing::from_system(system);
-        recalculate_engmax_bounds(system, &milp_summary, &indexing, bounds);
-    }
-
     let cmo_solution = solve_stage_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,
@@ -380,19 +342,17 @@ fn run_single_milp_simulation(
 
 fn run_simulation_without_network(
     system: &System,
-    mut engmax_bounds: Option<EngMaxBounds>,
-    engmax_enabled: bool,
+    mut engmax: Option<&mut EngMaxState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
     let mut operational_limit_infeasibilities = Vec::new();
 
-    let lp_summary = solve_stage_without_network(
+    solve_stage_without_network(
         system,
         SolveMode::LinearProgramming,
         None,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax.as_deref_mut(),
         IterationStage::LinearProgramming,
         1,
         &mut steps,
@@ -400,18 +360,11 @@ fn run_simulation_without_network(
         solver,
     )?;
 
-    // Recalculate EngMax bounds after LP if enabled
-    if let Some(ref mut bounds) = engmax_bounds {
-        let indexing = labdessem_model::indexing::Indexing::from_system(system);
-        recalculate_engmax_bounds(system, &lp_summary, &indexing, bounds);
-    }
-
     let milp_summary = solve_stage_without_network(
         system,
         SolveMode::MixedIntegerLinearProgramming,
         None,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -419,18 +372,11 @@ fn run_simulation_without_network(
         solver,
     )?;
 
-    // Recalculate EngMax bounds after MILP if enabled
-    if let Some(ref mut bounds) = engmax_bounds {
-        let indexing = labdessem_model::indexing::Indexing::from_system(system);
-        recalculate_engmax_bounds(system, &milp_summary, &indexing, bounds);
-    }
-
     let cmo_solution = solve_stage_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        engmax,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,

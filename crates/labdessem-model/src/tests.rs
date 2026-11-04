@@ -3,7 +3,7 @@
 // Rationale: Tests use expect() for cleaner failure messages
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use crate::{Model, SolveMode, constraints, objective};
+use crate::{Model, ModelError, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
         EngMaxBounds, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
@@ -1273,13 +1273,10 @@ fn extend_with_engmax_adds_plant_rows() {
 
     assert!(model.constraints.engmax().is_empty());
 
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
-    );
+    model
+        .constraints
+        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .expect("all bounds are present");
 
     let engmax_constraints = model.constraints.engmax();
     assert_eq!(engmax_constraints.len(), 2);
@@ -1299,39 +1296,28 @@ fn extend_with_engmax_adds_plant_rows() {
 }
 
 #[test]
-fn extend_with_engmax_does_nothing_when_disabled() {
+fn extend_with_engmax_missing_bound_is_error() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
+    // horizon 2: period 1 has no bound
     let mut engmax_bounds = EngMaxBounds::new(10);
     engmax_bounds.set(0, 0, 15.0);
 
-    model.constraints.extend_with_engmax(
+    let result = model.constraints.extend_with_engmax(
         &system,
         &model.indexing,
         &model.variables,
         &engmax_bounds,
-        false,
     );
 
-    assert!(model.constraints.engmax().is_empty());
-}
-
-#[test]
-fn extend_with_engmax_skips_units_without_bounds() {
-    let system = build_system();
-    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
-
-    let engmax_bounds = EngMaxBounds::new(10);
-
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
+    assert_eq!(
+        result,
+        Err(ModelError::MissingEngMaxBound {
+            plant: "UHE-1".into(),
+            period: 1,
+        })
     );
-
     assert!(model.constraints.engmax().is_empty());
 }
 
@@ -1346,13 +1332,10 @@ fn extend_with_engmax_sums_every_unit_of_the_plant() {
     let mut engmax_bounds = EngMaxBounds::new(1);
     engmax_bounds.set(0, 0, 30.0);
 
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
-    );
+    model
+        .constraints
+        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .expect("all bounds are present");
 
     let engmax_constraints = model.constraints.engmax();
     assert_eq!(
