@@ -62,9 +62,16 @@ pub(super) fn run_simulation_with_state(
             run_single_milp_simulation(system, network_enabled, engmax.as_deref_mut(), &mut solver)
         }
     }?;
+    // LP-CALC-CMO, the last solve of every path, solves in LP-FIXED.
     result.engmax = engmax
         .as_deref()
-        .map(|state| state.outcome(system, &result.cmo_solution))
+        .map(|state| {
+            state.outcome(
+                system,
+                SolveMode::LinearProgrammingWithFixedCommitment,
+                &result.cmo_solution,
+            )
+        })
         .transpose()?;
     Ok(result)
 }

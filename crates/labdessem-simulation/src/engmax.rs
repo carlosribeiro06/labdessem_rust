@@ -82,15 +82,13 @@ impl<T> WarningSummary<T> {
 
 /// Plant outflow in m3/s with every unit turbining at its maximum.
 ///
-/// This is the first solve's tailrace flow, with zero spillage (ADR-007).
+/// This is `Q_ef` of [`PlantReference`] in m3/s, the first solve's tailrace flow with zero
+/// spillage (ADR-007).
 fn plant_max_outflow_m3s(plant: &HydroPlant, period_duration_hours: f64) -> f64 {
-    let max_turbining_hm3: f64 = plant
-        .groups
-        .iter()
-        .flat_map(|group| &group.units)
-        .map(|unit| unit.max_turbining_hm3)
-        .sum();
-    volume_hm3_to_flow_m3s(max_turbining_hm3, period_duration_hours)
+    volume_hm3_to_flow_m3s(
+        PlantReference::from_plant(plant).q_ef_hm3,
+        period_duration_hours,
+    )
 }
 
 /// fpha geometry of an EngMax plant (one with at least one unit), built once per run (ADR-018).
@@ -180,24 +178,15 @@ fn period_average_volume_hm3(
     0.5 * (accessor.hydro_volume(plant_idx, period) + accessor.hydro_volume(plant_idx, period + 1))
 }
 
-/// Accessor over the volume, turbining and spillage columns of a solution; those blocks come
-/// before every mode-dependent column block, so one parameter set reads every solve mode.
+/// Accessor over a solution of the model built for `system` in `solve_mode`. EngMax reads only
+/// its volume, turbining and spillage columns.
 fn primal_accessor<'a>(
     system: &System,
+    solve_mode: SolveMode,
     solution: &'a LpSolution,
     indexing: &Indexing,
 ) -> SolutionAccessor<'a> {
-    let params = ConstraintOffsetParams {
-        horizon: system.horizon.periods,
-        fpha_enabled: false,
-        num_fpha_segments: 0,
-        future_cost_enabled: false,
-        num_future_cost_cuts: 0,
-        num_operational_limits: 0,
-        thermal_uct_enabled: false,
-        hydro_uch_enabled: false,
-        is_commitment_mode: false,
-    };
+    let params = ConstraintOffsetParams::from_system(system, solve_mode);
     SolutionAccessor::new(solution, indexing, &params)
 }
 
@@ -363,11 +352,12 @@ fn initial_bounds(
 fn recalculate_bounds(
     system: &System,
     geometry: &[Option<ProductionFunction>],
+    solve_mode: SolveMode,
     solution: &LpSolution,
     indexing: &Indexing,
     engmax_bounds: &mut EngMaxBounds,
 ) -> WarningSummary<(String, usize)> {
-    let accessor = primal_accessor(system, solution, indexing);
+    let accessor = primal_accessor(system, solve_mode, solution, indexing);
     let mut summary = WarningSummary::default();
 
     for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
@@ -430,10 +420,11 @@ fn diagnostic_warns(diagnostic: &EngMaxDiagnostic) -> bool {
 fn consistency_diagnostic(
     system: &System,
     indexing: &Indexing,
+    solve_mode: SolveMode,
     solution: &LpSolution,
     recomputed: &EngMaxBounds,
 ) -> Result<EngMaxDiagnostic, SimulationError> {
-    let accessor = primal_accessor(system, solution, indexing);
+    let accessor = primal_accessor(system, solve_mode, solution, indexing);
     let duration_hours = system.horizon.period_duration_hours;
     let mut diagnostic = EngMaxDiagnostic::default();
 
@@ -560,7 +551,14 @@ impl EngMaxState {
         solution: &LpSolution,
     ) {
         std::mem::swap(&mut self.used, &mut self.next);
-        recalculate_bounds(system, &self.geometry, solution, indexing, &mut self.next);
+        recalculate_bounds(
+            system,
+            &self.geometry,
+            solve_mode,
+            solution,
+            indexing,
+            &mut self.next,
+        );
         debug!(
             stage = stage.label(),
             iteration,
@@ -581,6 +579,8 @@ impl EngMaxState {
     /// solution of that solve: `used` built it, `recomputed` is EngMax of its solution and
     /// `diagnostic` compares its turbining with `recomputed`.
     ///
+    /// `solve_mode` is the mode that solve used (LP-FIXED for LP-CALC-CMO).
+    ///
     /// # Errors
     ///
     /// Returns [`SimulationError::Model`] when `recomputed` holds no bound for a plant with
@@ -588,13 +588,16 @@ impl EngMaxState {
     pub(crate) fn outcome(
         &self,
         system: &System,
+        solve_mode: SolveMode,
         solution: &LpSolution,
     ) -> Result<EngMaxOutcome, SimulationError> {
         let indexing = Indexing::from_system(system);
         Ok(EngMaxOutcome {
             used: self.used.clone(),
             recomputed: self.next.clone(),
-            diagnostic: consistency_diagnostic(system, &indexing, solution, &self.next)?,
+            diagnostic: consistency_diagnostic(
+                system, &indexing, solve_mode, solution, &self.next,
+            )?,
         })
     }
 
@@ -717,7 +720,6 @@ mod tests {
         // 1 plant × 2 periods = 2 bounds
         assert_eq!(bounds.len(), 2);
 
-        // Verify bounds exist for both periods
         assert!(bounds.get(0, 0).is_some());
         assert!(bounds.get(0, 1).is_some());
     }
@@ -732,130 +734,31 @@ mod tests {
         assert!((engmax - 10.0).abs() < 0.01);
     }
 
+    /// `build_test_system` with plant `UHE-MULTI`: groups `CJ-1` (`UG-1`, `UG-2`) and `CJ-2`
+    /// (`UG-3`, `UG-4`), every unit a copy of `UG-1` (10 hm3, `Hef.m` 50 m).
     fn build_multi_group_system() -> System {
-        System {
-            horizon: StudyHorizon {
-                periods: 2,
-                period_duration_hours: 1.0,
-                original_periods: 2,
-                original_period_durations_hours: vec![1.0, 1.0],
-                internal_to_original_period: vec![1, 2],
-                internal_subperiod_index: vec![1, 1],
+        let mut system = build_test_system();
+        let plant = &mut system.hydro_plants[0];
+        plant.name = "UHE-MULTI".into();
+        let template = plant.groups[0].units[0].clone();
+        let unit = |n: usize| HydroUnit {
+            id: HydroUnitId(n),
+            name: format!("UG-{n}"),
+            ..template.clone()
+        };
+        plant.groups = vec![
+            HydroGroup {
+                id: HydroGroupId(1),
+                name: "CJ-1".into(),
+                units: vec![unit(1), unit(2)],
             },
-            thermal_unit_commitment_enabled: false,
-            hydro_unit_commitment_enabled: false,
-            ton_residual_enabled: false,
-            fpha_enabled: false,
-            future_cost_enabled: false,
-            residual_costs: vec![],
-            future_cost_cuts: vec![],
-            submarkets: vec![Submarket {
-                id: SubmarketId(1),
-                name: "SE".into(),
-                demand_mw: vec![100.0, 100.0],
-            }],
-            interchange_limits: vec![],
-            operational_limits: vec![],
-            buses: vec![],
-            branches: vec![],
-            thermal_plants: vec![],
-            hydro_plants: vec![HydroPlant {
-                id: HydroPlantId(1),
-                name: "UHE-MULTI".into(),
-                submarket_id: SubmarketId(1),
-                bus_id: BusId(1),
-                upstream_plant_ids: vec![],
-                downstream_plant_id: None,
-                diversion_upstream_plant_ids: vec![],
-                diversion_plant_id: None,
-                fpha_segments: vec![],
-                reservoir: Reservoir {
-                    min_volume_hm3: 10.0,
-                    max_volume_hm3: 100.0,
-                    initial_volume_hm3: 50.0,
-                },
-                natural_inflow_hm3: vec![1.0, 1.0],
-                water_withdrawal_hm3: vec![0.0, 0.0],
-                spillage_cost_per_hm3: 0.0,
-                turbining_cost_per_hm3: 0.0,
-                specific_productivity_mw_per_m3s: 1.0,
-                hydraulic_loss_m: None,
-                efficiency: None,
-                // 2 groups × 2 units each = 4 units total
-                groups: vec![
-                    HydroGroup {
-                        id: HydroGroupId(1),
-                        name: "CJ-1".into(),
-                        units: vec![
-                            HydroUnit {
-                                id: HydroUnitId(1),
-                                name: "UG-1".into(),
-                                min_generation_mw: 0.0,
-                                max_generation_mw: 50.0,
-                                max_turbining_hm3: 10.0,
-                                effective_head_m: 50.0,
-                                initial_condition: HydroInitialCondition {
-                                    is_on: true,
-                                    generation_mw: 0.0,
-                                    time_in_state: 1,
-                                },
-                            },
-                            HydroUnit {
-                                id: HydroUnitId(2),
-                                name: "UG-2".into(),
-                                min_generation_mw: 0.0,
-                                max_generation_mw: 50.0,
-                                max_turbining_hm3: 10.0,
-                                effective_head_m: 50.0,
-                                initial_condition: HydroInitialCondition {
-                                    is_on: true,
-                                    generation_mw: 0.0,
-                                    time_in_state: 1,
-                                },
-                            },
-                        ],
-                    },
-                    HydroGroup {
-                        id: HydroGroupId(2),
-                        name: "CJ-2".into(),
-                        units: vec![
-                            HydroUnit {
-                                id: HydroUnitId(3),
-                                name: "UG-3".into(),
-                                min_generation_mw: 0.0,
-                                max_generation_mw: 50.0,
-                                max_turbining_hm3: 10.0,
-                                effective_head_m: 50.0,
-                                initial_condition: HydroInitialCondition {
-                                    is_on: true,
-                                    generation_mw: 0.0,
-                                    time_in_state: 1,
-                                },
-                            },
-                            HydroUnit {
-                                id: HydroUnitId(4),
-                                name: "UG-4".into(),
-                                min_generation_mw: 0.0,
-                                max_generation_mw: 50.0,
-                                max_turbining_hm3: 10.0,
-                                effective_head_m: 50.0,
-                                initial_condition: HydroInitialCondition {
-                                    is_on: true,
-                                    generation_mw: 0.0,
-                                    time_in_state: 1,
-                                },
-                            },
-                        ],
-                    },
-                ],
-                turbine_type: TurbineType::Francis,
-                volume_level_table: None,
-                tailrace_coefficients: None,
-            }],
-            pumping_plants: vec![],
-            renewable_plants: vec![],
-            inflow_history: vec![],
-        }
+            HydroGroup {
+                id: HydroGroupId(2),
+                name: "CJ-2".into(),
+                units: vec![unit(3), unit(4)],
+            },
+        ];
+        system
     }
 
     fn set_effective_head(system: &mut System, group_idx: usize, head_m: f64) {
@@ -1153,6 +1056,7 @@ mod tests {
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
+            SolveMode::LinearProgramming,
             &solution,
             &indexing,
             &mut recalculated,
@@ -1184,6 +1088,7 @@ mod tests {
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
+            SolveMode::LinearProgramming,
             &solution,
             &indexing,
             &mut bounds,
@@ -1249,6 +1154,7 @@ mod tests {
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
+            SolveMode::LinearProgramming,
             &solution,
             &indexing,
             &mut bounds,
@@ -1379,7 +1285,11 @@ mod tests {
         );
 
         let outcome = state
-            .outcome(&system, &last)
+            .outcome(
+                &system,
+                SolveMode::LinearProgrammingWithFixedCommitment,
+                &last,
+            )
             .expect("outcome of the final solution");
 
         // `used` built the last solve, so it is what the first solution produced: uniform 600 hm3
@@ -1396,8 +1306,14 @@ mod tests {
         assert_eq!(outcome.diagnostic.worst, Some(("UHE-GEO".to_owned(), 1)));
         assert_eq!(
             outcome.diagnostic,
-            consistency_diagnostic(&system, &indexing, &last, &outcome.recomputed)
-                .expect("diagnostic of the final solution")
+            consistency_diagnostic(
+                &system,
+                &indexing,
+                SolveMode::LinearProgrammingWithFixedCommitment,
+                &last,
+                &outcome.recomputed
+            )
+            .expect("diagnostic of the final solution")
         );
     }
 
@@ -1415,6 +1331,7 @@ mod tests {
         consistency_diagnostic(
             system,
             &Indexing::from_system(system),
+            SolveMode::LinearProgrammingWithFixedCommitment,
             &uniform_solution(system, 50.0, turbining_hm3),
             bounds,
         )
@@ -1516,6 +1433,7 @@ mod tests {
         let error = consistency_diagnostic(
             &system,
             &Indexing::from_system(&system),
+            SolveMode::LinearProgrammingWithFixedCommitment,
             &uniform_solution(&system, 50.0, 0.36),
             &bounds,
         )
@@ -1620,6 +1538,7 @@ mod tests {
         let summary = recalculate_bounds(
             system,
             &geometry,
+            SolveMode::LinearProgramming,
             &solution,
             &Indexing::from_system(system),
             &mut bounds,
