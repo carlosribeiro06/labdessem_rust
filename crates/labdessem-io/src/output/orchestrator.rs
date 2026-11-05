@@ -26,8 +26,8 @@ use super::{
 /// * `constraint_duals` - Map of constraint names to dual values from LP-CALC-CMO solution
 /// * `output_dir` - Directory to write output files
 /// * `network_enabled` - Whether network treatment is enabled
-/// * `engmax_bounds` - Optional EngMax bounds for hydro output
-/// * `engmax_enabled` - Whether EngMax is enabled in study config
+/// * `engmax_bounds` - EngMax bounds that built the final LP-CALC-CMO model, written on the
+///   hydro `99;99` rows; `None` when EngMax is disabled
 ///
 /// # Errors
 /// Returns `IoError` if any writer fails.
@@ -39,7 +39,6 @@ pub fn write_all_results(
     output_dir: impl AsRef<Path>,
     network_enabled: bool,
     engmax_bounds: Option<&EngMaxBounds>,
-    engmax_enabled: bool,
 ) -> Result<(), IoError> {
     let output_dir = output_dir.as_ref();
     std::fs::create_dir_all(output_dir)?;
@@ -50,7 +49,6 @@ pub fn write_all_results(
         constraint_duals,
         output_dir,
         engmax_bounds,
-        engmax_enabled,
     )?;
     write_thermal_csv(system, variable_values, output_dir)?;
     write_pumping_csv(system, variable_values, output_dir)?;
@@ -82,8 +80,9 @@ pub fn write_all_results(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
-    use super::*;
-    use labdessem_core::system::StudyHorizon;
+    use super::write_all_results;
+    use crate::output::types::OutputData;
+    use labdessem_core::system::{StudyHorizon, System};
     use std::collections::HashMap;
     use tempfile::TempDir;
 
@@ -136,7 +135,6 @@ mod tests {
             &output_dir,
             false,
             None,
-            false,
         )
         .expect("write_all_results should succeed");
 
@@ -162,7 +160,6 @@ mod tests {
             &output_dir,
             false,
             None,
-            false,
         )
         .expect("write_all_results should succeed");
 
@@ -195,7 +192,6 @@ mod tests {
             &output_dir,
             true,
             None,
-            false,
         )
         .expect("write_all_results should succeed");
 
@@ -224,7 +220,6 @@ mod tests {
             &output_dir,
             false,
             None,
-            false,
         )
         .expect("write_all_results should succeed");
 

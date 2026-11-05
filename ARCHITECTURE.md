@@ -8,7 +8,9 @@ and the responsibility of each crate.
 
 The workspace solves day-ahead hydrothermal scheduling problems with:
 - Thermal unit commitment with startup/shutdown trajectories
-- Hydro cascade modeling with FPHA cuts
+- Hydro cascade modeling with FPHA cuts (tabulated, or computed at runtime
+  from the reservoir geometry)
+- Dynamic maximum swallowing (EngMax), recalculated after every solve
 - Renewable generation dispatch
 - Optional DC network flow constraints
 - Future cost function (Benders cuts)
@@ -50,8 +52,9 @@ MILP problems.
 ### I/O
 
 **labdessem-io** — Case directory reader and result writer. Loads
-`study_config.json` and CSV files from `CAD/` and `OPER/` directories,
-builds `System` via entity readers. Writes result CSVs to `RESULTADOS/`.
+`study_config.json`, CSV files from `CAD/` and `OPER/` and the optional
+`inflow_history.parquet`, builds `System` via entity readers. Writes every
+result CSV to `RESULTADOS/` through `write_all_results`.
 
 ```
 labdessem-io/src/
@@ -61,6 +64,8 @@ labdessem-io/src/
 │   ├── horizon.rs     # StudyHorizon parsing
 │   ├── thermal.rs     # Thermal plants and ramps
 │   ├── hydro.rs       # Hydro plants, groups, units, FPHA
+│   ├── fpha_geometry.rs   # VHA geometry and tailrace tables
+│   ├── inflow_history.rs  # Inflow history (Parquet)
 │   ├── renewable.rs   # Renewable plants
 │   ├── pumping.rs     # Pumping plants
 │   ├── submarket.rs   # Submarkets and demand
@@ -71,10 +76,16 @@ labdessem-io/src/
 │   ├── mod.rs         # Output module exports
 │   ├── common.rs      # csv_with_header(), write_csv_file()
 │   ├── helpers.rs     # Period conversion utilities
+│   ├── orchestrator.rs # write_all_results
+│   ├── hydro.rs       # Hydro results, including the EngMax columns
 │   ├── thermal.rs     # Thermal results writer
 │   ├── renewable.rs   # Renewable results writer
 │   ├── pumping.rs     # Pumping results writer
 │   ├── summary.rs     # CMO and FCF economic results
+│   ├── network.rs     # Network flow and nodal CMO results
+│   ├── process.rs     # Iteration process results
+│   ├── fpha_computed.rs # Computed FPHA hyperplanes
+│   ├── infeasibility.rs # Infeasibility reports
 │   └── limits.rs      # Operational limits results
 ├── study.rs           # Study loading orchestration
 └── error.rs           # IoError
@@ -82,83 +93,89 @@ labdessem-io/src/
 
 ### Algorithm
 
+**labdessem-uc** — Solver-agnostic unit commitment formulation: thermal
+commitment, startup and shutdown variables and constraints, and hydro
+commitment with its channeling constraints. Used by `labdessem-model`.
+
+**labdessem-network** — DC network model and flow algorithms: incidence and
+susceptance matrices, PTDF computation, line flow evaluation, violation
+detection, flow cut constraints, and CMB/CMO dual extraction. Solution
+values arrive as plain slices, so the crate has no solver dependency.
+
+**labdessem-fpha** — FPHA fitting pipeline. Computes hydro production
+hyperplanes from the VHA geometry (convex hull via Qhull, α correction, γₛ
+secant, plane reduction, deviation metrics). Also holds the net head and
+maximum swallowing calculator used by EngMax.
+
 **labdessem-model** — Optimization model construction: indexing, variables,
 objective function, and constraints. Transforms `System` into a solvable
-mathematical program.
+mathematical program. `ConstraintOffsetParams::from_system` derives the row
+offsets of the model for a given solve mode.
 
 ```
 labdessem-model/src/
 ├── lib.rs             # Public API re-exports
 ├── model.rs           # Model struct and SolveMode enum
-├── indexing.rs        # Variable/constraint indexing
+├── indexing.rs        # Variable/constraint indexing and row offsets
+├── error.rs           # ModelError
 ├── variables.rs       # Decision variables
 ├── objective.rs       # Objective function
 ├── names.rs           # Variable/constraint naming functions
 ├── constraints/
 │   ├── mod.rs         # Constraint orchestration
 │   ├── thermal.rs     # Thermal unit commitment constraints
-│   ├── hydro.rs       # Hydro balance and generation constraints
+│   ├── hydro.rs       # Hydro balance, generation and EngMax rows
 │   ├── demand.rs      # Submarket demand balance
 │   └── limits.rs      # Operational limit constraints
 └── tests.rs           # Unit tests
 ```
 
 **labdessem-simulation** — End-to-end orchestration: iterative solve
-workflow (LP → MILP → LP-FIXED → LP-CALC-CMO), DC network flow modeling
-with PTDF computation, network cut addition, dual extraction, and
-result CSV generation.
+workflow (LP → MILP → LP-FIXED → LP-CALC-CMO), network cut iterations
+(using `labdessem-network`), dual extraction, and the EngMax bounds that
+are recalculated after every solve. Result files are written by
+`labdessem-io`.
 
 ```
 labdessem-simulation/src/
-├── lib.rs             # Public API (run_simulation, write_results_csvs)
-├── stages.rs          # Solve workflow (run_simulation, solve_stage, etc.)
+├── lib.rs             # Public API (run_simulation, run_simulation_with_engmax)
+├── stages/
+│   ├── mod.rs
+│   ├── orchestration.rs # run_simulation and the per-option workflows
+│   ├── solve.rs       # solve_stage, solve_stage_without_network
+│   ├── helpers.rs     # CMB/CMO assembly, cut and violation helpers
+│   └── common.rs      # Shared constants and column helpers
+├── engmax.rs          # EngMaxState: plant-level bounds, recalculated per solve
+├── flow_units.rs      # hm3 to m3/s conversion
 ├── workflow.rs        # ExecutionOption and IterationStage enums
-├── output.rs          # CSV writers for all result files
-├── results.rs         # Result structures (IterativeSimulationResult, etc.)
-├── error.rs           # SimulationError
-└── network/
-    ├── mod.rs         # DcNetworkModel, FlowCutKey
-    ├── ptdf.rs        # PTDF matrix computation (linear algebra)
-    └── flow.rs        # Flow violation detection and cut generation
+├── results.rs         # Result structures (IterativeSimulationResult, EngMaxOutcome, etc.)
+└── error.rs           # SimulationError
 ```
 
 ### Entry Point
 
 **labdessem-cli** — Command-line interface producing the `labdessem` binary.
 Provides `labdessem run <case_dir>` subcommand with banner display and
-TTY-aware colored output.
+TTY-aware colored output. Installs one `tracing` subscriber on stderr: WARN
+by default, `RUST_LOG` overrides the level. Prints the banner and the run
+summary, including the EngMax consistency line, on stderr.
 
 ## Dependency Graph
 
-```
-                    ┌─────────────────┐
-                    │  labdessem-core │
-                    │    (domain)     │
-                    └────────┬────────┘
-                             │
-           ┌─────────────────┼─────────────────┐
-           │                 │                 │
-           ▼                 ▼                 ▼
-    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-    │labdessem-io │   │labdessem-   │   │labdessem-   │
-    │  (I/O)      │   │   model     │   │   solver    │
-    │             │   │(optimization)│  │  (HiGHS)    │
-    └──────┬──────┘   └──────┬──────┘   └──────┬──────┘
-           │                 │                 │
-           └─────────────────┼─────────────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │labdessem-simulation │
-                  │  (orchestration)    │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-                    │  labdessem-cli  │
-                    │   (entry)       │
-                    └─────────────────┘
-```
+Each crate depends only on the crates in its row (library dependencies; test-only
+dependencies are left out).
+
+| Crate | Depends on |
+|-------|------------|
+| `labdessem-core` | none |
+| `labdessem-uc` | core |
+| `labdessem-network` | core |
+| `labdessem-model` | core, uc |
+| `labdessem-solver` | model |
+| `labdessem-io` | core, model, solver |
+| `labdessem-fpha` | core, io |
+| `labdessem-simulation` | core, fpha, model, network, solver |
+| `labdessem-cli` | all of the above |
 
 ## Design Principles
 
@@ -245,6 +262,9 @@ Both modes use LP-CALC-CMO with all flow constraints to ensure valid dual extrac
 | `ValidationError` | core | Typed validation errors with context |
 | `StudyConfig` | io | JSON configuration (execution mode, flags) |
 | `IoError` | io | I/O and parsing errors |
+| `ModelError` | model | Model build errors (e.g. a missing EngMax bound) |
+| `EngMaxState` | simulation | EngMax bounds per (plant, period), recalculated after every solve |
+| `EngMaxOutcome` | simulation | Bound that built the final LP-CALC-CMO model and the bound recomputed from its solution |
 
 ## Testing
 
@@ -254,8 +274,9 @@ Run the test suite:
 cargo test
 ```
 
-Note: One test (`solves_milp_for_example_case` in labdessem-solver) may fail
-due to solver precision issues. This is a known issue being investigated.
+The EngMax tests live in `labdessem-simulation` (`engmax.rs` and
+`stages/engmax_tests.rs`); the FPHA fitting regression tests are in
+`labdessem-fpha/tests`.
 
 ## Building
 

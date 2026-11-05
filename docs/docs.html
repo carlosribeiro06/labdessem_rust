@@ -188,7 +188,14 @@ labdessem run --help</code></pre>
         <p>After a successful run, CSV files are written to <code>RESULTADOS/</code>:</p>
         <ul>
           <li><code>resultado_termicas.csv</code> — Thermal generation and commitment</li>
-          <li><code>resultado_hidreletricas.csv</code> — Hydro generation, turbining, spillage</li>
+          <li><code>resultado_hidreletricas.csv</code> — Hydro generation, turbining, spillage. When <code>EngMax=1</code>, the columns <code>EngMaxHM3</code> and <code>EngMaxM3s</code> hold the plant maximum swallowing (MM eq. 9.34):
+            <ul>
+              <li>They are filled only on the plant aggregate rows <code>99;99</code>, and are empty on unit rows and when EngMax is off.</li>
+              <li>The value is the bound that built the final <code>LP-CALC-CMO</code> model.</li>
+              <li>The value is raw, so it may exceed <code>TurbinamentoMaxHM3</code> / <code>TurbinamentoMaxM3s</code> on the same row.</li>
+              <li><code>EngMaxHM3</code> is summed over the internal periods of each original period; <code>EngMaxM3s</code> is that value converted to m³/s over the original period's duration.</li>
+            </ul>
+          </li>
           <li><code>resultado_renovaveis.csv</code> — Renewable generation</li>
           <li><code>resultado_elevatorias.csv</code> — Pumping plant operation</li>
           <li><code>resultado_cmosist.csv</code> — Marginal operating costs (PiDemanda and CMO)</li>

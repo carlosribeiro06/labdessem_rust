@@ -3,8 +3,10 @@
 //! Includes hydraulic balance, turbining limits, spillage, FPHA cuts,
 //! productivity coupling, and commitment channeling.
 
+use labdessem_core::entities::EngMaxBounds;
 use labdessem_core::system::System;
 
+use crate::ModelError;
 use crate::indexing::Indexing;
 use crate::variables::Variables;
 
@@ -407,59 +409,57 @@ pub fn build_hydro_commitment_channeling_constraints(
     .collect()
 }
 
-/// Build EngMax (dynamic maximum swallowing) constraints for hydro units.
+/// Build EngMax (dynamic maximum swallowing) constraints: one row per (plant, period).
 ///
-/// These constraints coexist with the static turbining limit constraints.
-/// Only active when `StudyConfig.engmax == 1`.
+/// Each row bounds the sum of the plant's unit turbining by the plant EngMax and
+/// coexists with the static per-unit turbining limit constraints.
+/// The caller decides enablement by calling this only when EngMax is on (the CLI enables it
+/// when `config.engmax != 0`); every (plant with units, period) must have a bound, otherwise
+/// `ModelError::MissingEngMaxBound` is returned.
 pub fn build_engmax_constraints(
     system: &System,
     indexing: &Indexing,
     variables: &Variables,
-    engmax_bounds: &labdessem_core::entities::EngMaxBounds,
-    engmax_enabled: bool,
-) -> Vec<LinearConstraint> {
-    if !engmax_enabled {
-        return Vec::new();
-    }
-
+    engmax_bounds: &EngMaxBounds,
+) -> Result<Vec<LinearConstraint>, ModelError> {
     let horizon = system.horizon.periods;
     let mut constraints = Vec::new();
 
-    let mut current_plant_idx = usize::MAX;
-    let mut unit_flat_idx = 0usize;
-
-    for (entry_idx, entry) in indexing.hydro_unit_entries.iter().enumerate() {
-        // Reset flat index when plant changes (entries are ordered by plant, group, unit)
-        if entry.plant_idx != current_plant_idx {
-            current_plant_idx = entry.plant_idx;
-            unit_flat_idx = 0;
+    for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
+        let entry_indices: Vec<usize> = indexing
+            .hydro_unit_entries
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| entry.plant_idx == plant_idx)
+            .map(|(entry_idx, _)| entry_idx)
+            .collect();
+        if entry_indices.is_empty() {
+            continue;
         }
-
-        let plant = &system.hydro_plants[entry.plant_idx];
-        let group = &plant.groups[entry.group_idx];
-        let unit = &group.units[entry.unit_idx];
 
         for period in 0..horizon {
-            if let Some(engmax_bound) = engmax_bounds.get(entry.plant_idx, unit_flat_idx, period) {
-                let turbining = &variables.hydro_turbining[entry_idx * horizon + period];
-
-                constraints.push(LinearConstraint {
-                    name: format!(
-                        "engmax[p={},g={},u={},t={}]",
-                        plant.name,
-                        group.name,
-                        unit.name,
-                        display_period(period)
-                    ),
-                    terms: vec![term(turbining, 1.0)],
-                    sense: ConstraintSense::LessOrEqual,
-                    rhs: engmax_bound,
-                });
-            }
+            let engmax_bound = engmax_bounds.get(plant_idx, period).ok_or_else(|| {
+                ModelError::MissingEngMaxBound {
+                    plant: plant.name.clone(),
+                    period,
+                }
+            })?;
+            constraints.push(LinearConstraint {
+                name: format!("engmax[p={},t={}]", plant.name, display_period(period)),
+                terms: entry_indices
+                    .iter()
+                    .map(|&entry_idx| {
+                        term(
+                            &variables.hydro_turbining[entry_idx * horizon + period],
+                            1.0,
+                        )
+                    })
+                    .collect(),
+                sense: ConstraintSense::LessOrEqual,
+                rhs: engmax_bound,
+            });
         }
-
-        unit_flat_idx += 1;
     }
 
-    constraints
+    Ok(constraints)
 }

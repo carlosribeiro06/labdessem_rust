@@ -9,13 +9,12 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use labdessem_core::ids::SubmarketId;
-use labdessem_core::system::{OperationalLimitVariable, System};
+use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 use labdessem_model::{
     Model,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
-    indexing::ColumnOffsets,
     objective::ObjectiveTerm,
-    variables::{Variable, VariableDomain},
+    variables::{Variable, VariableDomain, Variables},
 };
 use labdessem_network::{
     CmbRecord, DcNetworkModel, FlowCutKey, compute_cmb_per_bus, compute_cmo_from_cmb,
@@ -25,21 +24,14 @@ use labdessem_network::{
 };
 use labdessem_solver::LpSolution;
 
+use crate::flow_units::volume_hm3_to_flow_m3s;
 use crate::results::{
-    AddedFlowCutLineResult, FlowCutMapping, LineFlowResult, NetworkInfeasibilityRecord,
-    OperationalLimitInfeasibilityRecord,
+    AddedFlowCutLineResult, FlowCutMapping, FlowViolation, LineFlowResult,
+    NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
 use crate::workflow::IterationStage;
 
-use super::common::NETWORK_FLOW_SLACK_PENALTY_PER_MW;
-
-/// Convert volume in hm³ to flow in m³/s given duration in hours.
-fn volume_hm3_to_flow_m3s(volume_hm3: f64, duration_hours: f64) -> f64 {
-    if duration_hours.abs() < 1e-12 {
-        return 0.0;
-    }
-    volume_hm3 * 1_000_000.0 / (duration_hours * 3600.0)
-}
+use super::common::{NETWORK_FLOW_SLACK_PENALTY_PER_MW, first_slack_column};
 
 /// Build flow cut terms by adapting Model/System to FlowCutInput.
 pub(crate) fn flow_terms_for_cut(
@@ -113,10 +105,14 @@ pub(crate) fn add_network_flow_slack_variable(model: &mut Model, name: &str) {
 pub(crate) fn extend_cut_set(
     accumulated_cuts: &mut BTreeSet<FlowCutKey>,
     system: &System,
-    violations: &[crate::results::FlowViolation],
+    violations: &[FlowViolation],
 ) -> usize {
     let mut new_cuts = 0;
     for violation in violations {
+        // Rationale: every `FlowViolation` is built from a line flow of an entry of
+        // `system.branches` (`labdessem-network` `flow/violation.rs:24-30`, over
+        // `compute_line_flows`, `flow/computation.rs:20`), so the branch exists.
+        #[allow(clippy::expect_used)]
         let branch_idx = system
             .branches
             .iter()
@@ -248,42 +244,33 @@ pub(crate) fn add_operational_limit_slacks(model: &mut Model) {
     }
 }
 
+/// Collect the network-flow slacks of a relaxed solve as infeasibility records.
+///
+/// `variables` are the variables of the model `solution` solves, built by
+/// `add_flow_cuts(.., true)` over `cut_keys`: an upper then a lower slack per cut key, in
+/// `cut_keys` order.
 pub(crate) fn collect_network_infeasibilities(
     system: &System,
     cut_keys: &BTreeSet<FlowCutKey>,
+    variables: &Variables,
     solution: &LpSolution,
-    col_offsets: &ColumnOffsets,
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<NetworkInfeasibilityRecord> {
+    let first = first_slack_column(variables);
+    let slacks = &solution.primal[first..first + variables.network_flow_slack.len()];
+    debug_assert_eq!(slacks.len(), 2 * cut_keys.len());
+
     let mut records = Vec::new();
-    let mut slack_idx = 0;
-
-    for cut_key in cut_keys {
-        let branch = &system.branches[cut_key.branch_idx];
-
-        let upper_violation = solution
-            .primal
-            .get(col_offsets.network_flow_slack + slack_idx)
-            .copied()
-            .unwrap_or(0.0);
-        slack_idx += 1;
-
-        let lower_violation = solution
-            .primal
-            .get(col_offsets.network_flow_slack + slack_idx)
-            .copied()
-            .unwrap_or(0.0);
-        slack_idx += 1;
-
-        let violation_mw = upper_violation + lower_violation;
+    for (cut_key, pair) in cut_keys.iter().zip(slacks.chunks_exact(2)) {
+        let violation_mw: f64 = pair.iter().sum();
 
         if violation_mw > 1e-8 {
             records.push(NetworkInfeasibilityRecord {
                 stage,
                 iteration,
                 period: cut_key.period + 1,
-                branch_name: branch.name.clone(),
+                branch_name: system.branches[cut_key.branch_idx].name.clone(),
                 violation_mw,
             });
         }
@@ -292,38 +279,44 @@ pub(crate) fn collect_network_infeasibilities(
     records
 }
 
+/// Collect the operational-limit slacks of a relaxed solve as infeasibility records.
+///
+/// `variables` are the variables of the model `solution` solves. The slacks are matched to
+/// limits by mirroring `build_operational_limit_constraints` (`labdessem-model`
+/// `constraints/limits.rs`): for each limit and period, a lower row exists only if the limit
+/// has a lower bound, then an upper row only if it has an upper bound. A side without a row
+/// has no slack and reports 0.0.
 pub(crate) fn collect_operational_limit_infeasibilities(
     system: &System,
+    variables: &Variables,
     solution: &LpSolution,
-    col_offsets: &ColumnOffsets,
     stage: IterationStage,
     iteration: usize,
 ) -> Vec<OperationalLimitInfeasibilityRecord> {
+    let first = first_slack_column(variables) + variables.network_flow_slack.len();
+    let slacks = &solution.primal[first..first + variables.operational_limit_slack.len()];
+    let mut slots_consumed = 0;
     let mut aggregated =
         BTreeMap::<(usize, usize, String, OperationalLimitVariable), (f64, f64)>::new();
-    let mut slack_idx = 0;
 
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
-            labdessem_core::system::OperationalLimitTarget::ThermalPlant(id) => id.0,
-            labdessem_core::system::OperationalLimitTarget::HydroPlant(id) => id.0,
-            labdessem_core::system::OperationalLimitTarget::PumpingPlant(id) => id.0,
+            OperationalLimitTarget::ThermalPlant(id) => id.0,
+            OperationalLimitTarget::HydroPlant(id) => id.0,
+            OperationalLimitTarget::PumpingPlant(id) => id.0,
         };
 
         for period in limit.start_period..=limit.end_period {
-            let lower_violation = solution
-                .primal
-                .get(col_offsets.operational_limit_slack + slack_idx)
-                .copied()
-                .unwrap_or(0.0);
-            slack_idx += 1;
-
-            let upper_violation = solution
-                .primal
-                .get(col_offsets.operational_limit_slack + slack_idx)
-                .copied()
-                .unwrap_or(0.0);
-            slack_idx += 1;
+            let mut next_slot = |has_row: bool| {
+                if !has_row {
+                    return 0.0;
+                }
+                let slack = slacks[slots_consumed];
+                slots_consumed += 1;
+                slack
+            };
+            let lower_violation = next_slot(limit.lower_bound.is_some());
+            let upper_violation = next_slot(limit.upper_bound.is_some());
 
             if lower_violation <= 1e-8 && upper_violation <= 1e-8 {
                 continue;
@@ -340,6 +333,7 @@ pub(crate) fn collect_operational_limit_infeasibilities(
             entry.1 += upper_violation;
         }
     }
+    debug_assert_eq!(slots_consumed, slacks.len());
 
     aggregated
         .into_iter()
@@ -442,62 +436,11 @@ pub(crate) fn compute_cmb_cmo_data(
     let horizon = system.horizon.periods;
     let periods: Vec<usize> = (0..horizon).collect();
 
-    let dc_network = match dc_network {
-        Some(dc) if !all_cuts.is_empty() => dc,
-        _ => {
-            let indexing = labdessem_model::indexing::Indexing::from_system(system);
-            let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
-                horizon,
-                fpha_enabled: system.fpha_enabled,
-                num_fpha_segments: system
-                    .hydro_plants
-                    .iter()
-                    .map(|p| p.fpha_segments.len())
-                    .sum(),
-                future_cost_enabled: system.future_cost_enabled,
-                num_future_cost_cuts: system.future_cost_cuts.len(),
-                num_operational_limits: system.operational_limits.len(),
-                thermal_uct_enabled: system.thermal_unit_commitment_enabled,
-                hydro_uch_enabled: system.hydro_unit_commitment_enabled,
-                is_commitment_mode: true,
-            };
-            let row_offsets = indexing.compute_constraint_offsets(&constraint_params);
-
-            let mut cmo_values = HashMap::new();
-            for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
-                for period in 0..horizon {
-                    let row_idx = row_offsets.demand_balance + submarket_idx * horizon + period;
-                    let dual = cmo_solution.dual.get(row_idx).copied().unwrap_or(0.0);
-                    let cmo = dual / system.horizon.period_duration_hours;
-                    cmo_values.insert((submarket.id, period), cmo);
-                }
-            }
-            return (Vec::new(), cmo_values, None);
-        }
-    };
-
-    let num_flow_cut_constraints = all_cuts.len() * 2;
-    let base_constraint_count = cmo_solution
-        .dual
-        .len()
-        .saturating_sub(num_flow_cut_constraints);
-
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
-    let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
-        horizon,
-        fpha_enabled: system.fpha_enabled,
-        num_fpha_segments: system
-            .hydro_plants
-            .iter()
-            .map(|p| p.fpha_segments.len())
-            .sum(),
-        future_cost_enabled: system.future_cost_enabled,
-        num_future_cost_cuts: system.future_cost_cuts.len(),
-        num_operational_limits: system.operational_limits.len(),
-        thermal_uct_enabled: system.thermal_unit_commitment_enabled,
-        hydro_uch_enabled: system.hydro_unit_commitment_enabled,
-        is_commitment_mode: true,
-    };
+    let constraint_params = labdessem_model::indexing::ConstraintOffsetParams::from_system(
+        system,
+        labdessem_model::SolveMode::LinearProgrammingWithFixedCommitment,
+    );
     let row_offsets = indexing.compute_constraint_offsets(&constraint_params);
 
     let mut demand_duals = HashMap::new();
@@ -508,6 +451,23 @@ pub(crate) fn compute_cmb_cmo_data(
             demand_duals.insert((submarket.id, period), dual);
         }
     }
+
+    let dc_network = match dc_network {
+        Some(dc) if !all_cuts.is_empty() => dc,
+        _ => {
+            let cmo_values = demand_duals
+                .into_iter()
+                .map(|(key, dual)| (key, dual / system.horizon.period_duration_hours))
+                .collect();
+            return (Vec::new(), cmo_values, None);
+        }
+    };
+
+    let num_flow_cut_constraints = all_cuts.len() * 2;
+    let base_constraint_count = cmo_solution
+        .dual
+        .len()
+        .saturating_sub(num_flow_cut_constraints);
 
     let mut mapping = FlowCutMapping::default();
     for (idx, cut_key) in all_cuts.iter().enumerate() {
@@ -529,4 +489,133 @@ pub(crate) fn compute_cmb_cmo_data(
         .collect();
 
     (cmb_records, cmo_values, Some(mapping))
+}
+
+#[cfg(test)]
+// tests: a panic is the failure report
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::{
+        add_network_flow_slack_variable, add_operational_limit_slacks,
+        collect_operational_limit_infeasibilities, first_slack_column,
+    };
+    use crate::results::OperationalLimitInfeasibilityRecord;
+    use crate::workflow::IterationStage;
+    use labdessem_core::ids::{HydroPlantId, ThermalPlantId};
+    use labdessem_core::system::{
+        OperationalLimit, OperationalLimitTarget, OperationalLimitVariable,
+    };
+    use labdessem_core::test_support::minimal_system_with_hydro;
+    use labdessem_model::{Model, SolveMode};
+    use labdessem_solver::LpSolution;
+
+    fn limit(
+        target: OperationalLimitTarget,
+        plant_name: &str,
+        variable: OperationalLimitVariable,
+        periods: (usize, usize),
+        bounds: (Option<f64>, Option<f64>),
+    ) -> OperationalLimit {
+        OperationalLimit {
+            target,
+            plant_name: plant_name.into(),
+            variable,
+            start_period: periods.0,
+            end_period: periods.1,
+            lower_bound: bounds.0,
+            upper_bound: bounds.1,
+        }
+    }
+
+    fn record(
+        period: usize,
+        plant_name: &str,
+        variable: OperationalLimitVariable,
+        unit: &'static str,
+        violations: (f64, f64),
+    ) -> OperationalLimitInfeasibilityRecord {
+        OperationalLimitInfeasibilityRecord {
+            stage: IterationStage::LinearProgramming,
+            iteration: 1,
+            period,
+            plant_code: 1,
+            plant_name: plant_name.into(),
+            variable,
+            unit,
+            lower_violation: violations.0,
+            upper_violation: violations.1,
+        }
+    }
+
+    #[test]
+    fn slack_columns_follow_the_limit_rows_that_exist() {
+        let mut system = minimal_system_with_hydro();
+        system.thermal_unit_commitment_enabled = true;
+        system.hydro_unit_commitment_enabled = true;
+        let term_1 = OperationalLimitTarget::ThermalPlant(ThermalPlantId(1));
+        let hydro_1 = OperationalLimitTarget::HydroPlant(HydroPlantId(1));
+        system.operational_limits = vec![
+            limit(
+                term_1,
+                "TERM-1",
+                OperationalLimitVariable::Generation,
+                (1, 2),
+                (Some(10.0), None),
+            ),
+            limit(
+                hydro_1,
+                "HYDRO-1",
+                OperationalLimitVariable::Volume,
+                (1, 2),
+                (None, Some(100.0)),
+            ),
+            limit(
+                hydro_1,
+                "HYDRO-1",
+                OperationalLimitVariable::Generation,
+                (2, 2),
+                (Some(1.0), Some(2.0)),
+            ),
+        ];
+        let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
+        add_network_flow_slack_variable(&mut model, "flow_slack_upper[branch=L1,t=1]");
+        add_network_flow_slack_variable(&mut model, "flow_slack_lower[branch=L1,t=1]");
+        add_operational_limit_slacks(&mut model);
+
+        // No commitment column exists in LP mode.
+        assert_eq!(first_slack_column(&model.variables), 13);
+
+        let mut primal = vec![0.0; 13 + 2 + 6];
+        primal[13..15].copy_from_slice(&[100.0, 200.0]);
+        primal[15..21].copy_from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let solution = LpSolution {
+            objective: 0.0,
+            primal,
+            dual: vec![],
+            reduced_costs: vec![],
+            iterations: 0,
+            solve_time_seconds: 0.0,
+        };
+
+        let records = collect_operational_limit_infeasibilities(
+            &system,
+            &model.variables,
+            &solution,
+            IterationStage::LinearProgramming,
+            1,
+        );
+
+        let volume = OperationalLimitVariable::Volume;
+        let generation = OperationalLimitVariable::Generation;
+        assert_eq!(
+            records,
+            vec![
+                record(1, "HYDRO-1", volume, "hm3", (0.0, 3.0)),
+                record(1, "TERM-1", generation, "MW", (1.0, 0.0)),
+                record(2, "HYDRO-1", generation, "MW", (5.0, 6.0)),
+                record(2, "HYDRO-1", volume, "hm3", (0.0, 4.0)),
+                record(2, "TERM-1", generation, "MW", (2.0, 0.0)),
+            ]
+        );
+    }
 }
