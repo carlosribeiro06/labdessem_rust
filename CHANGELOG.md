@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-05
+
 ### Added
 - `EngMaxOutcome` and `EngMaxDiagnostic` in `labdessem-simulation`, and the EngMax consistency diagnostic
   - `IterativeSimulationResult.engmax` carries the bound used, the bound recomputed from the final solution, and the diagnostic
@@ -44,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The head volume now uses the previous solve's period average `(V[t] + V[t+1]) / 2`, fixing an off-by-one that read `volume[t-1]`
 - A missing EngMax bound is now an error in the model build, the diagnostic and the CSV writer; before, the row was silently omitted and the CSV writer wrote 0.0
 
-## [0.10.0] - 2026-10-27
+## [0.11.0] - 2026-10-27
 
 ### Added
 - **Dynamic Maximum Swallowing (EngMax)**: Head-dependent turbining limits for hydro units
@@ -59,12 +61,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `EngMaxBounds` storage in `labdessem-core`
 - New `engmax.rs` module in `labdessem-simulation` for bounds initialization and recalculation
 - Design document: `docs/design/engmax-formulation.md`
+- **New crate `labdessem-fpha`**: FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline
+  - Computes hyperplanes from VHA geometry using Qhull convex hull
+  - Pipeline stages: hull fitting → α correction → γₛ secant → plane reduction → deviation metrics
+  - Supports run-of-river plants with single-point VHA tables
+  - New `fpha_fit` example binary for standalone fitting
+- **New crate `labdessem-network`**: DC network flow computation extracted from simulation
+  - PTDF matrix computation and incidence matrices
+  - Flow cut constraint generation
+  - CMB/CMO dual extraction algorithms
+  - Linear algebra module for matrix operations
+- **New crate `labdessem-uc`**: Solver-agnostic unit commitment formulation
+  - Thermal UC: commitment, startup, shutdown variables and constraints
+  - Hydro UC: commitment variables and channeling constraints
+  - Extracted from `labdessem-model` for better modularity
+- **FPHA computed mode** (`FPHA = "computed"`): compute FPHA hyperplanes at runtime
+  - Reads `CAD/CAD_GEOMETRIA_UHE.csv` (VHA geometry table)
+  - Reads `CAD/CAD_FPHA_CONFIG.csv` (optional fitting parameters per plant)
+  - Writes `resultado_fpha_computed.csv` with fitted hyperplanes
+- **New example case `caso_sin_computed`**: Full SIN case for FPHA computed mode testing
+- **I/O orchestrator**: centralized output writing in `labdessem-io`
 
 ### Changed
 - `HydroPlant` struct now includes `volume_level_table` and `tailrace_coefficients` fields
 - Hydro reader loads geometry data from optional CSV files
 - Simulation orchestrator recalculates EngMax bounds after each major solve stage
 - Model constraints include EngMax when enabled via `extend_with_engmax()`
+- **I/O centralization**: migrated all CSV writers from `labdessem-simulation` to `labdessem-io`
+  - Hydro, thermal, renewable, pumping, network, and infeasibility writers
+  - Unified FPHA I/O with column aliases and deviation columns
+- **Simulation refactoring**: decomposed monolithic `stages.rs` into `stages/` module
+  - `common.rs`, `helpers.rs`, `orchestration.rs`, `solve.rs`
+- Network flow logic migrated to `labdessem-network` crate
+- Legacy network code removed from `labdessem-simulation`
+
+### Fixed
+- FPHA computed mode loading and unit conversion
+- Run-of-river plant handling in FPHA fitting
 
 ## [0.9.0] - 2026-10-19
 
@@ -269,6 +302,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `labdessem-common`: shared utilities
 - Example cases: 3Barras, 24Barras
 
+[Unreleased]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.7.0...v0.7.1
