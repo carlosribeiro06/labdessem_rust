@@ -15,6 +15,7 @@
 
 mod engmax;
 mod error;
+mod flow_units;
 mod results;
 mod stages;
 mod workflow;
@@ -361,8 +362,7 @@ mod tests {
         // If no violations, there should be no LP-FIXED between MILP and LP-CALC-CMO
         // (the test system is simple enough that it shouldn't have violations)
         let has_lp_fixed_after_milp = stages[milp_idx..cmo_idx]
-            .iter()
-            .any(|&s| s == IterationStage::LinearProgrammingWithFixedCommitment);
+            .contains(&IterationStage::LinearProgrammingWithFixedCommitment);
 
         // Note: This test verifies the structure. If the system has violations,
         // LP-FIXED stages may appear, which is also correct behavior.
@@ -420,8 +420,9 @@ mod tests {
         let result_regular = run_simulation(&system, false, ExecutionOption::Iterative)
             .expect("Regular simulation should succeed");
 
-        let result_engmax_off = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
-            .expect("Simulation with EngMax disabled should succeed");
+        let result_engmax_off =
+            run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
+                .expect("Simulation with EngMax disabled should succeed");
 
         // Same number of stages
         assert_eq!(
@@ -431,7 +432,9 @@ mod tests {
         );
 
         // Same objective value (within tolerance)
-        let obj_diff = (result_regular.cmo_solution.objective - result_engmax_off.cmo_solution.objective).abs();
+        let obj_diff = (result_regular.cmo_solution.objective
+            - result_engmax_off.cmo_solution.objective)
+            .abs();
         assert!(
             obj_diff < 1e-6,
             "Objective values should match: {} vs {}",

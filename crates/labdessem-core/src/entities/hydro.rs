@@ -7,18 +7,56 @@ use crate::{
 pub enum TurbineType {
     Francis,
     Kaplan,
+    /// Pelton turbine, `Turbina` code 3 (alpha 0.5, MM eq. 9.34).
+    ///
+    /// The code 3 -> Pelton mapping is inferred from ONS decks (4 plants carry code 3; G.P. SOUZA
+    /// and HENRY BORDEN have `h_ef` 711-714 m), not defined by the manual: the available CEPEL
+    /// sources do not define the hidr.dat `tipo_turbina` codes. If a CEPEL source defines them and
+    /// code 3 is not Pelton, remap it (ADR-019).
+    Pelton,
     #[default]
     Unknown,
 }
 
 impl TurbineType {
+    /// Turbine exponent of MM eq. 9.34. `Unknown` uses the Francis value and is reported where
+    /// the type is read ([`TurbineType::from_deck_field`]).
     #[inline]
     pub const fn alpha(&self) -> f64 {
         match self {
-            Self::Francis => 0.5,
+            Self::Francis | Self::Pelton | Self::Unknown => 0.5,
             Self::Kaplan => 0.2,
-            Self::Unknown => 0.5,
         }
+    }
+
+    /// Turbine type of the plant `plant_name` from its raw `Turbina` deck value, warning once
+    /// when it falls back to [`TurbineType::Unknown`] (R24, ADR-019).
+    ///
+    /// No warning for codes 1-3, or for code 0 on a plant without units (such plants get no
+    /// EngMax row). Every other fallback warns, including a non-integer value.
+    pub fn from_deck_field(raw: &str, plant_name: &str, has_units: bool) -> Self {
+        let (turbine_type, warning) = Self::classify_deck_field(raw, plant_name, has_units);
+        if let Some(message) = warning {
+            tracing::warn!("{message}");
+        }
+        turbine_type
+    }
+
+    fn classify_deck_field(raw: &str, plant_name: &str, has_units: bool) -> (Self, Option<String>) {
+        let raw = raw.trim();
+        let Ok(code) = raw.parse::<i32>() else {
+            let warning = format!(
+                "hydro plant {plant_name}: Turbina value {raw:?} is not an integer; using TurbineType::Unknown (alpha 0.5)"
+            );
+            return (Self::Unknown, Some(warning));
+        };
+        let turbine_type = Self::from(code);
+        let warning = (turbine_type == Self::Unknown && (code != 0 || has_units)).then(|| {
+            format!(
+                "hydro plant {plant_name}: unknown Turbina code {code}; using TurbineType::Unknown (alpha 0.5)"
+            )
+        });
+        (turbine_type, warning)
     }
 }
 
@@ -27,10 +65,8 @@ impl From<i32> for TurbineType {
         match value {
             1 => Self::Francis,
             2 => Self::Kaplan,
-            other => {
-                tracing::warn!(turbine_code = other, "unknown turbine type, defaulting to Unknown");
-                Self::Unknown
-            }
+            3 => Self::Pelton, // deck-inferred, see TurbineType::Pelton
+            _ => Self::Unknown,
         }
     }
 }
@@ -295,21 +331,21 @@ impl HydroPlant {
             group.validate()?;
         }
 
-        if let Some(eff) = self.efficiency {
-            if !(0.0..=1.0).contains(&eff) {
-                return Err(CoreError::validation(format!(
-                    "hydro plant {:?} efficiency must be between 0 and 1, got {}",
-                    self.id, eff
-                )));
-            }
+        if let Some(eff) = self.efficiency
+            && !(0.0..=1.0).contains(&eff)
+        {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} efficiency must be between 0 and 1, got {}",
+                self.id, eff
+            )));
         }
-        if let Some(loss) = self.hydraulic_loss_m {
-            if loss < 0.0 {
-                return Err(CoreError::validation(format!(
-                    "hydro plant {:?} hydraulic loss cannot be negative",
-                    self.id
-                )));
-            }
+        if let Some(loss) = self.hydraulic_loss_m
+            && loss < 0.0
+        {
+            return Err(CoreError::validation(format!(
+                "hydro plant {:?} hydraulic loss cannot be negative",
+                self.id
+            )));
         }
 
         Ok(())
@@ -318,7 +354,7 @@ impl HydroPlant {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::TurbineType;
 
     #[test]
     fn turbine_type_francis_alpha() {
@@ -358,5 +394,55 @@ mod tests {
     #[test]
     fn turbine_type_default_is_unknown() {
         assert_eq!(TurbineType::default(), TurbineType::Unknown);
+    }
+
+    #[test]
+    fn turbine_type_from_3_is_pelton() {
+        assert_eq!(TurbineType::from(3_i32), TurbineType::Pelton);
+    }
+
+    #[test]
+    fn turbine_type_pelton_alpha() {
+        assert!((TurbineType::Pelton.alpha() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn turbine_type_deck_field_fallbacks_follow_adr_019() {
+        let cases = [
+            ("1", true, TurbineType::Francis, false),
+            ("2", true, TurbineType::Kaplan, false),
+            ("3", true, TurbineType::Pelton, false),
+            (" 3 ", false, TurbineType::Pelton, false),
+            ("0", false, TurbineType::Unknown, false),
+            ("0", true, TurbineType::Unknown, true),
+            ("99", false, TurbineType::Unknown, true),
+            ("-1", true, TurbineType::Unknown, true),
+            ("X", true, TurbineType::Unknown, true),
+            ("", false, TurbineType::Unknown, true),
+        ];
+        for (raw, has_units, expected_type, warns) in cases {
+            let (turbine_type, warning) = TurbineType::classify_deck_field(raw, "UHE-T", has_units);
+            assert_eq!(
+                turbine_type, expected_type,
+                "raw {raw:?}, has_units {has_units}"
+            );
+            if warns {
+                assert!(
+                    warning
+                        .as_deref()
+                        .is_some_and(|m| m.contains("UHE-T") && m.contains(raw.trim())),
+                    "raw {raw:?}, has_units {has_units}: {warning:?}"
+                );
+            } else {
+                assert!(
+                    warning.is_none(),
+                    "raw {raw:?}, has_units {has_units}: {warning:?}"
+                );
+            }
+        }
+        assert_eq!(
+            TurbineType::from_deck_field(" 3 ", "UHE-T", true),
+            TurbineType::Pelton
+        );
     }
 }

@@ -24,6 +24,7 @@ use labdessem_network::{
 };
 use labdessem_solver::LpSolution;
 
+use crate::flow_units::volume_hm3_to_flow_m3s;
 use crate::results::{
     AddedFlowCutLineResult, FlowCutMapping, LineFlowResult, NetworkInfeasibilityRecord,
     OperationalLimitInfeasibilityRecord,
@@ -31,14 +32,6 @@ use crate::results::{
 use crate::workflow::IterationStage;
 
 use super::common::{NETWORK_FLOW_SLACK_PENALTY_PER_MW, first_slack_column};
-
-/// Convert volume in hm³ to flow in m³/s given duration in hours.
-fn volume_hm3_to_flow_m3s(volume_hm3: f64, duration_hours: f64) -> f64 {
-    if duration_hours.abs() < 1e-12 {
-        return 0.0;
-    }
-    volume_hm3 * 1_000_000.0 / (duration_hours * 3600.0)
-}
 
 /// Build flow cut terms by adapting Model/System to FlowCutInput.
 pub(crate) fn flow_terms_for_cut(

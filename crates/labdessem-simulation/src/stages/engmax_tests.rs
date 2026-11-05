@@ -16,9 +16,10 @@ use labdessem_core::system::{
 };
 use labdessem_model::SolveMode;
 use labdessem_network::{DcNetworkModel, FlowCutKey};
-use labdessem_solver::HighsSolver;
+use labdessem_solver::{HighsSolver, SolverError, SolverInterface};
 
 use crate::engmax::{EngMaxState, EngMaxTraceEntry, initialize_engmax_bounds};
+use crate::error::SimulationError;
 use crate::results::IterationReport;
 use crate::workflow::{ExecutionOption, IterationStage};
 
@@ -556,4 +557,193 @@ fn relaxed_solve_stage_without_network_recalculates_once_on_returned_solution() 
         solution.objective
     );
     assert_engmax_trace_consistent(&system, &steps, state.trace());
+}
+
+/// `engmax_network_fixture(NonBinding)` with no thermal plant and a tailrace of 500 m:
+/// - the forebay is at most 430 m, below the 500 m tailrace, so the net head is 0;
+/// - `h_ef` = 65 > 0, so every EngMax bound is 0;
+/// - with no thermal plant, the 90 MW demand needs 90 hm3 of turbining per period.
+///
+/// It is feasible without EngMax rows and infeasible with them.
+fn engmax_zero_fixture() -> System {
+    let mut system = engmax_network_fixture(LineLimit::NonBinding);
+    system.thermal_plants = vec![];
+    system.hydro_plants[0].tailrace_coefficients = Some([500.0, 0.0, 0.0, 0.0, 0.0]);
+    system
+}
+
+/// `engmax_network_fixture(NonBinding)` with no thermal plant and a 500 MW demand, which
+/// exceeds what `Q_ef` = 100 hm3 can generate, with or without EngMax rows.
+fn infeasible_without_engmax_fixture() -> System {
+    let mut system = engmax_network_fixture(LineLimit::NonBinding);
+    system.thermal_plants = vec![];
+    system.submarkets[0].demand_mw = vec![500.0; 3];
+    system.buses[1].demand_mw = vec![500.0; 3];
+    system
+}
+
+/// A generation cap that never binds; it only makes the slack guard true, so a failing
+/// direct solve is followed by the slack re-solve.
+fn hydro_generation_cap() -> OperationalLimit {
+    OperationalLimit {
+        target: OperationalLimitTarget::HydroPlant(HydroPlantId(1)),
+        plant_name: "UHE-ENG".into(),
+        variable: OperationalLimitVariable::Generation,
+        start_period: 1,
+        end_period: 3,
+        lower_bound: None,
+        upper_bound: Some(1000.0),
+    }
+}
+
+/// What one stage call left behind: its result and the state the call touched.
+struct StageRun {
+    result: Result<(), SimulationError>,
+    solve_count: u64,
+    steps: Vec<IterationReport>,
+    trace_len: usize,
+    record_count: usize,
+}
+
+/// Runs iteration 1 of the LP stage on a fresh solver and fresh records, through
+/// `solve_stage` (empty cuts) when `network` is true and `solve_stage_without_network`
+/// otherwise, with EngMax on or off.
+fn run_stage(system: &System, network: bool, engmax: bool) -> StageRun {
+    let mut state = EngMaxState::new(system).expect("fixture has full Hef.m");
+    let mut steps = Vec::new();
+    let mut network_infeasibilities = Vec::new();
+    let mut operational_limit_infeasibilities = Vec::new();
+    let mut solver = HighsSolver::new().expect("HiGHS instance");
+    let engmax = engmax.then_some(&mut state);
+
+    let result = if network {
+        let dc_network = DcNetworkModel::from_system(system).expect("fixture network is valid");
+        solve_stage(
+            system,
+            &dc_network,
+            SolveMode::LinearProgramming,
+            &BTreeSet::<FlowCutKey>::new(),
+            None,
+            engmax,
+            IterationStage::LinearProgramming,
+            1,
+            &mut steps,
+            &mut network_infeasibilities,
+            &mut operational_limit_infeasibilities,
+            &mut solver,
+        )
+        .map(|_| ())
+    } else {
+        solve_stage_without_network(
+            system,
+            SolveMode::LinearProgramming,
+            None,
+            engmax,
+            IterationStage::LinearProgramming,
+            1,
+            &mut steps,
+            &mut operational_limit_infeasibilities,
+            &mut solver,
+        )
+        .map(|_| ())
+    };
+
+    StageRun {
+        result,
+        solve_count: solver.statistics().solve_count,
+        steps,
+        trace_len: state.trace().len(),
+        record_count: network_infeasibilities.len() + operational_limit_infeasibilities.len(),
+    }
+}
+
+#[test]
+fn engmax_infeasibility_names_exceeded_rows() {
+    for (network, capped) in [(true, false), (true, true), (false, false), (false, true)] {
+        let mut system = engmax_zero_fixture();
+        if capped {
+            system.operational_limits = vec![hydro_generation_cap()];
+        }
+
+        let run = run_stage(&system, network, true);
+        let error = run.result.expect_err("stage must fail");
+
+        assert!(
+            matches!(
+                &error,
+                SimulationError::EngMaxInfeasible {
+                    stage: IterationStage::LinearProgramming,
+                    iteration: 1,
+                    rows,
+                } if rows == &[
+                    "engmax[p=UHE-ENG,t=1]",
+                    "engmax[p=UHE-ENG,t=2]",
+                    "engmax[p=UHE-ENG,t=3]",
+                ]
+            ),
+            "network={network} capped={capped}: unexpected error {error:?}"
+        );
+        assert!(
+            run.steps.is_empty(),
+            "network={network} capped={capped}: the diagnosis pushed an IterationReport"
+        );
+        assert_eq!(
+            run.trace_len, 0,
+            "network={network} capped={capped}: the diagnosis called after_solve"
+        );
+        assert_eq!(
+            run.record_count, 0,
+            "network={network} capped={capped}: the diagnosis recorded an infeasibility"
+        );
+        assert_eq!(
+            run.solve_count,
+            if capped { 3 } else { 2 },
+            "network={network} capped={capped}: solve count"
+        );
+    }
+}
+
+#[test]
+fn unrelated_infeasibility_keeps_solver_error() {
+    let system = infeasible_without_engmax_fixture();
+    for network in [true, false] {
+        let run = run_stage(&system, network, true);
+        let error = run.result.expect_err("stage must fail");
+
+        assert!(
+            matches!(error, SimulationError::Solver(SolverError::Infeasible)),
+            "network={network}: unexpected error {error:?}"
+        );
+        assert_eq!(
+            run.solve_count, 2,
+            "network={network}: direct solve plus one diagnosis"
+        );
+        assert!(
+            run.steps.is_empty(),
+            "network={network}: a failed stage pushed an IterationReport"
+        );
+    }
+}
+
+#[test]
+fn disabled_engmax_infeasibility_is_unchanged() {
+    for network in [true, false] {
+        let control = run_stage(&infeasible_without_engmax_fixture(), network, false);
+        let error = control.result.expect_err("control must fail");
+        assert!(
+            matches!(error, SimulationError::Solver(SolverError::Infeasible)),
+            "network={network}: unexpected error {error:?}"
+        );
+        assert_eq!(
+            control.solve_count, 1,
+            "network={network}: EngMax off must not run a diagnosis"
+        );
+
+        let zero = run_stage(&engmax_zero_fixture(), network, false);
+        assert!(
+            zero.result.is_ok(),
+            "network={network}: the zero-bound fixture must be feasible without EngMax: {:?}",
+            zero.result
+        );
+    }
 }

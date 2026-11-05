@@ -1,6 +1,6 @@
 //! Solver interaction and stage execution functions.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::io::{self, Write};
 use std::time::Instant;
 
@@ -83,6 +83,64 @@ fn stage_model(
     Ok(model)
 }
 
+/// Largest excess (hm3) of a plant's turbining sum over its EngMax bound treated as zero.
+const ENGMAX_EXCEED_TOL_HM3: f64 = 1e-6;
+
+/// Diagnose an infeasible solve of `failing_model`, which carries engmax rows (ADR-017):
+/// solve `engmax_free_model` (the same model without engmax rows, with the same
+/// relaxations) once and name the engmax rows of `failing_model` its solution exceeds.
+///
+/// Returns `SimulationError::EngMaxInfeasible` when the EngMax-free model is feasible and
+/// some row is exceeded, and `SimulationError::Solver(error)` (the original error,
+/// unchanged) otherwise.
+fn diagnose_engmax_infeasibility(
+    solver: &mut HighsSolver,
+    failing_model: &Model,
+    engmax_free_model: &Model,
+    col_offsets: &ColumnOffsets,
+    stage: IterationStage,
+    iteration: usize,
+    error: SolverError,
+) -> SimulationError {
+    let Ok(solution) = solve_model_direct(solver, engmax_free_model) else {
+        return SimulationError::Solver(error);
+    };
+    let turbining: HashMap<&str, f64> = engmax_free_model
+        .variables
+        .hydro_turbining
+        .iter()
+        .enumerate()
+        .map(|(idx, variable)| {
+            (
+                variable.name.as_str(),
+                solution.primal[col_offsets.hydro_turbining + idx],
+            )
+        })
+        .collect();
+    let mut rows = Vec::new();
+    for row in failing_model.constraints.engmax() {
+        let mut lhs = 0.0;
+        for term in &row.terms {
+            let Some(value) = turbining.get(term.variable.as_str()) else {
+                return SimulationError::Solver(error);
+            };
+            lhs += term.coefficient * value;
+        }
+        if lhs - row.rhs > ENGMAX_EXCEED_TOL_HM3 {
+            rows.push(row.name.clone());
+        }
+    }
+    if rows.is_empty() {
+        SimulationError::Solver(error)
+    } else {
+        SimulationError::EngMaxInfeasible {
+            stage,
+            iteration,
+            rows,
+        }
+    }
+}
+
 /// Run LP cut loop until no violations or stalled.
 pub(crate) fn run_lp_cut_loop(
     system: &System,
@@ -153,15 +211,23 @@ pub(crate) fn solve_stage(
     let indexing = Indexing::from_system(system);
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
 
-    let mut model = stage_model(
-        system,
-        solve_mode,
-        commitment_source,
-        &indexing,
-        &col_offsets,
-        engmax.as_deref().map(EngMaxState::bounds),
-    )?;
-    add_flow_cuts(&mut model, system, accumulated_cuts, dc_network, false);
+    let build_model =
+        |bounds: Option<&EngMaxBounds>, relaxed: bool| -> Result<Model, SimulationError> {
+            let mut model = stage_model(
+                system,
+                solve_mode,
+                commitment_source,
+                &indexing,
+                &col_offsets,
+                bounds,
+            )?;
+            add_flow_cuts(&mut model, system, accumulated_cuts, dc_network, relaxed);
+            if relaxed {
+                add_operational_limit_slacks(&mut model);
+            }
+            Ok(model)
+        };
+    let model = build_model(engmax.as_deref().map(EngMaxState::bounds), false)?;
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
@@ -179,24 +245,23 @@ pub(crate) fn solve_stage(
             );
             io::stdout().flush().ok();
 
-            let mut relaxed_model = stage_model(
-                system,
-                solve_mode,
-                commitment_source,
-                &indexing,
-                &col_offsets,
-                engmax.as_deref().map(EngMaxState::bounds),
-            )?;
-            add_flow_cuts(
-                &mut relaxed_model,
-                system,
-                accumulated_cuts,
-                dc_network,
-                true,
-            );
-            add_operational_limit_slacks(&mut relaxed_model);
+            let relaxed_model = build_model(engmax.as_deref().map(EngMaxState::bounds), true)?;
 
-            let relaxed_summary = solve_model_direct(solver, &relaxed_model)?;
+            let relaxed_summary = match solve_model_direct(solver, &relaxed_model) {
+                Ok(summary) => summary,
+                Err(SolverError::Infeasible) if engmax.is_some() => {
+                    return Err(diagnose_engmax_infeasibility(
+                        solver,
+                        &relaxed_model,
+                        &build_model(None, true)?,
+                        &col_offsets,
+                        stage,
+                        iteration,
+                        SolverError::Infeasible,
+                    ));
+                }
+                Err(error) => return Err(error.into()),
+            };
             network_infeasibilities.extend(collect_network_infeasibilities(
                 system,
                 accumulated_cuts,
@@ -213,6 +278,17 @@ pub(crate) fn solve_stage(
                 iteration,
             ));
             relaxed_summary
+        }
+        Err(SolverError::Infeasible) if engmax.is_some() => {
+            return Err(diagnose_engmax_infeasibility(
+                solver,
+                &model,
+                &build_model(None, false)?,
+                &col_offsets,
+                stage,
+                iteration,
+                SolverError::Infeasible,
+            ));
         }
         Err(error) => return Err(error.into()),
     };
@@ -270,14 +346,22 @@ pub(crate) fn solve_stage_without_network(
     let indexing = Indexing::from_system(system);
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
 
-    let model = stage_model(
-        system,
-        solve_mode,
-        commitment_source,
-        &indexing,
-        &col_offsets,
-        engmax.as_deref().map(EngMaxState::bounds),
-    )?;
+    let build_model =
+        |bounds: Option<&EngMaxBounds>, relaxed: bool| -> Result<Model, SimulationError> {
+            let mut model = stage_model(
+                system,
+                solve_mode,
+                commitment_source,
+                &indexing,
+                &col_offsets,
+                bounds,
+            )?;
+            if relaxed {
+                add_operational_limit_slacks(&mut model);
+            }
+            Ok(model)
+        };
+    let model = build_model(engmax.as_deref().map(EngMaxState::bounds), false)?;
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
@@ -293,17 +377,23 @@ pub(crate) fn solve_stage_without_network(
             );
             io::stdout().flush().ok();
 
-            let mut relaxed_model = stage_model(
-                system,
-                solve_mode,
-                commitment_source,
-                &indexing,
-                &col_offsets,
-                engmax.as_deref().map(EngMaxState::bounds),
-            )?;
-            add_operational_limit_slacks(&mut relaxed_model);
+            let relaxed_model = build_model(engmax.as_deref().map(EngMaxState::bounds), true)?;
 
-            let relaxed_summary = solve_model_direct(solver, &relaxed_model)?;
+            let relaxed_summary = match solve_model_direct(solver, &relaxed_model) {
+                Ok(summary) => summary,
+                Err(SolverError::Infeasible) if engmax.is_some() => {
+                    return Err(diagnose_engmax_infeasibility(
+                        solver,
+                        &relaxed_model,
+                        &build_model(None, true)?,
+                        &col_offsets,
+                        stage,
+                        iteration,
+                        SolverError::Infeasible,
+                    ));
+                }
+                Err(error) => return Err(error.into()),
+            };
             operational_limit_infeasibilities.extend(collect_operational_limit_infeasibilities(
                 system,
                 &relaxed_model.variables,
@@ -312,6 +402,17 @@ pub(crate) fn solve_stage_without_network(
                 iteration,
             ));
             relaxed_summary
+        }
+        Err(SolverError::Infeasible) if engmax.is_some() => {
+            return Err(diagnose_engmax_infeasibility(
+                solver,
+                &model,
+                &build_model(None, false)?,
+                &col_offsets,
+                stage,
+                iteration,
+                SolverError::Infeasible,
+            ));
         }
         Err(error) => return Err(error.into()),
     };

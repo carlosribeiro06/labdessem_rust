@@ -17,7 +17,9 @@ use crate::readers::common::{
     bus_id_or_dummy, flow_m3s_to_hm3, hours_to_periods, log_read_file, normalize_max_bound,
     read_csv, submarket_id_by_name,
 };
-use crate::readers::fpha_geometry::{read_tailrace, read_vha_geometry, TailraceData, VhaGeometryData};
+use crate::readers::fpha_geometry::{
+    TailraceData, VhaGeometryData, read_tailrace, read_vha_geometry,
+};
 
 /// Read hydro plants from CAD_UHE.csv, CAD_CONJ_UHE.csv, OPER_VAZAO.csv, and optionally OPER_FPHA.csv.
 pub fn read_hydro_plants(
@@ -120,6 +122,8 @@ fn read_fpha_table(path: impl AsRef<Path>) -> Result<Vec<HydroFphaRow>, IoError>
     Ok(rows)
 }
 
+// Rationale: the reader threads every parsed table into one build pass; a parameter struct is a reader refactor outside this ticket.
+#[allow(clippy::too_many_arguments)]
 fn build_hydro_plants(
     plant_rows: &[HydroPlantRow],
     unit_rows: &[HydroUnitRow],
@@ -307,12 +311,11 @@ fn build_hydro_plants(
             };
 
             let submarket_id = submarket_id_by_name(submarkets, &row.submercado)?;
-            let turbine_type = row
-                .turbina
-                .trim()
-                .parse::<i32>()
-                .map(TurbineType::from)
-                .unwrap_or_default();
+            let turbine_type = TurbineType::from_deck_field(
+                &row.turbina,
+                row.nome.trim(),
+                !plant_unit_rows.is_empty(),
+            );
             Ok(HydroPlant {
                 id: HydroPlantId(row.codigo),
                 name: row.nome.trim().to_string(),

@@ -10,9 +10,14 @@ use labdessem_simulation::{
 mod banner;
 mod conversions;
 mod fpha_integration;
+mod logging;
 mod output_prep;
 
 fn main() -> ExitCode {
+    if let Err(error) = logging::init() {
+        eprintln!("Warning: log output disabled: {error}");
+    }
+
     let args: Vec<String> = env::args().collect();
 
     match args.get(1).map(std::string::String::as_str) {
@@ -161,7 +166,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     let engmax_bounds = if engmax_enabled {
         let indexing = Indexing::from_system(&system);
         let mut bounds = initialize_engmax_bounds(&system)?;
-        recalculate_engmax_bounds(&system, &result.cmo_solution, &indexing, &mut bounds);
+        recalculate_engmax_bounds(&system, &result.cmo_solution, &indexing, &mut bounds)?;
         Some(bounds)
     } else {
         None
