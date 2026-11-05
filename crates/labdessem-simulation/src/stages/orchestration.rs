@@ -46,19 +46,27 @@ pub(super) fn run_simulation_with_state(
     system: &System,
     network_enabled: bool,
     execution_option: ExecutionOption,
-    engmax: Option<&mut EngMaxState>,
+    mut engmax: Option<&mut EngMaxState>,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut solver = HighsSolver::new()
         .map_err(|e| SimulationError::IterativeProcess(format!("Failed to create solver: {e}")))?;
 
-    match execution_option {
-        ExecutionOption::Iterative => {
-            run_iterative_simulation_strategy(system, network_enabled, engmax, &mut solver)
-        }
+    let mut result = match execution_option {
+        ExecutionOption::Iterative => run_iterative_simulation_strategy(
+            system,
+            network_enabled,
+            engmax.as_deref_mut(),
+            &mut solver,
+        ),
         ExecutionOption::SingleMilp => {
-            run_single_milp_simulation(system, network_enabled, engmax, &mut solver)
+            run_single_milp_simulation(system, network_enabled, engmax.as_deref_mut(), &mut solver)
         }
-    }
+    }?;
+    result.engmax = engmax
+        .as_deref()
+        .map(|state| state.outcome(system, &result.cmo_solution))
+        .transpose()?;
+    Ok(result)
 }
 
 fn run_iterative_simulation_strategy(
@@ -143,6 +151,7 @@ fn run_iterative_simulation_strategy(
             cmb_records,
             cmo_values,
             flow_cut_mapping,
+            engmax: None,
         });
     }
 
@@ -225,6 +234,7 @@ fn run_iterative_simulation_strategy(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
+        engmax: None,
     })
 }
 
@@ -294,6 +304,7 @@ fn run_single_milp_simulation(
             cmb_records,
             cmo_values,
             flow_cut_mapping,
+            engmax: None,
         });
     }
 
@@ -337,6 +348,7 @@ fn run_single_milp_simulation(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
+        engmax: None,
     })
 }
 
@@ -400,5 +412,6 @@ fn run_simulation_without_network(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
+        engmax: None,
     })
 }

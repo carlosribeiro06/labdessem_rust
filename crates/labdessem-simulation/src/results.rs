@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use labdessem_core::entities::EngMaxBounds;
 use labdessem_core::{ids::SubmarketId, system::OperationalLimitVariable};
 use labdessem_solver::LpSolution;
 
@@ -43,6 +44,38 @@ pub struct IterativeSimulationResult {
     pub cmo_values: HashMap<(SubmarketId, usize), f64>,
     /// Flow cut mapping from LP-CALC-CMO stage — None when network disabled
     pub flow_cut_mapping: Option<FlowCutMapping>,
+    /// EngMax outcome of the run (ADR-011); `None` when EngMax is disabled
+    pub engmax: Option<EngMaxOutcome>,
+}
+
+/// EngMax at the end of a run (ADR-011).
+#[derive(Debug, Clone)]
+pub struct EngMaxOutcome {
+    /// Bounds the final LP-CALC-CMO model was built from; the hydro CSV reports these.
+    pub used: EngMaxBounds,
+    /// EngMax recomputed from the final LP-CALC-CMO solution.
+    pub recomputed: EngMaxBounds,
+    /// Consistency of the final turbining with `recomputed` (R12).
+    pub diagnostic: EngMaxDiagnostic,
+}
+
+/// Consistency of the final LP-CALC-CMO turbining with EngMax recomputed from that same
+/// solution (ADR-011, R12), over every plant with units and every model period, in m3/s.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct EngMaxDiagnostic {
+    /// Plant-periods whose turbining exceeds the recomputed bound by more than 0.01 m3/s,
+    /// including those whose bound is zero.
+    pub exceed_count: usize,
+    /// The plant-periods of `exceed_count` whose recomputed bound is zero.
+    pub zero_bound_exceed_count: usize,
+    /// Largest excess over the counted plant-periods (m3/s); 0.0 when none is counted.
+    pub max_excess_m3s: f64,
+    /// Largest excess divided by its bound (a fraction), over the counted plant-periods with a
+    /// positive bound; 0.0 when there is none.
+    pub max_relative_excess: f64,
+    /// Plant name and 1-based model period of `max_excess_m3s`, the first in plant-then-period
+    /// order on a tie; `None` when nothing is counted.
+    pub worst: Option<(String, usize)>,
 }
 
 /// Record of a network infeasibility.

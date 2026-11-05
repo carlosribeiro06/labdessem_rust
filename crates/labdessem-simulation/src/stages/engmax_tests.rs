@@ -18,7 +18,7 @@ use labdessem_model::SolveMode;
 use labdessem_network::{DcNetworkModel, FlowCutKey};
 use labdessem_solver::{HighsSolver, SolverError, SolverInterface};
 
-use crate::engmax::{EngMaxState, EngMaxTraceEntry, initialize_engmax_bounds};
+use crate::engmax::{EngMaxState, EngMaxTraceEntry};
 use crate::error::SimulationError;
 use crate::results::IterationReport;
 use crate::workflow::{ExecutionOption, IterationStage};
@@ -270,7 +270,10 @@ fn assert_engmax_trace_consistent(
         trace.len(),
         steps.len()
     );
-    let initial = initialize_engmax_bounds(system).expect("fixture has full Hef.m");
+    let initial = EngMaxState::new(system)
+        .expect("fixture has full Hef.m")
+        .bounds()
+        .clone();
     for (k, (entry, step)) in trace.iter().zip(steps).enumerate() {
         assert!(
             entry.stage == step.stage && entry.iteration == step.iteration,
@@ -341,7 +344,10 @@ fn cut_loop_feeds_each_lp_the_previous_lp_bounds() {
         .position(|step| step.stage == IterationStage::MixedIntegerLinearProgramming)
         .expect("Iterative path solves one MILP");
 
-    let initial = initialize_engmax_bounds(&system).expect("fixture has full Hef.m");
+    let initial = EngMaxState::new(&system)
+        .expect("fixture has full Hef.m")
+        .bounds()
+        .clone();
     assert!(
         max_abs_diff(&system, &initial, &trace[lp_first].produced) > 1e-6,
         "fixture became vacuous: the first LP did not move the bounds off the initial ones"
@@ -389,6 +395,53 @@ fn engmax_trace_is_consistent_on_every_path() {
             "{case}: the run recorded no EngMax trace, so the checker would pass vacuously"
         );
         assert_engmax_trace_consistent(&system, &result.steps, state.trace());
+    }
+}
+
+#[test]
+fn engmax_outcome_matches_final_trace_entry() {
+    let system = engmax_network_fixture(LineLimit::Binding);
+    let bound_count = system.hydro_plants.len() * system.horizon.periods;
+    for (option, network) in [
+        (ExecutionOption::Iterative, true),
+        (ExecutionOption::Iterative, false),
+        (ExecutionOption::SingleMilp, true),
+        (ExecutionOption::SingleMilp, false),
+    ] {
+        let case = format!("{option:?} network={network}");
+        let mut state = EngMaxState::new(&system).expect("fixture has full Hef.m");
+
+        let result = run_simulation_with_state(&system, network, option, Some(&mut state))
+            .map_err(|error| format!("{case}: {error}"))
+            .expect("fixture simulation solves");
+
+        let outcome = result
+            .engmax
+            .as_ref()
+            .expect("an EngMax-enabled run carries the outcome");
+        let last = state
+            .trace()
+            .last()
+            .expect("an EngMax-enabled run records a trace");
+
+        assert_eq!(
+            last.stage,
+            IterationStage::LinearProgrammingCalculateCmo,
+            "{case}: the last solve is not LP-CALC-CMO"
+        );
+        assert_eq!(
+            outcome.used.len(),
+            bound_count,
+            "{case}: the outcome is vacuous, it does not hold one bound per plant and period"
+        );
+        assert!(
+            bounds_equal(&system, &outcome.used, &last.used),
+            "{case}: outcome.used is not what built the final LP-CALC-CMO"
+        );
+        assert!(
+            bounds_equal(&system, &outcome.recomputed, &last.produced),
+            "{case}: outcome.recomputed is not EngMax of the final LP-CALC-CMO solution"
+        );
     }
 }
 

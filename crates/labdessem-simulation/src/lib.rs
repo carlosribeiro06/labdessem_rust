@@ -20,11 +20,11 @@ mod results;
 mod stages;
 mod workflow;
 
-pub use engmax::{initialize_engmax_bounds, recalculate_engmax_bounds};
 pub use error::SimulationError;
 pub use results::{
-    AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
-    LineFlowResult, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
+    AddedFlowCutLineResult, EngMaxDiagnostic, EngMaxOutcome, FlowViolation, IterationReport,
+    IterativeSimulationResult, LineFlowResult, NetworkInfeasibilityRecord,
+    OperationalLimitInfeasibilityRecord,
 };
 pub use workflow::{ExecutionOption, IterationStage};
 
@@ -409,6 +409,10 @@ mod tests {
             !result.cmo_solution.primal.is_empty(),
             "Should have primal values"
         );
+        assert!(
+            result.engmax.is_some(),
+            "EngMax enabled should carry the EngMax outcome"
+        );
     }
 
     #[test]
@@ -423,6 +427,15 @@ mod tests {
         let result_engmax_off =
             run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
                 .expect("Simulation with EngMax disabled should succeed");
+
+        assert!(
+            result_regular.engmax.is_none(),
+            "run_simulation should not carry an EngMax outcome"
+        );
+        assert!(
+            result_engmax_off.engmax.is_none(),
+            "EngMax disabled should not carry an EngMax outcome"
+        );
 
         // Same number of stages
         assert_eq!(

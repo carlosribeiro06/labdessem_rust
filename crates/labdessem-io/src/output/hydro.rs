@@ -18,13 +18,15 @@ use crate::output::{
 };
 
 /// Write hydro plant results to CSV.
+///
+/// `engmax_bounds` fills `EngMaxHM3`/`EngMaxM3s` on the `99;99` rows; `None` (EngMax
+/// disabled) leaves both columns empty on every row (ADR-022).
 pub fn write_hydro_csv(
     system: &System,
     variable_values: &HashMap<String, f64>,
     constraint_duals: &HashMap<String, f64>,
     output_dir: &Path,
     engmax_bounds: Option<&EngMaxBounds>,
-    engmax_enabled: bool,
 ) -> Result<(), IoError> {
     let mut csv = csv_with_header(
         "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;EngMaxHM3;EngMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
@@ -72,11 +74,11 @@ pub fn write_hydro_csv(
             ),
             (
                 "EngMaxHM3",
-                "engolimento maximo da usina (MM eq. 9.34) em hm3, preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando EngMax desabilitado; valor bruto, pode exceder TurbinamentoMaxHM3; soma dos periodos internos do periodo original",
+                "engolimento maximo da usina (MM eq. 9.34) em hm3, preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando EngMax desabilitado; limite que construiu o modelo final do LP-CALC-CMO; valor bruto, pode exceder TurbinamentoMaxHM3; soma dos periodos internos do periodo original",
             ),
             (
                 "EngMaxM3s",
-                "engolimento maximo medio da usina (MM eq. 9.34) em m3/s, preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando EngMax desabilitado; valor bruto, pode exceder TurbinamentoMaxM3s; EngMaxHM3 convertido para m3/s pela duracao do periodo original",
+                "engolimento maximo medio da usina (MM eq. 9.34) em m3/s, preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando EngMax desabilitado; limite que construiu o modelo final do LP-CALC-CMO; valor bruto, pode exceder TurbinamentoMaxM3s; EngMaxHM3 convertido para m3/s pela duracao do periodo original",
             ),
             ("VertimentoHM3", "vertimento no periodo em hm3"),
             ("VertimentoM3s", "vertimento medio no periodo em m3/s"),
@@ -334,7 +336,7 @@ pub fn write_hydro_csv(
 
             // Aggregate EngMax
             let (agg_engmax_hm3_str, agg_engmax_m3s_str) = match engmax_bounds {
-                Some(bounds) if engmax_enabled => {
+                Some(bounds) => {
                     let agg_engmax_hm3 = internal_periods
                         .iter()
                         .map(|&period| {
@@ -353,7 +355,7 @@ pub fn write_hydro_csv(
                         format!("{agg_engmax_m3s:.6}"),
                     )
                 }
-                _ => (String::new(), String::new()),
+                None => (String::new(), String::new()),
             };
 
             csv.push_str(&format!(
@@ -428,18 +430,11 @@ mod tests {
             &HashMap::new(),
             temp_dir.path(),
             Some(&bounds),
-            true,
         )
         .expect("write hydro csv");
 
         let content = std::fs::read_to_string(temp_dir.path().join("resultado_hidreletricas.csv"))
             .expect("read hydro csv");
-        assert!(content.lines().any(|line| line.starts_with(
-            "EngMaxHM3: engolimento maximo da usina (MM eq. 9.34) em hm3, preenchido apenas na linha agregada 99;99"
-        )));
-        assert!(content.lines().any(|line| line.starts_with(
-            "EngMaxM3s: engolimento maximo medio da usina (MM eq. 9.34) em m3/s, preenchido apenas na linha agregada 99;99"
-        )));
 
         let rows: Vec<Vec<&str>> = content
             .lines()
@@ -465,6 +460,73 @@ mod tests {
     }
 
     #[test]
+    fn hydro_csv_engmax_empty_without_bounds() {
+        let system = minimal_system_with_hydro();
+        let temp_dir = TempDir::new().expect("failed to create temp dir");
+
+        write_hydro_csv(
+            &system,
+            &HashMap::new(),
+            &HashMap::new(),
+            temp_dir.path(),
+            None,
+        )
+        .expect("write hydro csv");
+
+        let content = std::fs::read_to_string(temp_dir.path().join("resultado_hidreletricas.csv"))
+            .expect("read hydro csv");
+        let rows: Vec<Vec<&str>> = content
+            .lines()
+            .filter(|line| line.starts_with("HYDRO-1;"))
+            .map(|line| line.split(';').collect())
+            .collect();
+        // 2 original periods x (1 unit row + 1 aggregate row)
+        assert_eq!(rows.len(), 4);
+        for fields in &rows {
+            assert_eq!(fields[17], "");
+            assert_eq!(fields[18], "");
+        }
+    }
+
+    #[test]
+    fn hydro_csv_engmax_preamble_states_normative_wording() {
+        let expected_hm3 = "EngMaxHM3: engolimento maximo da usina (MM eq. 9.34) em hm3, \
+            preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando \
+            EngMax desabilitado; limite que construiu o modelo final do \
+            LP-CALC-CMO; valor bruto, pode exceder TurbinamentoMaxHM3; soma dos periodos \
+            internos do periodo original";
+        let expected_m3s = "EngMaxM3s: engolimento maximo medio da usina (MM eq. 9.34) em m3/s, \
+            preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando \
+            EngMax desabilitado; limite que construiu o modelo final do \
+            LP-CALC-CMO; valor bruto, pode exceder TurbinamentoMaxM3s; EngMaxHM3 convertido \
+            para m3/s pela duracao do periodo original";
+        let system = minimal_system_with_hydro();
+        let temp_dir = TempDir::new().expect("failed to create temp dir");
+
+        write_hydro_csv(
+            &system,
+            &HashMap::new(),
+            &HashMap::new(),
+            temp_dir.path(),
+            None,
+        )
+        .expect("write hydro csv");
+
+        let content = std::fs::read_to_string(temp_dir.path().join("resultado_hidreletricas.csv"))
+            .expect("read hydro csv");
+        let hm3_line = content
+            .lines()
+            .find(|line| line.starts_with("EngMaxHM3: "))
+            .expect("EngMaxHM3 preamble line");
+        let m3s_line = content
+            .lines()
+            .find(|line| line.starts_with("EngMaxM3s: "))
+            .expect("EngMaxM3s preamble line");
+        assert_eq!(hm3_line, expected_hm3);
+        assert_eq!(m3s_line, expected_m3s);
+    }
+
+    #[test]
     fn hydro_csv_engmax_missing_bound_is_error() {
         let system = minimal_system_with_hydro();
         let bounds = EngMaxBounds::new(0);
@@ -476,7 +538,6 @@ mod tests {
             &HashMap::new(),
             temp_dir.path(),
             Some(&bounds),
-            true,
         )
         .expect_err("missing EngMax bound must be an error");
 

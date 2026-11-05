@@ -5,7 +5,7 @@
 //! [`EngMaxState::bounds`] and call [`EngMaxState::after_solve`] once after every solve of
 //! the full-horizon re-solve sequence (LP cut loop, MILP, LP-FIXED, LP-CALC-CMO).
 //!
-//! The first solve uses [`initialize_engmax_bounds`] (initial volume); every later solve
+//! The first solve uses the bounds of [`EngMaxState::new`] (initial volume); every later solve
 //! uses the bounds recalculated from the solution of the solve before it.
 
 use labdessem_core::entities::{EngMaxBounds, HydroPlant};
@@ -14,15 +14,16 @@ use labdessem_fpha::calculator::calculate_max_swallowing;
 use labdessem_fpha::{
     ForebayTable, FphaFittingError, ProductionFunction, TailraceModel, TailraceSource, VhaRow,
 };
-use labdessem_model::SolveMode;
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::display_period;
+use labdessem_model::{ModelError, SolveMode};
 use labdessem_solver::accessor::SolutionAccessor;
 use labdessem_solver::types::LpSolution;
 use tracing::{debug, info, warn};
 
 use crate::error::SimulationError;
 use crate::flow_units::volume_hm3_to_flow_m3s;
+use crate::results::{EngMaxDiagnostic, EngMaxOutcome};
 use crate::workflow::IterationStage;
 
 /// Plant-level EngMax reference values (DESSEM eq. 9.34) over all registered units.
@@ -179,6 +180,50 @@ fn period_average_volume_hm3(
     0.5 * (accessor.hydro_volume(plant_idx, period) + accessor.hydro_volume(plant_idx, period + 1))
 }
 
+/// Accessor over the volume, turbining and spillage columns of a solution; those blocks come
+/// before every mode-dependent column block, so one parameter set reads every solve mode.
+fn primal_accessor<'a>(
+    system: &System,
+    solution: &'a LpSolution,
+    indexing: &Indexing,
+) -> SolutionAccessor<'a> {
+    let params = ConstraintOffsetParams {
+        horizon: system.horizon.periods,
+        fpha_enabled: false,
+        num_fpha_segments: 0,
+        future_cost_enabled: false,
+        num_future_cost_cuts: 0,
+        num_operational_limits: 0,
+        thermal_uct_enabled: false,
+        hydro_uch_enabled: false,
+        is_commitment_mode: false,
+    };
+    SolutionAccessor::new(solution, indexing, &params)
+}
+
+/// Global unit-entry indices of the units of `plant_idx`, in input order.
+fn plant_unit_entries(indexing: &Indexing, plant_idx: usize) -> Vec<usize> {
+    indexing
+        .hydro_unit_entries
+        .iter()
+        .enumerate()
+        .filter(|(_, entry)| entry.plant_idx == plant_idx)
+        .map(|(entry_idx, _)| entry_idx)
+        .collect()
+}
+
+/// Turbining (hm3) of `period` summed over the plant's units (`unit_entries`).
+fn plant_turbining_hm3(
+    accessor: &SolutionAccessor<'_>,
+    unit_entries: &[usize],
+    period: usize,
+) -> f64 {
+    unit_entries
+        .iter()
+        .map(|&unit_idx| accessor.hydro_turbining(unit_idx, period))
+        .sum()
+}
+
 /// Plant outflow (m3/s) of `period` in the solved model: the turbining of the plant's
 /// units (`unit_entries`, global unit-entry indices) plus the plant spillage (D3, ADR-007).
 /// Diversion and pumping are not part of it.
@@ -189,12 +234,9 @@ fn previous_outflow_m3s(
     period: usize,
     period_duration_hours: f64,
 ) -> f64 {
-    let turbining_hm3: f64 = unit_entries
-        .iter()
-        .map(|&unit_idx| accessor.hydro_turbining(unit_idx, period))
-        .sum();
     volume_hm3_to_flow_m3s(
-        turbining_hm3 + accessor.hydro_spillage(plant_idx, period),
+        plant_turbining_hm3(accessor, unit_entries, period)
+            + accessor.hydro_spillage(plant_idx, period),
         period_duration_hours,
     )
 }
@@ -300,7 +342,21 @@ fn initial_bounds(
     (bounds, summary)
 }
 
-/// Recalculate every bound of `engmax_bounds` from `solution`, with the geometry of `system`.
+/// Recalculate every bound of `engmax_bounds` from `solution`, the solution of the previous
+/// solve, with the geometry of `system`.
+///
+/// The bound for period `t` uses the previous solve's average volume over `t`,
+/// `(V[t] + V[t + 1]) / 2` in the accessor slot layout (slot 0 = initial volume,
+/// slot `t + 1` = end of period `t`). The first solve's bounds come from
+/// [`EngMaxState::new`] (initial volume).
+///
+/// When the plant has VHA and tailrace data, the net head is the VHA forebay
+/// level at that volume, minus the tailrace polynomial level, minus the hydraulic
+/// loss in metres. The tailrace level is taken at the previous solve's plant outflow
+/// of period `t`: unit turbining plus plant spillage, in m3/s; diversion and pumping
+/// are excluded (ADR-007). The first solve's bounds use the plant maximum outflow
+/// with zero spillage. Without VHA and tailrace data the net head falls back to the
+/// plant `h_ef`. The bound is the raw EngMax, not capped by `Q_ef`.
 ///
 /// Returns the plant-periods (plant name, 1-based period) that got a zero bound from a
 /// non-positive net head.
@@ -311,29 +367,12 @@ fn recalculate_bounds(
     indexing: &Indexing,
     engmax_bounds: &mut EngMaxBounds,
 ) -> WarningSummary<(String, usize)> {
-    let params = ConstraintOffsetParams {
-        horizon: system.horizon.periods,
-        fpha_enabled: false,
-        num_fpha_segments: 0,
-        future_cost_enabled: false,
-        num_future_cost_cuts: 0,
-        num_operational_limits: 0,
-        thermal_uct_enabled: false,
-        hydro_uch_enabled: false,
-        is_commitment_mode: false,
-    };
-    let accessor = SolutionAccessor::new(solution, indexing, &params);
+    let accessor = primal_accessor(system, solution, indexing);
     let mut summary = WarningSummary::default();
 
     for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
         let reference = PlantReference::from_plant(plant);
-        let unit_entries: Vec<usize> = indexing
-            .hydro_unit_entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| entry.plant_idx == plant_idx)
-            .map(|(entry_idx, _)| entry_idx)
-            .collect();
+        let unit_entries = plant_unit_entries(indexing, plant_idx);
 
         for period in 0..system.horizon.periods {
             let volume_hm3 = period_average_volume_hm3(&accessor, plant_idx, period);
@@ -374,57 +413,87 @@ fn recalculate_bounds(
     summary
 }
 
-/// Recalculate plant EngMax bounds using the solution from the previous stage.
-///
-/// The bound for period `t` uses the previous solve's average volume over `t`,
-/// `(V[t] + V[t + 1]) / 2` in the accessor slot layout (slot 0 = initial volume,
-/// slot `t + 1` = end of period `t`). The first solve's bounds come from
-/// [`initialize_engmax_bounds`] (initial volume).
-///
-/// When the plant has VHA and tailrace data, the net head is the VHA forebay
-/// level at that volume, minus the tailrace polynomial level, minus the hydraulic
-/// loss in metres. The tailrace level is taken at the previous solve's plant outflow
-/// of period `t`: unit turbining plus plant spillage, in m3/s; diversion and pumping
-/// are excluded (ADR-007). The first solve's bounds use the plant maximum outflow
-/// with zero spillage. Without VHA and tailrace data the net head falls back to the
-/// plant `h_ef`. The bound is the raw EngMax, not capped by `Q_ef`.
-///
-/// This entry point rebuilds the plant geometry on every call; it is temporary, for the CLI.
-/// [`EngMaxState`] builds it once per run.
-///
-/// # Errors
-///
-/// Returns [`SimulationError::Geometry`] when the VHA table of a plant with units is malformed.
-pub fn recalculate_engmax_bounds(
-    system: &System,
-    solution: &LpSolution,
-    indexing: &Indexing,
-    engmax_bounds: &mut EngMaxBounds,
-) -> Result<(), SimulationError> {
-    recalculate_bounds(
-        system,
-        &system_geometry(system)?,
-        solution,
-        indexing,
-        engmax_bounds,
-    );
-    Ok(())
+/// Excess (m3/s) of a plant's turbining over its recomputed EngMax treated as zero (ADR-011).
+const EXCESS_TOLERANCE_M3S: f64 = 0.01;
+
+/// Largest relative excess the consistency diagnostic logs at INFO; above it, WARN (ADR-011).
+const WARN_RELATIVE_EXCESS: f64 = 0.01;
+
+fn diagnostic_warns(diagnostic: &EngMaxDiagnostic) -> bool {
+    diagnostic.max_relative_excess > WARN_RELATIVE_EXCESS || diagnostic.zero_bound_exceed_count > 0
 }
 
-/// Initialize EngMax bounds before the first solve.
+/// Compares the turbining of `solution` with `recomputed` over every plant with units and every
+/// model period, in input order, and logs the result once (ADR-011, R12).
 ///
-/// Fills every period of every plant from the initial volume.
-///
-/// # Errors
-///
-/// Returns [`SimulationError::PartialEffectiveHead`] when a plant has `Hef.m <= 0`
-/// on some of its groups but not on all of them. A plant with `Hef.m <= 0` on every
-/// group is accepted and gets `EngMax = Q_ef` for every period.
-///
-/// Returns [`SimulationError::Geometry`] when the VHA table of a plant with units is empty or
-/// has a duplicate volume.
-pub fn initialize_engmax_bounds(system: &System) -> Result<EngMaxBounds, SimulationError> {
-    EngMaxState::new(system).map(|state| state.next)
+/// Plants without units are skipped, like the engmax rows of the model.
+fn consistency_diagnostic(
+    system: &System,
+    indexing: &Indexing,
+    solution: &LpSolution,
+    recomputed: &EngMaxBounds,
+) -> Result<EngMaxDiagnostic, SimulationError> {
+    let accessor = primal_accessor(system, solution, indexing);
+    let duration_hours = system.horizon.period_duration_hours;
+    let mut diagnostic = EngMaxDiagnostic::default();
+
+    for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
+        let unit_entries = plant_unit_entries(indexing, plant_idx);
+        if unit_entries.is_empty() {
+            continue;
+        }
+
+        for period in 0..system.horizon.periods {
+            let bound_hm3 = recomputed.get(plant_idx, period).ok_or_else(|| {
+                ModelError::MissingEngMaxBound {
+                    plant: plant.name.clone(),
+                    period,
+                }
+            })?;
+            let excess_m3s = volume_hm3_to_flow_m3s(
+                plant_turbining_hm3(&accessor, &unit_entries, period) - bound_hm3,
+                duration_hours,
+            );
+            if excess_m3s <= EXCESS_TOLERANCE_M3S {
+                continue;
+            }
+
+            diagnostic.exceed_count += 1;
+            if bound_hm3 > 0.0 {
+                diagnostic.max_relative_excess = diagnostic
+                    .max_relative_excess
+                    .max(excess_m3s / volume_hm3_to_flow_m3s(bound_hm3, duration_hours));
+            } else {
+                diagnostic.zero_bound_exceed_count += 1;
+            }
+            if excess_m3s > diagnostic.max_excess_m3s {
+                diagnostic.max_excess_m3s = excess_m3s;
+                diagnostic.worst = Some((plant.name.clone(), display_period(period)));
+            }
+        }
+    }
+
+    if diagnostic_warns(&diagnostic) {
+        warn!(
+            exceed_count = diagnostic.exceed_count,
+            zero_bound_exceed_count = diagnostic.zero_bound_exceed_count,
+            max_excess_m3s = diagnostic.max_excess_m3s,
+            max_relative_excess = diagnostic.max_relative_excess,
+            worst = ?diagnostic.worst,
+            "EngMax consistency: the final turbining exceeds the recomputed EngMax"
+        );
+    } else {
+        info!(
+            exceed_count = diagnostic.exceed_count,
+            zero_bound_exceed_count = diagnostic.zero_bound_exceed_count,
+            max_excess_m3s = diagnostic.max_excess_m3s,
+            max_relative_excess = diagnostic.max_relative_excess,
+            worst = ?diagnostic.worst,
+            "EngMax consistency of the final solution"
+        );
+    }
+
+    Ok(diagnostic)
 }
 
 /// One `after_solve` call recorded for the path-level tests (ADR-016).
@@ -508,6 +577,27 @@ impl EngMaxState {
         });
     }
 
+    /// The outcome of the run (ADR-011), called after its last solve (LP-CALC-CMO) with the
+    /// solution of that solve: `used` built it, `recomputed` is EngMax of its solution and
+    /// `diagnostic` compares its turbining with `recomputed`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::Model`] when `recomputed` holds no bound for a plant with
+    /// units and a model period.
+    pub(crate) fn outcome(
+        &self,
+        system: &System,
+        solution: &LpSolution,
+    ) -> Result<EngMaxOutcome, SimulationError> {
+        let indexing = Indexing::from_system(system);
+        Ok(EngMaxOutcome {
+            used: self.used.clone(),
+            recomputed: self.next.clone(),
+            diagnostic: consistency_diagnostic(system, &indexing, solution, &self.next)?,
+        })
+    }
+
     #[cfg(test)]
     pub(crate) fn trace(&self) -> &[EngMaxTraceEntry] {
         &self.trace
@@ -519,11 +609,12 @@ impl EngMaxState {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{
-        EngMaxState, PlantReference, WarningSummary, initial_bounds, initialize_engmax_bounds,
-        net_head_m, plant_bound_hm3, plant_geometry, recalculate_bounds, recalculate_engmax_bounds,
+        EngMaxState, PlantReference, WarningSummary, consistency_diagnostic, diagnostic_warns,
+        initial_bounds, net_head_m, plant_bound_hm3, plant_geometry, recalculate_bounds,
         summarise_inert_plants, system_geometry,
     };
     use crate::error::SimulationError;
+    use crate::results::EngMaxDiagnostic;
     use crate::workflow::IterationStage;
     use labdessem_core::entities::{
         EngMaxBounds, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
@@ -532,10 +623,15 @@ mod tests {
     use labdessem_core::ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId};
     use labdessem_core::system::{StudyHorizon, Submarket, System};
     use labdessem_fpha::FphaFittingError;
-    use labdessem_model::SolveMode;
     use labdessem_model::indexing::Indexing;
+    use labdessem_model::{ModelError, SolveMode};
     use labdessem_solver::types::LpSolution;
     use std::error::Error;
+
+    /// The bounds a new [`EngMaxState`] gives the first solve.
+    fn new_state_bounds(system: &System) -> Result<EngMaxBounds, SimulationError> {
+        EngMaxState::new(system).map(|state| state.next)
+    }
 
     fn build_test_system() -> System {
         System {
@@ -616,7 +712,7 @@ mod tests {
     #[test]
     fn initialize_creates_bounds_for_all_periods() {
         let system = build_test_system();
-        let bounds = initialize_engmax_bounds(&system).expect("initialize bounds");
+        let bounds = new_state_bounds(&system).expect("initialize bounds");
 
         // 1 plant × 2 periods = 2 bounds
         assert_eq!(bounds.len(), 2);
@@ -629,7 +725,7 @@ mod tests {
     #[test]
     fn initialize_uses_initial_volume_for_head() {
         let system = build_test_system();
-        let bounds = initialize_engmax_bounds(&system).expect("initialize bounds");
+        let bounds = new_state_bounds(&system).expect("initialize bounds");
 
         // Single unit, no geometry: bound = Q_ef = 10.0
         let engmax = bounds.get(0, 0).unwrap();
@@ -857,7 +953,7 @@ mod tests {
     #[test]
     fn initialize_stores_one_bound_per_plant_and_period() {
         let system = build_multi_group_system();
-        let bounds = initialize_engmax_bounds(&system).expect("initialize bounds");
+        let bounds = new_state_bounds(&system).expect("initialize bounds");
 
         assert_eq!(
             bounds.len(),
@@ -869,7 +965,7 @@ mod tests {
     fn initialize_gives_plant_without_units_a_zero_bound() {
         let mut system = build_multi_group_system();
         system.hydro_plants[0].groups.clear();
-        let bounds = initialize_engmax_bounds(&system).expect("initialize bounds");
+        let bounds = new_state_bounds(&system).expect("initialize bounds");
 
         assert_eq!(bounds.len(), system.horizon.periods);
         for period in 0..system.horizon.periods {
@@ -882,7 +978,7 @@ mod tests {
         let mut system = build_multi_group_system();
         set_effective_head(&mut system, 1, 0.0);
 
-        let error = initialize_engmax_bounds(&system).expect_err("partial Hef.m must be rejected");
+        let error = new_state_bounds(&system).expect_err("partial Hef.m must be rejected");
 
         assert!(matches!(
             &error,
@@ -902,7 +998,7 @@ mod tests {
         set_effective_head(&mut system, 0, 0.0);
         set_effective_head(&mut system, 1, 0.0);
 
-        let bounds = initialize_engmax_bounds(&system).expect("inert plant is accepted");
+        let bounds = new_state_bounds(&system).expect("inert plant is accepted");
 
         // Q_ef = 4 units × 10.0
         for period in 0..system.horizon.periods {
@@ -1049,13 +1145,18 @@ mod tests {
         // 0.72 * (21.616 / 20)^0.5 = 0.72 * 1.039615... = 0.748523025698
         let expected = 0.748_523_025_698;
 
-        let initialized = initialize_engmax_bounds(&system).expect("initialize bounds");
+        let initialized = new_state_bounds(&system).expect("initialize bounds");
 
         let indexing = Indexing::from_system(&system);
         let solution = uniform_solution(&system, 250.0, 0.36);
         let mut recalculated = EngMaxBounds::new(periods);
-        recalculate_engmax_bounds(&system, &solution, &indexing, &mut recalculated)
-            .expect("recalculate bounds");
+        recalculate_bounds(
+            &system,
+            &system_geometry(&system).expect("valid geometry"),
+            &solution,
+            &indexing,
+            &mut recalculated,
+        );
 
         for bounds in [&initialized, &recalculated] {
             for period in 0..periods {
@@ -1080,8 +1181,13 @@ mod tests {
         solution.primal[volume_start..volume_start + slots.len()].copy_from_slice(&slots);
 
         let mut bounds = EngMaxBounds::new(periods);
-        recalculate_engmax_bounds(&system, &solution, &indexing, &mut bounds)
-            .expect("recalculate bounds");
+        recalculate_bounds(
+            &system,
+            &system_geometry(&system).expect("valid geometry"),
+            &solution,
+            &indexing,
+            &mut bounds,
+        );
 
         // D2 head volumes: period 0 = (250 + 600) / 2 = 425, period 1 = (600 + 400) / 2 = 500.
         // Tailrace at 200 m3/s is 885.884 m, Q_ef = 0.72 hm3, h_ef = 30 m.
@@ -1140,8 +1246,13 @@ mod tests {
         }
 
         let mut bounds = EngMaxBounds::new(periods);
-        recalculate_engmax_bounds(&system, &solution, &indexing, &mut bounds)
-            .expect("recalculate bounds");
+        recalculate_bounds(
+            &system,
+            &system_geometry(&system).expect("valid geometry"),
+            &solution,
+            &indexing,
+            &mut bounds,
+        );
 
         // Every volume slot is 250 hm3, so the D2 head volume is 250 hm3 and the forebay is
         // 905 + (250 - 100) / 300 * 5 = 907.5 m in both periods. Q_ef = 0.72 hm3, h_ef = 30 m.
@@ -1239,6 +1350,182 @@ mod tests {
         assert_bounds(&trace[1].produced, 0.645_542_004_830);
 
         assert_bounds(state.bounds(), 0.645_542_004_830);
+    }
+
+    #[test]
+    fn engmax_outcome_holds_used_and_recomputed_bounds() {
+        let system = geometry_plant_system(30.0, None);
+        let indexing = Indexing::from_system(&system);
+        let mut state = EngMaxState::new(&system).expect("initialize state");
+
+        let first = uniform_solution(&system, 600.0, 0.36);
+        state.after_solve(
+            &system,
+            &indexing,
+            IterationStage::MixedIntegerLinearProgramming,
+            1,
+            SolveMode::MixedIntegerLinearProgramming,
+            &first,
+        );
+
+        let last = uniform_solution(&system, 400.0, 0.36);
+        state.after_solve(
+            &system,
+            &indexing,
+            IterationStage::LinearProgrammingCalculateCmo,
+            1,
+            SolveMode::LinearProgrammingWithFixedCommitment,
+            &last,
+        );
+
+        let outcome = state
+            .outcome(&system, &last)
+            .expect("outcome of the final solution");
+
+        // `used` built the last solve, so it is what the first solution produced: uniform 600 hm3
+        // at 200 m3/s: forebay 911.5, net head 25.616, 0.72 * (25.616 / 30)^0.5 = 0.665315323738
+        assert_every_bound(&outcome.used, 2, 0.665_315_323_738);
+
+        // `recomputed` is EngMax of the last solution: uniform 400 hm3: forebay 910, net head
+        // 24.116, 0.72 * (24.116 / 30)^0.5 = 0.645542004830
+        assert_every_bound(&outcome.recomputed, 2, 0.645_542_004_830);
+
+        // The final turbining is two units at 0.36 hm3 over 1 h, 200 m3/s, against the bound
+        // 0.645542 hm3, 179.317 m3/s, in both periods: both are counted and period 1 wins the tie.
+        assert_eq!(outcome.diagnostic.exceed_count, 2);
+        assert_eq!(outcome.diagnostic.worst, Some(("UHE-GEO".to_owned(), 1)));
+        assert_eq!(
+            outcome.diagnostic,
+            consistency_diagnostic(&system, &indexing, &last, &outcome.recomputed)
+                .expect("diagnostic of the final solution")
+        );
+    }
+
+    fn bounds_from(rows: &[[f64; 2]]) -> EngMaxBounds {
+        let mut bounds = EngMaxBounds::new(rows.len() * 2);
+        for (plant_idx, row) in rows.iter().enumerate() {
+            for (period, &bound_hm3) in row.iter().enumerate() {
+                bounds.set(plant_idx, period, bound_hm3);
+            }
+        }
+        bounds
+    }
+
+    fn diagnose(system: &System, turbining_hm3: f64, bounds: &EngMaxBounds) -> EngMaxDiagnostic {
+        consistency_diagnostic(
+            system,
+            &Indexing::from_system(system),
+            &uniform_solution(system, 50.0, turbining_hm3),
+            bounds,
+        )
+        .expect("every plant with units has a bound")
+    }
+
+    // 0.36 hm3 over 1 h is 100 m3/s; 0.3528 hm3 is 98 m3/s; 0.3582 hm3 is 99.5 m3/s;
+    // 0.359982 hm3 is 99.995 m3/s.
+    #[test]
+    fn consistency_diagnostic_measures_excess_over_positive_bound() {
+        let system = build_test_system();
+
+        // Period 1: 100 - 98 = 2 m3/s. Period 2: 100 - 99.995 = 0.005 m3/s, within the tolerance.
+        let diagnostic = diagnose(&system, 0.36, &bounds_from(&[[0.3528, 0.359_982]]));
+
+        assert_eq!(diagnostic.exceed_count, 1);
+        assert_eq!(diagnostic.zero_bound_exceed_count, 0);
+        assert_rel(diagnostic.max_excess_m3s, 2.0);
+        assert_rel(diagnostic.max_relative_excess, 2.0 / 98.0);
+        assert_eq!(diagnostic.worst, Some(("UHE-1".to_owned(), 1)));
+        assert!(diagnostic_warns(&diagnostic));
+
+        // Period 1: 100 - 99.5 = 0.5 m3/s, 0.5025% of the bound: at most 1%, so INFO.
+        let diagnostic = diagnose(&system, 0.36, &bounds_from(&[[0.3582, 0.359_982]]));
+
+        assert_eq!(diagnostic.exceed_count, 1);
+        assert_rel(diagnostic.max_relative_excess, 0.5 / 99.5);
+        assert!(!diagnostic_warns(&diagnostic));
+    }
+
+    #[test]
+    fn consistency_diagnostic_counts_zero_bound_apart() {
+        let system = build_test_system();
+
+        let diagnostic = diagnose(&system, 0.36, &bounds_from(&[[0.0, 0.36]]));
+
+        assert_eq!(diagnostic.exceed_count, 1);
+        assert_eq!(diagnostic.zero_bound_exceed_count, 1);
+        assert_rel(diagnostic.max_excess_m3s, 100.0);
+        assert_eq!(diagnostic.max_relative_excess, 0.0);
+        assert!(diagnostic.max_excess_m3s.is_finite());
+        assert!(diagnostic.max_relative_excess.is_finite());
+        assert_eq!(diagnostic.worst, Some(("UHE-1".to_owned(), 1)));
+        assert!(diagnostic_warns(&diagnostic));
+    }
+
+    #[test]
+    fn consistency_diagnostic_skips_tolerance_over_zero_bound() {
+        let system = build_test_system();
+
+        // 0.000018 hm3 over 1 h is 0.005 m3/s, within the tolerance over a zero bound.
+        let diagnostic = diagnose(&system, 0.000_018, &bounds_from(&[[0.0, 0.0]]));
+
+        assert_eq!(diagnostic, EngMaxDiagnostic::default());
+        assert!(!diagnostic_warns(&diagnostic));
+    }
+
+    #[test]
+    fn consistency_diagnostic_first_plant_wins_a_tie() {
+        let mut system = build_test_system();
+        let mut second = system.hydro_plants[0].clone();
+        second.id = HydroPlantId(2);
+        second.name = "UHE-2".into();
+        system.hydro_plants.push(second);
+
+        // The same 2 m3/s excess at (UHE-1, period 2) and at (UHE-2, period 1).
+        let diagnostic = diagnose(
+            &system,
+            0.36,
+            &bounds_from(&[[0.36, 0.3528], [0.3528, 0.36]]),
+        );
+
+        assert_eq!(diagnostic.exceed_count, 2);
+        assert_rel(diagnostic.max_excess_m3s, 2.0);
+        assert_eq!(diagnostic.worst, Some(("UHE-1".to_owned(), 2)));
+    }
+
+    #[test]
+    fn consistency_diagnostic_skips_plant_without_units() {
+        let mut system = build_test_system();
+        let mut empty = system.hydro_plants[0].clone();
+        empty.id = HydroPlantId(2);
+        empty.name = "UHE-EMPTY".into();
+        empty.groups = vec![];
+        system.hydro_plants.push(empty);
+
+        // No bound is stored for the plant without units, as the initial bounds leave none.
+        let diagnostic = diagnose(&system, 0.36, &bounds_from(&[[0.36, 0.36]]));
+
+        assert_eq!(diagnostic, EngMaxDiagnostic::default());
+    }
+
+    #[test]
+    fn consistency_diagnostic_rejects_missing_bound() {
+        let system = build_test_system();
+        let mut bounds = EngMaxBounds::new(1);
+        bounds.set(0, 0, 0.36);
+
+        let error = consistency_diagnostic(
+            &system,
+            &Indexing::from_system(&system),
+            &uniform_solution(&system, 50.0, 0.36),
+            &bounds,
+        )
+        .expect_err("period 2 has no bound");
+
+        assert!(matches!(
+            &error,
+            SimulationError::Model(ModelError::MissingEngMaxBound { plant, period })
+                if plant == "UHE-1" && *period == 1
+        ));
     }
 
     #[test]
