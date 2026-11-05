@@ -4,7 +4,7 @@ pub mod ids;
 pub mod offsets;
 pub mod system;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
 pub use entities::{

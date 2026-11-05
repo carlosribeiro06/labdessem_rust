@@ -3,11 +3,11 @@
 // Rationale: Tests use expect() for cleaner failure messages
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use crate::{Model, SolveMode, constraints, objective};
+use crate::{Model, ModelError, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
-        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, RenewablePlant,
-        Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
+        EngMaxBounds, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
+        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -158,8 +158,8 @@ fn build_system() -> System {
                 }],
             }],
             turbine_type: TurbineType::default(),
-                volume_level_table: None,
-                tailrace_coefficients: None,
+            volume_level_table: None,
+            tailrace_coefficients: None,
         }],
         pumping_plants: Vec::new(),
         renewable_plants: vec![
@@ -236,8 +236,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
-            hydraulic_loss_m: None,
-            efficiency: None,
+                hydraulic_loss_m: None,
+                efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(1),
                     name: "CJ-A".into(),
@@ -279,8 +279,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
-            hydraulic_loss_m: None,
-            efficiency: None,
+                hydraulic_loss_m: None,
+                efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(2),
                     name: "CJ-B".into(),
@@ -322,8 +322,8 @@ fn build_system_with_multiple_upstreams() -> System {
                 spillage_cost_per_hm3: 0.0,
                 turbining_cost_per_hm3: 0.0,
                 specific_productivity_mw_per_m3s: 1.0,
-            hydraulic_loss_m: None,
-            efficiency: None,
+                hydraulic_loss_m: None,
+                efficiency: None,
                 groups: vec![HydroGroup {
                     id: HydroGroupId(3),
                     name: "CJ-C".into(),
@@ -850,8 +850,8 @@ fn builds_pumping_operational_limits() {
         spillage_cost_per_hm3: 0.0,
         turbining_cost_per_hm3: 0.0,
         specific_productivity_mw_per_m3s: 1.0,
-            hydraulic_loss_m: None,
-            efficiency: None,
+        hydraulic_loss_m: None,
+        efficiency: None,
         groups: vec![HydroGroup {
             id: HydroGroupId(1),
             name: "CJ-1".into(),
@@ -1262,138 +1262,109 @@ fn fpha_computed_flow_adds_constraints_correctly() {
 }
 
 #[test]
-fn extend_with_engmax_adds_constraints_when_enabled_and_bounds_exist() {
-    use labdessem_core::entities::EngMaxBounds;
-
+fn extend_with_engmax_adds_plant_rows() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
-    // plant index 0 (UHE-1), unit index 0 (UG-1), periods 0 and 1
+    // plant index 0 (UHE-1), periods 0 and 1
     let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 0, 15.0);
-    engmax_bounds.set(0, 0, 1, 18.0);
+    engmax_bounds.set(0, 0, 15.0);
+    engmax_bounds.set(0, 1, 18.0);
 
     assert!(model.constraints.engmax().is_empty());
 
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
-    );
+    model
+        .constraints
+        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .expect("all bounds are present");
 
     let engmax_constraints = model.constraints.engmax();
     assert_eq!(engmax_constraints.len(), 2);
 
     let c1 = engmax_constraints
         .iter()
-        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=1]")
+        .find(|c| c.name == "engmax[p=UHE-1,t=1]")
         .expect("engmax constraint for t=1 should exist");
     assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((c1.rhs - 15.0).abs() < 1e-6);
 
     let c2 = engmax_constraints
         .iter()
-        .find(|c| c.name == "engmax[p=UHE-1,g=CJ-1,u=UG-1,t=2]")
+        .find(|c| c.name == "engmax[p=UHE-1,t=2]")
         .expect("engmax constraint for t=2 should exist");
     assert!((c2.rhs - 18.0).abs() < 1e-6);
 }
 
 #[test]
-fn extend_with_engmax_does_nothing_when_disabled() {
-    use labdessem_core::entities::EngMaxBounds;
-
+fn extend_with_engmax_missing_bound_is_error() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
+    // horizon 2: period 1 has no bound
     let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 0, 15.0);
+    engmax_bounds.set(0, 0, 15.0);
 
-    model.constraints.extend_with_engmax(
+    let result = model.constraints.extend_with_engmax(
         &system,
         &model.indexing,
         &model.variables,
         &engmax_bounds,
-        false,
     );
 
+    assert_eq!(
+        result,
+        Err(ModelError::MissingEngMaxBound {
+            plant: "UHE-1".into(),
+            period: 1,
+        })
+    );
     assert!(model.constraints.engmax().is_empty());
 }
 
 #[test]
-fn extend_with_engmax_skips_units_without_bounds() {
-    use labdessem_core::entities::EngMaxBounds;
+fn extend_with_engmax_sums_every_unit_of_the_plant() {
+    use crate::names::hydro_turbining_name;
 
-    let system = build_system();
-    let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
-
-    let engmax_bounds = EngMaxBounds::new(10);
-
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
-    );
-
-    assert!(model.constraints.engmax().is_empty());
-}
-
-#[test]
-fn build_engmax_constraints_uses_flat_index_for_multi_group_plants() {
-    use labdessem_core::entities::EngMaxBounds;
-
-    // Build system with multi-group plant: 2 groups × 2 units = 4 units
+    // Multi-group plant: 2 groups × 2 units = 4 units, one plant row
     let system = build_multi_group_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
-    // Set EngMax bounds using flat index:
-    // Group 1 units (flat 0, 1) get bound = 10.0
-    // Group 2 units (flat 2, 3) get bound = 20.0
-    let mut engmax_bounds = EngMaxBounds::new(20);
-    engmax_bounds.set(0, 0, 0, 10.0); // plant 0, flat unit 0, period 0
-    engmax_bounds.set(0, 1, 0, 10.0); // plant 0, flat unit 1, period 0
-    engmax_bounds.set(0, 2, 0, 20.0); // plant 0, flat unit 2, period 0
-    engmax_bounds.set(0, 3, 0, 20.0); // plant 0, flat unit 3, period 0
+    let mut engmax_bounds = EngMaxBounds::new(1);
+    engmax_bounds.set(0, 0, 30.0);
 
-    model.constraints.extend_with_engmax(
-        &system,
-        &model.indexing,
-        &model.variables,
-        &engmax_bounds,
-        true,
-    );
+    model
+        .constraints
+        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .expect("all bounds are present");
 
     let engmax_constraints = model.constraints.engmax();
-    assert_eq!(engmax_constraints.len(), 4, "Should have 4 constraints (one per unit)");
+    assert_eq!(
+        engmax_constraints.len(),
+        1,
+        "Should have 1 constraint (one per plant)"
+    );
 
-    // Verify group 1 units have RHS = 10.0
-    let c_g1_u1 = engmax_constraints
-        .iter()
-        .find(|c| c.name.contains("g=CJ-1,u=UG-1"))
-        .expect("constraint for CJ-1/UG-1 should exist");
-    assert!((c_g1_u1.rhs - 10.0).abs() < 1e-6, "Group 1 unit 1 should have bound 10.0");
+    let row = &engmax_constraints[0];
+    assert_eq!(row.name, "engmax[p=UHE-MULTI,t=1]");
+    assert_eq!(row.sense, constraints::ConstraintSense::LessOrEqual);
+    assert!((row.rhs - 30.0).abs() < 1e-6);
 
-    let c_g1_u2 = engmax_constraints
-        .iter()
-        .find(|c| c.name.contains("g=CJ-1,u=UG-2"))
-        .expect("constraint for CJ-1/UG-2 should exist");
-    assert!((c_g1_u2.rhs - 10.0).abs() < 1e-6, "Group 1 unit 2 should have bound 10.0");
-
-    // Verify group 2 units have RHS = 20.0 (not 10.0, which would happen with wrong indexing)
-    let c_g2_u3 = engmax_constraints
-        .iter()
-        .find(|c| c.name.contains("g=CJ-2,u=UG-3"))
-        .expect("constraint for CJ-2/UG-3 should exist");
-    assert!((c_g2_u3.rhs - 20.0).abs() < 1e-6, "Group 2 unit 3 should have bound 20.0, not 10.0");
-
-    let c_g2_u4 = engmax_constraints
-        .iter()
-        .find(|c| c.name.contains("g=CJ-2,u=UG-4"))
-        .expect("constraint for CJ-2/UG-4 should exist");
-    assert!((c_g2_u4.rhs - 20.0).abs() < 1e-6, "Group 2 unit 4 should have bound 20.0, not 10.0");
+    let expected: Vec<String> = [
+        ("CJ-1", "UG-1"),
+        ("CJ-1", "UG-2"),
+        ("CJ-2", "UG-3"),
+        ("CJ-2", "UG-4"),
+    ]
+    .iter()
+    .map(|(group, unit)| hydro_turbining_name("UHE-MULTI", group, unit, 0))
+    .collect();
+    let actual: Vec<&str> = row.terms.iter().map(|t| t.variable.as_str()).collect();
+    assert_eq!(actual, expected);
+    assert!(
+        row.terms
+            .iter()
+            .all(|t| (t.coefficient - 1.0).abs() < 1e-12)
+    );
 }
 
 fn build_multi_group_system() -> System {

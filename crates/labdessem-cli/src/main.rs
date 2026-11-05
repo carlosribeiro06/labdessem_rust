@@ -1,22 +1,27 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
 use labdessem_io::{output::write_all_results, read_study_config, read_study_from_path};
-use labdessem_simulation::{ExecutionOption, initialize_engmax_bounds, recalculate_engmax_bounds, run_simulation_with_engmax};
-use labdessem_model::indexing::Indexing;
+use labdessem_simulation::{EngMaxDiagnostic, ExecutionOption, run_simulation_with_engmax};
 
 mod banner;
 mod conversions;
 mod fpha_integration;
+mod logging;
 mod output_prep;
 
 fn main() -> ExitCode {
+    if let Err(error) = logging::init() {
+        eprintln!("Warning: log output disabled: {error}");
+    }
+
     let args: Vec<String> = env::args().collect();
 
     match args.get(1).map(std::string::String::as_str) {
         Some("run") => {
-            if args.get(2).map(std::string::String::as_str) == Some("--help")
-                || args.get(2).map(std::string::String::as_str) == Some("-h")
-            {
+            if matches!(
+                args.get(2).map(std::string::String::as_str),
+                Some("--help" | "-h")
+            ) {
                 print_run_help();
                 return ExitCode::SUCCESS;
             }
@@ -125,10 +130,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     if config.fpha.is_computed() {
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
-        let fpha_result = fpha_integration::compute_fpha(
-            case_path,
-            &system,
-        )?;
+        let fpha_result = fpha_integration::compute_fpha(case_path, &system)?;
         fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
         system.fpha_enabled = true;
         fpha_integration::write_computed_results(
@@ -145,26 +147,18 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;
     let engmax_enabled = config.engmax != 0;
-    let result = run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
+    let result =
+        run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
 
     let output_data = conversions::convert_to_output_data(&system, &result);
 
     let output_dir = case_path.join("RESULTADOS");
-    std::fs::create_dir_all(&output_dir)?;
+    fs::create_dir_all(&output_dir)?;
 
     eprintln!("Writing output files...");
 
     let variable_values = output_prep::build_variable_values(&system, &result.cmo_solution);
     let constraint_duals = output_prep::build_constraint_duals(&system, &result.cmo_solution);
-
-    let engmax_bounds = if engmax_enabled {
-        let indexing = Indexing::from_system(&system);
-        let mut bounds = initialize_engmax_bounds(&system);
-        recalculate_engmax_bounds(&system, &result.cmo_solution, &indexing, &mut bounds);
-        Some(bounds)
-    } else {
-        None
-    };
 
     write_all_results(
         &system,
@@ -173,11 +167,8 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         &constraint_duals,
         &output_dir,
         network_enabled,
-        engmax_bounds.as_ref(),
-        engmax_enabled,
+        result.engmax.as_ref().map(|outcome| &outcome.used),
     )?;
-
-    let display_output_dir = output_dir.clone();
 
     eprintln!();
     eprintln!("Process");
@@ -197,12 +188,70 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     eprintln!("  Objective:   {:.4}", result.cmo_solution.objective);
     eprintln!("  Flow cuts:   {}", result.accumulated_flow_cuts);
     eprintln!("  Violations:  {}", result.final_violations.len());
+    if let Some(outcome) = &result.engmax {
+        for line in render_engmax_summary(&outcome.diagnostic) {
+            eprintln!("{line}");
+        }
+    }
     eprintln!(
         "  Output:      {}",
-        display_output_dir
-            .display()
-            .to_string()
-            .trim_start_matches(r"\\?\")
+        output_dir.display().to_string().trim_start_matches(r"\\?\")
     );
     Ok(())
+}
+
+/// The EngMax lines of the Summary (ADR-011): how far the final turbining exceeds EngMax
+/// recomputed from the final solution. The worst item and the relative excess are printed only
+/// when some plant-period is counted.
+fn render_engmax_summary(diagnostic: &EngMaxDiagnostic) -> Vec<String> {
+    let mut lines = vec![format!(
+        "  EngMax:      {} plant-periods above the recomputed bound ({} above a zero bound)",
+        diagnostic.exceed_count, diagnostic.zero_bound_exceed_count
+    )];
+    if let Some((plant, period)) = &diagnostic.worst {
+        lines.push(format!(
+            "  Max excess:  {:.4} m3/s at {plant} period {period}",
+            diagnostic.max_excess_m3s
+        ));
+        lines.push(format!(
+            "  Max rel.:    {:.2}%",
+            100.0 * diagnostic.max_relative_excess
+        ));
+    }
+    lines
+}
+
+#[cfg(test)]
+mod tests {
+    use labdessem_simulation::EngMaxDiagnostic;
+
+    use super::render_engmax_summary;
+
+    #[test]
+    fn render_engmax_summary_lists_worst_item() {
+        let diagnostic = EngMaxDiagnostic {
+            exceed_count: 2,
+            zero_bound_exceed_count: 1,
+            max_excess_m3s: 2.0,
+            max_relative_excess: 0.0204,
+            worst: Some(("UHE-1".to_owned(), 2)),
+        };
+
+        assert_eq!(
+            render_engmax_summary(&diagnostic),
+            [
+                "  EngMax:      2 plant-periods above the recomputed bound (1 above a zero bound)",
+                "  Max excess:  2.0000 m3/s at UHE-1 period 2",
+                "  Max rel.:    2.04%",
+            ]
+        );
+    }
+
+    #[test]
+    fn render_engmax_summary_without_exceedance_is_one_line() {
+        assert_eq!(
+            render_engmax_summary(&EngMaxDiagnostic::default()),
+            ["  EngMax:      0 plant-periods above the recomputed bound (0 above a zero bound)"]
+        );
+    }
 }

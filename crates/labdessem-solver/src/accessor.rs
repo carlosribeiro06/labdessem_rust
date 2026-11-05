@@ -140,16 +140,15 @@ impl<'a> SolutionAccessor<'a> {
         self.solution.primal[idx]
     }
 
-    /// Hydro volume for plant at end of given period.
-    ///
-    /// Period is 0-indexed but volumes are stored at period boundaries:
-    /// - `hydro_volume(plant, 0)` is volume at end of period 0 (initial volume is not stored)
-    /// - For initial volume, use the system's initial reservoir state
+    /// Hydro volume (hm3) of `plant_idx` at volume slot `slot`.
+    /// Each plant owns `horizon + 1` slots: slot 0 is the initial volume (fixed to the
+    /// reservoir's initial volume) and slot `t + 1` is the volume at the end of period `t`.
+    /// The volume at the start of period `t` is therefore slot `t`.
     #[must_use]
-    pub fn hydro_volume(&self, plant_idx: usize, period: usize) -> f64 {
+    pub fn hydro_volume(&self, plant_idx: usize, slot: usize) -> f64 {
         debug_assert!(plant_idx < self.num_hydro_plants);
-        debug_assert!(period <= self.horizon);
-        let idx = self.col_offsets.hydro_volume + plant_idx * (self.horizon + 1) + period;
+        debug_assert!(slot <= self.horizon);
+        let idx = self.col_offsets.hydro_volume + plant_idx * (self.horizon + 1) + slot;
         self.solution.primal[idx]
     }
 
@@ -250,9 +249,11 @@ impl<'a> SolutionAccessor<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::SolutionAccessor;
+    use crate::types::LpSolution;
     use labdessem_model::indexing::{
-        HydroPlantIndex, HydroUnitIndex, RenewablePlantIndex, ThermalUnitIndex,
+        ConstraintOffsetParams, HydroPlantIndex, HydroUnitIndex, Indexing, RenewablePlantIndex,
+        ThermalUnitIndex,
     };
 
     fn test_indexing() -> Indexing {
@@ -298,6 +299,15 @@ mod tests {
             thermal_unit_commitment_enabled: true,
             hydro_unit_commitment_enabled: true,
         }
+    }
+
+    fn two_plant_indexing() -> Indexing {
+        let mut indexing = test_indexing();
+        indexing.hydro_plant_entries.push(HydroPlantIndex {
+            plant_idx: 1,
+            submarket_idx: 0,
+        });
+        indexing
     }
 
     fn test_solution(num_cols: usize, num_rows: usize) -> LpSolution {
@@ -381,5 +391,30 @@ mod tests {
         let accessor = SolutionAccessor::new(&solution, &indexing, &params);
 
         assert!((accessor.objective() - 42.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn hydro_volume_reads_horizon_plus_one_layout() {
+        const H: usize = 3;
+        let indexing = two_plant_indexing();
+        let params = ConstraintOffsetParams {
+            horizon: H,
+            ..Default::default()
+        };
+        let col_offsets = indexing.compute_column_offsets(H);
+        let row_offsets = indexing.compute_constraint_offsets(&params);
+        let solution = test_solution(col_offsets.total, row_offsets.total);
+        let accessor = SolutionAccessor::new(&solution, &indexing, &params);
+
+        // slot 0 is the initial volume, slot H is the end of the last period, and
+        // plant 1 starts at stride H + 1 (not H).
+        for p in 0..2 {
+            for slot in 0..=H {
+                assert_eq!(
+                    accessor.hydro_volume(p, slot),
+                    (col_offsets.hydro_volume + p * (H + 1) + slot) as f64
+                );
+            }
+        }
     }
 }

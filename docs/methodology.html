@@ -123,21 +123,21 @@
         <p>Where ρ is the specific productivity (MW per m³/s).</p>
 
         <h2 id="engmax">Dynamic Maximum Swallowing (EngMax)</h2>
-        <p>When <code>EngMax=1</code>, the maximum turbining of each hydro unit is adjusted dynamically based on the net head:</p>
-        <pre><code>Q_max[i,t] = Q_ef × (h_l / h_ef)^α</code></pre>
+        <p>When <code>EngMax=1</code>, the total turbining of each hydro plant with units is bounded in every period by a head-dependent maximum swallowing. One row is added per plant and period (MM eq. 9.34):</p>
+        <pre><code>Σᵤ Q[u,t] ≤ EngMax[p,t] = Q_ef × (h_l / h_ef)^α</code></pre>
         <p>Where:</p>
         <ul>
-          <li><code>Q_ef</code> — maximum turbining at effective head (from registration)</li>
-          <li><code>h_ef</code> — effective head (from registration)</li>
-          <li><code>h_l</code> — net head calculated from reservoir volume</li>
-          <li><code>α</code> — turbine exponent (0.5 for Francis, 0.2 for Kaplan)</li>
+          <li><code>Q_ef</code> — maximum turbining at effective head: the sum of the plant's units (from registration)</li>
+          <li><code>h_ef</code> — effective head: the unit-count-weighted mean of the plant's units (from registration)</li>
+          <li><code>h_l</code> — net head in metres, calculated from the previous solve</li>
+          <li><code>α</code> — turbine exponent (0.5 for Francis, Pelton and unknown turbine types; 0.2 for Kaplan)</li>
         </ul>
         <p>Net head is calculated as:</p>
-        <pre><code>h_l = forebay_level(V) - tailrace_level(Q) - hydraulic_loss</code></pre>
-        <p>The forebay level is interpolated from the VHA table (<code>CAD_GEOMETRIA_UHE.csv</code>), and the tailrace level is computed from a 4th-degree polynomial (<code>CAD_TAILRACE.csv</code>):</p>
-        <pre><code>tailrace = a₀ + a₁×Q + a₂×Q² + a₃×Q³ + a₄×Q⁴</code></pre>
-        <p>EngMax constraints coexist with static turbining limits. When the net head is lower than the effective head, EngMax reduces the turbining limit. When geometry data is unavailable, the effective head from registration is used.</p>
-        <p>Bounds are recalculated between solve stages using the reservoir volumes from the previous solution.</p>
+        <pre><code>h_l = forebay_level(V) - tailrace_level(Q_jus) - hydraulic_loss</code></pre>
+        <p>Where <code>V</code> is the average reservoir volume of the period and <code>Q_jus</code> is the plant outflow (turbining plus spillage, m³/s), both taken from the previous solve, and the hydraulic loss is in metres. The forebay level is interpolated from the VHA table (<code>CAD_GEOMETRIA_UHE.csv</code>), and the tailrace level is computed from a 4th-degree polynomial in <code>Q_jus</code> (<code>CAD_TAILRACE.csv</code>):</p>
+        <pre><code>tailrace = a₀ + a₁×Q_jus + a₂×Q_jus² + a₃×Q_jus³ + a₄×Q_jus⁴</code></pre>
+        <p>The plant row is added beside the static per-unit turbining limits, so the tighter of the two applies. EngMax is not capped at <code>Q_ef</code>: it exceeds <code>Q_ef</code> when the net head is above the effective head. When geometry data is unavailable, the effective head from registration is used.</p>
+        <p>Bounds are recalculated after every solve (LP, MILP, LP-FIXED and LP-CALC-CMO) from the solution of the solve immediately before it. The first solve uses the initial volume, and the plant maximum turbining with no spillage.</p>
 
         <h2 id="fcf">Future Cost Function</h2>
         <p>The Future Cost Function (FCF) represents the expected cost-to-go from the end of the horizon. It is approximated by Benders cuts:</p>

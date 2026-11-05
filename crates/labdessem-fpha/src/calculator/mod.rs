@@ -1,37 +1,39 @@
 //! Maximum swallowing (EngMax) calculator.
 
-/// Calculate dynamic maximum swallowing from head ratio.
+/// Dynamic maximum swallowing (EngMax) from the head ratio: `Q_ef * (h_l / h_ef)^alpha`.
 ///
-/// Formula: Q_ef × (h_l / h_ef)^α
+/// Pure: it does not log. Callers that report a non-positive net head count it themselves
+/// (labdessem-simulation summarises them once per bound computation, ADR-013).
 ///
 /// # Arguments
-/// * `max_turbining_m3s` - Maximum turbining at effective head (Q_ef) in m³/s
-/// * `effective_head_m` - Effective head (h_ef) in meters
-/// * `net_head_m` - Net head (h_l) in meters
-/// * `alpha` - Turbine curve exponent (α)
+/// * `q_ef` - Maximum turbining at the effective head (Q_ef), in any flow or volume
+///   unit (EngMax passes hm3 per period)
+/// * `effective_head_m` - Effective head (h_ef) in metres
+/// * `net_head_m` - Net head (h_l) in metres
+/// * `alpha` - Turbine curve exponent
 ///
 /// # Returns
-/// Maximum swallowing (EngMax) in m³/s
+/// The maximum swallowing in the unit of `q_ef`: `q_ef` itself when
+/// `effective_head_m <= 0` (no reference head), and 0 when `net_head_m <= 0`.
 #[must_use]
 pub fn calculate_max_swallowing(
-    max_turbining_m3s: f64,
+    q_ef: f64,
     effective_head_m: f64,
     net_head_m: f64,
     alpha: f64,
 ) -> f64 {
     if effective_head_m <= 0.0 {
-        return max_turbining_m3s;
+        return q_ef;
     }
     if net_head_m <= 0.0 {
-        tracing::warn!(net_head_m, "near-zero net head, returning zero EngMax");
         return 0.0;
     }
-    max_turbining_m3s * (net_head_m / effective_head_m).powf(alpha)
+    q_ef * (net_head_m / effective_head_m).powf(alpha)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::calculate_max_swallowing;
 
     const EPSILON: f64 = 1e-2;
 
@@ -60,7 +62,7 @@ mod tests {
 
     #[test]
     fn net_head_zero_fallback() {
-        // h_l=0 → return 0.0 with warning
+        // h_l=0 -> return 0.0 (callers summarise)
         let result = calculate_max_swallowing(100.0, 50.0, 0.0, 0.5);
         assert!((result - 0.0).abs() < f64::EPSILON);
     }

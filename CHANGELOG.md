@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `EngMaxOutcome` and `EngMaxDiagnostic` in `labdessem-simulation`, and the EngMax consistency diagnostic
+  - `IterativeSimulationResult.engmax` carries the bound used, the bound recomputed from the final solution, and the diagnostic
+  - The diagnostic is logged once and echoed as `EngMax:` lines in the CLI Summary on stderr
+- `ModelError::MissingEngMaxBound { plant, period }` in `labdessem-model`
+- EngMax infeasibility diagnosis: one EngMax-free re-solve, reported as `SimulationError::EngMaxInfeasible` with the exceeded `engmax[p,t]` rows
+- `ConstraintOffsetParams::from_system(system, solve_mode)`, which also implements `PartialEq, Eq`
+- `TurbineType::from_deck_field`
+- CLI log subscriber (`tracing-subscriber`) on stderr: WARN by default, `RUST_LOG` overrides the level
+
+### Changed
+- **BREAKING**: `resultado_hidreletricas.csv`: `EngMaxHM3`/`EngMaxM3s` now report the plant bound that built the final LP-CALC-CMO model
+  - Before: the CLI recomputed EngMax from the final LP-CALC-CMO solution, unit rows held per-unit values and the `99;99` row their sum
+  - Now the columns hold the plant value per MM eq. 9.34, filled only on `99;99` rows and empty on unit rows and when EngMax is off
+  - The value is raw and may exceed `TurbinamentoMaxHM3`/`TurbinamentoMaxM3s` on the same row
+  - `EngMaxHM3` is summed over the internal periods of the original period, and `EngMaxM3s` is that sum over the original period's duration
+  - Column names, positions and number format are unchanged
+- **BREAKING**: Public Rust API of the EngMax correction
+  - Removed `labdessem_simulation::initialize_engmax_bounds` and `labdessem_simulation::recalculate_engmax_bounds`
+  - `EngMaxBounds::get(plant, unit, period)` and `set(plant, unit, period, value)` became `get(plant, period)` and `set(plant, period, value)`
+  - `ConstraintSet::extend_with_engmax(.., engmax_bounds, engmax_enabled: bool)` became `extend_with_engmax(.., engmax_bounds) -> Result<(), ModelError>`
+  - `build_engmax_constraints(.., engmax_bounds, engmax_enabled) -> Vec<LinearConstraint>` became `build_engmax_constraints(.., engmax_bounds) -> Result<Vec<LinearConstraint>, ModelError>`
+  - `write_all_results` and `write_hydro_csv` lost the `engmax_enabled` parameter; `Some(bounds)` enables the EngMax columns
+  - `SimulationError` gained `Model(ModelError)`, `PartialEffectiveHead { plant, groups }`, `Geometry(FphaFittingError)` and `EngMaxInfeasible { stage, iteration, rows }`, and `TurbineType` gained `Pelton`; both enums are exhaustive, so external exhaustive matches break
+  - `IterativeSimulationResult` gained the public field `engmax: Option<EngMaxOutcome>`, which breaks external struct literals
+- EngMax is one plant-level row per plant with units and per period, `engmax[p=<plant>,t=<period>]`, over the sum of unit turbining; `Q_ef` is the sum and `h_ef` the unit-count-weighted mean
+- EngMax bounds are recalculated after every solve (LP cut loop, MILP, LP-FIXED, LP-CALC-CMO), with or without network; the first solve uses the initial volume
+- The tailrace flow is the previous solve's plant outflow (turbining plus spillage, in m³/s); spillage is always included and lateral influences are not modelled; the first solve uses the plant maximum turbining with no spillage
+- Effective head: `Hef.m <= 0` on some but not all units of a plant is an initialization error (`SimulationError::PartialEffectiveHead`); a plant with `Hef.m <= 0` on every unit is inert (EngMax = `Q_ef`); non-positive heads are counted in one summary warning per bound computation; `calculate_max_swallowing` is now pure and no longer logs
+- `Turbina` code 3 maps to Pelton (alpha 0.5, inferred from the deck); unknown codes warn once per plant
+- The VHA geometry is built once per run; a malformed VHA table with EngMax on is an initialization error (`SimulationError::Geometry`)
+
+### Fixed
+- EngMax is no longer capped at `Q_ef` by the net head (c54620f); EngMax now exceeds `Q_ef` when the net head is above `h_ef`
+- The head volume now uses the previous solve's period average `(V[t] + V[t+1]) / 2`, fixing an off-by-one that read `volume[t-1]`
+- A missing EngMax bound is now an error in the model build, the diagnostic and the CSV writer; before, the row was silently omitted and the CSV writer wrote 0.0
+
 ## [0.10.0] - 2026-10-27
 
 ### Added

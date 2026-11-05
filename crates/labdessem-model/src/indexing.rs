@@ -1,3 +1,4 @@
+use crate::SolveMode;
 use labdessem_core::{ids::SubmarketId, system::System};
 
 pub use labdessem_core::ColumnOffsets;
@@ -400,7 +401,7 @@ pub struct ConstraintOffsets {
 }
 
 /// Parameters for computing constraint offsets.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConstraintOffsetParams {
     pub horizon: usize,
     pub fpha_enabled: bool,
@@ -413,9 +414,43 @@ pub struct ConstraintOffsetParams {
     pub is_commitment_mode: bool,
 }
 
+impl ConstraintOffsetParams {
+    /// Row-offset parameters of the model `ConstraintSet::for_system` builds for `system` in
+    /// `solve_mode` (ADR-020): commitment rows exist only in MILP and LP-FIXED.
+    ///
+    /// Only rows built with the model are counted; rows added after it (network flow cuts,
+    /// engmax rows) are not.
+    pub fn from_system(system: &System, solve_mode: SolveMode) -> Self {
+        Self {
+            horizon: system.horizon.periods,
+            fpha_enabled: system.fpha_enabled,
+            num_fpha_segments: system
+                .hydro_plants
+                .iter()
+                .map(|plant| plant.fpha_segments.len())
+                .sum(),
+            future_cost_enabled: system.future_cost_enabled,
+            num_future_cost_cuts: system.future_cost_cuts.len(),
+            num_operational_limits: system.operational_limits.len(),
+            thermal_uct_enabled: system.thermal_unit_commitment_enabled,
+            hydro_uch_enabled: system.hydro_unit_commitment_enabled,
+            is_commitment_mode: matches!(
+                solve_mode,
+                SolveMode::MixedIntegerLinearProgramming
+                    | SolveMode::LinearProgrammingWithFixedCommitment
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
+// tests: a panic is the failure report
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use super::*;
+    use super::{
+        ConstraintOffsetParams, HydroPlantIndex, HydroUnitIndex, Indexing, RenewablePlantIndex,
+        ThermalUnitIndex,
+    };
 
     fn minimal_indexing() -> Indexing {
         Indexing {
@@ -654,6 +689,96 @@ mod tests {
             col_offsets.total, expected_offset,
             "total offset mismatch: expected {} but got {}",
             expected_offset, col_offsets.total
+        );
+    }
+
+    #[test]
+    fn params_from_system_follow_system_and_solve_mode() {
+        use crate::SolveMode;
+        use labdessem_core::entities::HydroFphaSegment;
+        use labdessem_core::ids::ThermalPlantId;
+        use labdessem_core::system::{
+            FutureCostCut, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable,
+        };
+        use labdessem_io::read_study_from_path;
+        use std::path::PathBuf;
+
+        let case_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/24Barras");
+        let mut system = read_study_from_path(case_path).expect("24Barras should be readable");
+        let segment = HydroFphaSegment {
+            segment: 1,
+            correction_factor: 1.0,
+            rhs: 0.0,
+            volume_coefficient: 0.0,
+            turbining_coefficient: 0.0,
+            lateral_flow_coefficient: 0.0,
+        };
+        for plant in &mut system.hydro_plants {
+            plant.fpha_segments.clear();
+        }
+        system.hydro_plants[0].fpha_segments = vec![segment.clone(); 3];
+        system.hydro_plants[1].fpha_segments = vec![segment; 2];
+        system.future_cost_cuts = vec![
+            FutureCostCut {
+                stage_id: 1,
+                cut_id: 1,
+                slot_index: 1,
+                iteration: 1,
+                forward_pass_index: 1,
+                intercept: 0.0,
+                coefficients: Vec::new(),
+                is_active: true,
+            };
+            4
+        ];
+        system.operational_limits = vec![
+            OperationalLimit {
+                target: OperationalLimitTarget::ThermalPlant(ThermalPlantId(1)),
+                plant_name: "TERM-1".into(),
+                variable: OperationalLimitVariable::Generation,
+                start_period: 1,
+                end_period: 1,
+                lower_bound: Some(0.0),
+                upper_bound: None,
+            };
+            2
+        ];
+        system.fpha_enabled = true;
+        system.future_cost_enabled = false;
+        system.thermal_unit_commitment_enabled = true;
+        system.hydro_unit_commitment_enabled = false;
+
+        // the distinct counts 5, 4 and 2, the deck horizon and the alternating flags make a swapped field fail
+        let lp = ConstraintOffsetParams {
+            horizon: system.horizon.periods,
+            fpha_enabled: true,
+            num_fpha_segments: 5,
+            future_cost_enabled: false,
+            num_future_cost_cuts: 4,
+            num_operational_limits: 2,
+            thermal_uct_enabled: true,
+            hydro_uch_enabled: false,
+            is_commitment_mode: false,
+        };
+        let commitment = ConstraintOffsetParams {
+            is_commitment_mode: true,
+            ..lp.clone()
+        };
+
+        assert_eq!(
+            ConstraintOffsetParams::from_system(&system, SolveMode::LinearProgramming),
+            lp
+        );
+        assert_eq!(
+            ConstraintOffsetParams::from_system(&system, SolveMode::MixedIntegerLinearProgramming),
+            commitment
+        );
+        assert_eq!(
+            ConstraintOffsetParams::from_system(
+                &system,
+                SolveMode::LinearProgrammingWithFixedCommitment
+            ),
+            commitment
         );
     }
 }

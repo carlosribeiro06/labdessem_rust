@@ -137,8 +137,11 @@ LP-FIXED (loop until no violations)
 LP-CALC-CMO ──► Output CSVs
 ```
 
+With `EngMax = 1`, every solve's EngMax bounds come from the solution of the solve immediately before it, whatever its stage, and the first solve uses the initial volume; see [EngMax Formulation](engmax-formulation.md).
+
 ## Key Files
 
 - [`crates/labdessem-simulation/src/workflow.rs`](../../crates/labdessem-simulation/src/workflow.rs) - `ExecutionOption` and `IterationStage` enums
-- [`crates/labdessem-simulation/src/stages.rs`](../../crates/labdessem-simulation/src/stages.rs) - Stage orchestration and solve logic
-- [`crates/labdessem-simulation/src/network/flow.rs`](../../crates/labdessem-simulation/src/network/flow.rs) - Flow violation detection
+- [`crates/labdessem-simulation/src/stages/orchestration.rs`](../../crates/labdessem-simulation/src/stages/orchestration.rs) - Stage orchestration
+- [`crates/labdessem-simulation/src/stages/solve.rs`](../../crates/labdessem-simulation/src/stages/solve.rs) - Solve logic, including the EngMax hook
+- [`crates/labdessem-network/src/flow/violation.rs`](../../crates/labdessem-network/src/flow/violation.rs) - Flow violation detection (`detect_flow_violations`)

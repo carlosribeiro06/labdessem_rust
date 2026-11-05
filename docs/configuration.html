@@ -174,7 +174,7 @@
         <h3>EngMax Flag</h3>
         <p>Controls dynamic maximum swallowing (head-dependent turbining limits):</p>
         <ul>
-          <li><code>EngMax=1</code>: Calculate net head from reservoir volume and tailrace polynomial, then apply the formula <code>Q_max = Q_ef × (h_l / h_ef)^α</code> where α depends on turbine type (0.5 for Francis, 0.2 for Kaplan). Requires <code>CAD_GEOMETRIA_UHE.csv</code> and <code>CAD_TAILRACE.csv</code>.</li>
+          <li><code>EngMax=1</code>: Bound each hydro plant's total turbining by its head-dependent maximum swallowing, recalculated after every solve. See <a href="./methodology.html#engmax">Methodology</a> for the formula.</li>
           <li><code>EngMax=0</code>: Use static maximum turbining from registration data.</li>
         </ul>
         <p>When geometry data is not available for a plant, EngMax falls back to the effective head from registration.</p>
