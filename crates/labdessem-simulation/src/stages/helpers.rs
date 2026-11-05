@@ -9,7 +9,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use labdessem_core::ids::SubmarketId;
-use labdessem_core::system::{OperationalLimitVariable, System};
+use labdessem_core::system::{OperationalLimitTarget, OperationalLimitVariable, System};
 use labdessem_model::{
     Model,
     constraints::{ConstraintSense, LinearConstraint, LinearTerm},
@@ -26,8 +26,8 @@ use labdessem_solver::LpSolution;
 
 use crate::flow_units::volume_hm3_to_flow_m3s;
 use crate::results::{
-    AddedFlowCutLineResult, FlowCutMapping, LineFlowResult, NetworkInfeasibilityRecord,
-    OperationalLimitInfeasibilityRecord,
+    AddedFlowCutLineResult, FlowCutMapping, FlowViolation, LineFlowResult,
+    NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
 use crate::workflow::IterationStage;
 
@@ -105,7 +105,7 @@ pub(crate) fn add_network_flow_slack_variable(model: &mut Model, name: &str) {
 pub(crate) fn extend_cut_set(
     accumulated_cuts: &mut BTreeSet<FlowCutKey>,
     system: &System,
-    violations: &[crate::results::FlowViolation],
+    violations: &[FlowViolation],
 ) -> usize {
     let mut new_cuts = 0;
     for violation in violations {
@@ -301,9 +301,9 @@ pub(crate) fn collect_operational_limit_infeasibilities(
 
     for limit in &system.operational_limits {
         let plant_code = match limit.target {
-            labdessem_core::system::OperationalLimitTarget::ThermalPlant(id) => id.0,
-            labdessem_core::system::OperationalLimitTarget::HydroPlant(id) => id.0,
-            labdessem_core::system::OperationalLimitTarget::PumpingPlant(id) => id.0,
+            OperationalLimitTarget::ThermalPlant(id) => id.0,
+            OperationalLimitTarget::HydroPlant(id) => id.0,
+            OperationalLimitTarget::PumpingPlant(id) => id.0,
         };
 
         for period in limit.start_period..=limit.end_period {
@@ -437,44 +437,11 @@ pub(crate) fn compute_cmb_cmo_data(
     let periods: Vec<usize> = (0..horizon).collect();
 
     let indexing = labdessem_model::indexing::Indexing::from_system(system);
-    let constraint_params = labdessem_model::indexing::ConstraintOffsetParams {
-        horizon,
-        fpha_enabled: system.fpha_enabled,
-        num_fpha_segments: system
-            .hydro_plants
-            .iter()
-            .map(|p| p.fpha_segments.len())
-            .sum(),
-        future_cost_enabled: system.future_cost_enabled,
-        num_future_cost_cuts: system.future_cost_cuts.len(),
-        num_operational_limits: system.operational_limits.len(),
-        thermal_uct_enabled: system.thermal_unit_commitment_enabled,
-        hydro_uch_enabled: system.hydro_unit_commitment_enabled,
-        is_commitment_mode: true,
-    };
+    let constraint_params = labdessem_model::indexing::ConstraintOffsetParams::from_system(
+        system,
+        labdessem_model::SolveMode::LinearProgrammingWithFixedCommitment,
+    );
     let row_offsets = indexing.compute_constraint_offsets(&constraint_params);
-
-    let dc_network = match dc_network {
-        Some(dc) if !all_cuts.is_empty() => dc,
-        _ => {
-            let mut cmo_values = HashMap::new();
-            for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
-                for period in 0..horizon {
-                    let row_idx = row_offsets.demand_balance + submarket_idx * horizon + period;
-                    let dual = cmo_solution.dual.get(row_idx).copied().unwrap_or(0.0);
-                    let cmo = dual / system.horizon.period_duration_hours;
-                    cmo_values.insert((submarket.id, period), cmo);
-                }
-            }
-            return (Vec::new(), cmo_values, None);
-        }
-    };
-
-    let num_flow_cut_constraints = all_cuts.len() * 2;
-    let base_constraint_count = cmo_solution
-        .dual
-        .len()
-        .saturating_sub(num_flow_cut_constraints);
 
     let mut demand_duals = HashMap::new();
     for (submarket_idx, submarket) in system.submarkets.iter().enumerate() {
@@ -484,6 +451,23 @@ pub(crate) fn compute_cmb_cmo_data(
             demand_duals.insert((submarket.id, period), dual);
         }
     }
+
+    let dc_network = match dc_network {
+        Some(dc) if !all_cuts.is_empty() => dc,
+        _ => {
+            let cmo_values = demand_duals
+                .into_iter()
+                .map(|(key, dual)| (key, dual / system.horizon.period_duration_hours))
+                .collect();
+            return (Vec::new(), cmo_values, None);
+        }
+    };
+
+    let num_flow_cut_constraints = all_cuts.len() * 2;
+    let base_constraint_count = cmo_solution
+        .dual
+        .len()
+        .saturating_sub(num_flow_cut_constraints);
 
     let mut mapping = FlowCutMapping::default();
     for (idx, cut_key) in all_cuts.iter().enumerate() {

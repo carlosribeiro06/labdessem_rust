@@ -18,9 +18,10 @@ fn main() -> ExitCode {
 
     match args.get(1).map(std::string::String::as_str) {
         Some("run") => {
-            if args.get(2).map(std::string::String::as_str) == Some("--help")
-                || args.get(2).map(std::string::String::as_str) == Some("-h")
-            {
+            if matches!(
+                args.get(2).map(std::string::String::as_str),
+                Some("--help" | "-h")
+            ) {
                 print_run_help();
                 return ExitCode::SUCCESS;
             }
@@ -152,7 +153,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     let output_data = conversions::convert_to_output_data(&system, &result);
 
     let output_dir = case_path.join("RESULTADOS");
-    std::fs::create_dir_all(&output_dir)?;
+    fs::create_dir_all(&output_dir)?;
 
     eprintln!("Writing output files...");
 
@@ -168,8 +169,6 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         network_enabled,
         result.engmax.as_ref().map(|outcome| &outcome.used),
     )?;
-
-    let display_output_dir = output_dir.clone();
 
     eprintln!();
     eprintln!("Process");
@@ -196,10 +195,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     }
     eprintln!(
         "  Output:      {}",
-        display_output_dir
-            .display()
-            .to_string()
-            .trim_start_matches(r"\\?\")
+        output_dir.display().to_string().trim_start_matches(r"\\?\")
     );
     Ok(())
 }
