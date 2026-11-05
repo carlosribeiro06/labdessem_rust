@@ -50,8 +50,10 @@ labdessem_rust/
 |-- crates/
 |   |-- labdessem-cli
 |   |-- labdessem-core
+|   |-- labdessem-fpha
 |   |-- labdessem-io
 |   |-- labdessem-model
+|   |-- labdessem-network
 |   |-- labdessem-simulation
 |   |-- labdessem-solver
 |   `-- labdessem-uc
@@ -69,11 +71,17 @@ labdessem_rust/
 - `labdessem-core`
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
+- `labdessem-fpha`
+  FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline. Computes hyperplanes from VHA geometry using convex hull fitting.
+
 - `labdessem-io`
   File I/O. Reads study input (`study_config.json`, `CAD/`, `OPER/`) and writes all result CSVs.
 
 - `labdessem-model`
   Indexing, variables, objective function, and algebraic constraints.
+
+- `labdessem-network`
+  DC network flow computation, PTDF matrices, flow cut constraints, and CMB/CMO dual extraction.
 
 - `labdessem-simulation`
   End-to-end orchestration: solve workflow, network-cut iterations, and dual extraction.
@@ -140,8 +148,10 @@ Current keys:
 
 - `EngMax`
   Enables or disables dynamic maximum swallowing constraint:
-  - `1`: calculate head-dependent turbining limits and add EngMax constraints
+  - `1`: calculate head-dependent turbining limits and add one EngMax constraint per hydro plant and period, recalculated after every solve
   - `0`: disable EngMax (default)
+
+  Design notes and limitations: [docs/design/engmax-formulation.md](docs/design/engmax-formulation.md).
 
 Example:
 
@@ -253,6 +263,9 @@ Current outputs include:
 - `resultado_rest_lim.csv`
 - `resultado_inviabilidade_lim.csv`
 - `resultado_fcf_eco.csv` when `FCF = 1`
+- `resultado_fpha_computed.csv` when `FPHA = "computed"`
+
+With `EngMax = 1`, `resultado_hidreletricas.csv` also holds the `EngMaxHM3` and `EngMaxM3s` columns. They are filled only on the `99;99` row of each plant and hold the plant bound that built the final `LP-CALC-CMO` model. The value is raw and may exceed `TurbinamentoMaxHM3`/`TurbinamentoMaxM3s`. The file's own preamble states this meaning.
 
 When network treatment is enabled, the run also writes:
 
@@ -282,6 +295,20 @@ labdessem run examples/24Barras
 ```bash
 cd examples/24Barras
 labdessem run
+```
+
+### Run summary and logging
+
+The banner, the run header and the final summary are printed on stderr. The file-reading and solve progress lines go to stdout. With `EngMax = 1` the summary includes a line such as:
+
+```text
+  EngMax:      0 plant-periods above the recomputed bound (0 above a zero bound)
+```
+
+Warnings and other log events go to stderr as well, at `WARN` level by default. Set `RUST_LOG` to change the level:
+
+```bash
+RUST_LOG=info labdessem run examples/24Barras
 ```
 
 ### Show help
