@@ -1,0 +1,479 @@
+{
+  "plan": "fpha-corrections",
+  "last_updated": "2026-11-18T19:13:26Z",
+  "progressive": true,
+  "mode": "Rigoroso",
+  "rigor": "full",
+  "scaffolded": false,
+  "tickets": {
+    "ticket-001-record-workspace-baseline.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness": 0.98,
+        "readiness_breakdown": {
+          "structure": 0.93,
+          "testability": 1.0,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 0.93,
+        "quality_breakdown": {
+          "conformance": 0.8,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 1.0
+        },
+        "quality_source": "implementation-guardian",
+        "quality_note": "Strict reading. Guardian gives 1.00 if the C4 spec-defect waiver is recorded; not waived by the orchestrator."
+      },
+      "workflow_step": null,
+      "baseline_tree": "940c5ce7e00f4d6e39e204e4495c1ed51f6b49af",
+      "quality_scored": true,
+      "agent": "hpc-rust-developer",
+      "notes": "commit 98d1493. C4 deviation: the fast constant_productivity row has no plant counts because the CLI prints \"Processed N plants, M skipped\" only when FPHA is computed (crates/labdessem-cli/src/main.rs:142); guardian classes it a spec defect, no value was invented. Baseline findings to carry forward: (1) cargo clippy -D warnings already red on develop 4ac43e0 (3 errors in labdessem-fpha/build.rs, 1 in labdessem-core/src/system/mod.rs:10); (2) tree not rustfmt-clean under rustfmt 1.11.0 (127 hunks, 30 files): later specialists must NOT run cargo fmt --all, use --check or format only touched files; stash@{0} holds the drift, undisposed; (3) toolchain installed during this ticket (rustc/cargo 1.100.0, clippy 0.1.100, rustfmt 1.11.0, no rust-toolchain file): later comparisons need the same toolchain; (4) clippy warning counts in section 2 are distinct diagnostics deduplicated across targets from JSON (175 total); tickets 002-006, 011-017 gate on not exceeding them, so a reproducible counting command is needed in ticket-007/017."
+    },
+    "ticket-002-add-fpha-lp-envelope-probe.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        },
+        "readiness": 1.0,
+        "readiness_breakdown": {
+          "structure": 1.0,
+          "testability": 1.0,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 0.90,
+        "quality_breakdown": {
+          "conformance": 1.0,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 0.0
+        },
+        "quality_source": "implementation-guardian",
+        "quality_note": "test_delta 0.0 is a rubric artifact: probe.rs is cfg(test) code but matches no test-file pattern; guardian says 1.00 if counted as test code. Persisted literally."
+      },
+      "workflow_step": null,
+      "baseline_tree": "33b64e22773930e8c3481912696b0282b3e5c772",
+      "quality_scored": true,
+      "agent": "monorepo-test-developer",
+      "notes": "commit 3fd03b8. Guardian 5/5. Orchestrator spec readings given to the specialist: Q_max = pf.max_turbined_m3s(); main.rs sequence is lines 132-134; period-1 rows match exact suffix ,t=1]; no allow(dead_code), every helper exercised by extra assertions in the four tests; AC5 read strictly (cli <=13 and total <=175 distinct clippy diagnostics, baseline method) - recount by guardian: 13 and 175, unchanged. Specialist choices beyond wording (judged compatible): fit_contexts propagates build_fit_params errors with ?; CRLF preserved in edit helpers; path guard rejects absolute paths and ..; extra lp_fpha_rows assertions (sense <=, generation coeff 1.0). Future-ticket risks: L-1 fit_contexts mirror of fit_plant guarded only by comment (single-volume forebay branch unobserved, mutant bounds_useful survived) - ticket-006/Epic 02 may add a single-volume control; L-2 ticket-014 (plants with segments but no units): envelope_row would panic, use row count by name or a tolerant path; L-3 ticket-011: extra row-shape assertions fail loudly if the alpha fix rescales rows."
+    },
+    "ticket-003-characterize-double-alpha-envelope.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        },
+        "readiness": 1.0,
+        "readiness_breakdown": {
+          "structure": 1.0,
+          "testability": 1.0,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 0.90,
+        "quality_breakdown": {
+          "conformance": 1.0,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 0.0
+        },
+        "quality_source": "implementation-guardian",
+        "quality_note": "Literal rubric reading, consistent with ticket-002: lp_envelope_tests.rs is cfg(test) code that matches no test-file pattern. Guardian primary score was 1.00 (test_delta 1.0, test-only change); verdict unchanged."
+      },
+      "workflow_step": null,
+      "baseline_tree": "83337044d2c69b8e67ecbe597acaf2e360894a07",
+      "quality_scored": true,
+      "agent": "monorepo-test-developer",
+      "notes": "commit 75ff096. Guardian 5/5; clippy recount 175 unchanged; 484 passed/0 failed/2 ignored. KNOWN DEFECT F1 (spec design, Medium, accepted because ticket-011 replaces both tests): test 1 reduces algebraically to E_LP = correction_factor * min_k P_k (intended = alpha*min_k(P_k/alpha) = min_k P_k) and therefore PASSES after fix option (b) (remove scale_planes, keep cf=alpha, the plan recommendation); it FAILS only under option (a) (cf=1.0). Test 2 passes after bare (b) and fails after (a) or (b2) (b plus compute_fit_deviation on scaled planes; under b2 it fails at its FIRST assertion, not the one the doc comment cites). The doc comments claim \"would fail if alpha were applied once\" is true for (a) only. The \"returned planes already carry alpha\" half of the double-alpha claim is assumed by unscaled_pre_fix, not measured (no comparison against fit_hull_planes raw planes); it rests on code reading of pipeline.rs:85. F3 for ticket-011: its text \"both of which fail once alpha is applied once\" is wrong for test 1 under (b), and its replacement lp_envelope_matches_alpha_scaled_planes asserts E_LP == alpha*min_k P_k, which is also true pre-fix; the discrimination must come from its pipeline unit tests (fit_plant_returns_unscaled_planes, fit_plant_deviation_matches_alpha_scaled_envelope). Cheap optional fix offered by guardian: an independent pin recomputing raw hull planes via fit_hull_planes (discriminates (a) and (b)); not applied, needs user decision (ticket amendment). Notes for ticket-007 when copying section 5: tables print twice (tags applies_alpha_twice and reported_deviation, identical numbers; copy once); capture stderr alone with --nocapture --test-threads=1 2>file because stdout interleaving garbled a line; deviation columns are max_abs/mean_abs/rms in MW; ratio_min==ratio_max==alpha is algebraic, not a measured spread; FUNIL-GRANDE fit-grid deviation 0.000000 is genuine but zero by construction (fit nodes only; 11x11 max is 5.636 MW), ITUTINGA likewise (0.102 vs 2.229); the diagnostic does not uniformly overstate the error (CAMARGOS lp max 2.754 < reported 3.143 but lp mean 1.043 > 0.953; FURNAS max 21.078 < 25.361, mean/rms nearly equal); plane counts are after reduction and can change under (b) (CAMARGOS 6 to 7); alpha CAMARGOS 0.9696072573 FURNAS 0.9912951635, 30/10/10/30 qualifying nodes; tolerance 1e-9 has 6 orders of margin (max error 3.3e-16)."
+    },
+    "ticket-004-add-fpha-e2e-derived-case-harness.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        },
+        "readiness": 0.98,
+        "readiness_breakdown": {
+          "structure": 0.93,
+          "testability": 1.0,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 1.0,
+        "quality_breakdown": {
+          "conformance": 1.0,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 1.0
+        },
+        "quality_source": "implementation-guardian"
+      },
+      "workflow_step": null,
+      "baseline_tree": "c785dd6e10b86152ec8f196252596204d5187fa5",
+      "quality_scored": true,
+      "agent": "monorepo-test-developer",
+      "notes": "commit 25d2854. Guardian 5/5; clippy recount 175 unchanged; 486 passed/0 failed/2 ignored; no suppression beyond the mandated file attribute. KNOWN DEFECT F1 (spec design, Medium, same class as ticket-003 F1): the A1 test pins only the documented copy rule (Fcorrec=1 does not reproduce the computed run, Fcorrec=alpha does); the writer/reader round trip is invariant to whether alpha is applied once or twice, so it cannot detect double alpha. Mutations: option (a) cf=1.0 -> FAILS at the Alpha assertion (O_c 2383741.6195, O_alpha 2441052.2402, gap 2.404e-2; O_one gap 1.876e-6); option (b) remove scale_planes keep cf=alpha -> PASSES unchanged (O_c 2383481.5598, O_alpha 2383483.1342 gap 6.6e-7, O_one 2327100.3261 gap 2.365e-2); pre-fix (double alpha) also passes the Alpha assertion. CONSEQUENCE for ticket-013 under (b): rename + doc-comment change with identical assertions, no new E2E discriminating power; the doc comments on Fcorrec::One (line 29, \"documented copy, printed gammas already include alpha\") and Fcorrec::Alpha become false after (b) and ticket-013 does not list updating them; its grep -c baseline_a1 must be 0 (test name and line 304 doc comment both change); its in-process computed_csv_round_trip_reproduces_segments is likewise round-trip invariant. Real discrimination of A1 must come from the in-process envelope tests of ticket-011 (pipeline unit tests). COMBINED WITH ticket-003 F1: no baseline test would catch reintroduction of double alpha after fix (b); raise at gate ADR-025 (ticket-008) and in the ticket-011/013 dispatch. Notes for ticket-007 section 5: objectives O_c 2441046.6443 (1.52 s), O_alpha 2441052.2402 (+5.5959 R$ vs O_c, gap 2.292e-6, from {:.6}/{:.9} CSV rounding, margin 4.4x vs 1e-5), O_one 2383746.0919 (-57300.55 R$ vs O_c, gap 2.347e-2, BELOW O_c; printed gaps are absolute values); say consistent with double alpha, not proves; fast config (rede 0, UCT 0, FCF 1, EngMax 0) gives 2.35% effect vs audit 0.07% (3125.65 R$ on 4.50e6, official configuration), only sign and order of magnitude comparable; elapsed times are whole-process debug wall time (comparable with baseline section 4 debug 1.48 s, not with release 0.23 s). Reference for ticket-017: computed objective after fix (a) 2383741.6195, after (b) 2383481.5598 (differs from pre-fix O_one 2383746.0919 because gamma_S is fitted on unscaled planes). Minor: assert_precomputed_stderr only guards the \"Computing FPHA hyperplanes\" line (main.rs:132), not \"Computing FPHA planes from geometry data...\"; harness test snapshots examples/24Barras, flaky only if a concurrent process writes there. Compatible with tickets 005 (helpers private, no signature change needed), 013, 014."
+    },
+    "ticket-005-characterize-skipped-plant-generation.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        },
+        "readiness": 0.97,
+        "readiness_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 1.0,
+        "quality_breakdown": {
+          "conformance": 1.0,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 1.0
+        },
+        "quality_source": "implementation-guardian"
+      },
+      "baseline_tree": "ccea3be3c609ff0498e613a46630902e3a4f4d59",
+      "workflow_step": null,
+      "notes": "commit 592d04e. Guardian 5/5; clippy recount 175 unchanged (no diagnostic in new lines); 490 passed/0 failed/2 ignored; 3 mutations + 1 independent set confirm non-vacuity (typed error on skipped plant fails both in-process baselines and E2E; fallback segment fails all three baselines; row-name change fails control). Extra assertions added by the specialist (strengthening): baseline1 plant_results==3 and other plants keep hydro_fpha rows; missing-file also zero injected segments/rows in whole model; control exact 48 coupling rows per unit and hydro_fpha rows == segments x horizon; E2E full per-plant warning line and one aggregate row per period. Guardian judged control extras independent of A2 policy and of A1 options (a)/(b). MEASURED VALUES for ticket-007 section 6 (debug build): without plant 2 geometry in-process: removed_geometry_rows=1, plants_processed=3, plants_skipped=1, FUNIL-GRANDE segments=0, hydro_fpha_rows=0, coupling_rows=0, validate() Err \"at least one FPHA segment\" (message asserted, not printed: guardian defect Low-1; quote the asserted text or add a print). Missing geometry file: processed 0, skipped 4 (= 4 hydro plants), plant_results 0, injected segments 0, hydro_fpha rows 0, coupling rows 0 (whole model); different warning text \"No VHA geometry data found. No planes will be computed.\" from early return at fpha_integration.rs ~l.82-88. Control full geometry: processed 4, skipped 0, horizon 48; segments/hydro_fpha rows/units/coupling rows per unit: CAMARGOS 6/288/2/48, ITUTINGA 3/144/4/48, FUNIL-GRANDE 4/192/3/48, FURNAS 6/288/8/48; 17 units, 816 coupling rows. E2E plant 2 without geometry: exit 0, 48 of 48 aggregate periods with GeracaoMW>1.0 and TurbinamentoM3s<=1e-6, max GeracaoMW 180.000000, CAMARGOS/ITUTINGA/FURNAS 0/48, objective 2430458.1703, CLI run 1.27-1.35 s. FOR TICKET-014 (flips baseline_a2_*): Low-2 dead_code risk: after the flip some helpers may become unused (plant_coverage_tests.rs plant_coupling_row_count ~l.50-56; fpha_e2e.rs CSV-results block ~l.360-435: HydroAggregateRow, read_hydro_aggregate_rows, generates_without_water, plant_name_in_cad, constants AGGREGATE_CODE/GENERATION_THRESHOLD_MW/TURBINING_THRESHOLD_M3S/HYDRO_RESULTS_FILE and BTreeSet/Display/FromStr imports) and neither file has allow(dead_code): delete unused items, never add allow(dead_code); recount clippy strictly (cli<=13, total<=175). FOR TICKET-015: helpers plant_by_code, fpha_row_count, count_with_prefix in plant_coverage_tests.rs are reusable. Low-3: control exact-count assertions couple to the model one-row-per-segment-per-period and one-coupling-row-per-unit-per-period structure; they only break on a deliberate model restructuring. Process notes: specialist verified fpha_e2e.rs hand-formatting with rustfmt --check on a COPY (never on repo paths); guardian verified both files on copies, rc=0.",
+      "agent": "monorepo-test-developer",
+      "quality_scored": true
+    },
+    "ticket-006-characterize-silent-physical-defaults.md": {
+      "status": "completed",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        },
+        "readiness": 0.94,
+        "readiness_breakdown": {
+          "structure": 1.0,
+          "testability": 0.8,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer",
+        "quality": 0.90,
+        "quality_breakdown": {
+          "conformance": 1.0,
+          "scope_adherence": 1.0,
+          "lint_cleanliness": 1.0,
+          "type_safety": 1.0,
+          "test_delta": 0.0
+        },
+        "quality_source": "implementation-guardian"
+      },
+      "baseline_tree": "f88ba2168fcd160800efe4b460c6dc6163b5be82",
+      "workflow_step": null,
+      "notes": "commit 85c4662. Guardian 5/5; clippy recount 175 unchanged (none in new file or added lines); 493 passed/0 failed/2 ignored. Quality 0.90 is the LITERAL Test Delta reading (physical_data_tests.rs under src/ ends in _tests, not matching *_test.* patterns, so test_delta=0.0: rubric-pattern artifact, same as tickets 002/003); semantic reading gives 1.00. Mutations independently confirmed non-vacuity (build_fit_params Err when tailrace missing -> tailrace baseline fails at Ok step; Entity(None) positive level -> exact net_head assertion fails; missing-efficiency default 0.99 and missing-loss default 0.05 -> assert_defaults_are_neutral fails; only Eficiencia dropped -> presence check fails). Specialist-added strengthening: assert_defaults_are_neutral (derived net_head == control net_head + control loss; derived efficiency exactly 1.0 via G/h ratio times control efficiency, valid because evaluate = K*eff*q*h_net, no private constant needed; a mean ratio > 1.01 alone would NOT catch default 0.99 or loss 0.5, so this pin matters); control extras (efficiency in (0,1), loss > 0 for every plant with units, 4 plants with units, 0 skipped, 4 processed) - valid under any ADR-027 policy and A1 options (a)/(b), only strict w.r.t. official data. MEASURED VALUES for ticket-007 section 7 (debug build, uncapped FPH ratio over control fit-grid nodes with q>0 and control FPH>=1 MW; lp ratio = envelope_derived/envelope_control at s=0 over the same nodes that also have finite control envelope >=1 MW): tailrace case (plant 3 CAD_TAILRACE row removed, removed rows 1, 4 processed 0 skipped, fit_grid_nodes=36 fph_nodes=30 lp_envelope_nodes=30): FURNAS fph_ratio_mean=8.754581 fph_ratio_max=9.842334 lp_envelope_ratio_mean=2.319804 (LP far below FPH because hull fit samples evaluate_capped, planes saturate near Pmax: the two are NOT comparable). Efficiency/loss case (Perda.m+Eficiencia dropped, all 4 plants None/None, 4 processed 0 skipped): CAMARGOS 1.124287/1.127187/1.123132 (nodes 36/30/30), ITUTINGA 1.159956/1.160583/1.122542 (12/10/10), FUNIL-GRANDE 1.099868/1.100352/1.079797 (12/10/10), FURNAS 1.100635/1.102037/1.093203 (36/30/30) as mean/max FPH ratio / mean LP ratio. Official data: Eficiencia 0.8937/0.8817/0.9185/0.9170, Perda.m 0.095/0.631/0.394/0.803 (CAMARGOS/ITUTINGA/FUNIL-GRANDE/FURNAS). Tagged stderr lines `baseline_a3[tailrace]`, `baseline_a3[efficiency_loss]`, `baseline_a3[info]`. FOR TICKET-016 (flips baseline_a3_*): (1) MEDIUM: its check `grep -r \"baseline_a3\" crates/labdessem-cli/ | wc -l` = 0 matches 6 lines in physical_data_tests.rs: 2 fn names (lines ~272, 349) and 4 eprintln! tags (~229, 279, 300, 379); ticket-016 only mentions the renames, so its implementer must also delete/retitle print_ratios and the tagged eprintln! lines; (2) dead-code: after the flip fit_contexts cannot run on the missing-input cases, so these become unused and must be PRUNED, never allow(dead_code): helpers fph_ratio, qualifying_nodes, lp_envelope_ratio_mean, assert_defaults_are_neutral, required, mean, print_ratios, plant_by_code, CaseRun::envelope_rows; constants MIN_CONTROL_MW, MIN_MEAN_FPH_RATIO, HEAD_TOLERANCE_M, EFFICIENCY_TOLERANCE, PLANTS_FILE; CaseRun.model field; imports EnvelopeRow, envelope_mw, lp_fpha_rows, Model, SolveMode, fit_grid_nodes; control test keeps CaseRun::new, context, code_of, assert_physical_data_presence; recount clippy strictly (cli<=13, total<=175). Low: generic expect messages at lines ~75, 91, 99 do not name the plant code (the assert at 76-79 and other failure paths do); control strictness efficiency<1 and loss>0 binds to official data only.",
+      "agent": "monorepo-test-developer",
+      "quality_scored": true
+    },
+    "ticket-007-compile-fpha-baseline-evidence.md": {
+      "status": "in_progress",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness": 0.94,
+        "readiness_breakdown": {
+          "structure": 1.0,
+          "testability": 0.8,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        },
+        "readiness_source": "spec-scorer"
+      },
+      "baseline_tree": "e8ec339d2a9fa2a0aac1d738af007cd21e309cde",
+      "workflow_step": "specialist_dispatched",
+      "notes": "Readiness defects (spec-scorer) and orchestrator resolutions passed in the dispatch (no ticket file edited): D1 Medium AC4 grep \"^| \" ignores |---| separators and the AC says \"five audit rows\" while Req 5/Current State list 7 audit values (4 alphas, objective gap, FUNIL-GRANDE periods, FURNAS inflation): resolved by following Req 5 literally = header + 7 data rows (>= 8 lines matching), which satisfies the AC literal >= 7; D2 Medium validation message of Req 3 is asserted not printed (plant_coverage_tests.rs ~l.155-161; source hydro.rs ~l.311-315 \"hydro plant {:?} must contain at least one FPHA segment\"): quote the asserted substring, label \"asserted, not printed\"; D3 Medium the ticket attributes objective 4,502,332.7276 to the FP-02 gap but the audit ties it to FP-05 (lines 920, 1770); the FP-02 +3,125.65 R$ (lines 901, 1768) states no objective: report what the audit says and flag the merge; D4 Medium FURNAS +9% has no defined metric (audit line 937 findings table, not a measurement): present mean FPH ratio, max, mean LP ratio and the efficiency-only bound 1/0.917 and do not pick one; sign convention made explicit (O_c - O_one = +57300.5524 R$, O_alpha - O_c = +5.5959 R$; printed gaps are absolute); D5 Low-Med run with -- --nocapture --test-threads=1 and stderr-only redirect, e2e log is the source for E2E numbers and times; D6 Low-Med hidden facts from ticket 003-006 notes added to the dispatch; D7 Low tailrace table has FURNAS only; D8 Low no AC checks sections 6/7 content; D9 Low report intro line 7 (\"Sections 5 to 8 are placeholders that later tickets fill in\") goes stale and ticket-017 edits section 8 only: authorized ONE-sentence update in the intro, to be reported as a deviation for the guardian to judge; D10 Info tier mechanical / agent naming vs dispatch table. F1 (no A1 baseline test discriminates fix option (b), tickets 003/004) deliberately NOT written into the report: it is raised at gate ADR-025 (ticket-008). Audit alpha agreement: CAMARGOS 0.969607 vs 0.969607257 (2.6e-7), FURNAS 0.991295 vs 0.991295163 (1.6e-7), ITUTINGA/FUNIL-GRANDE 1.0: all within the 1e-6 rule. || PAUSED BY USER before guardian completed (guardian run stopped, no quality score persisted). Specialist work is DONE and COMMITTED: commit 70cbbba docs(audit): record FPHA A1-A3 baseline evidence (only docs/auditoria/fpha-baseline-reproduction.md; independent orchestrator checks passed: tree diff = that one file, AC greps ok: pending-007=0 pending-017=1 sec5 rows=4 7a lines=8, numbers spot-checked against logs). RESUME at step 4h (guardian + quality score, then 4i/4j/4k) for this ticket; do NOT re-dispatch the specialist. RESUME HINT: baseline_tree e8ec339d... is a LOCAL-ONLY git object (written by tree-snapshot.sh from a temp index, unreachable from any ref) and will not exist in another clone; for the guardian evidence use baseline = `git rev-parse 85c4662^{tree}` and end = `git rev-parse 70cbbba^{tree}` (in a fresh clone the working tree has no plans/dynamic-max-swallowing deletions, so these equal the snapshots) or re-snapshot. Guardian checklist for ticket-007: independent number extraction from fresh logs (run the 4 test commands with -- --nocapture --test-threads=1, stderr only), audit line citations (879-881, 1764-1766, 883, 901, 1768, 648/663/1747/1748, 937, 1712, 920/1770), source citations (fpha_integration.rs ~83/~100, main.rs ~188, output/fpha_computed.rs ~72, hydro.rs ~311-315, plant_coverage_tests.rs ~155-161, lp_envelope_tests.rs ~201), prose claims to challenge: (1) FUNIL-GRANDE 0.000000 on the fit grid is explained in the report as \"consistent with its 12 fit-grid nodes lying on its 4 planes\" while a likelier cause is that FPH is capped at Pmax (180 MW, evaluate_capped) over the whole grid so a flat Pmax plane reproduces it: check and fix the wording if unsupported; (2) the claim that a grep for .validate( finds no non-test call under crates/labdessem-cli/src (main.rs may validate elsewhere); (3) deviation definition \"fitted minus exact\" signed vs absolute. Authorized deviation to judge: ONE intro sentence of the report was updated (ticket-017 edits section 8 only). Report must stay neutral: no recommendations, \"consistent with\" not \"proves\", and NO mention of finding F1. Scoring: tickets 002/003/006 were persisted with the LITERAL Test Delta (0.0 for *_tests.rs under src/); ticket-001 (docs-only) had test_delta 1.0, quality 0.93.",
+      "agent": "monorepo-test-developer"
+    },
+    "ticket-008-decide-alpha-application.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        }
+      }
+    },
+    "ticket-009-decide-skipped-plant-policy.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        }
+      }
+    },
+    "ticket-010-decide-missing-physical-data-policy.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        }
+      }
+    },
+    "ticket-011-apply-alpha-once-in-fit-pipeline.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-012-align-computed-fpha-contract-with-lp.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-013-add-precomputed-round-trip-regression.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-014-fail-on-skipped-fpha-plants.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-015-revalidate-system-after-fpha-injection.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-016-reject-missing-fpha-physical-data.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 1.0,
+        "readiness_self_breakdown": {
+          "structure": 1,
+          "testability": 1,
+          "boundary": 1,
+          "dependency_clarity": 1,
+          "atomicity": 1
+        }
+      }
+    },
+    "ticket-017-record-post-fix-fpha-evidence.md": {
+      "status": "pending",
+      "detail_level": "detailed",
+      "scores": {
+        "readiness_self": 0.97,
+        "readiness_self_breakdown": {
+          "structure": 1.0,
+          "testability": 0.9,
+          "boundary": 1.0,
+          "dependency_clarity": 1.0,
+          "atomicity": 1.0
+        }
+      }
+    },
+    "ticket-018-decide-fpha-config-semantics.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-019-wire-fpha-config-into-fitting.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-020-decide-plane-count-and-milp-selection.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-021-enforce-max-planes-in-fit-pipeline.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-022-select-fpha-planes-for-milp-stage.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-023-reject-fpha-rows-for-plants-without-units.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-024-validate-fpha-geometry-inputs.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-025-decide-fpha-volume-reference.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-026-decide-turbining-axis-and-pmax-cap.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-027-decide-tailrace-family-modelling.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-028-decide-alpha-evaluation-points.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-029-update-fpha-design-documentation.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    },
+    "ticket-030-update-fpha-user-documentation.md": {
+      "status": "pending",
+      "detail_level": "outline"
+    }
+  },
+  "epics": {
+    "epic-01-reproducible-baseline": {
+      "phase": "executing",
+      "learning_extracted": false,
+      "estimate": "~2.5–4 h (High)",
+      "base_tree": "940c5ce7e00f4d6e39e204e4495c1ed51f6b49af"
+    },
+    "epic-02-correctness-fixes": {
+      "phase": "executing",
+      "learning_extracted": false,
+      "estimate": "~2–3.5 h (High)"
+    },
+    "epic-03-fitting-configuration": {
+      "phase": "outline",
+      "learning_extracted": false,
+      "estimate": "≈2.5–4.5 h (Low, outline)"
+    },
+    "epic-04-methodology-and-docs": {
+      "phase": "outline",
+      "learning_extracted": false,
+      "estimate": "≈1.5–3 h (Low, outline)"
+    }
+  },
+  "execution_strategy": "phased",
+  "plan_base_tree": "940c5ce7e00f4d6e39e204e4495c1ed51f6b49af"
+}
