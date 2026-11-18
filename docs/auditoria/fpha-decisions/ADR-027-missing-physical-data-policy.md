@@ -8,7 +8,7 @@ makes `compute_fpha` return a typed error for every plant with units it cannot f
 
 ## Status
 
-Proposed
+Accepted (2026-11-18)
 
 ## Context
 
@@ -74,8 +74,9 @@ the tailrace rating polynomial (`a_cf,0..4`), the specific productivity `rho_esp
 this ADR are therefore registry data of every hydro plant, not optional tuning.
 
 Exact production function (MM §9.16.10, eq. 9.30): `FPH_i(V,Q,S) = rho_i Q [h_mon(V) - h_jus(Q_jus) -
-hperdas_i]`, with the p.u. form 9.31. The tailrace level comes from the rating polynomial (MM §9.16.3,
-eq. 9.23, piecewise form 9.24; Libs §15.3.4), with backwater families (MM §9.16.4) and lateral flows
+hperdas_i]`, with the p.u. form 9.31. The tailrace level comes from the rating polynomial (MM
+§9.16.1-9.16.10, eq. 9.23, piecewise form 9.24, given in the base formulation of the reference's
+section 15 without a subsection number; Libs §15.3.4), with backwater families (MM §9.16.4) and lateral flows
 (MM §9.16.6). Without a tailrace polynomial there is no `h_jus` term in DESSEM's FPH; no zero-level
 substitute is described in the sources read `[to confirm]`.
 
@@ -240,7 +241,22 @@ as `0`.
 
 ## Decision
 
-PENDING
+Accepted: option (a) — computed FPHA fitting stops with a typed error that names the plant and every
+missing input (tailrace polynomial, `Eficiencia`, `Perda.m`), collected for all plants in one error;
+no 0 m tailrace, efficiency of 1.0 or zero loss is substituted. The policy is scoped to
+`build_fit_params`.
+
+Sub-question 1 (explicit zero loss): yes — a written `Perda.m = 0` in `CAD/CAD_UHE.csv` is a valid
+value (`Some(0.0)`). An empty cell and an absent column are both `None` and count as missing.
+
+Sub-question 2 (EngMax scope): no — the policy applies to computed FPHA fitting only. EngMax, which
+builds `ProductionFunction` in `crates/labdessem-simulation/src/engmax.rs` lines 128-137, and the
+precomputed path are untouched.
+
+Chosen by the user on 2026-11-18 at the decision gate, matching the recommendation. Ticket-016
+proceeds as written; the behavior change is recorded in CHANGELOG.md and documented by tickets 029 and
+030. The open points stay `[to confirm]`: how DESSEM treats zero values of these inputs, and which
+ticket owns range checks such as efficiency in (0, 1].
 
 ## Consequences
 
