@@ -6,7 +6,7 @@ frontmatter.
 
 ## Status
 
-Proposed
+Accepted (2026-11-18)
 
 ## Context
 
@@ -69,7 +69,8 @@ are absolute magnitudes, `max_abs / mean_abs / rms`, in MW, against the exact pr
 
 Sources: `~/.claude/skills/dessem/references/42-metodologia-hidreletricas.md` section 16 (MM 22.3.0
 §9.16.11-9.16.12, p. 71-76 / PDF 97-102; Libs §15.6.1), `~/.claude/skills/dessem/references/23-saidas-diagnostico-b.md`
-§2.2 (AVL_FPHA1, MU §V.11.4; Libs §15.6) and `docs/design/fpha-formulation.md`.
+§2.2 (AVL_FPHA1 as printed by DESSEM 22.0.2/22.3.2, whose layout differs from the MU §V.11.4 column
+list; Libs §15.6) and `docs/design/fpha-formulation.md`.
 
 MM §9.16.11 step 4 (eq. 9.32) defines the correction as one multiplicative factor on the whole convex
 hull, `FPHA = alpha_FPHA * FPHA_0`, with alpha chosen by least squares against the exact FPH; Libs
@@ -88,7 +89,8 @@ FPH or `FPH / alpha` before alpha is applied to gamma_S `[to confirm]`. This is 
 FP-08: under the Libs form, a gamma_S fitted directly on the exact FPH and then multiplied by alpha
 carries a small alpha bias on the lateral-flow slope.
 
-For the file convention, `23-saidas-diagnostico-b.md` §2.2 (MU §V.11.4, Libs §15.6) records that the
+For the file convention, `23-saidas-diagnostico-b.md` §2.2 (real DESSEM 22.0.2/22.3.2 files; MU §V.11.4
+lists different columns; Libs §15.6) records that the
 DESSEM output AVL_FPHA1 prints each cut as `Rhs`, `Varm`, `Qtur`, `Qlat` with a separate `Fcorrec`
 column (p.u.) and that, in the Libs, alpha multiplies the whole cut. The labdessem input
 `OPER/OPER_FPHA.csv` (`USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s`) follows
@@ -101,7 +103,8 @@ and no deck was available on this machine to check a plant with `Fcorrec` differ
 
 No contradiction found: the audit's description (precomputed reads raw coefficients and `Fcorrec`
 separately and the model multiplies once, as in the Libs) agrees with Libs §15.6.1 and with the
-AVL_FPHA1 layout of MU §V.11.4. The only methodological gap is the secant target above `[to confirm]`,
+AVL_FPHA1 layout printed by DESSEM 22.0.2/22.3.2 (MU §V.11.4 lists different columns). The only
+methodological gap is the secant target above `[to confirm]`,
 which none of the three options settles by itself.
 
 ## Options
@@ -157,7 +160,8 @@ which none of the three options settles by itself.
 Remove `scale_planes` from `fit_plant` and keep `correction_factor = alpha`.
 
 - Gains: matches the Libs form (Libs §15.6.1) and the `OPER_FPHA` / AVL_FPHA1 `Fcorrec` convention
-  (MU §V.11.4): raw planes plus alpha, applied once by the model to all four coefficients, gamma_S
+  (layout as printed by DESSEM 22.0.2/22.3.2; MU §V.11.4 lists different columns): raw planes plus
+  alpha, applied once by the model to all four coefficients, gamma_S
   included (closes FP-08 as the audit frames it); the CSV becomes a direct `OPER_FPHA.csv` copy with
   `Fcorrec = alpha`; the reported deviation describes `alpha x planes`, i.e. the LP envelope; the
   `alpha` column becomes load-bearing.
@@ -180,7 +184,7 @@ Remove `scale_planes` from `fit_plant` and keep `correction_factor = alpha`.
 ## Recommendation
 
 (b). It is the only option that makes the computed output follow the same convention as the
-precomputed input and the DESSEM/Libs form (Libs §15.6.1; AVL_FPHA1 layout, MU §V.11.4), so one
+precomputed input and the DESSEM/Libs form (Libs §15.6.1; AVL_FPHA1 layout as printed by DESSEM 22.0.2/22.3.2, not the MU §V.11.4 column list), so one
 documented copy rule (`Fcorrec = alpha`) round-trips and is regression-tested (ticket-013). It applies
 alpha once to all four coefficients, which (a1) does not, and it keeps the `alpha` column meaningful,
 which (a1) and (a2) do not. The reported deviation then describes the envelope the LP uses. The cost
@@ -193,7 +197,12 @@ choice and can be revisited without changing the contract.
 
 ## Decision
 
-PENDING
+Accepted: option (b) — remove `scale_planes` from `fit_plant` and keep `correction_factor = alpha`.
+
+Chosen by the user on 2026-11-18 at the decision gate, matching the recommendation. Tickets 011, 012
+and 013 proceed as written. `resultado_fpha_computed.csv` changes meaning as described under (b)
+(BREAKING; recorded in `CHANGELOG.md` by ticket-012). The secant-target question (`[to confirm]` above)
+stays open and is independent of this choice.
 
 ## Consequences
 
