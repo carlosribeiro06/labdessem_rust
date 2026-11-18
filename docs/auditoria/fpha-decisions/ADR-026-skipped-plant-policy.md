@@ -6,7 +6,7 @@ the ADR-026 entry of the master-plan frontmatter.
 
 ## Status
 
-Proposed
+Accepted (2026-11-18)
 
 ## Context
 
@@ -103,8 +103,8 @@ per-plant fallback to constant productivity.
 
 At the point level, section 15 records repairs, not skips: per LOG_ALTQUEDA (MU §V.11.3, cited in the
 section 15 outputs), `HLIQ<0` uses a head of 0 and `HJUS<0` uses the tailrace level of the largest
-"well-behaved" flow. These act on grid points of a plant that has data (MM §9.16.11 step 2); they do
-not cover a plant without geometry.
+"well-behaved" flow. These act on grid points of a plant that has data (the link to MM §9.16.11 step 2
+is an inference `[to confirm]`); they do not cover a plant without geometry.
 
 For plants without units, MM §9.16.10 ties the FPH to the units connected to the plant, and the FPHA
 grid upper bound of MM §9.16.11 step 1 is the plant's maximum turbined flow; with no units there is
@@ -274,7 +274,15 @@ those plants anywhere else `[to confirm]`.
 
 ## Decision
 
-PENDING
+Accepted: option (a)+(c) — `compute_fpha` returns a typed error listing every plant with units it
+could not fit, with the reason, and the System is re-validated after FPHA injection.
+
+Sub-question: yes — plants with no generating units are excluded from FPHA fitting, and so from the
+VHA lookup and the `MissingHydro` lookup of `build_fit_params`.
+
+Chosen by the user on 2026-11-18 at the decision gate, matching the recommendation. Tickets 014, 015,
+016 and 017 proceed as written; ticket-023 (Epic 03) aligns with the plants-without-units meaning. The
+open point whether the MLT is needed for plants without units elsewhere stays `[to confirm]`.
 
 ## Consequences
 
