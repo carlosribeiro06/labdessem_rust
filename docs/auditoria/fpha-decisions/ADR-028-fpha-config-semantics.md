@@ -10,7 +10,7 @@ ADR-029 (ticket-020); the volume variable of the FPHA rows is ADR-030.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -251,9 +251,38 @@ added to CAD_UHE later (new input, out of this plan).
 
 ## Decision
 
-PENDING
+Accepted: option (a) — every field of `CAD_FPHA_CONFIG.csv` reaches the computed FPHA fit with the
+DESSEM MM defaults (MM §9.16.11): volume window 0-100 % of CAD_UHE `[Vmin, Vmax]`, NPTV = NPTQ = 5,
+`ReductionTolerance` as the plane-angle tolerance, `MaxPlanes` enforced as ADR-029 decides; the file
+stays optional with columns `Codigo;MaxPlanes;ReductionTolerance;MinVolumePct;MaxVolumePct`, an empty
+cell takes the default, and the defaults become named constants. BREAKING: the fitted planes, alpha and
+objective of every computed run change (6 x 6 grid becomes 5 x 5; 6 flow points become 5 for
+single-volume plants).
+
+Sub-question S1 (NPTV / NPTQ columns): accepted as recommended — no `NPTV` / `NPTQ` columns in the
+file; 5 / 5 are constants and the "even NPTV + 1" rule is moot without the column.
+
+Sub-question S2 (window reference): accepted as recommended — the fractions (0-1) refer to CAD_UHE
+`[Vmin, Vmax]` (MM §9.4 eq. 9.2); run-of-river plants with a one-point VHA table ignore the window and
+keep the 2-point synthesis around the VHA point (half-width 1 hm3).
+
+Sub-question S3 (`ReductionTolerance`): accepted as recommended — plane-angle tolerance in degrees
+(Libs 11.0.0 §15.6.1), default 1.0; linked to ADR-029 S2, which reopens this point if it chooses the
+distance criterion.
+
+Sub-question S4 (regulation type): accepted as recommended — labdessem has no regulation-type input,
+so the daily default (window 0-100 %, 5 x 5) applies to every plant with a volume span.
+
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation. Ticket-019,
+ticket-031 and ticket-024 proceed as written; ticket-032 re-records the baselines of section 8 (planes,
+alpha, objective) and the per-field effect of one config row. The open points stay `[to confirm]`:
+whether a window on a one-point-VHA plant should warn (ticket-031), and the weekly / monthly regulation
+default with its regulation-type input (out of this plan).
 
 ## Consequences
+
+Option (a) was chosen with S1-S4 as recommended; the other branches record the rejected
+alternatives.
 
 - If (a) is chosen:
   - ticket-019: proceeds as written (constants 10 / 5 / 5 / 1.0, `VolumeWindow::FULL`,
