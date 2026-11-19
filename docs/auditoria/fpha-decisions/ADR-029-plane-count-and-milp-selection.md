@@ -11,7 +11,7 @@ in degrees (default 1.0) in its S3, which is linked to S2 below.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -247,9 +247,39 @@ the plant's registry volume range, so computed and precomputed planes are select
 
 ## Decision
 
-PENDING
+Accepted: option (a) — `max_planes` (`MaxPlanes` of `CAD_FPHA_CONFIG.csv`, ADR-028) is enforced in the
+fit by iterative reduction, and every fitted plane is kept in every solve stage (LP, MILP, LP with
+fixed commitment and LP-CALC-CMO build the same FPHA rows). No MILP plane selection is implemented; the
+cap is a labdessem extension, since DESSEM limits the plane count only in the MILP (MM §27.2). At the
+default limit 10 no 24Barras plant binds and the run stays bit-identical; a binding cap changes the
+fitted planes and the deviation but not alpha (computed before the reduction).
+
+Sub-question S1 (how the limit is met): accepted as recommended — double the configured angle tolerance
+and re-reduce the ORIGINAL plane set (never the previous result), at most 32 doublings, then return the
+typed error `PlaneLimitUnreachable` (also for a limit of 0); a first pass within the limit returns the
+current output bit for bit; alpha is not recomputed; the deviation changes for capped plants.
+
+Sub-question S2 (reduction criterion): accepted as recommended — keep the angle criterion (Libs §15.6.1),
+consistent with ADR-028 S3 (`ReductionTolerance` = angle in degrees, default 1.0); `Distance` stays in the
+library, not wired; choosing distance would reopen ADR-028 S3. The angle predicate is not
+alpha-invariant; recorded, not changed.
+
+Sub-question S3 (MILP selection scope): accepted as recommended, but moot under (a) — it would apply only
+if (b) were chosen later: subset in `SolveMode::MixedIntegerLinearProgramming` only, reservoir plants
+(`Tipo` `RV`) only, NFHAMILP configured in `study_config.json`, `OPER/OPER_FPHA.csv` does not declare it.
+
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation. Ticket-021 proceeds
+as written; ticket-022 (MILP plane selection, which existed only under (b)) is removed from the plan;
+tickets 031 and 032 are unchanged; ADR-028 stays accepted. The open points stay `[to confirm]`: the
+centroid definition of MM §27.2, the plane set of `PL.Int.Fix`, NFHAMILP vs the LOG's "pontos para o
+volume", the availability of the angle card in DESSEM (Libs §15.7), the per-plant cut distribution of
+the 032026 AVL_FPHA1, and the effect of a binding cap on deviation, objective and MILP time
+(`[not measured]`, recorded by ticket-032 after ticket-021). The rework trigger of (b) (MILP solve time
+binding on larger decks) stays open.
 
 ## Consequences
+
+Option (a) was chosen (see Decision); the other branches are kept for the record.
 
 - Under (a): ticket-021 runs as written; ticket-022 is proposed for [REMOVE] at refinement; ticket-029
   documents the cap as a labdessem extension and the MILP selection as not implemented (MM §27.2);
