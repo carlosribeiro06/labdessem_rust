@@ -12,7 +12,7 @@ families and the alpha points are ADR-032 and ADR-033.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -314,10 +314,50 @@ case ticket-029 documents (a) as current behaviour and the accepted option as pl
 
 ## Decision
 
-PENDING
+Accepted: option (a) — the computed fit keeps the turbining axis `[0, Q_sum]` (the sum of the units' maximum
+turbining, as `build_fit_params` sets `max_turbined_m3s`) and keeps the Pmax cap of `evaluate_capped` in the
+three stages that use it (hull cloud, alpha, deviation); the secant and the reduction keep the uncapped
+`evaluate`. The divergence from MM §9.17.1 (turbining from 0 to the maximum swallowing, eq. 9.34) is
+confirmed and recorded, not removed. On 24Barras the fit and the 2420590.3195 R$ objective of section 9 do
+not change, since no code changes.
+
+Sub-question S1 (head of the maximum swallowing): moot under (a). Recorded as the condition of a reopening
+of (b)/(c): one scalar per plant, eq. 9.34 at the head of the top of the fit volume window
+(`FittingBounds.v_max`), tailrace at Q_sum, zero spillage, axis bound `min(QmaxEng, Q_sum)`; measured
+bit-identical to (a) on the four 24Barras plants.
+
+Sub-question S2 (inputs when `EngMax` is 0): moot under (a); computed FPHA reads no EngMax input (Q_ef,
+`Hef.m`, `Turbina`) and ADR-027 S2 ("EngMax scope untouched") and ADR-017 stand unchanged. Recorded as the
+condition of a reopening: a typed `MissingInputs` for a partial `Hef.m` or an Unknown `Turbina`, the unit sum
+kept only when `Hef.m <= 0` on every unit, and an explicit extension of ADR-027 S2.
+
+Sub-question S3 (call sites that drop the cap): moot under (a); all three `evaluate_capped` call sites
+keep the cap. Recorded as the condition of a reopening of (c): the cloud (`fit_hull_planes`) and alpha
+(`compute_alpha_fpha`) drop the cap, the deviation (`compute_fit_deviation`) keeps `evaluate_capped` as its
+reference against `min(alpha * envelope, Pmax)`.
+
+Sub-question S4 (delivery): accepted as recommended — no implementation ticket in this plan; ticket-029
+documents the Q axis `[0, Q_sum]`, the Pmax cap in three stages, the divergence from MM §9.17.1, the rework
+trigger and the `[to confirm]` items; ticket-030 is unaffected.
+
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation. The rework trigger stays
+recorded `[to confirm]`: if the 032026 full-case check (AVL_FPHA1 cut extent against `QturMax` and `Engolim`
+of PDO_AVAL_QMAXUSIH_000) shows that DESSEM 22.0.2 builds its cloud to the maximum swallowing, the deck wins
+and (b) is reopened with the S1 and S2 above; if it shows an uncapped cloud, (c)'s cap question is reopened
+with the S3 above. The other open points stay `[to confirm]`: whether the Libs cloud stops at the unit sum
+(Libs §15.6.2 first-iteration rule) or at the maximum swallowing, whether DESSEM caps the FPH at Pmax in the
+cloud, and the head at which the maximum swallowing is evaluated during the FPHA construction.
 
 ## Consequences
 
-Pending the decision. Under (a): no code change; ticket-029 records the divergence, the rework trigger and the
-`[to confirm]` items. Under (b) or (c): an [ADD] implementation ticket per S4 (or a follow-up plan), the S2
-input policy, and for (c) the S3 split of `evaluate_capped`.
+Option (a) was chosen (see Decision); the other branches are kept for the record.
+
+- Under (a) (chosen): no code change; `build_fit_params`, `ProductionFunction`, `build_grid` and EngMax stay
+  as in Context, and the section 9 baseline stays current. Ticket-029 documents the Q axis `[0, Q_sum]`, the
+  Pmax cap in three stages, the confirmed divergence from MM §9.17.1, the rework trigger and the
+  `[to confirm]` items; ticket-030 is unaffected. Computed FPHA stays free of EngMax inputs (ADR-027 S2).
+- Under (b) or (c) (not chosen): an [ADD] implementation ticket per S4 (or a follow-up plan), the S2 input
+  policy, and for (c) the S3 split of `evaluate_capped`; the re-optimized objective would be
+  `[not measured]` until that ticket re-records it. They become live again only through the rework trigger.
+- The `[to confirm]` items need the 032026 full case (AVL_FPHA1, PDO_AVAL_QMAXUSIH_000), the MM/Libs PDFs or
+  a CEPEL answer.
