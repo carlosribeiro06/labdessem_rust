@@ -23,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Before: a plant without a `CAD/CAD_TAILRACE.csv` row was fitted with a 0 m tailrace level, and an absent or empty `Eficiencia` or `Perda.m` was fitted as efficiency 1.0 and loss 0 m, silently inflating the plant's production function
   - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` with `FitFailureReason::MissingInputs` naming every missing input of every affected plant, and the CLI exits with code 1 before writing any result
   - An explicit `Perda.m = 0` stays valid; only an absent column or an empty cell counts as missing
-  - `FitFailureReason` gained `MissingInputs(Vec<FphaInput>)` and `FphaComputeError` gained `MissingFphaInputs`
   - EngMax is unchanged and keeps its defaults for missing efficiency, loss and tailrace
 - **BREAKING**: Precomputed FPHA decks are rejected when `OPER_FPHA.csv` has rows for a hydro plant without generating units
   - Before: a plant without rows in `CAD/CAD_CONJ_UHE.csv` kept its `OPER_FPHA.csv` rows, and the model built FPHA constraints for it with no generation or turbining terms
@@ -31,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A plant without generating units and without `OPER_FPHA.csv` rows reads as before; computed mode is unchanged
   - To migrate, delete the `OPER_FPHA.csv` rows of the listed plants or add their generating units to `CAD_CONJ_UHE.csv`
 - **BREAKING**: The FPHA geometry readers reject non-finite values and duplicate rows
-  - Before: `CAD/CAD_GEOMETRIA_UHE.csv`, `CAD/CAD_TAILRACE.csv` and `CAD/CAD_FPHA_CONFIG.csv` accepted `NaN`, `inf` and `-inf` in every numeric column, a second row for the same plant in `CAD_TAILRACE.csv` or `CAD_FPHA_CONFIG.csv` silently replaced the first, and `CAD_GEOMETRIA_UHE.csv` kept two points of one plant with the same `volume.hm3`
-  - Now each reader returns `IoError::InvalidData` with `plant <id> has non-finite <column> <value> at line <n> in <file>`, `plant <id> has duplicate rows at lines <a> and <b> in <file>` or `plant <id> has duplicate volume <v> at lines <a> and <b> in CAD_GEOMETRIA_UHE.csv`
+  - Before: `NaN` and `inf` passed the sign checks of the volume, level and area columns of `CAD/CAD_GEOMETRIA_UHE.csv` and of `tolerance` in `CAD/CAD_FPHA_CONFIG.csv`, `CAD/CAD_TAILRACE.csv` had no value check, a second row for the same plant in `CAD_TAILRACE.csv` or `CAD_FPHA_CONFIG.csv` silently replaced the first, and `CAD_GEOMETRIA_UHE.csv` kept two points of one plant with the same `volume.hm3`
+  - Now each reader returns `IoError::InvalidData` with `plant <id> has non-finite <column> <value> at line <n> in <file>`, `plant <id> has duplicate rows at lines <a> and <b> in <file>` or `plant <id> has duplicate volume <v> at lines <a> and <b> in CAD_GEOMETRIA_UHE.csv`; when several plants have a duplicate volume, the error names the lowest plant code
   - `CAD_GEOMETRIA_UHE.csv` and `CAD_TAILRACE.csv` are read for every study, so a bad value fails the study read and the CLI exits with code 1 before writing any result; a bad `CAD_FPHA_CONFIG.csv` fails `compute_fpha`
   - Decks with finite values and one row per plant, such as `examples/24Barras`, read as before
   - To migrate, replace each non-finite cell with a finite value and delete the repeated row or point
@@ -64,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Objectives (R$): `O_c` (computed) 2420558.7522 -> 2440503.4875, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420559.4979 -> 2440499.3558, `O_one` (precomputed, `Fcorrec = 1`) 2374967.2890 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420558.7522 -> 2440503.4875; which plant drives the `O_c` change is `[not measured]`
   - Single-volume plants can get `alpha` above 1 and an envelope above the FPH at the fit-grid nodes: ITUTINGA 1.014733 and FUNIL-GRANDE 1.011552 in `examples/24Barras`
   - The public `labdessem_fpha::compute_alpha_fpha` ignores `n_volume_points` and `n_flow_points` of its bounds and expects the final planes
+- **BREAKING**: Public Rust API of `labdessem-fpha`
+  - Before: `FphaPlantConfig::default()` used a 6 x 6 volume-flow grid, `fit_plant` returned `FphaPlantResult::planes` with `gamma_0`, `gamma_v` and `gamma_q` already multiplied by `alpha` and `gamma_s` not, and `FphaFittingError` had no variant for a fit window or an unreachable plane limit
+  - Now `FphaFittingError` has the variants `InvalidFitWindow { hydro_name, reason }` and `PlaneLimitUnreachable { hydro_name, max_planes, remaining }`, so an exhaustive `match` must handle them; the error is also carried by `SimulationError::Geometry`
+  - Now `FphaPlantConfig` has the public fields `volume_window: config::VolumeWindow` and `window_reference_hm3: Option<(f64, f64)>`, so a struct literal must set them (`FphaPlantConfig::computed` sets the full window); its `Default` grid is 5 x 5 points, from the new constants `config::DEFAULT_VOLUME_POINTS`, `DEFAULT_FLOW_POINTS`, `DEFAULT_MAX_PLANES` and `DEFAULT_ANGLE_TOLERANCE_DEG`
+  - Now `fit_plant` returns unscaled `FphaPlantResult::planes` and the fitted `FphaPlantResult::alpha`; the consumer applies `alpha` once to all four coefficients (the model does, as `correction_factor`)
+  - To migrate, add the two variants to exhaustive matches, set `volume_window: VolumeWindow::FULL` and `window_reference_hm3: None` in struct literals (or use `FphaPlantConfig::computed`), and apply `alpha` once to all four coefficients wherever the old planes were used directly
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
@@ -72,7 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
 - The FPHA geometry readers let `NaN` and infinities through (the sign checks are false for `NaN`), sorted the volume table in an undefined order for `NaN`, and silently kept the last of two rows for the same plant, so a `NaN` water level reached the fit or the net-head model (audit EM-04, FP-R01); the readers now reject the value or the duplicate naming the file, plant, column and line
 - `CAD/CAD_FPHA_CONFIG.csv` had no effect on the fit: `num_planes` was copied but never enforced, `tolerance`, `min_volume_pct` and `max_volume_pct` were dropped, and the grid was fixed at 6 x 6 (audit FP-05); each field now changes the fit of its plant and the defaults follow the MM
-- `read_vha_geometry` reported the duplicate-volume error of a hash-ordered plant when several plants had one; it now reports the lowest plant code
 
 ## [0.12.0] - 2026-11-05
 
