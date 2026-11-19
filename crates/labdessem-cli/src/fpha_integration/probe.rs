@@ -291,9 +291,9 @@ pub(super) fn computed_system(case: &Path) -> Result<(System, FphaComputeResult)
     Ok((system, result))
 }
 
-/// One period-1 `hydro_fpha` row rewritten as a generation cap:
+/// One period-2 `hydro_fpha` row rewritten as a generation cap:
 /// `g <= rhs_mw + volume_mw_per_hm3 * V + turbining_mw_per_m3s * Q + spillage_mw_per_m3s * S`,
-/// with `V` in hm3 and `Q`, `S` in m3/s.
+/// with `V` the period-mean volume in hm3 and `Q`, `S` in m3/s.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct EnvelopeRow {
     pub(super) rhs_mw: f64,
@@ -345,18 +345,29 @@ fn envelope_row(row: &LinearConstraint, flow_conversion: f64) -> EnvelopeRow {
         row.name
     );
 
+    let volume = coefficients_of(row, "hydro_volume[");
+    assert!(
+        volume.len() == 2 && volume[0] == volume[1],
+        "{}: expected two equal hydro_volume terms (the halves on the period-mean volume), found {volume:?}",
+        row.name
+    );
+
     // The row carries turbining and spillage in hm3 per period; `flow_conversion` converts back
-    // to m3/s. The volume term references V[t+1] and is evaluated at the caller's `v_hm3`: the
-    // probe measures the row's algebra, not a period trajectory.
+    // to m3/s. The two volume terms are the halves on the volume slots `t` and `t + 1`; their sum
+    // is the coefficient on the period-mean volume, evaluated at the caller's `v_hm3` for both
+    // slots: the probe measures the row's algebra, not a period trajectory.
     EnvelopeRow {
         rhs_mw: row.rhs,
-        volume_mw_per_hm3: -single_coefficient(row, "hydro_volume["),
+        volume_mw_per_hm3: -(volume[0] + volume[1]),
         turbining_mw_per_m3s: -unit_turbining * flow_conversion,
         spillage_mw_per_m3s: -single_coefficient(row, "hydro_spillage[") * flow_conversion,
     }
 }
 
-/// Period-1 `hydro_fpha` rows of the plant named `plant_name` (as stored in the `System`).
+/// Period-2 `hydro_fpha` rows of the plant named `plant_name` (as stored in the `System`).
+///
+/// Period 2 is the first period whose row has both volume slots free: the period-1 row has no
+/// slot-0 term and carries half the initial-volume term in its right-hand side.
 ///
 /// `flow_conversion` is `period_duration_hours * 0.0036`, the factor the model uses between
 /// m3/s and hm3 per period. A plant without rows yields an empty vector.
@@ -371,10 +382,10 @@ pub(super) fn lp_fpha_rows(
         .hydro_fpha()
         .into_iter()
         .filter(|row| {
-            // Exact `,t=1]` suffix: `t=10` and above must never match.
+            // Exact `,t=2]` suffix: `t=12` and above must never match.
             row.name
                 .strip_prefix(&prefix)
-                .is_some_and(|rest| rest.starts_with("seg=") && rest.ends_with(",t=1]"))
+                .is_some_and(|rest| rest.starts_with("seg=") && rest.ends_with(",t=2]"))
         })
         .map(|row| envelope_row(row, flow_conversion))
         .collect()
@@ -806,7 +817,7 @@ fn probe_lp_rows_match_injected_segments() {
         assert_eq!(
             rows.len(),
             plant.fpha_segments.len(),
-            "plant {}: period-1 rows vs segments",
+            "plant {}: period-2 rows vs segments",
             plant.name
         );
         let nodes = fit_grid_nodes(ctx);

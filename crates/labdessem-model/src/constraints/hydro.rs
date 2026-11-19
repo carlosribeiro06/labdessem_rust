@@ -195,6 +195,12 @@ pub fn build_hydro_spillage_nonnegativity_constraints(
 }
 
 /// Build FPHA (piecewise linear) generation constraints.
+///
+/// One `<=` row per plant, period `t` and segment, shared by precomputed and computed segments
+/// (ADR-030). Each row bounds generation by the plane at the period-mean volume
+/// `(V[t] + V[t+1]) / 2`, so the volume coefficient `alpha * gamma_v` is split in half across the
+/// volume slots `t` and `t + 1`. In period 0 slot 0 is the fixed initial volume: that half moves to
+/// the right-hand side as `alpha * gamma_v / 2 * initial_volume_hm3` and the row has no slot-0 term.
 pub fn build_hydro_fpha_constraints(
     system: &System,
     indexing: &Indexing,
@@ -230,9 +236,20 @@ pub fn build_hydro_fpha_constraints(
                         }
                     }
 
+                    let half_volume = 0.5 * segment.correction_factor * segment.volume_coefficient;
+                    let volume_base = plant_entry_idx * (horizon + 1);
+                    let mut rhs = segment.correction_factor * segment.rhs;
+                    if period == 0 {
+                        rhs += half_volume * plant.reservoir.initial_volume_hm3;
+                    } else {
+                        terms.push(term(
+                            &variables.hydro_volume[volume_base + period],
+                            -half_volume,
+                        ));
+                    }
                     terms.push(term(
-                        &variables.hydro_volume[plant_entry_idx * (horizon + 1) + period + 1],
-                        -(segment.correction_factor * segment.volume_coefficient),
+                        &variables.hydro_volume[volume_base + period + 1],
+                        -half_volume,
                     ));
                     terms.push(term(
                         &variables.hydro_spillage[plant_entry_idx * horizon + period],
@@ -249,7 +266,7 @@ pub fn build_hydro_fpha_constraints(
                         ),
                         terms,
                         sense: ConstraintSense::LessOrEqual,
-                        rhs: segment.correction_factor * segment.rhs,
+                        rhs,
                     }
                 })
             })

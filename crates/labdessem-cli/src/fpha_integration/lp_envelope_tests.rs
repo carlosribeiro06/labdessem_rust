@@ -58,7 +58,7 @@ struct PlantMeasurement {
     alpha: f64,
     /// The planes as returned by `fit_plant`: unscaled, alpha is applied by the LP.
     planes: Vec<RawPlane>,
-    /// Period-1 `hydro_fpha` rows of the LP model.
+    /// Period-2 `hydro_fpha` rows of the LP model.
     rows: Vec<EnvelopeRow>,
     /// The `(V hm3, Q m3/s)` fit-grid nodes.
     fit_nodes: Vec<(f64, f64)>,
@@ -132,7 +132,7 @@ fn measure_plants() -> Vec<PlantMeasurement> {
             let rows = lp_fpha_rows(&model, &plant_result.nome, flow_conversion);
             assert!(
                 !rows.is_empty(),
-                "no period-1 LP rows for plant {code} ({})",
+                "no period-2 LP rows for plant {code} ({})",
                 plant_result.nome
             );
             let fit_nodes = fit_grid_nodes(ctx);

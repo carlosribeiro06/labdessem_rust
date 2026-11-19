@@ -187,6 +187,9 @@ pub fn hydro_total_turbining_hm3(
 }
 
 /// Calculate max generation at current operating point for a hydro plant.
+///
+/// In FPHA mode the planes are evaluated at the period-mean volume `(V[t] + V[t+1]) / 2`, the
+/// volume the LP rows use (ADR-030).
 pub fn hydro_generation_max_at_point_mw(
     system: &System,
     variable_values: &HashMap<String, f64>,
@@ -212,10 +215,13 @@ pub fn hydro_generation_max_at_point_mw(
             .max(0.0);
     }
 
-    let volume = variable_values
-        .get(&hydro_volume_name(&plant.name, period + 1))
-        .copied()
-        .unwrap_or(0.0);
+    let volume_at_slot = |slot: usize| {
+        variable_values
+            .get(&hydro_volume_name(&plant.name, slot))
+            .copied()
+            .unwrap_or(0.0)
+    };
+    let volume = f64::midpoint(volume_at_slot(period), volume_at_slot(period + 1));
 
     let fpha_max_generation = plant
         .fpha_segments
@@ -233,12 +239,50 @@ pub fn hydro_generation_max_at_point_mw(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{hydro_generation_max_at_point_mw, sum_internal_values};
+    use labdessem_core::entities::HydroFphaSegment;
+    use labdessem_core::test_support::minimal_system_with_hydro;
+    use labdessem_model::names::hydro_volume_name;
+    use std::collections::HashMap;
 
     #[test]
     fn sum_internal_values_sums_correctly() {
         let periods = vec![0, 1, 2];
         let values = |p: usize| p as f64 * 10.0;
         assert!((sum_internal_values(&periods, values) - 30.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn generation_max_at_point_uses_period_mean_volume() {
+        // Arrange
+        let mut system = minimal_system_with_hydro();
+        system.fpha_enabled = true;
+        system.hydro_plants[0].fpha_segments = vec![HydroFphaSegment {
+            segment: 1,
+            correction_factor: 0.9,
+            rhs: 10.0,
+            volume_coefficient: 0.02,
+            turbining_coefficient: 0.0,
+            lateral_flow_coefficient: 0.0,
+        }];
+        let plant = &system.hydro_plants[0];
+        let variable_values: HashMap<String, f64> = [(0, 400.0), (1, 600.0), (2, 800.0)]
+            .into_iter()
+            .map(|(slot, volume)| (hydro_volume_name(&plant.name, slot), volume))
+            .collect();
+
+        // Act
+        let first = hydro_generation_max_at_point_mw(&system, &variable_values, plant, 0, 1000.0);
+        let second = hydro_generation_max_at_point_mw(&system, &variable_values, plant, 1, 1000.0);
+
+        // Assert
+        assert!(
+            (first - 18.0).abs() < 1e-12,
+            "period 0 mean volume 500: {first}"
+        );
+        assert!(
+            (second - 21.6).abs() < 1e-12,
+            "period 1 mean volume 700: {second}"
+        );
     }
 }

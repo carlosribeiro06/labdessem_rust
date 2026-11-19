@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A window outside the geometry table of its plant fails the fit and the plant is listed in `PlantsNotFitted`; a window configured for a plant with a single-point geometry table is ignored and the CLI prints `Warning: plant <id> (<name>) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct <a> and max_volume_pct <b> in CAD/CAD_FPHA_CONFIG.csv are ignored`
   - The `CAD_FPHA_CONFIG.csv` reader now returns `IoError::InvalidData` with `plant <id> has num_planes 0 (must be at least 1) at line <n> in CAD_FPHA_CONFIG.csv` or `plant <id> has min_volume_pct <a> not below max_volume_pct <b> at line <n> in CAD_FPHA_CONFIG.csv` (the latter only when both bounds are given), and `compute_fpha` fails with it
   - To migrate, set `num_planes` to at least 1 and `min_volume_pct` below `max_volume_pct` in each row, raise `num_planes` for a plant whose fit reports that the limit cannot be reached, and set `tolerance` where the previous plane count must be kept
+- **BREAKING**: FPHA rows read the period-mean volume instead of the end-of-period volume (audit FP-06, ADR-030)
+  - Before: the `hydro_fpha` row of a period carried `alpha * gamma_v` on the end-of-period volume only, while the EngMax head volume and the Libs form of the row use the period mean
+  - Now every `hydro_fpha` row, computed and precomputed, bounds generation by the planes at the period-mean volume `(V[t] + V[t+1]) / 2`: `alpha * gamma_v / 2` sits on each of the volume slots `t` and `t + 1`, and in the first period (`t=1`), where slot 0 is the fixed initial volume, the row has no slot-0 term and `alpha * gamma_v / 2 * VolInic` moves to the right-hand side
+  - Row names, sense and row count are unchanged, and the plants with `gamma_v` 0 (ITUTINGA and FUNIL-GRANDE in `examples/24Barras`) are unaffected
+  - `Varm.mw/hm3` of a precomputed `OPER_FPHA.csv` is now a coefficient on the period-mean volume; the columns of `resultado_fpha_computed.csv` and the fit are unchanged
+  - `GeracaoMaxPontoMW` follows the period-mean volume; `VolumeHM3` is still the end-of-period volume
+  - Measured on `examples/24Barras` before -> after (R$): `O_c` (computed) 2420590.3195 -> 2420558.7522, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420591.0652 -> 2420559.4979, `O_one` (precomputed, `Fcorrec = 1`) 2374998.0326 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420590.3195 -> 2420558.7522
+  - Maximum static envelope difference `|E(V_mean) - E(V_end)|` along the solved trajectory, before -> after: CAMARGOS 0, ITUTINGA 0, FUNIL-GRANDE 0, FURNAS 0.011043 -> 0.011038 MW (period 9); the maximum change of `GeracaoMaxPontoMW` between the two runs is 0.011084 MW (FURNAS, period 9) and 0 for the other plants
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
