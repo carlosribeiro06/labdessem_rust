@@ -10,7 +10,7 @@ and ADR-033 (alpha points) are separate decisions.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -260,18 +260,57 @@ official family data for its tests), and ticket-029 then documents the decision 
 
 ## Decision
 
-PENDING
+Accepted: option (a) — computed FPHA and EngMax keep one degree-4 tailrace polynomial per plant in the plant
+outflow (`CAD_TAILRACE.csv`, one row per plant, `read_tailrace` and its ticket-024 duplicate-row rule,
+`TailraceModel::Polynomial` built by `build_fit_params`, `plant.tailrace_coefficients` in EngMax). The
+divergence from DESSEM (backwater families, MM §9.16.4; piecewise polynomials by flow range, MM eq. 9.24;
+explicit drowning, MM §9.16.5 and Libs §15.3.3) is confirmed and recorded as a limitation, not removed. On
+24Barras the fit and the 2420590.3195 R$ objective of section 9 do not change, since this decision changes
+no tailrace input or model.
+
+Sub-question S1 (the `TailraceSource::Families` placeholder): accepted as recommended. An implementation
+ticket removes the variant and its match arm in `crates/labdessem-fpha/src/fitting/production.rs`; this is a
+public-API change of `labdessem-fpha` (re-exported from `lib.rs`) with no constructor to migrate and no
+behaviour change for any run, and it ends the silent 0 m tailrace path that ADR-027 forbids. Whether that
+ticket also covers the `Entity(None)` arm (which also returns 0 m), i.e. makes the tailrace non-optional, is
+decided in that ticket's refinement, not here.
+
+Sub-question S2 (schema and EngMax under (b)/(c)): moot under (a); no schema change. Recorded only as the
+conditions of a later reopening of (b) or (c): under (b) `CAD_TAILRACE.csv` keyed by `codigo_usina;curva`
+with `Href.m` strictly increasing per plant, an exogenous downstream-level input for plants whose downstream
+reservoir is outside the case, at most 5 curves, and the ticket-024 rule becoming "duplicate (plant, curve)";
+under (c) keyed by `codigo_usina;segmento` with `QjusMin.m3s;QjusMax.m3s`, at most 5 segments, first minimum
+0, adjacent ranges, open last segment, a single-row plant still valid, and the ticket-024 rule becoming
+"duplicate (plant, segment)"; under both, EngMax adopts the new model in the same ticket through a shared
+`labdessem-fpha` type, so computed FPHA and EngMax never read different tailraces.
+
+Sub-question S3 (delivery): accepted as recommended. The S1 removal is an [ADD] implementation ticket in
+this plan, to be added before ticket-029 (by the orchestrator, not by this ticket). Ticket-029 documents the
+single polynomial, the unmodelled mechanisms (backwater families, piecewise ranges, drowning), the MM/Libs
+conflict on which mechanism is off by default with piecewise polynomials, the `[to confirm]` items and the
+rework trigger.
+
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation. The rework trigger stays
+recorded: a deck whose `polinjus.csv` gives the four 24Barras plants more than one segment in the fitted
+range or more than one family, or a CEPEL answer on Libs §15.3.4, reopens (c) first and then (b), with the
+S2 conditions above. The families of the four plants in an official deck, the MM/Libs conflict and the
+downstream level at fit time stay `[to confirm]`; any effect of (b) or (c) stays `[not measured]` for lack of
+official family data.
 
 ## Consequences
 
-To be completed with the decision. The branches below are recorded for the record of the brief.
+Option (a) was chosen (see Decision); the other branches are kept for the record.
 
-- Under (a): no change to `CAD_TAILRACE.csv`, `read_tailrace`, `TailraceModel` or EngMax; with S1 accepted, an
-  [ADD] ticket removes `TailraceSource::Families`; ticket-029 documents the limitation and the rework trigger.
-- Under (b): a follow-up plan specifies the family schema, the downstream-level rule and the EngMax adoption;
-  the `[to confirm]` items (MM/Libs conflict, downstream level at fit time, families of the four plants) must
-  be answered first.
-- Under (c): a follow-up plan specifies the segment schema and the EngMax adoption; S1 still removes
-  `TailraceSource::Families`.
+- Under (a) (chosen): no change to `CAD_TAILRACE.csv`, `read_tailrace`, `TailraceModel` or EngMax, and the
+  section 9 baseline stays current. S1 accepted: an [ADD] implementation ticket, to be added by the
+  orchestrator before ticket-029, removes `TailraceSource::Families` and its match arm (public-API change of
+  `labdessem-fpha`, no behaviour change); its refinement decides whether `Entity(None)` is covered too.
+  Ticket-029 documents the single polynomial, the unmodelled mechanisms, the MM/Libs conflict, the
+  `[to confirm]` items and the rework trigger.
+- Under (b) (not chosen): a follow-up plan would specify the family schema, the downstream-level rule and the
+  EngMax adoption per the S2 conditions; the `[to confirm]` items (MM/Libs conflict, downstream level at fit
+  time, families of the four plants) must be answered first. Live again only through the rework trigger.
+- Under (c) (not chosen): a follow-up plan would specify the segment schema and the EngMax adoption per the S2
+  conditions; S1 still removes `TailraceSource::Families`. Live again only through the rework trigger.
 - Under any option: the `[to confirm]` items need the `polinjus.csv` of an ONS deck, the MM/Libs PDFs or a
   CEPEL answer.
