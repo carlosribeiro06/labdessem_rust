@@ -165,13 +165,13 @@ labdessem run --help</code></pre>
         <ul>
           <li><code>CAD_UNID_UTE.csv</code> — Thermal plants and units</li>
           <li><code>CAD_RAMPAS_TERMICAS.csv</code> — Thermal ramp trajectories</li>
-          <li><code>CAD_UHE.csv</code> — Hydro plants</li>
+          <li><code>CAD_UHE.csv</code> — Hydro plants. Computed FPHA also requires <code>Eficiencia</code> and <code>Perda.m</code> for every plant with generating units.</li>
           <li><code>CAD_CONJ_UHE.csv</code> — Hydro groups and units</li>
           <li><code>CAD_REN.csv</code> — Renewable plants</li>
           <li><code>CAD_USIE.csv</code> — Pumping plants</li>
-          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (optional, for EngMax/computed FPHA)</li>
-          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (optional, for EngMax)</li>
-          <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional)</li>
+          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (required by computed FPHA for every plant with generating units; optional for EngMax)</li>
+          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for EngMax)</li>
+          <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional; columns and defaults in <a href="./configuration.html#fpha-config">Configuration</a>)</li>
         </ul>
 
         <h3>OPER Files (Operational)</h3>
@@ -180,8 +180,9 @@ labdessem run --help</code></pre>
           <li><code>OPER_VAZAO.csv</code> — Hydro inflows</li>
           <li><code>OPER_REN.csv</code> — Renewable availability</li>
           <li><code>OPER_REST_LIM.csv</code> — Operational limits</li>
-          <li><code>OPER_FPHA.csv</code> — FPHA cuts (when <code>FPHA=1</code>)</li>
+          <li><code>OPER_FPHA.csv</code> — FPHA cuts (when <code>FPHA="precomputed"</code>)</li>
           <li><code>OPER_FCF.bin</code> — Future cost cuts (when <code>FCF=1</code>)</li>
+          <li><code>inflow_history.parquet</code> — Inflow history (optional; sets the long-term mean inflow of the computed FPHA fit)</li>
         </ul>
 
         <h2 id="outputs">Outputs</h2>
@@ -200,7 +201,13 @@ labdessem run --help</code></pre>
           <li><code>resultado_elevatorias.csv</code> — Pumping plant operation</li>
           <li><code>resultado_cmosist.csv</code> — Marginal operating costs (PiDemanda and CMO)</li>
           <li><code>resultado_fcf_eco.csv</code> — Future cost cut values (when <code>FCF=1</code>)</li>
-          <li><code>resultado_fpha_computed.csv</code> — Computed FPHA hyperplanes (when <code>FPHA="computed"</code>)</li>
+          <li><code>resultado_fpha_computed.csv</code> — Computed FPHA planes, one row per plane (when <code>FPHA="computed"</code>):
+            <ul>
+              <li><code>gamma_0</code>, <code>gamma_v</code>, <code>gamma_q</code> and <code>gamma_s</code> are the unscaled fitted plane. <code>alpha</code> is the correction factor, which the model applies once to all four coefficients. <code>plane_index</code> starts at 0. The three deviation columns compare <code>alpha</code> × the planes with the production function on the fit grid.</li>
+              <li>Copy rule: copying the rows of a plant into <code>OPER/OPER_FPHA.csv</code> reproduces the computed run. The header is <code>USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s</code>, and each row takes <code>USIH = codigo_usina</code>, <code>SegFPHA = plane_index + 1</code>, <code>Fcorrec = alpha</code>, <code>Rhs.mw = gamma_0</code>, <code>Varm.mw/hm3 = gamma_v</code>, <code>Qtur.mw/m3s = gamma_q</code> and <code>Qlat.mw/m3s = gamma_s</code>. A copy with <code>Fcorrec = 1</code> is a different model.</li>
+              <li>Details of the copy rule and the formulation: <a href="https://github.com/carlosribeiro06/labdessem_rust/blob/main/docs/design/fpha-formulation.md" target="_blank" rel="noopener">docs/design/fpha-formulation.md</a>.</li>
+            </ul>
+          </li>
           <li><code>resultado_rede.csv</code> — Network flows (when <code>rede=1</code>)</li>
           <li><code>resultado_cmobar.csv</code> — Nodal marginal costs per bus (when <code>rede=1</code>)</li>
         </ul>
