@@ -197,12 +197,11 @@ impl DerivedCase {
 }
 
 /// Runs the computed-FPHA sequence of `run_and_print` in `main.rs` (`compute_fpha`,
-/// `inject_fpha_segments`, `system.fpha_enabled = true`). `write_computed_results` is not called.
+/// `finalize_fpha_injection`). `write_computed_results` is not called.
 pub(super) fn computed_system(case: &Path) -> Result<(System, FphaComputeResult), Box<dyn Error>> {
     let mut system = read_study_from_path(case)?;
     let result = super::compute_fpha(case, &system)?;
-    super::inject_fpha_segments(&mut system, &result.plant_results);
-    system.fpha_enabled = true;
+    super::finalize_fpha_injection(&mut system, &result.plant_results)?;
     Ok((system, result))
 }
 

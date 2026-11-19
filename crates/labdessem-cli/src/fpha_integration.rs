@@ -67,6 +67,7 @@ pub enum FphaComputeError {
     Fitting(String),
     MissingHydro { hydro_id: i32, hydro_name: String },
     PlantsNotFitted { failures: Vec<PlantFitFailure> },
+    InvalidSystem(String),
 }
 
 impl std::fmt::Display for FphaComputeError {
@@ -93,6 +94,9 @@ impl std::fmt::Display for FphaComputeError {
                     )?;
                 }
                 Ok(())
+            }
+            FphaComputeError::InvalidSystem(msg) => {
+                write!(f, "system validation failed after FPHA injection: {msg}")
             }
         }
     }
@@ -412,6 +416,21 @@ pub fn inject_fpha_segments(
         "FPHA injection complete: {} plants updated",
         injected
     );
+}
+
+/// Inject computed FPHA segments, enable FPHA and re-validate the whole system.
+///
+/// `read_study_from_path` validates with `fpha_enabled = false`, so the rule that a plant with
+/// units must carry FPHA segments only runs here.
+pub fn finalize_fpha_injection(
+    system: &mut System,
+    plant_results: &[FphaPlantResult],
+) -> Result<(), FphaComputeError> {
+    inject_fpha_segments(system, plant_results);
+    system.fpha_enabled = true;
+    system
+        .validate()
+        .map_err(|e| FphaComputeError::InvalidSystem(e.to_string()))
 }
 
 #[cfg(test)]

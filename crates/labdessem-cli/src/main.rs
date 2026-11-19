@@ -131,8 +131,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     if config.fpha.is_computed() {
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
         let fpha_result = fpha_integration::compute_fpha(case_path, &system)?;
-        fpha_integration::inject_fpha_segments(&mut system, &fpha_result.plant_results);
-        system.fpha_enabled = true;
+        fpha_integration::finalize_fpha_injection(&mut system, &fpha_result.plant_results)?;
         fpha_integration::write_computed_results(
             case_path,
             &fpha_result.plant_results,

@@ -17,7 +17,9 @@ use labdessem_model::constraints::LinearConstraint;
 use labdessem_model::{Model, SolveMode};
 
 use super::probe::{DerivedCase, computed_system};
-use super::{FitFailureReason, FphaComputeError, PlantFitFailure, compute_fpha};
+use super::{
+    FitFailureReason, FphaComputeError, PlantFitFailure, compute_fpha, finalize_fpha_injection,
+};
 
 /// Geometry table the computed FPHA reads, relative to the case directory.
 const GEOMETRY_FILE: &str = "CAD/CAD_GEOMETRIA_UHE.csv";
@@ -287,4 +289,59 @@ fn control_a2_full_geometry_links_every_plant() {
         plants_with_units >= 1,
         "no hydro plant has units: the per-plant checks would pass vacuously"
     );
+}
+
+/// With every result, the system validates with FPHA enabled: `finalize_fpha_injection` returns `Ok`
+/// and leaves `fpha_enabled` set.
+#[test]
+fn finalize_accepts_complete_results() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let mut system = read_study_from_path(case.path())?;
+    let result = compute_fpha(case.path(), &system)?;
+
+    // Act
+    let outcome = finalize_fpha_injection(&mut system, &result.plant_results);
+
+    // Assert
+    assert!(
+        matches!(outcome, Ok(())),
+        "complete results must be accepted: {outcome:?}"
+    );
+    assert!(system.fpha_enabled, "fpha_enabled must be set after finalize");
+    Ok(())
+}
+
+/// Without the result of plant 2 the plant keeps its units and has no segments:
+/// the system validation after the injection rejects it before any solver runs.
+#[test]
+fn finalize_rejects_plant_with_units_without_segments() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let mut system = read_study_from_path(case.path())?;
+    let mut result = compute_fpha(case.path(), &system)?;
+    let before = result.plant_results.len();
+    result
+        .plant_results
+        .retain(|plant_result| plant_result.codigo != 2);
+    assert_eq!(
+        result.plant_results.len(),
+        before - 1,
+        "plant {SKIPPED_PLANT_CODE} must have a result to drop"
+    );
+
+    // Act
+    let outcome = finalize_fpha_injection(&mut system, &result.plant_results);
+
+    // Assert
+    match outcome {
+        Err(FphaComputeError::InvalidSystem(message)) => {
+            assert!(
+                message.contains("at least one FPHA segment"),
+                "the error does not name the missing segments: {message}"
+            );
+            Ok(())
+        }
+        other => Err(format!("expected InvalidSystem, got: {other:?}").into()),
+    }
 }
