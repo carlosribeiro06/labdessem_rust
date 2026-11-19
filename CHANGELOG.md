@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: `resultado_fpha_computed.csv`: the gamma columns are now unscaled and the model applies `alpha` once
+  - Before: `gamma_0`, `gamma_v` and `gamma_q` were already multiplied by `alpha`, `gamma_s` was not, and the model multiplied all four by `alpha` again
+  - Now `gamma_0`, `gamma_v`, `gamma_q` and `gamma_s` hold the unscaled fitted planes, and the model applies `alpha` once to all four coefficients
+  - The `max_deviation_mw`, `mean_deviation_mw` and `rms_deviation_mw` columns describe `alpha` x plane against the FPH on the fit grid
+  - Column names, positions and number format are unchanged
+  - Copying the rows into `OPER_FPHA.csv` reproduces the computed run with `USIH = codigo_usina`, `SegFPHA = plane_index + 1`, `Fcorrec = alpha`, `Rhs.mw = gamma_0`, `Varm.mw/hm3 = gamma_v`, `Qtur.mw/m3s = gamma_q` and `Qlat.mw/m3s = gamma_s`
+- **BREAKING**: Computed FPHA runs now fail when a hydro plant with generating units cannot be fitted
+  - Before: `compute_fpha` printed a `Warning:` and skipped a plant with units whose geometry rows were missing, whose fit parameters were invalid or whose fit failed (every plant, when `CAD/CAD_GEOMETRIA_UHE.csv` was absent), and the plant generated without water
+  - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` listing every such plant, and the CLI prints `Error: computed FPHA could not be fitted for <n> hydro plant(s) with generating units:` with one `plant <id> (<name>): <reason>` line per plant and exits with code 1 before writing any result
+  - Plants without generating units are no longer fitted: they are excluded before any geometry or `inflow_history.parquet` lookup and counted in `plants_skipped`
+  - `FphaComputeError::MissingHydro` is unchanged and still fails the run at the first plant missing from `inflow_history.parquet`
+- **BREAKING**: Computed FPHA runs now require a tailrace row, `Eficiencia` and `Perda.m` for every hydro plant with generating units
+  - Before: a plant without a `CAD/CAD_TAILRACE.csv` row was fitted with a 0 m tailrace level, and an absent or empty `Eficiencia` or `Perda.m` was fitted as efficiency 1.0 and loss 0 m, silently inflating the plant's production function
+  - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` with `FitFailureReason::MissingInputs` naming every missing input of every affected plant, and the CLI exits with code 1 before writing any result
+  - An explicit `Perda.m = 0` stays valid; only an absent column or an empty cell counts as missing
+  - EngMax is unchanged and keeps its defaults for missing efficiency, loss and tailrace
+- **BREAKING**: Precomputed FPHA decks are rejected when `OPER_FPHA.csv` has rows for a hydro plant without generating units
+  - Before: a plant without rows in `CAD/CAD_CONJ_UHE.csv` kept its `OPER_FPHA.csv` rows, and the model built FPHA constraints for it with no generation or turbining terms
+  - Now the reader fails with `OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: <code> (<name>), ...`, listing every affected plant in ascending code order, and the CLI exits with code 1 before writing any result
+  - A plant without generating units and without `OPER_FPHA.csv` rows reads as before; computed mode is unchanged
+  - To migrate, delete the `OPER_FPHA.csv` rows of the listed plants or add their generating units to `CAD_CONJ_UHE.csv`
+- **BREAKING**: The FPHA geometry readers reject non-finite values and duplicate rows
+  - Before: `NaN` and `inf` passed the sign checks of the volume, level and area columns of `CAD/CAD_GEOMETRIA_UHE.csv` and of `tolerance` in `CAD/CAD_FPHA_CONFIG.csv`, `CAD/CAD_TAILRACE.csv` had no value check, a second row for the same plant in `CAD_TAILRACE.csv` or `CAD_FPHA_CONFIG.csv` silently replaced the first, and `CAD_GEOMETRIA_UHE.csv` kept two points of one plant with the same `volume.hm3`
+  - Now each reader returns `IoError::InvalidData` with `plant <id> has non-finite <column> <value> at line <n> in <file>`, `plant <id> has duplicate rows at lines <a> and <b> in <file>` or `plant <id> has duplicate volume <v> at lines <a> and <b> in CAD_GEOMETRIA_UHE.csv`; when several plants have a duplicate volume, the error names the lowest plant code
+  - `CAD_GEOMETRIA_UHE.csv` and `CAD_TAILRACE.csv` are read for every study, so a bad value fails the study read and the CLI exits with code 1 before writing any result; a bad `CAD_FPHA_CONFIG.csv` fails `compute_fpha`
+  - Decks with finite values and one row per plant, such as `examples/24Barras`, read as before
+  - To migrate, replace each non-finite cell with a finite value and delete the repeated row or point
+- **BREAKING**: Computed FPHA fits with the MM defaults and `CAD/CAD_FPHA_CONFIG.csv` takes effect
+  - Before: every computed fit used a 6 x 6 volume-flow grid, and no field of the file changed the fit: `num_planes` was copied into the plane limit, which no production code enforced, and `tolerance`, `min_volume_pct` and `max_volume_pct` were read and dropped
+  - Now every computed fit starts from 5 volume points, 5 flow points, at most 10 planes and an angle reduction tolerance of 1.0 degrees, so the planes, `alpha` and `resultado_fpha_computed.csv` of every computed run change, with or without the file
+  - A row of `CAD_FPHA_CONFIG.csv` changes only its plant: `num_planes` is a plane limit, `tolerance` the angle tolerance in degrees, and `min_volume_pct` / `max_volume_pct` the fractions of the `[Vmin.hm3, Vmax.hm3]` interval of `CAD_UHE.csv` the fit covers (an absent bound keeps 0 or 1)
+  - The plane limit is now enforced: the angle reduction is repeated with a doubled tolerance, always from the original plane set and at most 32 times, until the plant has at most `num_planes` planes; when the limit cannot be reached the fit fails with `hydro <name>: cannot reduce to <n> planes (<k> remain after the last tolerance)` and the plant is listed in `PlantsNotFitted`; the fit deviation grows, and `alpha` is fitted on the reduced planes (see the `alpha` entry below)
+  - A window outside the geometry table of its plant fails the fit and the plant is listed in `PlantsNotFitted`; a window configured for a plant with a single-point geometry table is ignored and the CLI prints `Warning: plant <id> (<name>) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct <a> and max_volume_pct <b> in CAD/CAD_FPHA_CONFIG.csv are ignored`
+  - The `CAD_FPHA_CONFIG.csv` reader now returns `IoError::InvalidData` with `plant <id> has num_planes 0 (must be at least 1) at line <n> in CAD_FPHA_CONFIG.csv` or `plant <id> has min_volume_pct <a> not below max_volume_pct <b> at line <n> in CAD_FPHA_CONFIG.csv` (the latter only when both bounds are given), and `compute_fpha` fails with it
+  - To migrate, set `num_planes` to at least 1 and `min_volume_pct` below `max_volume_pct` in each row, raise `num_planes` for a plant whose fit reports that the limit cannot be reached, and set `tolerance` where the previous plane count must be kept
+- **BREAKING**: FPHA rows read the period-mean volume instead of the end-of-period volume (audit FP-06, ADR-030)
+  - Before: the `hydro_fpha` row of a period carried `alpha * gamma_v` on the end-of-period volume only, while the EngMax head volume and the Libs form of the row use the period mean
+  - Now every `hydro_fpha` row, computed and precomputed, bounds generation by the planes at the period-mean volume `(V[t] + V[t+1]) / 2`: `alpha * gamma_v / 2` sits on each of the volume slots `t` and `t + 1`, and in the first period (`t=1`), where slot 0 is the fixed initial volume, the row has no slot-0 term and `alpha * gamma_v / 2 * VolInic` moves to the right-hand side
+  - Row names, sense and row count are unchanged, and the plants with `gamma_v` 0 (ITUTINGA and FUNIL-GRANDE in `examples/24Barras`) are unaffected
+  - `Varm.mw/hm3` of a precomputed `OPER_FPHA.csv` is now a coefficient on the period-mean volume; the columns of `resultado_fpha_computed.csv` and the fit are unchanged
+  - `GeracaoMaxPontoMW` follows the period-mean volume; `VolumeHM3` is still the end-of-period volume
+  - Measured on `examples/24Barras` before -> after (R$): `O_c` (computed) 2420590.3195 -> 2420558.7522, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420591.0652 -> 2420559.4979, `O_one` (precomputed, `Fcorrec = 1`) 2374998.0326 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420590.3195 -> 2420558.7522
+  - Maximum static envelope difference `|E(V_mean) - E(V_end)|` along the solved trajectory, before -> after: CAMARGOS 0, ITUTINGA 0, FUNIL-GRANDE 0, FURNAS 0.011043 -> 0.011038 MW (period 9); the maximum change of `GeracaoMaxPontoMW` between the two runs is 0.011084 MW (FURNAS, period 9) and 0 for the other plants
+- **BREAKING**: `labdessem_fpha::TailraceSource::Families` is removed
+  - Before: the public enum had a `Families` variant, documented as a placeholder for backwater coupling, that no code constructed and that evaluated to a 0 m tailrace level
+  - Now `TailraceSource` has only `Entity`; no run changes (computed planes, alpha and objectives are bit-identical); tailrace families stay unmodelled (ADR-032 (a); backwater, piecewise ranges and drowning are documented as limitations)
+  - To migrate, construct `TailraceSource::Entity(Some(TailraceModel::..))`
+- **BREAKING**: Computed FPHA fits `alpha` on 30 evaluation points of the final reduced planes (audit B5, ADR-033)
+  - Before: `alpha` was fitted on the fit-grid nodes over the raw hull planes, before the gamma_S secant and the plane reduction, and did not depend on `num_planes`
+  - Now `alpha` is fitted after the reduction on the planes written to `resultado_fpha_computed.csv`, over 30 evaluation points (6 volume x 5 flow over the fit window and `[0, Q_max]`, 2 x 15 for single-volume plants), so it depends on `num_planes`; the MM default count is 30 and the point distribution is a labdessem choice `[to confirm]`
+  - The gamma columns and the plane counts are unchanged; the `alpha` and deviation columns and every computed objective change; the copy rule `Fcorrec = alpha` of precomputed decks is unchanged
+  - Measured on `examples/24Barras` before -> after: `alpha` CAMARGOS 0.972834 -> 0.968663, ITUTINGA 1.000000 -> 1.014733, FUNIL-GRANDE 1.000000 -> 1.011552, FURNAS 0.993203 -> 0.989872 (planes 6 / 3 / 3 / 5 before and after); maximum fit deviation of `alpha x planes` (MW) CAMARGOS 2.876295 -> 2.826087, ITUTINGA 0 -> 0.766124, FUNIL-GRANDE 0 -> 2.079277, FURNAS 23.284586 -> 22.245847
+  - Objectives (R$): `O_c` (computed) 2420558.7522 -> 2440503.4875, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420559.4979 -> 2440499.3558, `O_one` (precomputed, `Fcorrec = 1`) 2374967.2890 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420558.7522 -> 2440503.4875; which plant drives the `O_c` change is `[not measured]`
+  - Single-volume plants can get `alpha` above 1 and an envelope above the FPH at the fit-grid nodes: ITUTINGA 1.014733 and FUNIL-GRANDE 1.011552 in `examples/24Barras`
+  - The public `labdessem_fpha::compute_alpha_fpha` ignores `n_volume_points` and `n_flow_points` of its bounds and expects the final planes
+- **BREAKING**: Public Rust API of `labdessem-fpha`
+  - Before: `FphaPlantConfig::default()` used a 6 x 6 volume-flow grid, `fit_plant` returned `FphaPlantResult::planes` with `gamma_0`, `gamma_v` and `gamma_q` already multiplied by `alpha` and `gamma_s` not, and `FphaFittingError` had no variant for a fit window or an unreachable plane limit
+  - Now `FphaFittingError` has the variants `InvalidFitWindow { hydro_name, reason }` and `PlaneLimitUnreachable { hydro_name, max_planes, remaining }`, so an exhaustive `match` must handle them; the error is also carried by `SimulationError::Geometry`
+  - Now `FphaPlantConfig` has the public fields `volume_window: config::VolumeWindow` and `window_reference_hm3: Option<(f64, f64)>`, so a struct literal must set them (`FphaPlantConfig::computed` sets the full window); its `Default` grid is 5 x 5 points, from the new constants `config::DEFAULT_VOLUME_POINTS`, `DEFAULT_FLOW_POINTS`, `DEFAULT_MAX_PLANES` and `DEFAULT_ANGLE_TOLERANCE_DEG`
+  - Now `fit_plant` returns unscaled `FphaPlantResult::planes` and the fitted `FphaPlantResult::alpha`; the consumer applies `alpha` once to all four coefficients (the model does, as `correction_factor`)
+  - To migrate, add the two variants to exhaustive matches, set `volume_window: VolumeWindow::FULL` and `window_reference_hm3: None` in struct literals (or use `FphaPlantConfig::computed`), and apply `alpha` once to all four coefficients wherever the old planes were used directly
+
+### Fixed
+- Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
+- A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
+- Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
+- Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
+- The FPHA geometry readers let `NaN` and infinities through (the sign checks are false for `NaN`), sorted the volume table in an undefined order for `NaN`, and silently kept the last of two rows for the same plant, so a `NaN` water level reached the fit or the net-head model (audit EM-04, FP-R01); the readers now reject the value or the duplicate naming the file, plant, column and line
+- `CAD/CAD_FPHA_CONFIG.csv` had no effect on the fit: `num_planes` was copied but never enforced, `tolerance`, `min_volume_pct` and `max_volume_pct` were dropped, and the grid was fixed at 6 x 6 (audit FP-05); each field now changes the fit of its plant and the defaults follow the MM
+
 ## [0.12.0] - 2026-11-05
 
 ### Added

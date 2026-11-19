@@ -32,6 +32,18 @@ pub enum FphaFittingError {
         detail: String,
     },
 
+    #[error("hydro {hydro_name}: invalid fit volume window: {reason}")]
+    InvalidFitWindow { hydro_name: String, reason: String },
+
+    #[error(
+        "hydro {hydro_name}: cannot reduce to {max_planes} planes ({remaining} remain after the last tolerance)"
+    )]
+    PlaneLimitUnreachable {
+        hydro_name: String,
+        max_planes: usize,
+        remaining: usize,
+    },
+
     #[error("I/O error reading {path}: {detail}")]
     IoError { path: String, detail: String },
 }

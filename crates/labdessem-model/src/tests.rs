@@ -1152,6 +1152,27 @@ fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
     );
 }
 
+fn computed_fpha_segments() -> Vec<HydroFphaSegment> {
+    vec![
+        HydroFphaSegment {
+            segment: 1,
+            correction_factor: 0.95,
+            rhs: 100.0,
+            volume_coefficient: 0.01,
+            turbining_coefficient: 2.5,
+            lateral_flow_coefficient: -0.005,
+        },
+        HydroFphaSegment {
+            segment: 2,
+            correction_factor: 0.95,
+            rhs: 80.0,
+            volume_coefficient: 0.008,
+            turbining_coefficient: 2.2,
+            lateral_flow_coefficient: -0.003,
+        },
+    ]
+}
+
 /// Test that verifies the FPHA computed workflow:
 /// 1. System starts with fpha_enabled=false and empty fpha_segments
 /// 2. FPHA segments are injected dynamically (simulating compute_fpha + inject_fpha_segments)
@@ -1180,25 +1201,7 @@ fn fpha_computed_flow_adds_constraints_correctly() {
     );
 
     // Step 2: Simulate inject_fpha_segments - inject computed segments
-    let computed_segments = vec![
-        HydroFphaSegment {
-            segment: 1,
-            correction_factor: 0.95,
-            rhs: 100.0,
-            volume_coefficient: 0.01,
-            turbining_coefficient: 2.5,
-            lateral_flow_coefficient: -0.005,
-        },
-        HydroFphaSegment {
-            segment: 2,
-            correction_factor: 0.95,
-            rhs: 80.0,
-            volume_coefficient: 0.008,
-            turbining_coefficient: 2.2,
-            lateral_flow_coefficient: -0.003,
-        },
-    ];
-    system.hydro_plants[0].fpha_segments = computed_segments;
+    system.hydro_plants[0].fpha_segments = computed_fpha_segments();
 
     // Step 3: Set fpha_enabled = true (as main.rs does after inject_fpha_segments)
     system.fpha_enabled = true;
@@ -1241,14 +1244,14 @@ fn fpha_computed_flow_adds_constraints_correctly() {
     );
 
     // Verify RHS values include correction factor
-    let seg1_t1 = fpha_constraints
+    let seg1_t2 = fpha_constraints
         .iter()
-        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=1]")
+        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=2]")
         .expect("constraint should exist");
     assert!(
-        (seg1_t1.rhs - 0.95 * 100.0).abs() < 1e-6,
+        (seg1_t2.rhs - 0.95 * 100.0).abs() < 1e-6,
         "RHS should be correction_factor * rhs = 0.95 * 100.0 = 95.0, got {}",
-        seg1_t1.rhs
+        seg1_t2.rhs
     );
 
     // Verify generation-turbining coupling constraints are also generated
@@ -1259,6 +1262,48 @@ fn fpha_computed_flow_adds_constraints_correctly() {
             .is_empty(),
         "Generation-turbining coupling constraints should be generated with FPHA"
     );
+}
+
+#[test]
+fn fpha_rows_split_volume_coefficient_across_period_slots() -> Result<(), Box<dyn std::error::Error>>
+{
+    // Arrange
+    let mut system = build_system();
+    system.hydro_plants[0].fpha_segments = computed_fpha_segments();
+    system.fpha_enabled = true;
+    let model = Model::from_system(&system, SolveMode::LinearProgramming);
+    let rows = model.constraints.hydro_fpha();
+    let volume_terms_and_rhs = |name: &str| -> Result<(Vec<(String, f64)>, f64), String> {
+        let row = rows
+            .iter()
+            .find(|row| row.name == name)
+            .ok_or_else(|| format!("missing row {name}"))?;
+        let terms = row
+            .terms
+            .iter()
+            .filter(|term| term.variable.starts_with("hydro_volume["))
+            .map(|term| (term.variable.clone(), term.coefficient))
+            .collect();
+        Ok((terms, row.rhs))
+    };
+
+    // Act
+    let (period_0_terms, period_0_rhs) = volume_terms_and_rhs("hydro_fpha[p=UHE-1,seg=1,t=1]")?;
+    let (period_1_terms, period_1_rhs) = volume_terms_and_rhs("hydro_fpha[p=UHE-1,seg=1,t=2]")?;
+
+    // Assert
+    let half = -0.5 * 0.95 * 0.01;
+    assert_eq!(period_0_terms.len(), 1);
+    assert_eq!(period_0_terms[0].0, "hydro_volume[p=UHE-1,t=1]");
+    assert!((period_0_terms[0].1 - half).abs() < 1e-12);
+    assert!((period_0_rhs - 0.95 * (100.0 + 0.01 * 5.0 / 2.0)).abs() < 1e-12);
+    assert_eq!(period_1_terms.len(), 2);
+    assert_eq!(period_1_terms[0].0, "hydro_volume[p=UHE-1,t=1]");
+    assert_eq!(period_1_terms[1].0, "hydro_volume[p=UHE-1,t=2]");
+    assert!((period_1_terms[0].1 - half).abs() < 1e-12);
+    assert!((period_1_terms[1].1 - half).abs() < 1e-12);
+    assert!((period_1_rhs - 0.95 * 100.0).abs() < 1e-12);
+    Ok(())
 }
 
 #[test]

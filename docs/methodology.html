@@ -115,9 +115,44 @@
 
         <h2 id="fpha">FPHA Formulation</h2>
         <p>The Hydro Production Function Approximation (FPHA) linearizes the nonlinear relationship between generation, head, and turbining.</p>
-        <p>When <code>FPHA="precomputed"</code> or <code>"computed"</code>, generation is bounded by piecewise linear cuts:</p>
-        <pre><code>G[i,t] ≤ α₀ + α₁×V[i,t] + α₂×Q[i,t] + α₃×Qlat[i,t]</code></pre>
-        <p>Cuts are read from <code>OPER_FPHA.csv</code> (precomputed) or computed at runtime from VHA geometry (computed).</p>
+        <p>When <code>FPHA="precomputed"</code> or <code>"computed"</code>, generation is bounded by piecewise linear cuts, one row per plant, period and plane (segment):</p>
+        <pre><code>G[i,t] ≤ Fcorrec × (γ₀ + γV × (V[i,t] + V[i,t+1]) / 2 + γQ × Q[i,t] + γS × S[i,t])</code></pre>
+        <p>Where:</p>
+        <ul>
+          <li><code>G[i,t]</code> — total generation of the units of plant <code>i</code> in period <code>t</code> (MW)</li>
+          <li><code>Fcorrec</code> — correction factor of the segment: the <code>alpha</code> fitted by the computed mode, or the <code>Fcorrec</code> column of <code>OPER_FPHA.csv</code>. The row multiplies all four coefficients by it once.</li>
+          <li><code>γ₀</code>, <code>γV</code>, <code>γQ</code>, <code>γS</code> — coefficients of the plane: intercept (MW), volume (MW per hm³), turbined flow and spillage (MW per m³/s). <code>γS</code> is not positive.</li>
+          <li><code>V[i,t]</code>, <code>V[i,t+1]</code> — reservoir volume (hm³) at the start and at the end of period <code>t</code>, the volume slots of the model (the balance above writes the end-of-period volume as <code>V[i,t]</code>). The plane reads the period-mean volume. In the first period the start volume is the initial volume.</li>
+          <li><code>Q[i,t]</code>, <code>S[i,t]</code> — turbined and spilled flow in m³/s. The model variables are in hm³ per period, so the row converts them with the period duration. Spillage enters as the lateral-flow term of the plane (<code>Qlat.mw/m3s</code> in <code>OPER_FPHA.csv</code>).</li>
+        </ul>
+        <p><code>GeracaoMaxPontoMW</code> in <code>resultado_hidreletricas.csv</code> evaluates the planes at the same period-mean volume; <code>VolumeHM3</code> stays the end-of-period volume.</p>
+        <p>Cuts are read from <code>OPER_FPHA.csv</code> (precomputed) or fitted at run time (computed). A computed run writes its planes to <code>resultado_fpha_computed.csv</code>; the <a href="./docs.html#outputs">outputs</a> section gives the rule that copies them into <code>OPER_FPHA.csv</code>, with <code>Fcorrec = alpha</code>.</p>
+
+        <h3>Computed fit</h3>
+        <p>For every hydro plant with generating units, the computed mode fits planes to the production function of the plant:</p>
+        <pre><code>P = 0.00981 × η × Q × h_net          (MW, capped at the plant installed capacity)
+h_net = forebay(V) − tailrace(Q + S) − loss</code></pre>
+        <p>Where:</p>
+        <ul>
+          <li><code>η</code> — plant efficiency (<code>Eficiencia</code> in <code>CAD_UHE.csv</code>)</li>
+          <li><code>Q</code> — turbined flow in m³/s, from 0 to <code>Q_max</code>, the sum of the maximum turbining of the plant units</li>
+          <li><code>forebay(V)</code> — forebay level interpolated from the VHA table (<code>CAD_GEOMETRIA_UHE.csv</code>), not extrapolated beyond its ends</li>
+          <li><code>tailrace(Q + S)</code> — one 4th-degree polynomial per plant in the total outflow (<code>CAD_TAILRACE.csv</code>)</li>
+          <li><code>loss</code> — hydraulic loss in metres (<code>Perda.m</code> in <code>CAD_UHE.csv</code>)</li>
+        </ul>
+        <p>The fit runs these stages in this order:</p>
+        <ol>
+          <li><strong>Window</strong> — the fit covers the volumes <code>[Vmin + min_volume_pct × span, Vmax − (1 − max_volume_pct) × span]</code>, with <code>span = Vmax − Vmin</code> of <code>CAD_UHE.csv</code>. The default is the whole interval. The window must lie inside the VHA table.</li>
+          <li><strong>Hull</strong> — samples the capped production function at zero spillage on a 5 × 5 grid of volumes over the window and flows over <code>[0, Q_max]</code>, and keeps the upper facets of the three-dimensional convex hull as planes <code>γ₀ + γV×V + γQ×Q</code>.</li>
+          <li><strong>γS secant</strong> — for each plane, takes the grid point where that plane is the lowest of all planes and fits <code>γS</code> as the least-squares slope of the uncapped production function against spillage there, over 9 samples between 0 and 2 × MLT, the long-term mean inflow of the plant in m³/s.</li>
+          <li><strong>Reduction within the plane limit</strong> — merges planes whose normals differ by less than the angle tolerance (1.0 degree by default). While more planes than the plane limit (10 by default) remain, it doubles the tolerance and merges again from the original planes, at most 32 times. A limit it cannot reach fails the plant. The plane limit is a labdessem extension, not DESSEM behavior.</li>
+          <li><strong>Alpha</strong> — fits the correction factor <code>alpha</code> by least squares on 30 evaluation points of the final planes: 6 volumes × 5 flows, or 2 volumes × 15 flows for a plant with a single-volume table. <code>alpha</code> therefore depends on the plane limit.</li>
+          <li><strong>Deviation</strong> — measures the maximum, mean absolute and root-mean-square difference between <code>alpha</code> × the lowest plane and the production function on the fit grid at zero spillage, and writes them to <code>resultado_fpha_computed.csv</code>.</li>
+          <li><strong>Validation</strong> — fails the plant for an empty plane set, a non-positive <code>alpha</code> or a coefficient with the wrong sign (<code>γV</code> or <code>γQ</code> negative, <code>γS</code> positive).</li>
+        </ol>
+        <p>A plant that cannot be fitted stops the run before any result is written. For the fitting options see <a href="./configuration.html#fpha-config">CAD_FPHA_CONFIG.csv</a>; for the failure messages and fixes see <a href="./configuration.html#fpha-failures">Computed FPHA failures</a>. The detail of every stage, the decision records and the known limitations are in <a href="https://github.com/carlosribeiro06/labdessem_rust/blob/main/docs/design/fpha-formulation.md" target="_blank" rel="noopener">docs/design/fpha-formulation.md</a>.</p>
+
+        <h3>Constant productivity</h3>
         <p>When <code>FPHA="constant_productivity"</code>, generation is computed directly:</p>
         <pre><code>G[i,t] = ρ × Q[i,t]</code></pre>
         <p>Where ρ is the specific productivity (MW per m³/s).</p>

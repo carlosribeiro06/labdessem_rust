@@ -730,6 +730,7 @@ dependencies = [
  "labdessem-network",
  "labdessem-simulation",
  "labdessem-solver",
+ "tempfile",
  "tracing-subscriber",
 ]
 

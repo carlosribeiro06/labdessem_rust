@@ -64,7 +64,7 @@ labdessem-io/src/
 │   ├── horizon.rs     # StudyHorizon parsing
 │   ├── thermal.rs     # Thermal plants and ramps
 │   ├── hydro.rs       # Hydro plants, groups, units, FPHA
-│   ├── fpha_geometry.rs   # VHA geometry and tailrace tables
+│   ├── fpha_geometry.rs   # VHA geometry, tailrace and FPHA fitting config tables
 │   ├── inflow_history.rs  # Inflow history (Parquet)
 │   ├── renewable.rs   # Renewable plants
 │   ├── pumping.rs     # Pumping plants
@@ -102,10 +102,16 @@ susceptance matrices, PTDF computation, line flow evaluation, violation
 detection, flow cut constraints, and CMB/CMO dual extraction. Solution
 values arrive as plain slices, so the crate has no solver dependency.
 
-**labdessem-fpha** — FPHA fitting pipeline. Computes hydro production
-hyperplanes from the VHA geometry (convex hull via Qhull, α correction, γₛ
-secant, plane reduction, deviation metrics). Also holds the net head and
-maximum swallowing calculator used by EngMax.
+**labdessem-fpha** — FPHA fitting pipeline. `fit_plant` computes the hydro
+production hyperplanes of one plant from the VHA geometry in this order: fit
+volume window, convex hull via Qhull, γₛ secant, plane reduction within the
+plane limit, α correction fitted on 30 evaluation points of the final planes,
+and deviation metrics. `config.rs` holds the defaults: at most 10 planes, a
+5 × 5 volume-flow grid, an angle tolerance of 1.0 degree and a volume window
+over the whole `[Vmin, Vmax]` interval of the plant, which
+`CAD_FPHA_CONFIG.csv` changes per plant. The plane limit is enforced by
+repeating the reduction with a doubled tolerance. The crate also holds the
+net head and maximum swallowing calculator used by EngMax.
 
 **labdessem-model** — Optimization model construction: indexing, variables,
 objective function, and constraints. Transforms `System` into a solvable
@@ -159,6 +165,15 @@ Provides `labdessem run <case_dir>` subcommand with banner display and
 TTY-aware colored output. Installs one `tracing` subscriber on stderr: WARN
 by default, `RUST_LOG` overrides the level. Prints the banner and the run
 summary, including the EngMax consistency line, on stderr.
+
+With `FPHA="computed"`, `fpha_integration.rs` orchestrates the fit before the
+solve. `compute_fpha` fits every hydro plant with generating units and fails
+with the list of every plant it could not fit. `finalize_fpha_injection`
+injects the fitted segments, turns FPHA on and re-validates the whole
+`System`, because the study read validates with FPHA off.
+`write_computed_results` then writes `resultado_fpha_computed.csv`. The CLI
+runs the three in this order, and a failure exits with code 1 before any
+result is written.
 
 ## Dependency Graph
 
