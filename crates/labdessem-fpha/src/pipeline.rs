@@ -2,14 +2,14 @@
 
 use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
-#[cfg(test)]
-use crate::fitting::PlaneReductionConfig;
 use crate::fitting::{
-    FittingBounds, ForebayTable, FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
-    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
-    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
+    FittingBounds, ForebayTable, FphaFitDeviation, PlaneReductionConfig, ProductionFunction,
+    RawPlane, TailraceSource, compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes,
+    fit_hull_planes, reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
 };
 use crate::types::TailraceModel;
+
+const MAX_TOLERANCE_DOUBLINGS: u32 = 32;
 
 /// A fitted plant's FPHA result.
 #[derive(Debug, Clone)]
@@ -66,15 +66,8 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     // Stage 3: γₛ secant fitting on the unscaled planes
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, params.long_term_mean_inflow_m3s);
 
-    // Stage 4: Plane reduction on the unscaled planes
-    let planes = reduce_planes(
-        &planes,
-        &params.config.reduction_config,
-        &pf,
-        &bounds,
-        params.codigo,
-        0,
-    );
+    // Stage 4: Plane reduction on the unscaled planes, within the plane limit
+    let planes = reduce_within_plane_limit(&planes, params, &pf, &bounds)?;
 
     // Stage 5: Deviation diagnostics of the envelope the LP uses, α × planes
     let deviation = compute_fit_deviation(&scale_planes(&planes, alpha), &pf, &bounds);
@@ -89,6 +82,55 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
         alpha,
         deviation,
     })
+}
+
+/// Reduce `planes` to at most `bounds.max_planes_per_hydro` planes.
+///
+/// The configured reduction runs first; while it leaves more planes than the limit its tolerance is
+/// doubled and the ORIGINAL `planes` are reduced again (greedy tail merging is order-dependent, so
+/// passes are never chained), at most [`MAX_TOLERANCE_DOUBLINGS`] times. A first pass within the
+/// limit is returned unchanged.
+fn reduce_within_plane_limit(
+    planes: &[RawPlane],
+    params: &FitPlantParams,
+    pf: &ProductionFunction,
+    bounds: &FittingBounds,
+) -> Result<Vec<RawPlane>, FphaFittingError> {
+    let limit = bounds.max_planes_per_hydro;
+    let unreachable = |remaining: usize| FphaFittingError::PlaneLimitUnreachable {
+        hydro_name: params.nome.clone(),
+        max_planes: limit,
+        remaining,
+    };
+    if limit == 0 {
+        return Err(unreachable(planes.len()));
+    }
+
+    let mut config = params.config.reduction_config;
+    let mut reduced = reduce_planes(planes, &config, pf, bounds, params.codigo, 0);
+    for _ in 0..MAX_TOLERANCE_DOUBLINGS {
+        if reduced.len() <= limit {
+            break;
+        }
+        config = match config {
+            PlaneReductionConfig::Angle { tolerance_deg } => PlaneReductionConfig::Angle {
+                tolerance_deg: tolerance_deg * 2.0,
+            },
+            PlaneReductionConfig::Distance {
+                tolerance_pct,
+                n_samples,
+            } => PlaneReductionConfig::Distance {
+                tolerance_pct: tolerance_pct * 2.0,
+                n_samples,
+            },
+        };
+        reduced = reduce_planes(planes, &config, pf, bounds, params.codigo, 0);
+    }
+
+    if reduced.len() > limit {
+        return Err(unreachable(reduced.len()));
+    }
+    Ok(reduced)
 }
 
 /// Build the production function and the fitting bounds of a plant.
@@ -326,6 +368,44 @@ mod tests {
             expected.relative.to_bits()
         );
         Ok(())
+    }
+
+    #[test]
+    fn fit_plant_enforces_plane_limit() -> Result<(), Box<dyn std::error::Error>> {
+        let baseline = fit_plant(&test_params())?;
+        let baseline_count = baseline.planes.len();
+        assert!(
+            baseline_count > 1,
+            "fixture baseline {baseline_count} must exceed 1 plane for the limit to bind"
+        );
+
+        let limit = baseline_count - 1;
+        let mut params = test_params();
+        params.config.max_planes = limit;
+        let limited = fit_plant(&params)?;
+
+        assert!(limited.planes.len() <= limit);
+        assert_eq!(limited.alpha.to_bits(), baseline.alpha.to_bits());
+        Ok(())
+    }
+
+    #[test]
+    fn fit_plant_rejects_zero_plane_limit() -> Result<(), Box<dyn std::error::Error>> {
+        let mut params = test_params();
+        params.config.max_planes = 0;
+
+        match fit_plant(&params) {
+            Err(FphaFittingError::PlaneLimitUnreachable {
+                hydro_name,
+                max_planes,
+                ..
+            }) => {
+                assert_eq!(hydro_name, "FURNAS");
+                assert_eq!(max_planes, 0);
+                Ok(())
+            }
+            other => Err(format!("expected PlaneLimitUnreachable, got {other:?}").into()),
+        }
     }
 
     fn windowed_params(window: VolumeWindow, reference: Option<(f64, f64)>) -> FitPlantParams {

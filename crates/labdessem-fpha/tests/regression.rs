@@ -61,6 +61,23 @@ fn reference_bounds() -> FittingBounds {
     }
 }
 
+fn reference_params(nome: &str) -> FitPlantParams {
+    FitPlantParams {
+        codigo: 1,
+        nome: nome.to_string(),
+        forebay: reference_forebay(),
+        tailrace: Some(TailraceModel::Polynomial {
+            coefficients: vec![0.0, 0.0008, -2e-8],
+        }),
+        hydraulic_loss_m: Some(2.0),
+        efficiency: Some(0.92),
+        max_turbined_m3s: 3_000.0,
+        max_generation_mw: 5_000.0,
+        long_term_mean_inflow_m3s: 1_500.0,
+        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
+    }
+}
+
 #[test]
 fn hull_fitting_is_bit_deterministic() {
     let pf = reference_pf();
@@ -125,20 +142,7 @@ fn reduction_is_bit_deterministic() {
 
 #[test]
 fn full_pipeline_is_bit_deterministic() {
-    let params = FitPlantParams {
-        codigo: 1,
-        nome: "REFERENCE".to_string(),
-        forebay: reference_forebay(),
-        tailrace: Some(TailraceModel::Polynomial {
-            coefficients: vec![0.0, 0.0008, -2e-8],
-        }),
-        hydraulic_loss_m: Some(2.0),
-        efficiency: Some(0.92),
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
-    };
+    let params = reference_params("REFERENCE");
 
     let r1 = fit_plant(&params).unwrap();
     let r2 = fit_plant(&params).unwrap();
@@ -161,20 +165,7 @@ fn full_pipeline_is_bit_deterministic() {
 
 #[test]
 fn planes_satisfy_sign_constraints() {
-    let params = FitPlantParams {
-        codigo: 1,
-        nome: "SIGN_TEST".to_string(),
-        forebay: reference_forebay(),
-        tailrace: Some(TailraceModel::Polynomial {
-            coefficients: vec![0.0, 0.0008, -2e-8],
-        }),
-        hydraulic_loss_m: Some(2.0),
-        efficiency: Some(0.92),
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
-    };
+    let params = reference_params("SIGN_TEST");
 
     let result = fit_plant(&params).unwrap();
 
@@ -202,24 +193,36 @@ fn planes_satisfy_sign_constraints() {
 
 #[test]
 fn alpha_is_positive_and_reasonable() {
-    let params = FitPlantParams {
-        codigo: 1,
-        nome: "ALPHA_TEST".to_string(),
-        forebay: reference_forebay(),
-        tailrace: Some(TailraceModel::Polynomial {
-            coefficients: vec![0.0, 0.0008, -2e-8],
-        }),
-        hydraulic_loss_m: Some(2.0),
-        efficiency: Some(0.92),
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
-    };
+    let params = reference_params("ALPHA_TEST");
 
     let result = fit_plant(&params).unwrap();
 
     assert!(result.alpha > 0.0, "α must be positive");
     assert!(result.alpha > 0.5, "α should not be too small");
     assert!(result.alpha < 2.0, "α should not be too large");
+}
+
+#[test]
+fn plane_limit_is_bit_deterministic() {
+    let unlimited = fit_plant(&reference_params("PLANE_LIMIT")).unwrap();
+    assert!(
+        unlimited.planes.len() > 1,
+        "reference fit must yield more than one plane for the limit to bind"
+    );
+
+    let mut params = reference_params("PLANE_LIMIT");
+    params.config.max_planes = unlimited.planes.len() - 1;
+
+    let r1 = fit_plant(&params).unwrap();
+    let r2 = fit_plant(&params).unwrap();
+
+    assert!(r1.planes.len() <= params.config.max_planes);
+    assert_eq!(r1.alpha.to_bits(), r2.alpha.to_bits());
+    assert_eq!(r1.planes.len(), r2.planes.len());
+    for (p1, p2) in r1.planes.iter().zip(&r2.planes) {
+        assert_eq!(p1.gamma_0.to_bits(), p2.gamma_0.to_bits());
+        assert_eq!(p1.gamma_v.to_bits(), p2.gamma_v.to_bits());
+        assert_eq!(p1.gamma_q.to_bits(), p2.gamma_q.to_bits());
+        assert_eq!(p1.gamma_s.to_bits(), p2.gamma_s.to_bits());
+    }
 }
