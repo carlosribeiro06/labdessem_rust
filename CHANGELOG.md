@@ -37,12 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Decks with finite values and one row per plant, such as `examples/24Barras`, read as before
   - To migrate, replace each non-finite cell with a finite value and delete the repeated row or point
 - **BREAKING**: Computed FPHA fits with the MM defaults and `CAD/CAD_FPHA_CONFIG.csv` takes effect
-  - Before: every computed fit used a 6 x 6 volume-flow grid, and of the file only `num_planes` changed the fit; `tolerance`, `min_volume_pct` and `max_volume_pct` were read and dropped
+  - Before: every computed fit used a 6 x 6 volume-flow grid, and no field of the file changed the fit: `num_planes` was copied into the plane limit, which no production code enforced, and `tolerance`, `min_volume_pct` and `max_volume_pct` were read and dropped
   - Now every computed fit starts from 5 volume points, 5 flow points, at most 10 planes and an angle reduction tolerance of 1.0 degrees, so the planes, `alpha` and `resultado_fpha_computed.csv` of every computed run change, with or without the file
   - A row of `CAD_FPHA_CONFIG.csv` changes only its plant: `num_planes` is a plane limit, `tolerance` the angle tolerance in degrees, and `min_volume_pct` / `max_volume_pct` the fractions of the `[Vmin.hm3, Vmax.hm3]` interval of `CAD_UHE.csv` the fit covers (an absent bound keeps 0 or 1)
+  - The plane limit is now enforced: the angle reduction is repeated with a doubled tolerance, always from the original plane set and at most 32 times, until the plant has at most `num_planes` planes; when the limit cannot be reached the fit fails with `hydro <name>: cannot reduce to <n> planes (<k> remain after the last tolerance)` and the plant is listed in `PlantsNotFitted`; `alpha` is computed before the reduction and does not change, the fit deviation does
   - A window outside the geometry table of its plant fails the fit and the plant is listed in `PlantsNotFitted`; a window configured for a plant with a single-point geometry table is ignored and the CLI prints `Warning: plant <id> (<name>) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct <a> and max_volume_pct <b> in CAD/CAD_FPHA_CONFIG.csv are ignored`
   - The `CAD_FPHA_CONFIG.csv` reader now returns `IoError::InvalidData` with `plant <id> has num_planes 0 (must be at least 1) at line <n> in CAD_FPHA_CONFIG.csv` or `plant <id> has min_volume_pct <a> not below max_volume_pct <b> at line <n> in CAD_FPHA_CONFIG.csv` (the latter only when both bounds are given), and `compute_fpha` fails with it
-  - To migrate, set `num_planes` to at least 1 and `min_volume_pct` below `max_volume_pct` in each row, and set `tolerance` where the previous plane count must be kept
+  - To migrate, set `num_planes` to at least 1 and `min_volume_pct` below `max_volume_pct` in each row, raise `num_planes` for a plant whose fit reports that the limit cannot be reached, and set `tolerance` where the previous plane count must be kept
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
@@ -50,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
 - Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
 - The FPHA geometry readers let `NaN` and infinities through (the sign checks are false for `NaN`), sorted the volume table in an undefined order for `NaN`, and silently kept the last of two rows for the same plant, so a `NaN` water level reached the fit or the net-head model (audit EM-04, FP-R01); the readers now reject the value or the duplicate naming the file, plant, column and line
-- `CAD/CAD_FPHA_CONFIG.csv` was only partly applied: `tolerance`, `min_volume_pct` and `max_volume_pct` were dropped and the grid was fixed at 6 x 6 (audit FP-05); each field now changes the fit of its plant and the defaults follow the MM
+- `CAD/CAD_FPHA_CONFIG.csv` had no effect on the fit: `num_planes` was copied but never enforced, `tolerance`, `min_volume_pct` and `max_volume_pct` were dropped, and the grid was fixed at 6 x 6 (audit FP-05); each field now changes the fit of its plant and the defaults follow the MM
 - `read_vha_geometry` reported the duplicate-volume error of a hash-ordered plant when several plants had one; it now reports the lowest plant code
 
 ## [0.12.0] - 2026-11-05

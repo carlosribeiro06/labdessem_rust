@@ -84,7 +84,8 @@ target/release/labdessem run "$d" > run.stdout 2> run.stderr
 | 1 (LP -> MILP -> LP-FIXED -> LP-CALC-CMO, no network) | LP 0.107; MILP 4.654; LP-CALC-CMO 0.269 | 4.654 | 5.07 | 4499200.0374 |
 
 - The LP of option 1 prints 2383481.5598 R$, the computed objective of section 8 (UCT off), so the plane
-  set is the section 8 one. The MILP is about 95 % of the wall time on this case.
+  set is the section 8 one. The MILP is 91.8 % of the wall time of option 1 (4.654 of 5.07 s) and 95.1 % of
+  option 2 (4.479 of 4.71 s) on this case.
 - The effect of removing 144 of 960 FPHA rows from the MILP (NFHAMILP 5) on MILP time is
   `[not measured]`; so is the effect of any limit on the objective and on the deviation.
 
@@ -281,7 +282,8 @@ binding on larger decks) stays open.
 
 Option (a) was chosen (see Decision); the other branches are kept for the record.
 
-- Under (a): ticket-021 runs as written; ticket-022 is proposed for [REMOVE] at refinement; ticket-029
+- Under (a): ticket-021 runs as written; ticket-022 was removed from the plan (its file stays on disk as
+  the record of option (b)); ticket-029
   documents the cap as a labdessem extension and the MILP selection as not implemented (MM §27.2);
   ticket-032 records, after ticket-021, the deviation and objective of a binding cap (`[not measured]`
   here).
@@ -290,4 +292,5 @@ Option (a) was chosen (see Decision); the other branches are kept for the record
 - Under (c): ADR-028 is reopened for `MaxPlanes`; ticket-021 and ticket-031 are rewritten.
 - Under any option: if S2 changes to distance, ADR-028 S3 is reopened. The `[to confirm]` items (centroid
   definition, `PL.Int.Fix` plane set, NFHAMILP vs the LOG's "pontos para o volume", angle card
-  availability in DESSEM) need the MM/MU PDFs or a CEPEL answer before ticket-022 is refined.
+  availability in DESSEM) need the MM/MU PDFs or a CEPEL answer before any MILP plane selection is
+  specified (ticket-022 would be added back under (b)).
