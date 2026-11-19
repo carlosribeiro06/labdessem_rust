@@ -306,7 +306,7 @@ fn control_plant_without_units_and_no_fpha_rows_reads() -> Result<(), Box<dyn Er
 }
 
 /// Control for the A2 cases: with the complete geometry no plant is skipped and every plant
-/// with units keeps both links between generation and water. Stays valid after the fix.
+/// with units keeps both links between generation and water.
 #[test]
 fn control_a2_full_geometry_links_every_plant() {
     // Arrange

@@ -347,7 +347,6 @@ fn build_fit_params(
     let long_term_mean_inflow_m3s = if let Some(&mlt) = mlt_table.get(&plant_code) {
         mlt
     } else if !parquet_present {
-        // No parquet: use deck mean
         if plant.natural_inflow_hm3.is_empty() {
             0.0
         } else {
@@ -355,7 +354,6 @@ fn build_fit_params(
             mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
         }
     } else {
-        // Parquet present but hydro missing
         return Err(FphaComputeError::MissingHydro {
             hydro_id: plant_code,
             hydro_name: plant.name.clone(),

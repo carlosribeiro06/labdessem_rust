@@ -210,7 +210,7 @@ fn build_hydro_plants(
     }
 
     if fpha_enabled {
-        // A code absent from CAD_UHE.csv is not a hydro plant: its rows are ignored, as before.
+        // A code absent from CAD_UHE.csv is not a hydro plant: its rows are ignored.
         let without_units: Vec<String> = fpha_by_plant
             .keys()
             .filter(|code| !units_by_plant.contains_key(code))

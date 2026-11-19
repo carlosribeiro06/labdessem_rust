@@ -126,31 +126,18 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
             )?;
         }
 
-        if row.volume_hm3 < 0.0 {
-            return Err(IoError::invalid_data(format!(
-                "plant {} has negative volume {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo,
-                row.volume_hm3,
-                line_idx + 2
-            )));
-        }
-
-        if row.cota_m < 0.0 {
-            return Err(IoError::invalid_data(format!(
-                "plant {} has negative height {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo,
-                row.cota_m,
-                line_idx + 2
-            )));
-        }
-
-        if row.area_km2 < 0.0 {
-            return Err(IoError::invalid_data(format!(
-                "plant {} has negative area {} at line {} in CAD_GEOMETRIA_UHE.csv",
-                row.codigo,
-                row.area_km2,
-                line_idx + 2
-            )));
+        for (quantity, value) in [
+            ("volume", row.volume_hm3),
+            ("height", row.cota_m),
+            ("area", row.area_km2),
+        ] {
+            if value < 0.0 {
+                return Err(IoError::invalid_data(format!(
+                    "plant {} has negative {quantity} {value} at line {} in CAD_GEOMETRIA_UHE.csv",
+                    row.codigo,
+                    line_idx + 2
+                )));
+            }
         }
 
         grouped.entry(row.codigo).or_default().push((
@@ -317,15 +304,15 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             }
         }
 
-        if let Some(tol) = row.tolerance {
-            if tol < 0.0 {
-                return Err(IoError::invalid_data(format!(
-                    "plant {} has negative tolerance {} at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo,
-                    tol,
-                    line_idx + 2
-                )));
-            }
+        if let Some(tol) = row.tolerance
+            && tol < 0.0
+        {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has negative tolerance {} at line {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                tol,
+                line_idx + 2
+            )));
         }
 
         if row.num_planes == Some(0) {
@@ -336,26 +323,26 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             )));
         }
 
-        if let Some(pct) = row.min_volume_pct {
-            if !(0.0..=1.0).contains(&pct) {
-                return Err(IoError::invalid_data(format!(
-                    "plant {} has invalid min_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo,
-                    pct,
-                    line_idx + 2
-                )));
-            }
+        if let Some(pct) = row.min_volume_pct
+            && !(0.0..=1.0).contains(&pct)
+        {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has invalid min_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                pct,
+                line_idx + 2
+            )));
         }
 
-        if let Some(pct) = row.max_volume_pct {
-            if !(0.0..=1.0).contains(&pct) {
-                return Err(IoError::invalid_data(format!(
-                    "plant {} has invalid max_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
-                    row.codigo,
-                    pct,
-                    line_idx + 2
-                )));
-            }
+        if let Some(pct) = row.max_volume_pct
+            && !(0.0..=1.0).contains(&pct)
+        {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has invalid max_volume_pct {} (must be 0-1) at line {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                pct,
+                line_idx + 2
+            )));
         }
 
         if let (Some(min), Some(max)) = (row.min_volume_pct, row.max_volume_pct)
@@ -535,8 +522,6 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("CAD_TAILRACE.csv"));
     }
-
-    // Tailrace coefficient alias tests
 
     fn create_config_test_case(config_content: Option<&str>) -> TempDir {
         let dir = TempDir::new().unwrap();
@@ -834,7 +819,4 @@ mod tests {
         );
         Ok(())
     }
-
-    // Column alias tests for VHA geometry
-
 }
