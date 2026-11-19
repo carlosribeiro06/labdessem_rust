@@ -66,27 +66,24 @@ fn code_of(plant: &HydroPlant) -> u32 {
     u32::try_from(plant.id.0).expect("plant code fits u32")
 }
 
-/// Asserts that every hydro plant of `system` carries (`present`) or lacks (`!present`) both
-/// `efficiency` and `hydraulic_loss_m`.
-fn assert_physical_data_presence(system: &System, present: bool) {
+/// Asserts that every hydro plant of `system` carries both `efficiency` and `hydraulic_loss_m`.
+fn assert_physical_data_present(system: &System) {
     assert_eq!(
         system.hydro_plants.len(),
         HYDRO_PLANT_COUNT,
         "24Barras has {HYDRO_PLANT_COUNT} hydro plants"
     );
     for plant in &system.hydro_plants {
-        assert_eq!(
+        assert!(
             plant.efficiency.is_some(),
-            present,
-            "plant {} ({}): efficiency is {:?}, expected present={present}",
+            "plant {} ({}): efficiency is {:?}, expected it present",
             plant.id.0,
             plant.name,
             plant.efficiency
         );
-        assert_eq!(
+        assert!(
             plant.hydraulic_loss_m.is_some(),
-            present,
-            "plant {} ({}): hydraulic_loss_m is {:?}, expected present={present}",
+            "plant {} ({}): hydraulic_loss_m is {:?}, expected it present",
             plant.id.0,
             plant.name,
             plant.hydraulic_loss_m
@@ -195,9 +192,9 @@ fn explicit_zero_loss_is_accepted() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Control for the physical-data baselines: the official inputs carry efficiency, hydraulic loss
-/// and a tailrace model for every plant with units, so the inflation measured by the baselines
-/// comes from the removed input. Stays valid after the fix.
+/// Control for the missing-input tests: the official inputs carry efficiency, hydraulic loss and a
+/// tailrace model for every plant with units, so each failure above comes only from the input
+/// that test removes.
 #[test]
 fn control_a3_official_inputs_carry_physical_data() {
     // Arrange
@@ -209,7 +206,7 @@ fn control_a3_official_inputs_carry_physical_data() {
     // Assert
     assert_eq!(run.plants_skipped, 0, "the control must skip no plant");
     assert_eq!(run.plants_processed, HYDRO_PLANT_COUNT);
-    assert_physical_data_presence(&run.system, true);
+    assert_physical_data_present(&run.system);
     let mut plants_with_groups = 0;
     for plant in run
         .system

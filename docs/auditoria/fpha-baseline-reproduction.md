@@ -4,8 +4,8 @@ This report records the state of the workspace before any FPHA correction: the t
 test, lint and format status of commit `4ac43e0` (develop, v0.12.0 plus the model audit report), and
 three fast derived-case runs of the `labdessem` CLI. Every later FPHA ticket compares against these
 numbers, so a failure or a number change after a ticket is attributable to that ticket and not to the
-starting point. Sections 5 to 7a record the pre-fix A1-A3 measurements (ticket-007); section 8 is a
-placeholder that ticket-017 fills in. Nothing was fixed while measuring; the official example
+starting point. Sections 5 to 7a record the pre-fix A1-A3 measurements (ticket-007); section 8
+records the post-fix comparison (ticket-017). Nothing was fixed while measuring; the official example
 `examples/24Barras` was never modified or executed.
 
 ## 1. Environment

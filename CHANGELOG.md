@@ -23,11 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Before: a plant without a `CAD/CAD_TAILRACE.csv` row was fitted with a 0 m tailrace level, and an absent or empty `Eficiencia` or `Perda.m` was fitted as efficiency 1.0 and loss 0 m, silently inflating the plant's production function
   - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` with `FitFailureReason::MissingInputs` naming every missing input of every affected plant, and the CLI exits with code 1 before writing any result
   - An explicit `Perda.m = 0` stays valid; only an absent column or an empty cell counts as missing
-  - `FitFailureReason` gained `MissingInputs(Vec<FphaInput>)` and `FphaComputeError` gained `MissingFphaInputs`; both enums are exhaustive, so external exhaustive matches break
+  - `FitFailureReason` gained `MissingInputs(Vec<FphaInput>)` and `FphaComputeError` gained `MissingFphaInputs`
   - EngMax is unchanged and keeps its defaults for missing efficiency, loss and tailrace
 
 ### Fixed
-- Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and never to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
+- Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
 - A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
 - Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
 
