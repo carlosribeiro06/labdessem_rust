@@ -6,7 +6,8 @@ use labdessem_core::entities::hydro::HydroPlant;
 use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::{OperationalLimitVariable, System};
 use labdessem_model::names::{
-    hydro_diversion_name, hydro_spillage_name, hydro_turbining_name, pumping_name,
+    hydro_diversion_name, hydro_spillage_name, hydro_turbining_name, hydro_volume_name,
+    pumping_name,
 };
 
 /// Get display label for operational limit variable.
@@ -197,8 +198,6 @@ pub fn hydro_generation_max_at_point_mw(
     period: usize,
     plant_max_generation_mw: f64,
 ) -> f64 {
-    use labdessem_model::names::hydro_volume_name;
-
     let flow_conversion = system.horizon.period_duration_hours * 0.0036;
     let max_turbining: f64 = plant
         .groups

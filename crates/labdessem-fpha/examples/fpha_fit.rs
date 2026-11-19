@@ -51,8 +51,7 @@ struct PlantParams {
 
 fn read_plant_params(path: &Path) -> Result<HashMap<i32, PlantParams>, Box<dyn std::error::Error>> {
     let rows: Vec<PlantParams> = read_csv(path)?;
-    let params = rows.into_iter().map(|r| (r.codigo, r)).collect();
-    Ok(params)
+    Ok(rows.into_iter().map(|r| (r.codigo, r)).collect())
 }
 
 fn example_config(row: Option<&labdessem_io::readers::FphaPlantConfig>) -> FphaPlantConfig {
@@ -100,7 +99,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Case: {}", case_path.display());
     println!();
 
-    // Read input files using labdessem-io readers
     println!("Reading input files...");
     let vha_data = read_vha_geometry(case_path)?;
     println!("  ✓ CAD_GEOMETRIA_UHE.csv: {} plants", vha_data.len());
@@ -115,7 +113,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  ✓ CAD_UHE_PARAMS.csv: {} plants", plant_params.len());
     println!();
 
-    // Fit each plant
     println!("Fitting FPHA hyperplanes...");
     println!("─────────────────────────────────────────────────────────────────────");
 
@@ -125,15 +122,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (codigo, vha) in &vha_data {
         let codigo_i32 = *codigo as i32;
 
-        let params = match plant_params.get(&codigo_i32) {
-            Some(p) => p,
-            None => {
-                println!("  ⚠ Plant {} not found in CAD_UHE_PARAMS.csv, skipping", codigo);
-                continue;
-            }
+        let Some(params) = plant_params.get(&codigo_i32) else {
+            println!("  ⚠ Plant {} not found in CAD_UHE_PARAMS.csv, skipping", codigo);
+            continue;
         };
 
-        // Convert VHA geometry using from_io conversion
         let forebay = match forebay_from_vha(vha, &params.nome) {
             Ok(fb) => fb,
             Err(e) => {
@@ -144,7 +137,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let fpha_config = example_config(configs.get(codigo));
 
-        // Convert tailrace using from_io conversion
         let tailrace_model = tailrace_data.get(codigo).map(tailrace_from_data);
 
         let fit_params = FitPlantParams {
@@ -186,7 +178,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("─────────────────────────────────────────────────────────────────────");
     println!();
 
-    // Write results using labdessem-io output
     let records: Vec<ComputedFphaRecord> = results
         .iter()
         .flat_map(|r| {
@@ -212,7 +203,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     write_fpha_computed(case_path, &records)?;
     println!("Results written to: {}/RESULTADOS/resultado_fpha_computed.csv", case_path.display());
 
-    // Print summary
     let total_planes: usize = results.iter().map(|r| r.planes.len()).sum();
     let avg_mae: f64 = if results.is_empty() {
         0.0

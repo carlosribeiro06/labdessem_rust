@@ -234,10 +234,9 @@ S2: (b) applies to precomputed and computed segments alike, because both go thro
 `variable_values` (`output_prep.rs` inserts slots `0..=horizon`), so the column stays consistent with
 the rows. `VolumeHM3` stays the end-of-period volume, since it is a storage report, not a head.
 
-S3: ADR-028 is unchanged. Its window (`min_volume_pct`/`max_volume_pct` of `CAD_FPHA_CONFIG.csv`, a fraction of the `CAD_UHE.csv`
-`[Vmin, Vmax]`) and
-its reference describe the fit domain in volume, the axis on which the planes are fitted, not which
-period volume the row reads. A period-mean volume lies between two feasible slot volumes, so it stays
+S3: ADR-028 is unchanged. Its window (`min_volume_pct`/`max_volume_pct` of `CAD_FPHA_CONFIG.csv`, a
+fraction of the `CAD_UHE.csv` `[Vmin, Vmax]`) and its reference describe the fit domain in volume, the
+axis on which the planes are fitted, not which period volume the row reads. A period-mean volume lies between two feasible slot volumes, so it stays
 inside `[Vmin, Vmax]`. The one-point plants (ITUTINGA, FUNIL-GRANDE, `Vmin = Vmax`, `gamma_v` = 0 on
 every plane) are not affected: their slot volumes are equal and the volume term is 0 under either
 option.
