@@ -11,8 +11,6 @@ const K_GRAVITY: f64 = 0.00981; // MW / (m³/s · m)
 pub enum TailraceSource {
     /// Use entity-level tailrace model.
     Entity(Option<TailraceModel>),
-    /// Use fitted families (placeholder for backwater coupling).
-    Families,
 }
 
 /// Evaluable production function for one hydro plant.
@@ -65,7 +63,6 @@ impl ProductionFunction {
         match &self.tailrace {
             TailraceSource::Entity(Some(model)) => model.evaluate(outflow_m3s),
             TailraceSource::Entity(None) => 0.0,
-            TailraceSource::Families => 0.0, // Placeholder
         }
     }
 

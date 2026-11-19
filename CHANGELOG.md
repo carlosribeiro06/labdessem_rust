@@ -52,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GeracaoMaxPontoMW` follows the period-mean volume; `VolumeHM3` is still the end-of-period volume
   - Measured on `examples/24Barras` before -> after (R$): `O_c` (computed) 2420590.3195 -> 2420558.7522, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420591.0652 -> 2420559.4979, `O_one` (precomputed, `Fcorrec = 1`) 2374998.0326 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420590.3195 -> 2420558.7522
   - Maximum static envelope difference `|E(V_mean) - E(V_end)|` along the solved trajectory, before -> after: CAMARGOS 0, ITUTINGA 0, FUNIL-GRANDE 0, FURNAS 0.011043 -> 0.011038 MW (period 9); the maximum change of `GeracaoMaxPontoMW` between the two runs is 0.011084 MW (FURNAS, period 9) and 0 for the other plants
+- **BREAKING**: `labdessem_fpha::TailraceSource::Families` is removed
+  - Before: the public enum had a `Families` variant, documented as a placeholder for backwater coupling, that no code constructed and that evaluated to a 0 m tailrace level
+  - Now `TailraceSource` has only `Entity`; no run changes (computed planes, alpha and objectives are bit-identical); tailrace families stay unmodelled (ADR-032 (a); backwater, piecewise ranges and drowning are documented as limitations)
+  - To migrate, construct `TailraceSource::Entity(Some(TailraceModel::..))`
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
