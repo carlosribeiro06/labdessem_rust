@@ -744,3 +744,326 @@ explained by an isolating experiment.
 - Not comparable: wall times are single runs (0.23 to 0.15 s computed release, 0.06 to 0.05 s
   constant_productivity release, debug E2E times in the objective table) and no repeat was made, so no timing
   change is claimed; the compilers and kernel on `PATH` differ from section 1 (Environment above).
+
+## 9. Post-configuration comparison
+
+Measured after tickets 019, 021, 023, 024 and 031, at commit `51751baf453d2b8840c66f0754b48d30c4348e86`
+(`51751ba`, branch `fix/fpha-corrections`, `git status --short` empty), on 2026-11-19. "Pre" is section 8 (its
+"post" column, commit `d6a223d`); every "post" value was produced by a command run for this section, with the
+logs kept outside the repository. Between `d6a223d` and `27a608b` (the Epic 02 boundary commit) the only change
+under `crates/` is test code (`crates/labdessem-cli/src/fpha_integration/physical_data_tests.rs`, `git diff
+--stat d6a223d..27a608b -- crates`), so section 8 stands as the pre-Epic 03 state. No code or test was changed
+while measuring and `examples/24Barras` was neither modified nor executed: every CLI run used a fresh derived
+copy built by the procedure of section 3.
+
+Environment: `rustc`, `cargo`, `clippy`, `rustfmt` and the qhull SHA equal section 1; `gcc`/`g++` 13.3.0, `cmake`
+3.28.3, `clang` 18.1.3 and `uname -r` `6.18.58.1-microsoft-standard-WSL2` equal the values section 8 lists for its
+`PATH` (section 1: 15.2.0, 4.2.3, 21.1.8 and `6.18.33.2-microsoft-standard-WSL2`); `make` is 4.3 (section 1:
+4.4.1) and `nproc` 14 (section 1: 14). The release build compiled the nine workspace crates (section 8: three);
+the vendored qhull build script was not checked.
+
+**Build, test and clippy**
+
+```bash
+. "$HOME/.cargo/env"
+cargo build --workspace --release
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --message-format=json > "$LOG_DIR/clippy.json"
+```
+
+The last command is `cargo clippy --workspace --all-targets` without `-D warnings`; the JSON output is reduced to
+distinct diagnostics by the key (lint, primary file, primary line, message), the method of section 2 (messages
+without a primary span, such as the `N warnings emitted` summaries, are not counted).
+
+| Command | Exit code, pre | Exit code, post | Note |
+|---|---|---|---|
+| `cargo build --workspace --release` | 0 | 0 | 2.42 s pre, 9.31 s post; the nine workspace crates were recompiled post; neither is a cold-build time |
+| `cargo test --workspace` | 0 | 0 | 5.45 s pre (test binaries already compiled), 23.53 s post (the nine workspace crates compiled); not comparable |
+| `cargo clippy --workspace --all-targets -- -D warnings` | 101 | 101 | unchanged; same four errors at the same locations (below) |
+| `cargo clippy --workspace --all-targets` | 0 | 0 | 175 distinct diagnostics pre, 174 post |
+
+**Test results** (`cargo test --workspace`: 23 test binaries pre and post, no failures):
+
+| Test binary | Passed, pre | Passed, post | Failed, pre | Failed, post | Ignored, pre | Ignored, post |
+|---|---|---|---|---|---|---|
+| labdessem-cli: unittests `src/main.rs` | 44 | 55 | 0 | 0 | 0 | 0 |
+| labdessem-cli: `tests/fpha_e2e.rs` | 4 | 5 | 0 | 0 | 0 | 0 |
+| labdessem-cli: `tests/fpha_io_integration.rs` | 5 | 5 | 0 | 0 | 0 | 0 |
+| labdessem-cli: `tests/integration.rs` | 0 | 0 | 0 | 0 | 1 | 1 |
+| labdessem-core: unittests `src/lib.rs` | 34 | 34 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: unittests `src/lib.rs` | 89 | 94 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: `tests/integration.rs` | 9 | 9 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: `tests/regression.rs` | 7 | 8 | 0 | 0 | 0 | 0 |
+| labdessem-io: unittests `src/lib.rs` | 63 | 74 | 0 | 0 | 0 | 0 |
+| labdessem-model: unittests `src/lib.rs` | 35 | 35 | 0 | 0 | 0 | 0 |
+| labdessem-network: unittests `src/lib.rs` | 47 | 47 | 0 | 0 | 0 | 0 |
+| labdessem-simulation: unittests `src/lib.rs` | 58 | 58 | 0 | 0 | 0 | 0 |
+| labdessem-solver: unittests `src/lib.rs` | 56 | 56 | 0 | 0 | 0 | 0 |
+| labdessem-solver: `tests/integration.rs` | 10 | 10 | 0 | 0 | 0 | 0 |
+| labdessem-uc: unittests `src/lib.rs` | 43 | 43 | 0 | 0 | 0 | 0 |
+| labdessem-core: doc-tests | 0 | 0 | 0 | 0 | 1 | 1 |
+| labdessem-fpha, -io, -model, -network, -simulation, -solver, -uc: doc-tests (7 binaries) | 0 | 0 | 0 | 0 | 0 | 0 |
+| **Total** | **504** | **533** | **0** | **0** | **2** | **2** |
+
+The two ignored tests are the same as in section 2.
+
+**Clippy** (`cargo clippy --workspace --all-targets`, distinct diagnostics over all targets)
+
+| Crate | Warnings, pre | Warnings, post |
+|---|---|---|
+| labdessem-cli | 13 | 12 |
+| labdessem-core | 1 | 1 |
+| labdessem-fpha | 36 | 36 |
+| labdessem-io | 17 | 17 |
+| labdessem-model | 5 | 5 |
+| labdessem-network | 35 | 35 |
+| labdessem-simulation | 2 | 2 |
+| labdessem-solver | 55 | 55 |
+| labdessem-uc | 11 | 11 |
+| **Total** | **175** | **174** |
+
+- The count is below the 175 of section 2, so no new diagnostic is recorded. The dominant lints equal section 8
+  except `clippy::collapsible_if`: `clippy::unwrap_used` 40, `clippy::assert_is_empty` 34, `clippy::expect_used`
+  33, `clippy::uninlined_format_args` 11, `clippy::cast_possible_wrap` 9, `clippy::collapsible_if` 7 (pre 8).
+  Only the counts were compared; the identity of the one diagnostic that left `labdessem-cli` was not
+  established, and line numbers move as files change.
+- `-D warnings`, exit code 101 pre and post, the same four errors: three `clippy::manual_assert` at
+  `crates/labdessem-fpha/build.rs` lines 37, 53 and 66, and one `clippy::module_inception` at
+  `crates/labdessem-core/src/system/mod.rs:10`.
+- The two manifest warnings of section 2 (`labdessem-uc` -> `labdessem-core`, `labdessem-io` ->
+  `labdessem-solver`) are still printed by the release build and by `cargo test`; the clippy run prints the
+  `labdessem-uc` one. `cargo fmt --all -- --check` was not re-run for this section.
+
+**A1: alpha, planes and deviations**
+
+Commands (`LOG_DIR` outside the repository; only stderr goes to the log; the three commands are those of section
+8, no test was renamed):
+
+```bash
+cargo test -p labdessem-cli --bin labdessem -- lp_envelope_matches_alpha_scaled_planes lp_envelope_deviation_matches_reported_deviation computed_csv_round_trip_reproduces_segments --nocapture --test-threads=1 2> "$LOG_DIR/a1.log"
+cargo test -p labdessem-cli --test fpha_e2e -- computed_csv_round_trip_reproduces_objective plant_without_geometry_fails_run missing_physical_data_fails_run --nocapture --test-threads=1 2> "$LOG_DIR/e2e.log"
+cargo test -p labdessem-cli --bin labdessem -- missing_tailrace_row_fails_fitting missing_efficiency_and_loss_fail_fitting --nocapture --test-threads=1 2> "$LOG_DIR/a3_unit.log"
+```
+
+All three exit with code 0 (3, 3 and 2 tests passed). Pre values are the post columns of section 8; alpha is
+printed at the 6 decimals of `a1.log`, maximum deviations in MW on the fit grid:
+
+| Code | Plant | alpha, pre | alpha, post | Planes, pre | Planes, post | Reported max, pre | Reported max, post | LP-based max, pre | LP-based max, post |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | CAMARGOS | 0.969607 | 0.972834 | 7 | 6 | 2.970530 | 2.876295 | 2.970530 | 2.876295 |
+| 1 | ITUTINGA | 1.000000 | 1.000000 | 3 | 3 | 0.102097 | 0.000000 | 0.102097 | 0.000000 |
+| 2 | FUNIL-GRANDE | 1.000000 | 1.000000 | 4 | 3 | 0.000000 | 0.000000 | 0.000000 | 0.000000 |
+| 3 | FURNAS | 0.991295 | 0.993203 | 6 | 5 | 25.360739 | 23.284586 | 25.360739 | 23.284586 |
+
+Full `max/mean/rms` cells (MW), pre from section 8 and post from `a1.log`:
+
+| Code | Plant | Reported, fit grid, pre | Reported, fit grid, post | LP-based, fit grid, pre | LP-based, fit grid, post | LP-based, 11 x 11, pre | LP-based, 11 x 11, post |
+|---|---|---|---|---|---|---|---|
+| 0 | CAMARGOS | 2.970530/0.941389/1.257590 | 2.876295/0.880778/1.230593 | 2.970530/0.941389/1.257590 | 2.876295/0.880778/1.230593 | 3.619181/1.037368/1.378325 | 3.933533/1.062275/1.428675 |
+| 1 | ITUTINGA | 0.102097/0.032232/0.055914 | 0.000000/0.000000/0.000000 | 0.102097/0.032232/0.055914 | 0.000000/0.000000/0.000000 | 2.229353/0.262615/0.677984 | 2.673366/0.366313/0.851925 |
+| 2 | FUNIL-GRANDE | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 5.635867/0.595420/1.705151 | 6.806018/1.049644/2.196044 |
+| 3 | FURNAS | 25.360739/9.047101/11.706933 | 23.284586/7.746639/10.683041 | 25.360739/9.047101/11.706933 | 23.284586/7.746639/10.683041 | 39.314637/9.982315/12.851147 | 43.053387/9.748834/12.874282 |
+
+- The CLI prints alpha at 4 decimals in the computed runs: CAMARGOS 0.9728, ITUTINGA 1.0000, FUNIL-GRANDE 1.0000,
+  FURNAS 0.9932. Alpha of CAMARGOS and FURNAS now differs from section 8 at the printed precision (+0.003227 and
+  +0.001908); section 8 found no alpha difference between `4ac43e0` and `d6a223d`.
+- Post, the reported and the LP-based fit-grid deviations are equal for all four plants, as in section 8.
+
+Round trip of the computed CSV into `OPER_FPHA.csv` (`computed_csv_round_trip_reproduces_segments`, columns as in
+section 8; the test asserts `max_difference_over_bound` at most 1):
+
+| Code | Plant | Segments, pre | Segments, post | Max envelope difference (MW), pre | Max envelope difference (MW), post | Max difference over bound, pre | Max difference over bound, post |
+|---|---|---|---|---|---|---|---|
+| 0 | CAMARGOS | 7 | 6 | 7.742e-5 | 1.100e-4 | 0.597 | 0.848 |
+| 1 | ITUTINGA | 3 | 3 | 7.200e-5 | 1.180e-4 | 0.762 | 0.783 |
+| 2 | FUNIL-GRANDE | 4 | 3 | 2.091e-4 | 8.400e-5 | 0.556 | 0.248 |
+| 3 | FURNAS | 6 | 5 | 6.387e-4 | 9.419e-4 | 0.453 | 0.669 |
+
+**Objectives**
+
+The end-to-end solves are printed by `computed_csv_round_trip_reproduces_objective` (source `e2e.log`), with the
+labels of section 8 (`O_c` computed, `O_alpha` precomputed with `Fcorrec = alpha`, `O_one` the same planes with
+`Fcorrec = 1`). Run times are whole-process wall times of the DEBUG build, one run each.
+
+| Label | Run | Objective pre (R$) | Objective post (R$) | Change (R$) | Run time pre / post (s) |
+|---|---|---|---|---|---|
+| `O_c` | `FPHA: computed` | 2383481.5598 | 2420590.3195 | +37,108.7597 (+1.557 %) | 1.43 / 1.57 |
+| `O_alpha` | `precomputed`, `Fcorrec = alpha` | 2383483.1342 | 2420591.0652 | +37,107.9310 (+1.557 %) | 1.50 / 1.60 |
+| `O_one` | `precomputed`, `Fcorrec = 1` | 2327100.3261 | 2374998.0326 | +47,897.7065 (+2.058 %) | 1.65 / 1.64 |
+
+| Gap | Signed difference, pre | Signed difference, post | Relative gap, pre | Relative gap, post | Test criterion |
+|---|---|---|---|---|---|
+| round-trip gap (`O_alpha - O_c`) | +1.5744 R$ | +0.7457 R$ | 6.605e-7 | 3.081e-7 | at most 1e-5 relative |
+| `O_c - O_one` | +56,381.2337 R$ | +45,592.2869 R$ | 2.365e-2 | 1.884e-2 | more than 1e-5 relative |
+
+Release CLI solves of the fast configuration (section 3 procedure on fresh copies, section 4 table format):
+
+| Run | Binary | Exit code | Wall time (s) | Objective | Plants | Solver or MILP infeasibility |
+|---|---|---|---|---|---|---|
+| fast computed | `target/release/labdessem` | 0 | 0.15 | Objective: 2420590.3195 | Processed 4 plants, 0 skipped | none |
+| fast constant_productivity | `target/release/labdessem` | 0 | 0.05 | Objective: 1979326.8490 | not printed | none |
+
+| Objective, R$ | Pre | Post | Change |
+|---|---|---|---|
+| computed (release CLI) | 2383481.5598 | 2420590.3195 | +37,108.7597 (+1.557 %) |
+| constant_productivity (release CLI) | 1979326.8490 | 1979326.8490 | 0.0000 |
+
+- "Infeasibility": the string `infeasib` (case-insensitive) occurs in no stdout, no stderr and no file under
+  `RESULTADOS/` of the two solves; both print `violations = 0` and `Violations:  0`.
+- The computed CLI objective (release) equals `O_c` of the end-to-end test (debug) to the 4 decimals printed.
+- The computed run prints, in order, CAMARGOS 6 planes (alpha 0.9728), ITUTINGA 3 (1.0000), FUNIL-GRANDE 3
+  (1.0000) and FURNAS 5 (0.9932), `FPHA computation complete: 4 plants processed, 0 skipped` and
+  `FPHA injection complete: 4 plants updated`, with `Injected 6`, `3`, `3` and `5 FPHA segments`.
+  `resultado_fpha_computed.csv` has 17 plane rows (6, 3, 3 and 5 per plant); section 8 had 20.
+
+**A2 and A3: plants that can no longer be fitted**
+
+Same copies, edits and commands as the A2 and A3 part of section 8 (release binary, `"FPHA": "computed"`, fresh
+copy each; A2 removes the one row of plant 2 from `CAD/CAD_GEOMETRIA_UHE.csv`, 203 to 202 lines; A3 removes the
+one row of plant 3 from `CAD/CAD_TAILRACE.csv`, 5 to 4 lines):
+
+| Case | Exit code, pre | Exit code, post | First error line, post (stderr) | Detail line, post |
+|---|---|---|---|---|
+| A2 | exit code 1 | exit code 1 | `Error: computed FPHA could not be fitted for 1 hydro plant(s) with generating units:` | `plant 2 (FUNIL-GRANDE): no rows in CAD/CAD_GEOMETRIA_UHE.csv` |
+| A3 | exit code 1 | exit code 1 | `Error: computed FPHA could not be fitted for 1 hydro plant(s) with generating units:` | `plant 3 (FURNAS): missing inputs: row in CAD/CAD_TAILRACE.csv` |
+
+Both runs print the fits of the three other plants first (A2: plants 0, 1 and 3 with 6, 3 and 5 planes; A3: plants
+0, 1 and 2 with 6, 3 and 3 planes), write no `RESULTADOS/` directory and take 0.01 s. The four failure-path tests
+of section 8 pass with the commands above. The two E2E tests print `A3 removed 1 row(s) of plant 3 (FURNAS) from
+CAD/CAD_TAILRACE.csv` and `A2 removed 1 row(s) of plant 2 (FUNIL-GRANDE) from CAD/CAD_GEOMETRIA_UHE.csv`;
+`missing_tailrace_row_fails_fitting` prints the fits of CAMARGOS, ITUTINGA and FUNIL-GRANDE (6, 3 and 3 planes) and
+none for FURNAS; `missing_efficiency_and_loss_fail_fitting` prints only `Computing FPHA planes from geometry
+data...`.
+
+**Configuration effects on derived cases**
+
+Each case is a copy of `examples/24Barras` (`CAD` and `OPER`) with the fast configuration of section 3
+(`"FPHA": "computed"`) and one `CAD/CAD_FPHA_CONFIG.csv` of header plus one row, written as in the ticket-031
+tests `config_tolerance_changes_only_its_plant`, `config_window_changes_only_its_plant` and
+`config_plane_limit_caps_its_plant` (`crates/labdessem-cli/src/fpha_integration.rs`). One fresh directory and
+one release CLI run per row:
+
+```bash
+repo=/path/to/labdessem_rust
+d=$(mktemp -d)
+cp -r "$repo/examples/24Barras/CAD" "$repo/examples/24Barras/OPER" "$d"/
+# write the fast configuration (FPHA computed) to "$d"/study_config.json, as in section 3
+printf 'codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct\n%s\n' "$ROW" > "$d/CAD/CAD_FPHA_CONFIG.csv"
+"$repo/target/release/labdessem" run "$d" > run.stdout 2> run.stderr; echo "exit code $?"
+grep -E 'fitted|Objective:|Processed|Warning|Error' run.stderr
+```
+
+`ROW` is the first column below; the control has no `CAD_FPHA_CONFIG.csv` (it is the "fast computed" run of the
+objective table). Alpha and the maximum fit-grid deviation of the edited plant come from the
+`resultado_fpha_computed.csv` of each run (deviation at the 3 decimals that file prints, on the fit grid of that
+run, so it is not comparable across rows with different windows). Change and relative change are against the control
+objective 2420590.3195:
+
+| `ROW` | Edited plant | Planes, control -> row | alpha, edited plant | Max deviation, edited plant (MW) | Exit code | Objective (R$) | Change (R$) | Relative |
+|---|---|---|---|---|---|---|---|---|
+| none (control) | none | CAMARGOS 6, ITUTINGA 3, FUNIL-GRANDE 3, FURNAS 5 | CAMARGOS 0.972834, FURNAS 0.993203 | CAMARGOS 2.876, FURNAS 23.285 | 0 | 2420590.3195 | 0.0000 | 0 |
+| `3;;5.0;;` | FURNAS | 5 -> 2 | 0.993203 | 182.958 | 0 | 1979371.7022 | -441,218.6173 | -18.228 % |
+| `3;;;0.5;0.6` | FURNAS | 5 -> 2 | 0.999463 | 24.274 | 0 | 1979381.5955 | -441,208.7240 | -18.227 % |
+| `0;2;;;` | CAMARGOS | 6 -> 2 | 0.972834 | 20.701 | 0 | 2406551.2572 | -14,039.0623 | -0.580 % |
+| `3;2;5.0;0.5;0.6` (audit row) | FURNAS | 5 -> 2 | 0.999463 | 24.274 | 0 | 1979381.5955 | -441,208.7240 | -18.227 % |
+| `3;1;;;` (extra, see below) | FURNAS | 5 -> error | not printed | not printed | 1 | no objective | not applicable | not applicable |
+
+- Every run exits 0 and prints `Processed 4 plants, 0 skipped` except the extra row. In every row the other three
+  plants keep the control's planes, alpha at 4 decimals (stderr) and alpha and deviations at the CSV precision.
+  No run printed a `Warning` line: no row touches ITUTINGA or FUNIL-GRANDE, the two plants with a one-point VHA
+  table (1 row each in `CAD/CAD_GEOMETRIA_UHE.csv`), so the "window ignored" warning of ADR-028 S2 was not
+  exercised here.
+- Do the objectives now differ? The audit (FP-05, 4.502.332,7276 for three versions of the file) is not
+  reproduced: the control, the audit row and the other rows give 2420590.3195, 1979381.5955, 1979371.7022 and
+  2406551.2572, four different objectives for five files. The only equal pair is `3;;;0.5;0.6` and
+  `3;2;5.0;0.5;0.6` (equal objective to the 4 decimals printed, and identical plane rows in the two
+  `resultado_fpha_computed.csv`, compared by `diff` on the lines that do not start with `#`). The plane count of
+  the audit's FURNAS (6 identical planes with and without the file) is now 5 without the row and 2 with it.
+- The audit's third version (one plane) is not recorded exactly (plant and other fields unknown), so `3;1;;;` is
+  an extra row, not one of the four rows asked for. It exits 1; the first `Error:` line is `Error: computed FPHA
+  could not be fitted for 1 hydro plant(s) with generating units:` and the detail line is `plant 3 (FURNAS):
+  fitting failed: hydro FURNAS: cannot reduce to 1 planes (2 remain after the last tolerance)`.
+- The rows `3;;5.0;;`, `3;;;0.5;0.6` and `3;2;5.0;0.5;0.6` (FURNAS with 2 planes) land 44.8532, 54.7465 and
+  54.7465 R$ above the constant_productivity objective of the same configuration (1979326.8490), and `3;;5.0;;`
+  has a FURNAS maximum deviation of 182.958 MW against 23.285 MW in the control. The cause of both is
+  `[not measured]` (see Not isolated).
+- Pre, the file was read and ignored (audit FP-05, ADR-028 context), so each row would have produced the section 8
+  planes and objective; that was not re-run at `d6a223d` and is `[not measured]` here.
+
+**New rejection messages**
+
+Derived cases outside the repository, same copy procedure; the run is the release CLI (`"$repo/target/release/labdessem"
+run "$d" > run.stdout 2> run.stderr; echo "exit code $?"`). The first line of stderr is the blank line that precedes
+the banner in every case; the table gives the first line that starts with `Error:` (line number in stderr).
+No `RESULTADOS/` directory is created by any of the three runs.
+
+```bash
+# ticket-023 (FPHA: precomputed): plant 2 loses its unit rows, OPER_FPHA.csv has one segment row per plant 0..3
+grep -v '^2;' "$d/CAD/CAD_CONJ_UHE.csv" > "$d/g.tmp" && mv "$d/g.tmp" "$d/CAD/CAD_CONJ_UHE.csv"
+{ printf 'USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s\n'; for c in 0 1 2 3; do printf '%s;PLANT-%s;1;1;0;0;0;0\n' $c $c; done; } > "$d/OPER/OPER_FPHA.csv"
+# ticket-024, duplicate geometry volume (FPHA: computed): a second CAMARGOS row with the first volume, 120 hm3
+printf '0;120;900.00;24.00\r\n' >> "$d/CAD/CAD_GEOMETRIA_UHE.csv"
+# ticket-024, duplicate configuration row (FPHA: computed)
+printf 'codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct\n3;;5.0;;\n3;2;;;\n' > "$d/CAD/CAD_FPHA_CONFIG.csv"
+```
+
+| Ticket | Case | CLI exit code | First `Error:` line (stderr) |
+|---|---|---|---|
+| 023 | `OPER_FPHA.csv` rows for plant 2, which has no unit row | 1 | `Error: OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: 2 (FUNIL-GRANDE)` (line 12) |
+| 024 | duplicate volume in `CAD_GEOMETRIA_UHE.csv` | 1 | `Error: plant 0 has duplicate volume 120 at lines 2 and 204 in CAD_GEOMETRIA_UHE.csv` (line 12) |
+| 024 | duplicate row in `CAD_FPHA_CONFIG.csv` | 1 | `Error: I/O error: plant 3 has duplicate rows at lines 2 and 3 in CAD_FPHA_CONFIG.csv` (line 15) |
+
+The first two errors stop the run right after `Reading input data...`; the configuration error is printed after
+`Computing FPHA planes from geometry data...` and, unlike the other two, carries the `I/O error:` prefix.
+
+**Differences**
+
+Intended by the plan: the configuration file now changes the fit of its own plant only, the plane limit is
+enforced, and inconsistent inputs stop the run with exit code 1 and a message naming the plant and the file. Every
+other pre/post change found is listed here; none was explained by an isolating experiment.
+
+- Plane count: CAMARGOS 7 to 6, FUNIL-GRANDE 4 to 3, FURNAS 6 to 5; ITUTINGA stays 3. Injected segments per
+  computed run go from 20 to 17.
+- Alpha: CAMARGOS 0.969607 to 0.972834 and FURNAS 0.991295 to 0.993203; ITUTINGA and FUNIL-GRANDE stay 1.000000.
+  ADR-028 (a) records that the fitted planes, alpha and objective of every computed run change (6 x 6 grid
+  becomes 5 x 5, window 0-100 % of CAD_UHE `[Vmin, Vmax]`); the measurement above gives the size, not the share
+  of each default.
+- Deviation: on the fit grid the maximum falls for CAMARGOS (2.970530 to 2.876295 MW), ITUTINGA (0.102097 to 0)
+  and FURNAS (25.360739 to 23.284586 MW) and stays 0 for FUNIL-GRANDE. On the 11 x 11 check grid the maximum rises
+  for all four plants (CAMARGOS 3.619181 to 3.933533, ITUTINGA 2.229353 to 2.673366, FUNIL-GRANDE 5.635867 to
+  6.806018, FURNAS 39.314637 to 43.053387 MW).
+- Objectives: computed +37,108.7597 R$ (+1.557 %), `O_alpha` +37,107.9310 R$ and `O_one` +47,897.7065 R$, opposite
+  in sign to section 8 (-57,565.0845 R$ for computed). The round-trip gap `O_alpha - O_c` falls from +1.5744 R$
+  (6.605e-7) to +0.7457 R$ (3.081e-7) and `O_c - O_one` from 2.365e-2 to 1.884e-2 relative; the post criteria
+  (at most 1e-5, more than 1e-5) hold. The constant_productivity objective is unchanged (1979326.8490).
+- Configuration: see the table above; one row changes one plant, the objective moves by -0.580 % (CAMARGOS to 2
+  planes) or -18.2 % (FURNAS to 2 planes).
+- Exit codes: A2, A3 and the three rejection cases exit 1; the solving cases exit 0 and show no infeasibility.
+- Test inventory: 504 to 533 passed (+29: `labdessem-cli` unit tests +11, `fpha_e2e` +1, `labdessem-fpha` unit tests
+  +5, `labdessem-fpha` `tests/regression.rs` +1, `labdessem-io` unit tests +11); 23 test binaries, failures 0 and
+  ignored 2 before and after.
+- Unchanged: `-D warnings` exit code 101 with the same four errors, the manifest warnings, the ignored tests, the
+  constant_productivity objective, the A2 and A3 messages.
+- Not comparable: wall times are single runs (0.15 s computed release, 0.05 s constant_productivity release, 0.12
+  to 0.15 s per configuration case, debug E2E times in the objective table); no repeat was made, so no timing
+  change is claimed.
+
+**Not isolated**
+
+- `[not measured]` How much of the computed objective move (+37,108.7597 R$) comes from the 5 x 5 default fit grid,
+  how much from the default tolerance, the plane limit and the other Epic 03 changes under `crates/labdessem-fpha`,
+  `crates/labdessem-io` and `crates/labdessem-cli` (`git diff --stat d6a223d..51751ba -- crates`: 11 files); no
+  single-change build was run.
+- `[not measured]` Why alpha of CAMARGOS and FURNAS moved (0.969607 to 0.972834, 0.991295 to 0.993203).
+- `[not measured]` Why the fit-grid deviation of ITUTINGA fell from 0.102097 to 0, why FUNIL-GRANDE has 3 planes
+  instead of 4, and why the 11 x 11 maximum rose for all four plants.
+- `[not measured]` Why FURNAS with 2 planes gives an objective within 55 R$ of the constant_productivity objective
+  (rows `3;;5.0;;`, `3;;;0.5;0.6`, `3;2;5.0;0.5;0.6`), including the share due to the window versus the plane count
+  and the share due to the tolerance; no run isolated one field of a row, and `3;2;5.0;0.5;0.6` was not compared
+  with a row of fewer fields beyond the two rows above.
+- `[not measured]` The identity of the clippy diagnostic that left `labdessem-cli` (13 to 12, `collapsible_if` 8 to 7).
+- `[not measured]` The objective of the four configuration rows at `d6a223d`, where the file was ignored.
+- `[not measured]` The audit's own three files of FP-05 (not recorded exactly), and the audit's objective
+  4.502.332,7276 (example configuration with `rede` 1 and `UCT` 1, not the fast configuration used here).
+- `[not measured]` Timing: every wall time is a single run.
