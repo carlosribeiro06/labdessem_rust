@@ -30,10 +30,41 @@ pub struct FphaComputeResult {
     pub plants_skipped: usize,
 }
 
+/// A physical input that computed FPHA requires for every plant with generating units.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FphaInput {
+    Tailrace,
+    Efficiency,
+    HydraulicLoss,
+}
+
+impl std::fmt::Display for FphaInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FphaInput::Tailrace => write!(f, "row in CAD/CAD_TAILRACE.csv"),
+            FphaInput::Efficiency => {
+                write!(f, "Eficiencia in CAD/CAD_UHE.csv (column absent or empty)")
+            }
+            FphaInput::HydraulicLoss => {
+                write!(f, "Perda.m in CAD/CAD_UHE.csv (column absent or empty)")
+            }
+        }
+    }
+}
+
+fn join_inputs(inputs: &[FphaInput]) -> String {
+    inputs
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 /// Why the computed FPHA of a plant with generating units could not be fitted.
 #[derive(Debug)]
 pub enum FitFailureReason {
     MissingGeometry,
+    MissingInputs(Vec<FphaInput>),
     InvalidParameters(String),
     FittingFailed(String),
 }
@@ -43,6 +74,9 @@ impl std::fmt::Display for FitFailureReason {
         match self {
             FitFailureReason::MissingGeometry => {
                 write!(f, "no rows in CAD/CAD_GEOMETRIA_UHE.csv")
+            }
+            FitFailureReason::MissingInputs(inputs) => {
+                write!(f, "missing inputs: {}", join_inputs(inputs))
             }
             FitFailureReason::InvalidParameters(msg) => {
                 write!(f, "invalid fit parameters: {msg}")
@@ -66,6 +100,11 @@ pub enum FphaComputeError {
     Io(String),
     Fitting(String),
     MissingHydro { hydro_id: i32, hydro_name: String },
+    MissingFphaInputs {
+        hydro_id: i32,
+        hydro_name: String,
+        inputs: Vec<FphaInput>,
+    },
     PlantsNotFitted { failures: Vec<PlantFitFailure> },
     InvalidSystem(String),
 }
@@ -77,6 +116,18 @@ impl std::fmt::Display for FphaComputeError {
             FphaComputeError::Fitting(msg) => write!(f, "Fitting error: {msg}"),
             FphaComputeError::MissingHydro { hydro_id, hydro_name } => {
                 write!(f, "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet")
+            }
+            FphaComputeError::MissingFphaInputs {
+                hydro_id,
+                hydro_name,
+                inputs,
+            } => {
+                write!(
+                    f,
+                    "hydro {hydro_id} ({}): missing inputs: {}",
+                    hydro_name.trim(),
+                    join_inputs(inputs)
+                )
             }
             FphaComputeError::PlantsNotFitted { failures } => {
                 write!(
@@ -173,6 +224,10 @@ pub fn compute_fpha(
             Ok(p) => p,
             // MissingHydro is a fatal error, not a fit failure
             Err(e @ FphaComputeError::MissingHydro { .. }) => return Err(e),
+            Err(FphaComputeError::MissingFphaInputs { inputs, .. }) => {
+                fail(FitFailureReason::MissingInputs(inputs));
+                continue;
+            }
             Err(e) => {
                 fail(FitFailureReason::InvalidParameters(e.to_string()));
                 continue;
@@ -236,6 +291,24 @@ fn build_fit_params(
     parquet_present: bool,
 ) -> Result<FitPlantParams, FphaComputeError> {
     let plant_code = plant.id.0 as i32;
+
+    let mut missing_inputs = Vec::new();
+    if tailrace.is_none() {
+        missing_inputs.push(FphaInput::Tailrace);
+    }
+    if plant.efficiency.is_none() {
+        missing_inputs.push(FphaInput::Efficiency);
+    }
+    if plant.hydraulic_loss_m.is_none() {
+        missing_inputs.push(FphaInput::HydraulicLoss);
+    }
+    if !missing_inputs.is_empty() {
+        return Err(FphaComputeError::MissingFphaInputs {
+            hydro_id: plant_code,
+            hydro_name: plant.name.clone(),
+            inputs: missing_inputs,
+        });
+    }
 
     let vha_rows: Vec<VhaRow> = vha
         .points
@@ -688,6 +761,18 @@ mod tests {
         assert_eq!(
             FitFailureReason::InvalidParameters("bad volume".to_string()).to_string(),
             "invalid fit parameters: bad volume"
+        );
+    }
+
+    #[test]
+    fn missing_inputs_display_lists_every_input() {
+        let reason =
+            FitFailureReason::MissingInputs(vec![FphaInput::Efficiency, FphaInput::HydraulicLoss]);
+
+        assert_eq!(
+            reason.to_string(),
+            "missing inputs: Eficiencia in CAD/CAD_UHE.csv (column absent or empty); \
+             Perda.m in CAD/CAD_UHE.csv (column absent or empty)"
         );
     }
 }

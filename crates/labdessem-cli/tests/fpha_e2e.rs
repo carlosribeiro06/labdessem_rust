@@ -32,6 +32,12 @@ const HYDRO_RESULTS_FILE: &str = "RESULTADOS/resultado_hidreletricas.csv";
 /// Plant whose geometry rows are removed in the A2 case: FUNIL-GRANDE in `examples/24Barras`.
 const SKIPPED_PLANT_CODE: u32 = 2;
 
+/// Tailrace table the computed FPHA reads, relative to the case directory.
+const TAILRACE_FILE: &str = "CAD/CAD_TAILRACE.csv";
+
+/// Plant whose tailrace rows are removed in the A3 case: FURNAS in `examples/24Barras`.
+const NO_TAILRACE_PLANT_CODE: u32 = 3;
+
 /// Relative path to the bytes of every file below a root; a directory maps to `None`.
 type TreeSnapshot = BTreeMap<PathBuf, Option<Vec<u8>>>;
 
@@ -475,6 +481,50 @@ fn plant_without_geometry_fails_run() {
         "computed FPHA could not be fitted",
         plant_name.as_str(),
         GEOMETRY_FILE,
+    ] {
+        assert!(
+            outcome.stderr.contains(fragment),
+            "stderr lacks `{fragment}`:\n{}",
+            outcome.stderr
+        );
+    }
+    assert!(
+        !case.path().join(HYDRO_RESULTS_FILE).exists(),
+        "{HYDRO_RESULTS_FILE} must not be written when the FPHA computation fails"
+    );
+}
+
+/// Regression for audit FP-R02 (A3): a plant with units and no tailrace row fails the run with an
+/// error naming the plant and the tailrace table, before any result file is written.
+#[test]
+fn missing_physical_data_fails_run() {
+    // Arrange
+    let case = derived_case("computed");
+    let plant_name = plant_name_in_cad(case.path(), NO_TAILRACE_PLANT_CODE);
+    let removed = remove_plant_rows(case.path(), TAILRACE_FILE, NO_TAILRACE_PLANT_CODE);
+    eprintln!(
+        "A3 removed {removed} row(s) of plant {NO_TAILRACE_PLANT_CODE} ({plant_name}) from \
+         {TAILRACE_FILE}"
+    );
+    assert!(
+        removed >= 1,
+        "plant {NO_TAILRACE_PLANT_CODE} has no rows in {TAILRACE_FILE}: the case would not be derived"
+    );
+
+    // Act
+    let outcome = run_cli(case.path());
+
+    // Assert
+    assert_eq!(
+        outcome.code,
+        Some(1),
+        "the run must exit 1 because plant {NO_TAILRACE_PLANT_CODE} has no tailrace; stderr:\n{}",
+        outcome.stderr
+    );
+    for fragment in [
+        "computed FPHA could not be fitted",
+        plant_name.as_str(),
+        TAILRACE_FILE,
     ] {
         assert!(
             outcome.stderr.contains(fragment),

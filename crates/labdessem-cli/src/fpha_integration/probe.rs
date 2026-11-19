@@ -191,6 +191,63 @@ impl DerivedCase {
         fs::write(path, rewritten)
     }
 
+    /// Sets the `column` field (matched against the trimmed header fields) to `value` on every data
+    /// line whose first `;` field, trimmed, equals `plant_code`; keeps every other field and the
+    /// line terminator. Returns the number of changed lines.
+    pub(super) fn set_cell(
+        &self,
+        relative: &str,
+        plant_code: u32,
+        column: &str,
+        value: &str,
+    ) -> io::Result<usize> {
+        let path = self.resolve(relative)?;
+        let text = fs::read_to_string(&path)?;
+        let header_line = text
+            .split_inclusive('\n')
+            .next()
+            .ok_or_else(|| invalid_data(format!("{relative}: file is empty")))?;
+        let header_fields: Vec<&str> = split_terminator(header_line)
+            .0
+            .split(';')
+            .map(str::trim)
+            .collect();
+        let column_index = header_fields
+            .iter()
+            .position(|field| *field == column)
+            .ok_or_else(|| {
+                invalid_input(format!(
+                    "{relative}: column {column} not found in the header"
+                ))
+            })?;
+
+        let mut rewritten = String::with_capacity(text.len());
+        let mut changed = 0;
+        for (index, line) in text.split_inclusive('\n').enumerate() {
+            let (content, terminator) = split_terminator(line);
+            if index == 0 || content.trim().is_empty() {
+                rewritten.push_str(line);
+                continue;
+            }
+            let mut fields: Vec<&str> = content.split(';').collect();
+            if fields.len() != header_fields.len() {
+                return Err(invalid_data(format!(
+                    "{relative}: line has {} fields, the header has {}",
+                    fields.len(),
+                    header_fields.len()
+                )));
+            }
+            if fields[0].trim().parse::<u32>().ok() == Some(plant_code) {
+                fields[column_index] = value;
+                changed += 1;
+            }
+            rewritten.push_str(&fields.join(";"));
+            rewritten.push_str(terminator);
+        }
+        fs::write(path, rewritten)?;
+        Ok(changed)
+    }
+
     pub(super) fn remove_file(&self, relative: &str) -> io::Result<()> {
         fs::remove_file(self.resolve(relative)?)
     }
@@ -568,6 +625,82 @@ fn probe_derived_case_edits_stay_local() {
             "examples/24Barras/{relative} changed while editing the derived case"
         );
     }
+}
+
+#[test]
+fn probe_derived_case_sets_a_cell() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let plants = "CAD/CAD_UHE.csv";
+    let source_path = Path::new(SOURCE_CASE).join(plants);
+    let source_bytes = fs::read(&source_path)?;
+    let source_text = String::from_utf8(source_bytes.clone())?;
+    let source_lines: Vec<&str> = source_text.split_inclusive('\n').collect();
+    let header: Vec<&str> = source_lines
+        .first()
+        .ok_or("source CAD_UHE.csv is empty")?
+        .split(';')
+        .map(str::trim)
+        .collect();
+    let column = header
+        .iter()
+        .position(|field| *field == "Perda.m")
+        .ok_or("Perda.m is not in the header of CAD_UHE.csv")?;
+    let plant_line = source_lines
+        .iter()
+        .skip(1)
+        .position(|line| line.split(';').next().map(str::trim) == Some("0"))
+        .ok_or("CAD_UHE.csv has no row for plant 0")?
+        + 1;
+    let case = DerivedCase::new("computed")?;
+    fs::write(case.path().join("CAD/ragged.csv"), "Codigo;Valor\n0;1;2\n")?;
+
+    // Act
+    let changed = case.set_cell(plants, 0, "Perda.m", "0")?;
+    let unknown_column = case.set_cell(plants, 0, "NoSuchColumn", "0");
+    let ragged_line = case.set_cell("CAD/ragged.csv", 0, "Valor", "9");
+
+    // Assert
+    assert_eq!(changed, 1, "plant 0 has exactly one row in CAD_UHE.csv");
+    assert!(
+        matches!(&unknown_column, Err(error) if error.kind() == io::ErrorKind::InvalidInput),
+        "an unknown column must be InvalidInput, got {unknown_column:?}"
+    );
+    assert!(
+        matches!(&ragged_line, Err(error) if error.kind() == io::ErrorKind::InvalidData),
+        "a line with the wrong field count must be InvalidData, got {ragged_line:?}"
+    );
+    let edited_text = fs::read_to_string(case.path().join(plants))?;
+    let edited_lines: Vec<&str> = edited_text.split_inclusive('\n').collect();
+    assert_eq!(edited_lines.len(), source_lines.len());
+    let mut differing_cells = Vec::new();
+    for (index, (source_line, edited_line)) in source_lines.iter().zip(&edited_lines).enumerate() {
+        let (source_content, source_terminator) = split_terminator(source_line);
+        let (edited_content, edited_terminator) = split_terminator(edited_line);
+        assert_eq!(
+            edited_terminator, source_terminator,
+            "line {index}: terminator changed"
+        );
+        let source_fields: Vec<&str> = source_content.split(';').collect();
+        let edited_fields: Vec<&str> = edited_content.split(';').collect();
+        assert_eq!(
+            edited_fields.len(),
+            source_fields.len(),
+            "line {index}: field count changed"
+        );
+        for (cell, (source_field, edited_field)) in
+            source_fields.iter().zip(&edited_fields).enumerate()
+        {
+            if source_field != edited_field {
+                differing_cells.push((index, cell, *edited_field));
+            }
+        }
+    }
+    assert_eq!(differing_cells, [(plant_line, column, "0")]);
+    assert!(
+        fs::read(&source_path)? == source_bytes,
+        "examples/24Barras/{plants} changed while editing the derived case"
+    );
+    Ok(())
 }
 
 #[test]
