@@ -142,10 +142,9 @@ which none of the three options settles by itself.
   gamma_0..gamma_Q values in the CSV are unchanged.
 - Losses: CSV planes stay pre-multiplied and the `alpha` column is informational; the computed output
   still does not follow the `OPER_FPHA` convention; gamma_S values in the CSV change.
-- Risks: as in (a1), a copy with `Fcorrec = alpha` reproduces a double alpha; scaling gamma_S before
-  `reduce_planes` can change which planes survive the angle/distance reduction for plants with alpha
-  different from 1 (plane normals are not scale invariant), so plane counts can change; the touched
-  `pipeline.rs` is an HPC-fenced path and needs the bit-exact regression evidence.
+- Risks: as in (a1), a copy with `Fcorrec = alpha` reproduces a double alpha; plane selection is
+  unaffected (see Erratum: neither reduction predicate reads gamma_S); the touched `pipeline.rs` is an
+  HPC-fenced path and needs the bit-exact regression evidence.
 - resultado_fpha_computed.csv: gamma_S column changes (now includes alpha); gamma_0..gamma_Q unchanged;
   preamble must say all four coefficients already include alpha and `alpha` is informational; a
   BREAKING change for the gamma_S column.
@@ -226,3 +225,17 @@ stays open and is independent of this choice.
 - In all cases: the test `convert_single_plane` is replaced by a test on the product
   `correction_factor x coefficient` (audit FP-R03); `docs/design/fpha-formulation.md` is brought in
   line later (FP-11); the master-plan ADR-025 entry is set to `accepted` by the orchestrator.
+
+## Erratum (2026-11-19)
+
+Found by the epic-01 boundary code review. The (a2) Risks line originally said that scaling gamma_S
+before `reduce_planes` can change which planes survive the reduction and so change plane counts. That
+is incorrect: the angle predicate uses the normal `[gamma_v, gamma_q, -1]`
+(`crates/labdessem-fpha/src/fitting/reduction.rs`, `plane_normal`) and the distance predicate
+evaluates the planes at `s = 0` (`pair_similar_distance`; `RawPlane::evaluate` multiplies gamma_S by
+`s`), so gamma_S never enters either decision and `mean_plane` only averages it. Under (a2) the
+reduced plane set is bit-identical to today's, as under (a1). The plane-set risk belongs to (b)
+alone, which changes the gamma_0, gamma_v and gamma_q entering `reduce_planes`.
+
+The Recommendation rests on the Libs / `OPER_FPHA` convention, not on this risk, so Decision (b)
+stands unchanged.

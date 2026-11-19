@@ -276,12 +276,12 @@ End-to-end table, printed by `baseline_a1_computed_vs_precomputed_copies`
   differences above are computed here from the printed objectives. `O_c - O_one` is positive: the
   computed objective is above the `Fcorrec = 1` copy, the same direction as the audit's +3,125.65 R$.
   `O_alpha - O_c` is positive and tiny: the `Fcorrec = alpha` copy matches the computed objective to
-  2.292e-6 relative against the 1e-5 tolerance; the residual is attributed to the CSV rounding of the
-  planes (`{:.6}` and `{:.9}` coefficients and a `{:.6}` alpha,
-  `crates/labdessem-io/src/output/fpha_computed.rs:72`) and to the 4-decimal objective print, not
-  separately isolated.
+  2.292e-6 relative against the 1e-5 tolerance; the residual is consistent with the CSV rounding of
+  the planes (`{:.6}` and `{:.9}` coefficients and a `{:.6}` alpha,
+  `crates/labdessem-io/src/output/fpha_computed.rs:72`), not separately isolated.
 - The `Objective:` line of the CLI is printed with 4 decimals (`crates/labdessem-cli/src/main.rs:188`);
-  every objective above carries that precision.
+  every objective above carries that precision, a rounding of at most 5e-5 R$, far below the
+  5.5959 R$ residual.
 - Run times are whole-process wall times of the DEBUG build, from one single-threaded run of
   `--test fpha_e2e`: they are comparable with the debug row of section 4 (1.48 s), not with its
   release rows. The `baseline_a1` filter also ran this E2E test; its objectives were identical and
