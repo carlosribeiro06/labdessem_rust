@@ -49,9 +49,11 @@ type TreeSnapshot = BTreeMap<PathBuf, Option<Vec<u8>>>;
 /// Value written to the `Fcorrec` column of the derived `OPER_FPHA.csv`.
 #[derive(Clone, Copy, Debug)]
 enum Fcorrec {
-    /// `1` on every row: the documented copy, since the printed gammas already include alpha.
+    /// `1` on every row: the sensitivity control, which drops alpha and must not reproduce the
+    /// computed run.
     One,
-    /// The CSV `alpha` of the plant, verbatim.
+    /// The CSV `alpha` of the plant, verbatim: the documented copy, since the printed gammas are
+    /// unscaled and the model applies alpha once.
     Alpha,
 }
 
@@ -474,9 +476,9 @@ fn harness_derived_case_matches_official_inputs() {
     );
 }
 
-/// Characterizes audit FP-02 and MX-06 on the pre-fix code. Rewritten by ticket-013 into the OPER_FPHA round-trip regression.
+/// Regression for audit FP-02 and MX-06: the documented OPER_FPHA copy (Fcorrec = alpha) reproduces the computed run.
 #[test]
-fn baseline_a1_computed_vs_precomputed_copies() {
+fn computed_csv_round_trip_reproduces_objective() {
     // Arrange
     let computed_case = derived_case("computed");
 

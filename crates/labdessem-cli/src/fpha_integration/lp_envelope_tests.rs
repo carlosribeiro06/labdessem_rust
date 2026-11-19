@@ -3,15 +3,23 @@
 //!
 //! Each test runs the computed-FPHA sequence on a derived copy of `examples/24Barras`, reads the
 //! generation cap implied by the `hydro_fpha[...]` rows (`probe`), and compares it with the fitted
-//! planes and with the fit-quality deviation the pipeline reports. Both tests print the measurement
-//! table the post-fix evidence report quotes.
+//! planes and with the fit-quality deviation the pipeline reports. The two envelope tests print the
+//! measurement table the post-fix evidence report quotes; the round-trip test pins the documented
+//! copy of `resultado_fpha_computed.csv` into `OPER_FPHA.csv`.
 
+use std::error::Error;
+use std::fs;
+use std::path::Path;
+
+use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::system::System;
 use labdessem_fpha::RawPlane;
+use labdessem_io::read_study_from_path;
 use labdessem_model::{Model, SolveMode};
 
 use super::probe::{
     DerivedCase, EnvelopeRow, FitContext, computed_system, envelope_mw, evaluation_grid_nodes,
-    fit_contexts, fit_grid_nodes, lp_fpha_rows,
+    fit_contexts, fit_grid_nodes, lp_fpha_rows, segment_envelope_mw,
 };
 
 /// Nodes per axis of the uniform `(V, Q)` evaluation grid used for the LP-based deviation.
@@ -25,6 +33,19 @@ const ENVELOPE_RELATIVE_TOLERANCE: f64 = 1e-9;
 
 /// A plant counts as materially scaled when `|alpha - 1|` exceeds this value.
 const MATERIAL_ALPHA_OFFSET: f64 = 1e-3;
+
+/// Plant codes of `examples/24Barras`.
+const PLANT_CODES: [usize; 4] = [0, 1, 2, 3];
+
+/// Header of `OPER/OPER_FPHA.csv`, spelled exactly as in the header-only official file.
+const OPER_FPHA_HEADER: &str =
+    "USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s";
+
+/// Rounding bound of a CSV column printed with 6 decimals.
+const SIX_DECIMAL_TOLERANCE: f64 = 5e-7;
+
+/// Rounding bound of a CSV column printed with 9 decimals.
+const NINE_DECIMAL_TOLERANCE: f64 = 5e-10;
 
 /// `(mean_abs, max_abs, rms)` of `fitted - exact` over a node set [MW].
 type DeviationStats = (f64, f64, f64);
@@ -231,4 +252,174 @@ fn lp_envelope_matches_alpha_scaled_planes() {
             .any(|plant| (plant.alpha - 1.0).abs() > MATERIAL_ALPHA_OFFSET),
         "no plant has |alpha - 1| > {MATERIAL_ALPHA_OFFSET}: the alpha-once check would pass vacuously"
     );
+}
+
+/// Writes `OPER/OPER_FPHA.csv` of `dst_case` from `RESULTADOS/resultado_fpha_computed.csv` of
+/// `src_case` with the documented copy rule: `USIH = codigo_usina`, `SegFPHA = plane_index + 1`,
+/// `Fcorrec = alpha`, gamma columns verbatim.
+fn write_oper_fpha_from_csv(src_case: &Path, dst_case: &Path) -> Result<(), Box<dyn Error>> {
+    let text = fs::read_to_string(src_case.join("RESULTADOS/resultado_fpha_computed.csv"))?;
+    let mut table = String::from(OPER_FPHA_HEADER);
+    table.push('\n');
+    for line in text
+        .lines()
+        .skip_while(|line| !line.starts_with("codigo_usina;"))
+        .skip(1)
+        .filter(|line| !line.trim().is_empty())
+    {
+        let fields: Vec<&str> = line.split(';').map(str::trim).collect();
+        let [
+            code,
+            name,
+            plane_index,
+            gamma_0,
+            gamma_v,
+            gamma_q,
+            gamma_s,
+            alpha,
+            ..,
+        ] = fields[..]
+        else {
+            return Err(format!(
+                "row of resultado_fpha_computed.csv has fewer than 8 fields: {line}"
+            )
+            .into());
+        };
+        let segment = plane_index.parse::<usize>()? + 1;
+        table.push_str(&format!(
+            "{code};{name};{segment};{alpha};{gamma_0};{gamma_v};{gamma_q};{gamma_s}\n"
+        ));
+    }
+    fs::write(dst_case.join("OPER/OPER_FPHA.csv"), table)?;
+    Ok(())
+}
+
+fn segments_of(system: &System, code: usize) -> Result<&[HydroFphaSegment], Box<dyn Error>> {
+    system
+        .hydro_plants
+        .iter()
+        .find(|plant| plant.id.0 == code)
+        .map(|plant| plant.fpha_segments.as_slice())
+        .ok_or_else(|| format!("plant {code} is not in the system").into())
+}
+
+/// Bound [MW] on `|E_csv - E_run|` at `(v, q, s)` implied by the CSV rounding: the largest over the
+/// computed segments of the alpha rounding times the segment value plus alpha times the rounding of
+/// the segment terms.
+fn csv_envelope_rounding_bound_mw(segments: &[HydroFphaSegment], v: f64, q: f64, s: f64) -> f64 {
+    segments
+        .iter()
+        .map(|segment| {
+            let base = segment.rhs
+                + segment.volume_coefficient * v
+                + segment.turbining_coefficient * q
+                + segment.lateral_flow_coefficient * s;
+            SIX_DECIMAL_TOLERANCE * base.abs()
+                + segment.correction_factor
+                    * (SIX_DECIMAL_TOLERANCE
+                        + NINE_DECIMAL_TOLERANCE * v
+                        + SIX_DECIMAL_TOLERANCE * q
+                        + NINE_DECIMAL_TOLERANCE * s)
+        })
+        .fold(0.0, f64::max)
+}
+
+/// The documented copy of `resultado_fpha_computed.csv` into `OPER_FPHA.csv` yields the segments
+/// the computed run injected, up to the CSV rounding, and the same LP envelope at every fit-grid
+/// node within the propagated rounding bound.
+#[test]
+fn computed_csv_round_trip_reproduces_segments() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let computed_case = DerivedCase::new("computed")?;
+    let (system, result) = computed_system(computed_case.path())?;
+    super::write_computed_results(
+        computed_case.path(),
+        &result.plant_results,
+        &system.hydro_plants,
+    )?;
+    let contexts = fit_contexts(computed_case.path(), &system)?;
+    let precomputed_case = DerivedCase::new("precomputed")?;
+    write_oper_fpha_from_csv(computed_case.path(), precomputed_case.path())?;
+
+    // Act
+    let precomputed_system = read_study_from_path(precomputed_case.path())?;
+
+    // Assert
+    for code in PLANT_CODES {
+        let computed = segments_of(&system, code)?;
+        let precomputed = segments_of(&precomputed_system, code)?;
+        assert!(
+            !computed.is_empty(),
+            "plant {code} has no computed segments"
+        );
+        assert_eq!(
+            precomputed.len(),
+            computed.len(),
+            "plant {code}: segment counts differ"
+        );
+        for (index, (from_run, from_csv)) in computed.iter().zip(precomputed).enumerate() {
+            for (field, expected, actual, tolerance) in [
+                ("rhs", from_run.rhs, from_csv.rhs, SIX_DECIMAL_TOLERANCE),
+                (
+                    "turbining_coefficient",
+                    from_run.turbining_coefficient,
+                    from_csv.turbining_coefficient,
+                    SIX_DECIMAL_TOLERANCE,
+                ),
+                (
+                    "correction_factor",
+                    from_run.correction_factor,
+                    from_csv.correction_factor,
+                    SIX_DECIMAL_TOLERANCE,
+                ),
+                (
+                    "volume_coefficient",
+                    from_run.volume_coefficient,
+                    from_csv.volume_coefficient,
+                    NINE_DECIMAL_TOLERANCE,
+                ),
+                (
+                    "lateral_flow_coefficient",
+                    from_run.lateral_flow_coefficient,
+                    from_csv.lateral_flow_coefficient,
+                    NINE_DECIMAL_TOLERANCE,
+                ),
+            ] {
+                assert!(
+                    (actual - expected).abs() <= tolerance,
+                    "plant {code} segment {index} {field}: computed {expected}, precomputed \
+                     {actual}, tolerance {tolerance:e}"
+                );
+            }
+        }
+
+        let ctx = contexts
+            .get(&i32::try_from(code)?)
+            .ok_or_else(|| format!("no fit context for plant {code}"))?;
+        let q_max = ctx.pf.max_turbined_m3s();
+        let mut max_difference_mw = 0.0_f64;
+        let mut max_bound_ratio = 0.0_f64;
+        for (v, q) in fit_grid_nodes(ctx) {
+            for s in [0.0, 0.5 * q_max, q_max] {
+                let from_run = segment_envelope_mw(computed, v, q, s);
+                let from_csv = segment_envelope_mw(precomputed, v, q, s);
+                let bound = csv_envelope_rounding_bound_mw(computed, v, q, s);
+                let difference = (from_csv - from_run).abs();
+                max_difference_mw = max_difference_mw.max(difference);
+                max_bound_ratio = max_bound_ratio.max(difference / bound);
+                assert!(
+                    difference <= bound,
+                    "plant {code} at v={v}, q={q}, s={s}: envelopes differ by {difference:e} MW \
+                     (computed {from_run}, precomputed {from_csv}), above the CSV rounding bound \
+                     {bound:e} MW"
+                );
+            }
+        }
+        eprintln!(
+            "round_trip plant={code} segments={} max_envelope_difference={max_difference_mw:.3e} \
+             MW max_difference_over_bound={max_bound_ratio:.3}",
+            computed.len()
+        );
+    }
+    Ok(())
 }
