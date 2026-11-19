@@ -473,4 +473,274 @@ the audit file.
 
 ## 8. Post-fix comparison
 
-Pending: ticket-017.
+Measured after tickets 011 to 016, at commit `d6a223d62e0aef6663a16eafada5e4491f5121d7` (`d6a223d`,
+branch `fix/fpha-corrections`, tree clean), on 2026-11-19. "Pre" is the frozen sections 2 to 5 (commit
+`4ac43e0`); every "post" value was produced by a command run for this section, with the logs kept outside
+the repository. No code or test was changed while measuring and `examples/24Barras` was neither modified
+nor executed: every CLI run used a fresh derived copy built by the procedure of section 3.
+
+Environment: `rustc`, `cargo`, `clippy` and the qhull SHA equal section 1. The tools on `PATH` differ from
+section 1: `gcc`/`g++` 13.3.0 (section 1: 15.2.0), `cmake` 3.28.3 (4.2.3), `clang` 18.1.3 (21.1.8) and
+`uname -r` `6.18.58.1-microsoft-standard-WSL2` (`6.18.33.2-microsoft-standard-WSL2`). The release build
+compiled three workspace crates only (`labdessem-fpha`, `labdessem-simulation`, `labdessem-cli`); whether the
+vendored qhull build script re-ran with these compilers was not checked.
+
+**Build, test and clippy**
+
+```bash
+. "$HOME/.cargo/env"
+cargo build --workspace --release
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --message-format=json > "$LOG_DIR/clippy.json"
+```
+
+The last command is `cargo clippy --workspace --all-targets` without `-D warnings`; the JSON output is
+reduced to distinct diagnostics by the key (lint, primary file, primary line, message), the method of
+section 2.
+
+| Command | Exit code, pre | Exit code, post | Note |
+|---|---|---|---|
+| `cargo build --workspace --release` | 0 | 0 | 11.45 s pre, 2.42 s post; neither is a cold-build time |
+| `cargo test --workspace` | 0 | 0 | 180 s pre (includes compiling the test binaries), 5.45 s post (test binaries already compiled); not comparable |
+| `cargo clippy --workspace --all-targets -- -D warnings` | 101 | 101 | unchanged; same four errors at the same locations (below) |
+| `cargo clippy --workspace --all-targets` | 0 | 0 | 175 distinct diagnostics pre and post |
+
+**Test results** (`cargo test --workspace`: 22 test binaries pre, 23 post, no failures):
+
+| Test binary | Passed, pre | Passed, post | Failed, pre | Failed, post | Ignored, pre | Ignored, post |
+|---|---|---|---|---|---|---|
+| labdessem-cli: unittests `src/main.rs` | 24 | 44 | 0 | 0 | 0 | 0 |
+| labdessem-cli: `tests/fpha_e2e.rs` | absent | 4 | absent | 0 | absent | 0 |
+| labdessem-cli: `tests/fpha_io_integration.rs` | 5 | 5 | 0 | 0 | 0 | 0 |
+| labdessem-cli: `tests/integration.rs` | 0 | 0 | 0 | 0 | 1 | 1 |
+| labdessem-core: unittests `src/lib.rs` | 34 | 34 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: unittests `src/lib.rs` | 87 | 89 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: `tests/integration.rs` | 9 | 9 | 0 | 0 | 0 | 0 |
+| labdessem-fpha: `tests/regression.rs` | 7 | 7 | 0 | 0 | 0 | 0 |
+| labdessem-io: unittests `src/lib.rs` | 63 | 63 | 0 | 0 | 0 | 0 |
+| labdessem-model: unittests `src/lib.rs` | 35 | 35 | 0 | 0 | 0 | 0 |
+| labdessem-network: unittests `src/lib.rs` | 47 | 47 | 0 | 0 | 0 | 0 |
+| labdessem-simulation: unittests `src/lib.rs` | 58 | 58 | 0 | 0 | 0 | 0 |
+| labdessem-solver: unittests `src/lib.rs` | 56 | 56 | 0 | 0 | 0 | 0 |
+| labdessem-solver: `tests/integration.rs` | 10 | 10 | 0 | 0 | 0 | 0 |
+| labdessem-uc: unittests `src/lib.rs` | 43 | 43 | 0 | 0 | 0 | 0 |
+| labdessem-core: doc-tests | 0 | 0 | 0 | 0 | 1 | 1 |
+| labdessem-fpha, -io, -model, -network, -simulation, -solver, -uc: doc-tests (7 binaries) | 0 | 0 | 0 | 0 | 0 | 0 |
+| **Total** | **478** | **504** | **0** | **0** | **2** | **2** |
+
+The two ignored tests are the same as in section 2 (`hydro_output_matches_reference` and the
+`SystemBuilder` doc-test).
+
+**Clippy** (`cargo clippy --workspace --all-targets`, distinct diagnostics over all targets)
+
+| Crate | Warnings, pre | Warnings, post |
+|---|---|---|
+| labdessem-cli | 13 | 13 |
+| labdessem-core | 1 | 1 |
+| labdessem-fpha | 36 | 36 |
+| labdessem-io | 17 | 17 |
+| labdessem-model | 5 | 5 |
+| labdessem-network | 35 | 35 |
+| labdessem-simulation | 2 | 2 |
+| labdessem-solver | 55 | 55 |
+| labdessem-uc | 11 | 11 |
+| **Total** | **175** | **175** |
+
+- The dominant lints are unchanged: `clippy::unwrap_used` 40, `clippy::assert_is_empty` 34,
+  `clippy::expect_used` 33, `clippy::uninlined_format_args` 11, `clippy::cast_possible_wrap` 9 and
+  `clippy::collapsible_if` 8. Only the counts were compared with section 2; the identity of each of the
+  175 diagnostics was not, and line numbers move as files change.
+- `-D warnings`, exit code 101 pre and post. The errors it reaches are the same as in section 2: three
+  `clippy::manual_assert` at `crates/labdessem-fpha/build.rs` lines 37, 53 and 66, and one
+  `clippy::module_inception` at `crates/labdessem-core/src/system/mod.rs:10`. Epic 02 does not fix them, so
+  the exit code stays 101 (operator decision, 2026-11-19).
+- The two manifest warnings of section 2 (`labdessem-uc` -> `labdessem-core`, `labdessem-io` ->
+  `labdessem-solver`) are still printed by the build and by `cargo test`; the clippy run prints the
+  `labdessem-uc` one. `cargo fmt --all -- --check` was not re-run for this section.
+
+**A1: alpha, planes and deviations**
+
+Commands (`LOG_DIR` outside the repository; `--test-threads=1` keeps the tables from interleaving; only
+stderr goes to the log):
+
+```bash
+cargo test -p labdessem-cli --bin labdessem -- lp_envelope_matches_alpha_scaled_planes lp_envelope_deviation_matches_reported_deviation computed_csv_round_trip_reproduces_segments --nocapture --test-threads=1 2> "$LOG_DIR/a1.log"
+cargo test -p labdessem-cli --test fpha_e2e -- computed_csv_round_trip_reproduces_objective plant_without_geometry_fails_run missing_physical_data_fails_run --nocapture --test-threads=1 2> "$LOG_DIR/e2e.log"
+```
+
+Both exit with code 0 (3 and 3 tests passed; the two failure-path tests of the E2E binary are covered
+below). The in-process tests print one line per plant under the tags
+`lp_envelope[matches_alpha_scaled_planes]` and `lp_envelope[deviation_matches_reported]` with identical
+numbers; one set is copied. Pre values are the table of section 5 (maximum deviation, MW, on the fit grid):
+
+| Code | Plant | alpha, pre | alpha, post | Planes, pre | Planes, post | Reported max, pre | Reported max, post | LP-based max, pre | LP-based max, post |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | CAMARGOS | 0.969607 | 0.969607 | 6 | 7 | 3.142964 | 2.970530 | 2.753641 | 2.970530 |
+| 1 | ITUTINGA | 1.000000 | 1.000000 | 3 | 3 | 0.102097 | 0.102097 | 0.102097 | 0.102097 |
+| 2 | FUNIL-GRANDE | 1.000000 | 1.000000 | 4 | 4 | 0.000000 | 0.000000 | 0.000000 | 0.000000 |
+| 3 | FURNAS | 0.991295 | 0.991295 | 6 | 6 | 25.360739 | 25.360739 | 21.078021 | 25.360739 |
+
+Full `max/mean/rms` cells (MW), pre from section 5 and post from `a1.log`:
+
+| Code | Plant | Reported, fit grid, pre | Reported, fit grid, post | LP-based, fit grid, pre | LP-based, fit grid, post | LP-based, 11 x 11, pre | LP-based, 11 x 11, post |
+|---|---|---|---|---|---|---|---|
+| 0 | CAMARGOS | 3.142964/0.953364/1.291594 | 2.970530/0.941389/1.257590 | 2.753641/1.042563/1.414023 | 2.970530/0.941389/1.257590 | 4.897389/1.098339/1.456398 | 3.619181/1.037368/1.378325 |
+| 1 | ITUTINGA | 0.102097/0.032232/0.055914 | 0.102097/0.032232/0.055914 | 0.102097/0.032232/0.055914 | 0.102097/0.032232/0.055914 | 2.229353/0.262615/0.677984 | 2.229353/0.262615/0.677984 |
+| 2 | FUNIL-GRANDE | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 0.000000/0.000000/0.000000 | 5.635867/0.595420/1.705151 | 5.635867/0.595420/1.705151 |
+| 3 | FURNAS | 25.360739/9.047101/11.706933 | 25.360739/9.047101/11.706933 | 21.078021/9.088040/11.678164 | 25.360739/9.047101/11.706933 | 48.972971/9.431278/12.618084 | 39.314637/9.982315/12.851147 |
+
+- The post tests no longer print the `ratio_min` and `ratio_max` columns of section 5 (they equalled alpha by
+  construction there), so alpha is compared at the 6 decimals the post tests print. The CLI prints the same
+  alpha at 4 decimals in the computed runs (CAMARGOS 0.9696, ITUTINGA 1.0000, FUNIL-GRANDE 1.0000, FURNAS
+  0.9913). No alpha differs between pre and post at the printed precision, so the 1e-12 threshold could not
+  be tested directly. `crates/labdessem-fpha/src/fitting/` has no diff between `4ac43e0` and `d6a223d`, and
+  `fit_plant` still computes alpha from the hull planes before any of the changed stages.
+- Post, the reported and the LP-based fit-grid deviations are equal for all four plants (before, they
+  differed for CAMARGOS and FURNAS).
+
+Round trip of the computed CSV into `OPER_FPHA.csv` (`computed_csv_round_trip_reproduces_segments`, new; no
+pre value), printed per plant: `max_envelope_difference` is the largest LP-envelope difference between the
+injected segments and the segments read back from the CSV over the fit grid and three `s` values, and
+`max_difference_over_bound` is its ratio to the CSV rounding bound the test derives (the test asserts at most
+1):
+
+| Code | Plant | Segments | Max envelope difference (MW) | Max difference over bound |
+|---|---|---|---|---|
+| 0 | CAMARGOS | 7 | 7.742e-5 | 0.597 |
+| 1 | ITUTINGA | 3 | 7.200e-5 | 0.762 |
+| 2 | FUNIL-GRANDE | 4 | 2.091e-4 | 0.556 |
+| 3 | FURNAS | 6 | 6.387e-4 | 0.453 |
+
+**Objectives**
+
+The end-to-end solves are printed by `computed_csv_round_trip_reproduces_objective` (source `e2e.log`):
+`O_c` is `FPHA: computed`, `O_alpha` is `precomputed` with the planes of `resultado_fpha_computed.csv` and
+`Fcorrec = alpha`, `O_one` is the same planes with `Fcorrec = 1`. Run times are whole-process wall times of
+the DEBUG build, one run each; they are comparable with the run times of section 5 only as order of
+magnitude.
+
+| Label | Run | Objective pre (R$) | Objective post (R$) | Change (R$) | Run time pre / post (s) |
+|---|---|---|---|---|---|
+| `O_c` | `FPHA: computed` | 2441046.6443 | 2383481.5598 | -57,565.0845 | 1.60 / 1.43 |
+| `O_alpha` | `precomputed`, `Fcorrec = alpha` | 2441052.2402 | 2383483.1342 | -57,569.1060 | 1.59 / 1.50 |
+| `O_one` | `precomputed`, `Fcorrec = 1` | 2383746.0919 | 2327100.3261 | -56,645.7658 | 1.53 / 1.65 |
+
+| Gap | Signed difference, pre | Signed difference, post | Relative gap, pre | Relative gap, post | Test criterion |
+|---|---|---|---|---|---|
+| round-trip gap (`O_alpha - O_c`) | +5.5959 R$ | +1.5744 R$ | 2.292e-6 | 6.605e-7 | at most 1e-5 relative |
+| `O_c - O_one` | +57,300.5524 R$ | +56,381.2337 R$ | 2.347e-2 | 2.365e-2 | more than 1e-5 relative |
+
+Release CLI solves of the fast configuration (section 3 procedure on fresh copies, section 4 table format):
+
+| Run | Binary | Exit code | Wall time (s) | Objective | Plants | Solver or MILP infeasibility |
+|---|---|---|---|---|---|---|
+| fast computed | `target/release/labdessem` | 0 | 0.15 | Objective: 2383481.5598 | Processed 4 plants, 0 skipped | none |
+| fast constant_productivity | `target/release/labdessem` | 0 | 0.05 | Objective: 1979326.8490 | not printed | none |
+
+| Objective, R$ | Pre | Post | Change |
+|---|---|---|---|
+| computed (release CLI) | 2441046.6443 | 2383481.5598 | -57,565.0845 (-2.358 %) |
+| constant_productivity (release CLI) | 1979326.8490 | 1979326.8490 | 0.0000 |
+
+- "Infeasibility": the string `infeasib` (case-insensitive) occurs in no stdout, no stderr and no file under
+  `RESULTADOS/` of the two solves; both print `violations = 0` and `Violations:  0`. `EngMax` is 0 in the
+  fast configuration, so the computed + UCT + EngMax infeasibility of section 3 is not exercised here.
+- The computed CLI objective (release) equals `O_c` of the end-to-end test (debug) to the 4 decimals printed.
+- The computed run prints, in order, CAMARGOS 7 planes (alpha 0.9696), ITUTINGA 3 (1.0000), FUNIL-GRANDE 4
+  (1.0000) and FURNAS 6 (0.9913), `FPHA computation complete: 4 plants processed, 0 skipped` and
+  `FPHA injection complete: 4 plants updated`. `resultado_fpha_computed.csv` has 20 plane rows (7, 3, 4 and 6
+  per plant) and its preamble now describes the gamma columns as "sem o fator alpha" and alpha as the factor
+  the model applies once.
+
+**A2 and A3: plants that can no longer be fitted**
+
+Both cases use the same copy procedure and fast configuration as section 3 (`"FPHA": "computed"`), run with
+the release binary on a fresh copy each. Edits (the files have CRLF line endings, which `grep -v` keeps
+byte for byte; the header line is kept):
+
+| Case | File | Rows removed | Lines before | Lines after |
+|---|---|---|---|---|
+| A2 | `CAD/CAD_GEOMETRIA_UHE.csv` | 1: every row of plant code 2 (FUNIL-GRANDE) | 203 | 202 |
+| A3 | `CAD/CAD_TAILRACE.csv` | 1: every row of plant code 3 (FURNAS) | 5 | 4 |
+
+```bash
+# A2
+grep -v '^2;' "$d/CAD/CAD_GEOMETRIA_UHE.csv" > "$d/g.tmp" && mv "$d/g.tmp" "$d/CAD/CAD_GEOMETRIA_UHE.csv"
+# A3
+grep -v '^3;' "$d/CAD/CAD_TAILRACE.csv" > "$d/t.tmp" && mv "$d/t.tmp" "$d/CAD/CAD_TAILRACE.csv"
+"$repo/target/release/labdessem" run "$d" > run.stdout 2> run.stderr; echo "exit code $?"
+```
+
+| Case | Exit code, pre | Exit code, post | First error line, post (stderr) | Detail line, post |
+|---|---|---|---|---|
+| A2 | 0 (section 6: skip warning, objective 2430458.1703, debug E2E) | exit code 1 | `Error: computed FPHA could not be fitted for 1 hydro plant(s) with generating units:` | `plant 2 (FUNIL-GRANDE): no rows in CAD/CAD_GEOMETRIA_UHE.csv` |
+| A3 | not recorded (section 7: in-process `Ok`, no warning, no plant skipped) | exit code 1 | `Error: computed FPHA could not be fitted for 1 hydro plant(s) with generating units:` | `plant 3 (FURNAS): missing inputs: row in CAD/CAD_TAILRACE.csv` |
+
+- The first line of stderr is the blank line that precedes the banner; "first error line" is the first line
+  that starts with `Error:`. Before it, A2 prints the fits of plants 0, 1 and 3 (7, 3 and 6 planes) and A3
+  those of plants 0, 1 and 2 (7, 3 and 4 planes). The detail line is the next line, indented by two spaces.
+- Both runs write nothing to stdout besides the `Lendo arquivo:` lines and create no `RESULTADOS/`
+  directory. Wall time 0.01 s each. The A2 per-plant `Warning: Plant 2 (FUNIL-GRANDE) has no VHA geometry
+  data, skipping` of section 6 is not printed.
+
+Failure-path tests, run with `--nocapture` (all pass). The two E2E rows come from the `e2e.log` command of
+the A1 part above; the two unit rows from:
+
+```bash
+cargo test -p labdessem-cli --bin labdessem -- missing_tailrace_row_fails_fitting missing_efficiency_and_loss_fail_fitting --nocapture --test-threads=1 2> "$LOG_DIR/a3_unit.log"
+```
+
+| Test | Binary | Result | Printed |
+|---|---|---|---|
+| `plant_without_geometry_fails_run` | `tests/fpha_e2e.rs` | ok | `A2 removed 1 row(s) of plant 2 (FUNIL-GRANDE) from CAD/CAD_GEOMETRIA_UHE.csv` |
+| `missing_physical_data_fails_run` | `tests/fpha_e2e.rs` | ok | `A3 removed 1 row(s) of plant 3 (FURNAS) from CAD/CAD_TAILRACE.csv` |
+| `missing_tailrace_row_fails_fitting` | unittests `src/main.rs` | ok | fits of CAMARGOS, ITUTINGA and FUNIL-GRANDE (7, 3, 4 planes), none for FURNAS |
+| `missing_efficiency_and_loss_fail_fitting` | unittests `src/main.rs` | ok | `Computing FPHA planes from geometry data...` only; no plant fitted |
+
+The unit tests assert the error and print no message text; the message text above comes from the two
+release CLI runs. These failure-path tests replace the `baseline_a2_*` and `baseline_a3_*` tests of
+sections 6 and 7; no test name in `cargo test --workspace -- --list` contains `baseline` any more.
+
+**Differences**
+
+Intended by the plan: alpha is applied once (the LP-based deviation equals the reported one, and the
+computed objective moves with it), and the A2 and A3 cases stop with exit code 1 and a typed error instead
+of skipping the plant or using a default. Every other pre/post change found is listed here; none was
+explained by an isolating experiment.
+
+- Plane count: CAMARGOS moves from 6 to 7 planes; ITUTINGA (3), FUNIL-GRANDE (4) and FURNAS (6) are
+  unchanged. The injected segments per computed run go from 19 to 20, and by the section 6 rule (segments
+  times 48 periods) the `hydro_fpha` rows of CAMARGOS go from 288 to 336. Under `crates/labdessem-fpha/src`
+  only `pipeline.rs` differs between `4ac43e0` and `d6a223d`: the gamma_S secant fit and the plane
+  reduction now run on the unscaled planes, and the deviation is evaluated on alpha times the planes.
+  `crates/labdessem-cli/src/fpha_integration.rs` and `crates/labdessem-io/src/output/fpha_computed.rs` also
+  differ (error handling, validation, CSV preamble). The ticket-011 learnings had anticipated CAMARGOS 6 to
+  7; no run separated its cause among these changes.
+- Deviation of CAMARGOS: the reported maximum moves from 3.142964 to 2.970530 MW (mean 0.953364 to
+  0.941389, rms 1.291594 to 1.257590). FURNAS keeps the reported cells of section 5 to the last printed digit
+  (25.360739/9.047101/11.706933); ITUTINGA and FUNIL-GRANDE are unchanged.
+- LP-based deviation on the 11 x 11 grid: CAMARGOS 4.897389 to 3.619181 MW and FURNAS 48.972971 to
+  39.314637 MW (max); ITUTINGA and FUNIL-GRANDE are unchanged. On the fit grid the LP-based value of CAMARGOS
+  (2.753641 to 2.970530) and FURNAS (21.078021 to 25.360739) now equal the reported one.
+- Objectives: the computed objective moves from 2441046.6443 to 2383481.5598 R$ (-57,565.0845 R$,
+  -2.358 %), `O_alpha` by -57,569.1060 R$ and `O_one` by -56,645.7658 R$. The `Fcorrec = 1` copy is not the
+  same case as before: its planes are now unscaled, so alpha is applied zero times instead of once. The
+  post computed objective lies 264.5321 R$ (1.11e-4 relative) below the pre `O_one` copy, which applied alpha
+  once; the CAMARGOS plane count is the other change in the planes, and the contributions were not separated.
+  The round-trip gap `O_alpha - O_c` falls from +5.5959 R$ (2.292e-6) to +1.5744 R$ (6.605e-7), and
+  `O_c - O_one` goes from 2.347e-2 to 2.365e-2 relative; the post criteria (at most 1e-5, more than 1e-5)
+  hold. The constant_productivity objective is unchanged (1979326.8490), as expected for a mode that builds no
+  FPHA rows.
+- Exit codes and outputs: A2 goes from exit code 0 (objective 2430458.1703 in section 6) to exit code 1 with
+  no output directory; A3 has no pre-fix CLI exit code to compare. The two solving cases keep exit code 0 and
+  show no infeasibility.
+- Test inventory: 22 to 23 test binaries (new `labdessem-cli` `tests/fpha_e2e.rs`, 4 tests) and 478 to 504
+  passed (+26: `labdessem-cli` unit tests +20, `fpha_e2e` +4, `labdessem-fpha` unit tests +2); failures 0 and
+  ignored 2 before and after. The tests print different tags and columns from sections 5 to 7 (the `baseline_*`
+  tags, `ratio_min` and `ratio_max` are gone; `lp_envelope[...]` and `round_trip` lines are new).
+- Unchanged: clippy (175 distinct, CLI 13, fpha 36, `-D warnings` exit code 101 with the same four errors),
+  the manifest warnings, alpha at the printed precision, the ignored tests.
+- Not comparable: wall times are single runs (0.23 to 0.15 s computed release, 0.06 to 0.05 s
+  constant_productivity release, debug E2E times in the objective table) and no repeat was made, so no timing
+  change is claimed; the compilers and kernel on `PATH` differ from section 1 (Environment above).
