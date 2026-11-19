@@ -8,6 +8,7 @@
 //! property of the missing input, not of the row-name format.
 
 use std::error::Error;
+use std::fs;
 use std::path::Path;
 
 use labdessem_core::entities::HydroPlant;
@@ -33,6 +34,22 @@ const SKIPPED_PLANT_CODE: u32 = 2;
 
 /// Hydro plants of `examples/24Barras`.
 const HYDRO_PLANT_COUNT: usize = 4;
+
+/// Header of `OPER/OPER_FPHA.csv`, spelled exactly as in the header-only official file.
+const OPER_FPHA_HEADER: &str =
+    "USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s";
+
+/// Overwrites the header-only `OPER/OPER_FPHA.csv` of `case` with one valid segment
+/// (`SegFPHA = 1`, `Fcorrec = 1`) for each plant code in `codes`.
+fn write_synthetic_fpha_rows(case: &DerivedCase, codes: &[u32]) -> Result<(), Box<dyn Error>> {
+    let mut table = String::from(OPER_FPHA_HEADER);
+    table.push('\n');
+    for code in codes {
+        table.push_str(&format!("{code};PLANT-{code};1;1;0;0;0;0\n"));
+    }
+    fs::write(case.path().join("OPER/OPER_FPHA.csv"), table)?;
+    Ok(())
+}
 
 fn plant_by_code(system: &System, code: u32) -> &HydroPlant {
     let id = usize::try_from(code).expect("plant code fits usize");
@@ -215,6 +232,76 @@ fn plant_without_units_is_excluded_from_fitting() -> Result<(), Box<dyn Error>> 
         "plant {SKIPPED_PLANT_CODE} has no units and must have no fitted result"
     );
     assert_eq!(result.plants_skipped, 1);
+    Ok(())
+}
+
+/// Precomputed `OPER_FPHA.csv` rows for a plant without units in `CAD_CONJ_UHE.csv` would build
+/// FPHA constraints with no generation term, so the reader rejects the deck, naming the plant.
+#[test]
+fn fpha_rows_for_plant_without_units_are_rejected() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("precomputed")?;
+    let removed = case.remove_plant_rows(UNITS_FILE, SKIPPED_PLANT_CODE)?;
+    assert!(
+        removed >= 1,
+        "plant {SKIPPED_PLANT_CODE} has no rows in {UNITS_FILE}: the case would not be derived"
+    );
+    write_synthetic_fpha_rows(&case, &[0, 1, 2, 3])?;
+
+    // Act
+    let error = read_study_from_path(case.path())
+        .err()
+        .ok_or("read_study_from_path must reject FPHA rows for a plant without units")?;
+    let message = error.to_string();
+    eprintln!("fp07[rows_without_units] {message}");
+
+    // Assert
+    for fragment in ["OPER_FPHA.csv", "2 (FUNIL-GRANDE)", "CAD_CONJ_UHE.csv"] {
+        assert!(
+            message.contains(fragment),
+            "the error does not contain `{fragment}`: {message}"
+        );
+    }
+    Ok(())
+}
+
+/// Control for the rejection: the same case without the rows of plant 2 reads, and plant 2 keeps
+/// no segments while every other plant has its one segment.
+#[test]
+fn control_plant_without_units_and_no_fpha_rows_reads() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("precomputed")?;
+    let removed = case.remove_plant_rows(UNITS_FILE, SKIPPED_PLANT_CODE)?;
+    assert!(
+        removed >= 1,
+        "plant {SKIPPED_PLANT_CODE} has no rows in {UNITS_FILE}: the case would not be derived"
+    );
+    write_synthetic_fpha_rows(&case, &[0, 1, 3])?;
+
+    // Act
+    let system = read_study_from_path(case.path())?;
+
+    // Assert
+    let skipped = plant_by_code(&system, SKIPPED_PLANT_CODE);
+    assert!(
+        skipped.groups.is_empty(),
+        "plant {} must have no units after its rows are removed from {UNITS_FILE}",
+        skipped.name
+    );
+    assert!(
+        skipped.fpha_segments.is_empty(),
+        "plant {} has no FPHA rows and must have no segments",
+        skipped.name
+    );
+    for code in [0, 1, 3] {
+        let plant = plant_by_code(&system, code);
+        assert_eq!(
+            plant.fpha_segments.len(),
+            1,
+            "plant {} must have the one synthetic segment",
+            plant.name
+        );
+    }
     Ok(())
 }
 

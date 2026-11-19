@@ -25,11 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - An explicit `Perda.m = 0` stays valid; only an absent column or an empty cell counts as missing
   - `FitFailureReason` gained `MissingInputs(Vec<FphaInput>)` and `FphaComputeError` gained `MissingFphaInputs`
   - EngMax is unchanged and keeps its defaults for missing efficiency, loss and tailrace
+- **BREAKING**: Precomputed FPHA decks are rejected when `OPER_FPHA.csv` has rows for a hydro plant without generating units
+  - Before: a plant without rows in `CAD/CAD_CONJ_UHE.csv` kept its `OPER_FPHA.csv` rows, and the model built FPHA constraints for it with no generation or turbining terms
+  - Now the reader fails with `OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: <code> (<name>), ...`, listing every affected plant in ascending code order, and the CLI exits with code 1 before writing any result
+  - A plant without generating units and without `OPER_FPHA.csv` rows reads as before; computed mode is unchanged
+  - To migrate, delete the `OPER_FPHA.csv` rows of the listed plants or add their generating units to `CAD_CONJ_UHE.csv`
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
 - A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
 - Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
+- Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
 
 ## [0.12.0] - 2026-11-05
 

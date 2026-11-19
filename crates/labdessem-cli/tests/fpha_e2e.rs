@@ -26,6 +26,9 @@ const GEOMETRY_FILE: &str = "CAD/CAD_GEOMETRIA_UHE.csv";
 /// Hydro plant table; its `Nome` column is the source of the plant name in the A2 case.
 const PLANTS_FILE: &str = "CAD/CAD_UHE.csv";
 
+/// Unit table (one row per plant and unit group), relative to the case directory.
+const UNITS_FILE: &str = "CAD/CAD_CONJ_UHE.csv";
+
 /// Hydro results table, relative to the case directory.
 const HYDRO_RESULTS_FILE: &str = "RESULTADOS/resultado_hidreletricas.csv";
 
@@ -535,5 +538,53 @@ fn missing_physical_data_fails_run() {
     assert!(
         !case.path().join(HYDRO_RESULTS_FILE).exists(),
         "{HYDRO_RESULTS_FILE} must not be written when the FPHA computation fails"
+    );
+}
+
+/// Regression for audit FP-07: precomputed `OPER_FPHA.csv` rows for a plant without units in
+/// `CAD_CONJ_UHE.csv` fail the run with an error naming the plant and the unit table, before any
+/// result file is written.
+#[test]
+fn fpha_rows_for_plant_without_units_fail_run() {
+    // Arrange
+    let case = derived_case("precomputed");
+    let plant_name = plant_name_in_cad(case.path(), SKIPPED_PLANT_CODE);
+    let removed = remove_plant_rows(case.path(), UNITS_FILE, SKIPPED_PLANT_CODE);
+    eprintln!(
+        "FP-07 removed {removed} row(s) of plant {SKIPPED_PLANT_CODE} ({plant_name}) from \
+         {UNITS_FILE}"
+    );
+    assert!(
+        removed >= 1,
+        "plant {SKIPPED_PLANT_CODE} has no rows in {UNITS_FILE}: the case would not be derived"
+    );
+    let mut table = String::from(OPER_FPHA_HEADER);
+    table.push('\n');
+    for code in 0..=3 {
+        table.push_str(&format!("{code};PLANT-{code};1;1;0;0;0;0\n"));
+    }
+    fs::write(case.path().join("OPER/OPER_FPHA.csv"), table).expect("write OPER/OPER_FPHA.csv");
+
+    // Act
+    let outcome = run_cli(case.path());
+
+    // Assert
+    assert_eq!(
+        outcome.code,
+        Some(1),
+        "the run must exit 1 because plant {SKIPPED_PLANT_CODE} has FPHA rows and no units; \
+         stderr:\n{}",
+        outcome.stderr
+    );
+    for fragment in ["OPER_FPHA.csv", plant_name.as_str(), "CAD_CONJ_UHE.csv"] {
+        assert!(
+            outcome.stderr.contains(fragment),
+            "stderr lacks `{fragment}`:\n{}",
+            outcome.stderr
+        );
+    }
+    assert!(
+        !case.path().join(HYDRO_RESULTS_FILE).exists(),
+        "{HYDRO_RESULTS_FILE} must not be written when the deck is rejected"
     );
 }

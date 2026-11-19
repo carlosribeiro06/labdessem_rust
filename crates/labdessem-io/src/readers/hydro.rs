@@ -209,6 +209,27 @@ fn build_hydro_plants(
             });
     }
 
+    if fpha_enabled {
+        // A code absent from CAD_UHE.csv is not a hydro plant: its rows are ignored, as before.
+        let without_units: Vec<String> = fpha_by_plant
+            .keys()
+            .filter(|code| !units_by_plant.contains_key(code))
+            .filter_map(|code| {
+                plant_rows
+                    .iter()
+                    .find(|row| row.codigo == *code)
+                    .map(|row| format!("{code} ({})", row.nome.trim()))
+            })
+            .collect();
+        if !without_units.is_empty() {
+            return Err(IoError::invalid_data(format!(
+                "OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in \
+                 CAD_CONJ_UHE.csv: {}",
+                without_units.join(", ")
+            )));
+        }
+    }
+
     plant_rows
         .iter()
         .map(|row| {
@@ -295,17 +316,13 @@ fn build_hydro_plants(
                 .get(&row.codigo)
                 .cloned()
                 .unwrap_or_else(|| vec![0.0; horizon.periods]);
-            let fpha_segments = if fpha_enabled {
-                if plant_unit_rows.is_empty() {
-                    fpha_by_plant.get(&row.codigo).cloned().unwrap_or_default()
-                } else {
-                    fpha_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
-                        IoError::invalid_data(format!(
-                            "missing FPHA data for hydro plant {}",
-                            row.codigo
-                        ))
-                    })?
-                }
+            let fpha_segments = if fpha_enabled && !plant_unit_rows.is_empty() {
+                fpha_by_plant.get(&row.codigo).cloned().ok_or_else(|| {
+                    IoError::invalid_data(format!(
+                        "missing FPHA data for hydro plant {}",
+                        row.codigo
+                    ))
+                })?
             } else {
                 Vec::new()
             };
