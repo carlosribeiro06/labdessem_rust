@@ -1,6 +1,6 @@
 //! Readers for FPHA geometry data (VHA table and tailrace polynomial).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use csv::ReaderBuilder;
@@ -86,7 +86,8 @@ fn check_finite(
 /// Points are sorted by volume ascending within each plant.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
-/// Fails on a non-finite value or on two points of one plant with the same volume.
+/// Fails on a non-finite value or on two points of one plant with the same volume, reporting the
+/// lowest plant code first.
 pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryData>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_GEOMETRIA_UHE.csv");
 
@@ -101,7 +102,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
         .has_headers(true)
         .from_path(&file_path)?;
 
-    let mut grouped: HashMap<u32, Vec<(usize, VhaPoint)>> = HashMap::new();
+    let mut grouped: BTreeMap<u32, Vec<(usize, VhaPoint)>> = BTreeMap::new();
 
     for (line_idx, record) in reader.deserialize().enumerate() {
         let row: VhaRow = record.map_err(|e| {
@@ -654,6 +655,24 @@ mod tests {
             message,
             "plant 1 has duplicate volume 1000 at lines 2 and 4 in CAD_GEOMETRIA_UHE.csv"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn read_vha_geometry_reports_duplicates_in_code_order() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n2;1000.0;250.0;50.0\n2;1000.0;251.0;51.0\n1;500.0;180.0;25.0\n1;500.0;181.0;26.0";
+        let dir = create_test_case(Some(content), None);
+
+        // Each read hashes with a fresh seed: a hash-ordered check names plant 2 on half of them.
+        for _ in 0..16 {
+            let message = error_message(read_vha_geometry(dir.path()))?;
+
+            assert_eq!(
+                message,
+                "plant 1 has duplicate volume 500 at lines 4 and 5 in CAD_GEOMETRIA_UHE.csv"
+            );
+        }
         Ok(())
     }
 
