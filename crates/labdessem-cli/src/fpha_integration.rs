@@ -9,7 +9,11 @@ use std::path::Path;
 use labdessem_core::entities::{HydroFphaSegment, HydroPlant, InflowHistoryRow};
 use labdessem_core::system::System;
 use labdessem_fpha::{
-    fit_plant, FitPlantParams, FphaPlantConfig, FphaPlantResult,
+    FitPlantParams, FphaPlantConfig, FphaPlantResult,
+    config::{
+        DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
+    },
+    fit_plant,
     fitting::{ForebayTable, PlaneReductionConfig, VhaRow},
     types::TailraceModel,
 };
@@ -358,7 +362,17 @@ fn build_fit_params(
         });
     };
 
-    let fpha_config = build_fpha_config(config);
+    if let Some(msg) = ignored_window_warning(plant, vha, config) {
+        eprintln!("Warning: {msg}");
+    }
+
+    let fpha_config = build_fpha_config(
+        config,
+        (
+            plant.reservoir.min_volume_hm3,
+            plant.reservoir.max_volume_hm3,
+        ),
+    );
 
     Ok(FitPlantParams {
         codigo: plant_code,
@@ -374,20 +388,57 @@ fn build_fit_params(
     })
 }
 
-fn build_fpha_config(config: Option<&IoFphaPlantConfig>) -> FphaPlantConfig {
+fn build_fpha_config(
+    config: Option<&IoFphaPlantConfig>,
+    reference_hm3: (f64, f64),
+) -> FphaPlantConfig {
     let mut fpha_config = FphaPlantConfig::computed(
-        10, 6, 6,
-        PlaneReductionConfig::Angle { tolerance_deg: 1.0 },
+        DEFAULT_MAX_PLANES,
+        DEFAULT_VOLUME_POINTS,
+        DEFAULT_FLOW_POINTS,
+        PlaneReductionConfig::Angle {
+            tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
+        },
     );
+    fpha_config.window_reference_hm3 = Some(reference_hm3);
 
     if let Some(c) = config {
         if let Some(n) = c.num_planes {
             fpha_config.max_planes = n;
         }
-        // tolerance applies to the reduction config, not a direct field
+        if let Some(tolerance_deg) = c.tolerance {
+            fpha_config.reduction_config = PlaneReductionConfig::Angle { tolerance_deg };
+        }
+        if let Some(min_fraction) = c.min_volume_pct {
+            fpha_config.volume_window.min_fraction = min_fraction;
+        }
+        if let Some(max_fraction) = c.max_volume_pct {
+            fpha_config.volume_window.max_fraction = max_fraction;
+        }
     }
 
     fpha_config
+}
+
+/// `fit_context` ignores the volume window of a single-point geometry table.
+fn ignored_window_warning(
+    plant: &HydroPlant,
+    vha: &VhaGeometryData,
+    config: Option<&IoFphaPlantConfig>,
+) -> Option<String> {
+    let config = config?;
+    if vha.points.len() != 1 || (config.min_volume_pct.is_none() && config.max_volume_pct.is_none())
+    {
+        return None;
+    }
+    let show = |bound: Option<f64>| bound.map_or_else(|| "unset".to_string(), |v| v.to_string());
+    Some(format!(
+        "plant {} ({}) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct {} and max_volume_pct {} in CAD/CAD_FPHA_CONFIG.csv are ignored",
+        plant.id.0,
+        plant.name.trim(),
+        show(config.min_volume_pct),
+        show(config.max_volume_pct)
+    ))
 }
 
 pub fn write_computed_results(
@@ -525,25 +576,236 @@ mod physical_data_tests;
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
+    use std::fs;
+
+    use labdessem_fpha::{FphaMode, config::VolumeWindow};
+    use labdessem_io::read_study_from_path;
+
+    use super::probe::{DerivedCase, computed_system};
     use super::*;
 
     #[test]
-    fn build_fpha_config_defaults() {
-        let config = build_fpha_config(None);
+    fn build_fpha_config_uses_adr028_defaults() {
+        let config = build_fpha_config(None, (120.0, 792.0));
+
+        assert_eq!(config.mode, FphaMode::Computed);
         assert_eq!(config.max_planes, 10);
+        assert_eq!(config.volume_points, 5);
+        assert_eq!(config.flow_points, 5);
+        assert!(matches!(
+            config.reduction_config,
+            PlaneReductionConfig::Angle { tolerance_deg } if tolerance_deg == 1.0
+        ));
+        assert_eq!(config.volume_window, VolumeWindow::FULL);
+        assert_eq!(config.window_reference_hm3, Some((120.0, 792.0)));
     }
 
     #[test]
-    fn build_fpha_config_with_overrides() {
+    fn build_fpha_config_maps_every_field() {
         let io_config = IoFphaPlantConfig {
             num_planes: Some(7),
             tolerance: Some(0.005),
-            min_volume_pct: None,
-            max_volume_pct: None,
+            min_volume_pct: Some(0.25),
+            max_volume_pct: Some(0.75),
         };
 
-        let config = build_fpha_config(Some(&io_config));
+        let config = build_fpha_config(Some(&io_config), (100.0, 900.0));
+
         assert_eq!(config.max_planes, 7);
+        assert!(matches!(
+            config.reduction_config,
+            PlaneReductionConfig::Angle { tolerance_deg } if tolerance_deg == 0.005
+        ));
+        assert_eq!(
+            config.volume_window,
+            VolumeWindow {
+                min_fraction: 0.25,
+                max_fraction: 0.75
+            }
+        );
+        assert_eq!(config.window_reference_hm3, Some((100.0, 900.0)));
+        assert_eq!(config.volume_points, 5);
+        assert_eq!(config.flow_points, 5);
+
+        let min_only = IoFphaPlantConfig {
+            min_volume_pct: Some(0.3),
+            ..IoFphaPlantConfig::default()
+        };
+        assert_eq!(
+            build_fpha_config(Some(&min_only), (100.0, 900.0)).volume_window,
+            VolumeWindow {
+                min_fraction: 0.3,
+                max_fraction: 1.0
+            }
+        );
+    }
+
+    fn window(min: Option<f64>, max: Option<f64>) -> IoFphaPlantConfig {
+        IoFphaPlantConfig {
+            min_volume_pct: min,
+            max_volume_pct: max,
+            ..IoFphaPlantConfig::default()
+        }
+    }
+
+    /// Plant `code` of `examples/24Barras` with its VHA table: ITUTINGA (1) has one point,
+    /// FURNAS (3) has a hundred.
+    fn plant_with_geometry(
+        code: usize,
+    ) -> Result<(HydroPlant, VhaGeometryData), Box<dyn std::error::Error>> {
+        let case = DerivedCase::new("computed")?;
+        let plant = read_study_from_path(case.path())?
+            .hydro_plants
+            .into_iter()
+            .find(|p| p.id.0 == code)
+            .ok_or("plant not in 24Barras")?;
+        let vha = read_vha_geometry(case.path())?
+            .remove(&u32::try_from(code)?)
+            .ok_or("plant without VHA rows")?;
+        Ok((plant, vha))
+    }
+
+    #[test]
+    fn ignored_window_warning_names_single_point_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let (plant, vha) = plant_with_geometry(1)?;
+        assert_eq!(vha.points.len(), 1);
+
+        let both = ignored_window_warning(&plant, &vha, Some(&window(Some(0.5), Some(0.6))));
+        let max_only = ignored_window_warning(&plant, &vha, Some(&window(None, Some(0.6))));
+
+        assert_eq!(
+            both.as_deref(),
+            Some(
+                "plant 1 (ITUTINGA) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct 0.5 and max_volume_pct 0.6 in CAD/CAD_FPHA_CONFIG.csv are ignored"
+            )
+        );
+        assert_eq!(
+            max_only.as_deref(),
+            Some(
+                "plant 1 (ITUTINGA) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct unset and max_volume_pct 0.6 in CAD/CAD_FPHA_CONFIG.csv are ignored"
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ignored_window_warning_is_silent_otherwise() -> Result<(), Box<dyn std::error::Error>> {
+        let (single, single_vha) = plant_with_geometry(1)?;
+        let (several, several_vha) = plant_with_geometry(3)?;
+        assert!(several_vha.points.len() > 1);
+        let no_window = IoFphaPlantConfig {
+            num_planes: Some(4),
+            tolerance: Some(1.5),
+            ..IoFphaPlantConfig::default()
+        };
+
+        assert_eq!(
+            ignored_window_warning(&several, &several_vha, Some(&window(Some(0.5), Some(0.6)))),
+            None
+        );
+        assert_eq!(
+            ignored_window_warning(&single, &single_vha, Some(&no_window)),
+            None
+        );
+        assert_eq!(ignored_window_warning(&single, &single_vha, None), None);
+        Ok(())
+    }
+
+    const CAMARGOS: i32 = 0;
+    const FURNAS: i32 = 3;
+    const CONFIG_HEADER: &str = "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct";
+
+    fn fit_with_config_rows(
+        rows: &[&str],
+    ) -> Result<HashMap<i32, FphaPlantResult>, Box<dyn std::error::Error>> {
+        let case = DerivedCase::new("computed")?;
+        if !rows.is_empty() {
+            let csv = format!("{CONFIG_HEADER}\n{}\n", rows.join("\n"));
+            fs::write(case.path().join("CAD/CAD_FPHA_CONFIG.csv"), csv)?;
+        }
+        let (_, result) = computed_system(case.path())?;
+        Ok(result
+            .plant_results
+            .into_iter()
+            .map(|r| (r.codigo, r))
+            .collect())
+    }
+
+    fn bit_pattern(result: &FphaPlantResult) -> Vec<u64> {
+        let d = &result.deviation;
+        result
+            .planes
+            .iter()
+            .flat_map(|p| [p.gamma_0, p.gamma_v, p.gamma_q, p.gamma_s])
+            .chain([
+                result.alpha,
+                d.mean_abs_mw,
+                d.max_abs_mw,
+                d.rms_mw,
+                d.mean_signed_mw,
+                d.relative,
+            ])
+            .map(f64::to_bits)
+            .collect()
+    }
+
+    fn assert_only_plant_changed(
+        control: &HashMap<i32, FphaPlantResult>,
+        configured: &HashMap<i32, FphaPlantResult>,
+        changed: i32,
+    ) {
+        assert_eq!(control.len(), 4, "24Barras has 4 plants with units");
+        assert_eq!(configured.len(), control.len());
+        for (code, before) in control {
+            let same = bit_pattern(before) == bit_pattern(&configured[code]);
+            if *code == changed {
+                assert!(
+                    !same,
+                    "plant {code} is unchanged: the config row had no effect"
+                );
+            } else {
+                assert!(
+                    same,
+                    "plant {code} changed although only plant {changed} is configured"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn config_tolerance_changes_only_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
+
+        let configured = fit_with_config_rows(&["3;;5.0;;"])?;
+
+        assert_only_plant_changed(&control, &configured, FURNAS);
+        Ok(())
+    }
+
+    #[test]
+    fn config_window_changes_only_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
+
+        let configured = fit_with_config_rows(&["3;;;0.5;0.6"])?;
+
+        assert_only_plant_changed(&control, &configured, FURNAS);
+        Ok(())
+    }
+
+    #[test]
+    fn config_plane_limit_caps_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
+        let limit = 2;
+        assert!(
+            control[&CAMARGOS].planes.len() > limit,
+            "the control fit must exceed the limit for the cap to be observable"
+        );
+
+        let configured = fit_with_config_rows(&["0;2;;;"])?;
+
+        assert!(configured[&CAMARGOS].planes.len() <= limit);
+        assert_only_plant_changed(&control, &configured, CAMARGOS);
+        Ok(())
     }
 
     #[test]

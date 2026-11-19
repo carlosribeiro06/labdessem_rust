@@ -248,13 +248,9 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
 /// FPHA fitting configuration overrides for a single plant.
 #[derive(Debug, Clone, Default)]
 pub struct FphaPlantConfig {
-    #[allow(dead_code)]
     pub num_planes: Option<usize>,
-    #[allow(dead_code)]
     pub tolerance: Option<f64>,
-    #[allow(dead_code)]
     pub min_volume_pct: Option<f64>,
-    #[allow(dead_code)]
     pub max_volume_pct: Option<f64>,
 }
 
@@ -277,7 +273,8 @@ struct FphaConfigRow {
 /// Returns a HashMap mapping plant codes to their configuration overrides.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
-/// Fails on a non-finite value or on a second row for the same plant.
+/// Fails on a non-finite value, `num_planes = 0`, `min_volume_pct >= max_volume_pct` when both are
+/// given, or a second row for the same plant.
 pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_FPHA_CONFIG.csv");
 
@@ -331,6 +328,14 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
             }
         }
 
+        if row.num_planes == Some(0) {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has num_planes 0 (must be at least 1) at line {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                line_idx + 2
+            )));
+        }
+
         if let Some(pct) = row.min_volume_pct {
             if !(0.0..=1.0).contains(&pct) {
                 return Err(IoError::invalid_data(format!(
@@ -351,6 +356,18 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
                     line_idx + 2
                 )));
             }
+        }
+
+        if let (Some(min), Some(max)) = (row.min_volume_pct, row.max_volume_pct)
+            && min >= max
+        {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has min_volume_pct {} not below max_volume_pct {} at line {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                min,
+                max,
+                line_idx + 2
+            )));
         }
 
         if let Some(first_line) = first_lines.insert(row.codigo, line_idx + 2) {
@@ -766,6 +783,40 @@ mod tests {
                     )
                 );
             }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn read_fpha_config_zero_num_planes_error() -> Result<(), Box<dyn std::error::Error>> {
+        let content = "codigo_usina;num_planes\n2;5\n1;0";
+        let dir = create_config_test_case(Some(content));
+
+        let message = error_message(read_fpha_config(dir.path()))?;
+
+        assert_eq!(
+            message,
+            "plant 1 has num_planes 0 (must be at least 1) at line 3 in CAD_FPHA_CONFIG.csv"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn read_fpha_config_min_volume_pct_not_below_max_error()
+    -> Result<(), Box<dyn std::error::Error>> {
+        for (min, max) in [("0.6", "0.5"), ("0.5", "0.5")] {
+            let content =
+                format!("codigo_usina;min_volume_pct;max_volume_pct\n2;0.1;0.9\n1;{min};{max}");
+            let dir = create_config_test_case(Some(&content));
+
+            let message = error_message(read_fpha_config(dir.path()))?;
+
+            assert_eq!(
+                message,
+                format!(
+                    "plant 1 has min_volume_pct {min} not below max_volume_pct {max} at line 3 in CAD_FPHA_CONFIG.csv"
+                )
+            );
         }
         Ok(())
     }
