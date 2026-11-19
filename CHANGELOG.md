@@ -30,12 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now the reader fails with `OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: <code> (<name>), ...`, listing every affected plant in ascending code order, and the CLI exits with code 1 before writing any result
   - A plant without generating units and without `OPER_FPHA.csv` rows reads as before; computed mode is unchanged
   - To migrate, delete the `OPER_FPHA.csv` rows of the listed plants or add their generating units to `CAD_CONJ_UHE.csv`
+- **BREAKING**: The FPHA geometry readers reject non-finite values and duplicate rows
+  - Before: `CAD/CAD_GEOMETRIA_UHE.csv`, `CAD/CAD_TAILRACE.csv` and `CAD/CAD_FPHA_CONFIG.csv` accepted `NaN`, `inf` and `-inf` in every numeric column, a second row for the same plant in `CAD_TAILRACE.csv` or `CAD_FPHA_CONFIG.csv` silently replaced the first, and `CAD_GEOMETRIA_UHE.csv` kept two points of one plant with the same `volume.hm3`
+  - Now each reader returns `IoError::InvalidData` with `plant <id> has non-finite <column> <value> at line <n> in <file>`, `plant <id> has duplicate rows at lines <a> and <b> in <file>` or `plant <id> has duplicate volume <v> at lines <a> and <b> in CAD_GEOMETRIA_UHE.csv`
+  - `CAD_GEOMETRIA_UHE.csv` and `CAD_TAILRACE.csv` are read for every study, so a bad value fails the study read and the CLI exits with code 1 before writing any result; a bad `CAD_FPHA_CONFIG.csv` fails `compute_fpha`
+  - Decks with finite values and one row per plant, such as `examples/24Barras`, read as before
+  - To migrate, replace each non-finite cell with a finite value and delete the repeated row or point
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
 - A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
 - Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
 - Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
+- The FPHA geometry readers let `NaN` and infinities through (the sign checks are false for `NaN`), sorted the volume table in an undefined order for `NaN`, and silently kept the last of two rows for the same plant, so a `NaN` water level reached the fit or the net-head model (audit EM-04, FP-R01); the readers now reject the value or the duplicate naming the file, plant, column and line
 
 ## [0.12.0] - 2026-11-05
 

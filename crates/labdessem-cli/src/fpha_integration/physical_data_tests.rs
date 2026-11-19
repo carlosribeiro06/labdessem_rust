@@ -5,6 +5,9 @@
 //! inputs fails `compute_fpha` with `PlantsNotFitted`, listing the plant and every missing input,
 //! while an explicit `Perda.m = 0` stays valid. Each test edits a derived copy of
 //! `examples/24Barras`. The control test shows the official inputs carry the data.
+//!
+//! The geometry and tailrace readers run on every study read, so a non-finite value or a duplicate
+//! tailrace row fails `read_study_from_path` before any fitting.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -22,11 +25,20 @@ const TAILRACE_FILE: &str = "CAD/CAD_TAILRACE.csv";
 /// Plant table carrying the `Eficiencia` and `Perda.m` columns, relative to the case directory.
 const PLANTS_FILE: &str = "CAD/CAD_UHE.csv";
 
+/// Volume-height-area table the computed FPHA reads, relative to the case directory.
+const GEOMETRY_FILE: &str = "CAD/CAD_GEOMETRIA_UHE.csv";
+
 /// Plant whose tailrace row is removed: FURNAS in `examples/24Barras`.
 const TAILRACE_PLANT_CODE: u32 = 3;
 
 /// Plant whose `Perda.m` is set to an explicit zero: CAMARGOS in `examples/24Barras`.
 const ZERO_LOSS_PLANT_CODE: u32 = 0;
+
+/// Plant whose tailrace `a0.m` is set to `NaN`: ITUTINGA in `examples/24Barras`.
+const NON_FINITE_TAILRACE_PLANT_CODE: u32 = 1;
+
+/// Plant whose geometry `cota.m` is set to `NaN`: CAMARGOS in `examples/24Barras`.
+const NON_FINITE_GEOMETRY_PLANT_CODE: u32 = 0;
 
 /// Hydro plants of `examples/24Barras`.
 const HYDRO_PLANT_COUNT: usize = 4;
@@ -170,6 +182,85 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
             message.contains("Eficiencia") && message.contains("Perda.m"),
             "plant {}: the failure must name Eficiencia and Perda.m: {message}",
             failure.hydro_id
+        );
+    }
+    Ok(())
+}
+
+/// The message of the error `read_study_from_path` returns for `case`.
+fn read_error_message(case: &DerivedCase) -> Result<String, Box<dyn Error>> {
+    let error = read_study_from_path(case.path())
+        .err()
+        .ok_or("read_study_from_path accepted the case, expected an error")?;
+    Ok(error.to_string())
+}
+
+/// A `NaN` tailrace level is rejected at read time, not carried into the net-head model.
+#[test]
+fn non_finite_tailrace_level_is_rejected() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let changed = case.set_cell(TAILRACE_FILE, NON_FINITE_TAILRACE_PLANT_CODE, "a0.m", "NaN")?;
+    assert_eq!(
+        changed, 1,
+        "CAD_TAILRACE.csv has exactly one row for plant 1"
+    );
+
+    // Act
+    let message = read_error_message(&case)?;
+
+    // Assert
+    for expected in ["CAD_TAILRACE.csv", "plant 1", "a0.m", "NaN"] {
+        assert!(
+            message.contains(expected),
+            "the message must contain {expected}: {message}"
+        );
+    }
+    Ok(())
+}
+
+/// A second tailrace row for a plant is rejected at read time, not silently kept as the last one.
+#[test]
+fn duplicate_tailrace_row_is_rejected() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let copy_line = case.duplicate_plant_row(TAILRACE_FILE, TAILRACE_PLANT_CODE)?;
+
+    // Act
+    let message = read_error_message(&case)?;
+
+    // Assert
+    let lines = format!("lines {} and {copy_line}", copy_line - 1);
+    for expected in ["CAD_TAILRACE.csv", "plant 3", lines.as_str()] {
+        assert!(
+            message.contains(expected),
+            "the message must contain {expected}: {message}"
+        );
+    }
+    Ok(())
+}
+
+/// A `NaN` water level is rejected at read time, not carried into the fit.
+#[test]
+fn non_finite_geometry_level_is_rejected() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let changed = case.set_cell(
+        GEOMETRY_FILE,
+        NON_FINITE_GEOMETRY_PLANT_CODE,
+        "cota.m",
+        "NaN",
+    )?;
+    assert!(changed > 0, "CAD_GEOMETRIA_UHE.csv has rows for plant 0");
+
+    // Act
+    let message = read_error_message(&case)?;
+
+    // Assert
+    for expected in ["CAD_GEOMETRIA_UHE.csv", "plant 0", "cota.m", "NaN"] {
+        assert!(
+            message.contains(expected),
+            "the message must contain {expected}: {message}"
         );
     }
     Ok(())

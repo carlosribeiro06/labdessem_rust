@@ -138,6 +138,35 @@ impl DerivedCase {
         Ok(removed)
     }
 
+    /// Inserts a copy of the first data line whose first `;` field, trimmed, equals `plant_code`
+    /// right after it; keeps the line terminator. Returns the 1-based file line of the copy.
+    pub(super) fn duplicate_plant_row(&self, relative: &str, plant_code: u32) -> io::Result<usize> {
+        let path = self.resolve(relative)?;
+        let text = fs::read_to_string(&path)?;
+        let mut rewritten = String::with_capacity(text.len());
+        let mut copy_line = None;
+        for (index, line) in text.split_inclusive('\n').enumerate() {
+            rewritten.push_str(line);
+            let (content, terminator) = split_terminator(line);
+            let first_field = content.split(';').next().unwrap_or_default();
+            let is_plant_row =
+                index > 0 && first_field.trim().parse::<u32>().ok() == Some(plant_code);
+            if is_plant_row && copy_line.is_none() {
+                if terminator.is_empty() {
+                    rewritten.push('\n');
+                }
+                rewritten.push_str(content);
+                rewritten.push_str(terminator);
+                copy_line = Some(index + 2);
+            }
+        }
+        let copy_line = copy_line.ok_or_else(|| {
+            invalid_input(format!("{relative}: no data row for plant {plant_code}"))
+        })?;
+        fs::write(path, rewritten)?;
+        Ok(copy_line)
+    }
+
     /// Removes the named columns (matched against the trimmed header fields) from every line.
     pub(super) fn drop_columns(&self, relative: &str, columns: &[&str]) -> io::Result<()> {
         let path = self.resolve(relative)?;
@@ -681,6 +710,64 @@ fn probe_derived_case_sets_a_cell() -> Result<(), Box<dyn Error>> {
     assert!(
         fs::read(&source_path)? == source_bytes,
         "examples/24Barras/{plants} changed while editing the derived case"
+    );
+    Ok(())
+}
+
+#[test]
+fn probe_derived_case_duplicates_a_row() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let tailrace = "CAD/CAD_TAILRACE.csv";
+    let source_path = Path::new(SOURCE_CASE).join(tailrace);
+    let source_bytes = fs::read(&source_path)?;
+    let source_text = String::from_utf8(source_bytes.clone())?;
+    let source_lines: Vec<&str> = source_text.split_inclusive('\n').collect();
+    let plant_index = source_lines
+        .iter()
+        .skip(1)
+        .position(|line| line.split(';').next().map(str::trim) == Some("1"))
+        .ok_or("CAD_TAILRACE.csv has no row for plant 1")?
+        + 1;
+    let case = DerivedCase::new("computed")?;
+    fs::write(
+        case.path().join("CAD/no_final_newline.csv"),
+        "Codigo;Valor\n0;1\n5;2",
+    )?;
+    fs::write(case.path().join("CAD/crlf.csv"), "Codigo;Valor\r\n0;1\r\n")?;
+
+    // Act
+    let copy_line = case.duplicate_plant_row(tailrace, 1)?;
+    let missing_plant = case.duplicate_plant_row(tailrace, 99);
+    let unterminated = case.duplicate_plant_row("CAD/no_final_newline.csv", 5)?;
+    let crlf = case.duplicate_plant_row("CAD/crlf.csv", 0)?;
+
+    // Assert
+    assert_eq!(copy_line, plant_index + 2, "the copy follows the plant row");
+    assert!(
+        matches!(&missing_plant, Err(error) if error.kind() == io::ErrorKind::InvalidInput),
+        "a plant without a row must be InvalidInput, got {missing_plant:?}"
+    );
+    let edited_text = fs::read_to_string(case.path().join(tailrace))?;
+    let edited_lines: Vec<&str> = edited_text.split_inclusive('\n').collect();
+    assert_eq!(edited_lines.len(), source_lines.len() + 1);
+    assert_eq!(edited_lines[plant_index], source_lines[plant_index]);
+    assert_eq!(edited_lines[plant_index + 1], source_lines[plant_index]);
+    let mut without_copy = edited_lines.clone();
+    without_copy.remove(plant_index + 1);
+    assert_eq!(without_copy, source_lines, "only one line may be added");
+    assert_eq!(unterminated, 4);
+    assert_eq!(
+        fs::read_to_string(case.path().join("CAD/no_final_newline.csv"))?,
+        "Codigo;Valor\n0;1\n5;2\n5;2"
+    );
+    assert_eq!(crlf, 3);
+    assert_eq!(
+        fs::read_to_string(case.path().join("CAD/crlf.csv"))?,
+        "Codigo;Valor\r\n0;1\r\n0;1\r\n"
+    );
+    assert!(
+        fs::read(&source_path)? == source_bytes,
+        "examples/24Barras/{tailrace} changed while editing the derived case"
     );
     Ok(())
 }

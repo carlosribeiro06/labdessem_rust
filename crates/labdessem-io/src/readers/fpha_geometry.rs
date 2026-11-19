@@ -63,12 +63,30 @@ struct TailraceRow {
     a4: f64,
 }
 
+const TAILRACE_COLUMNS: [&str; 5] = ["a0.m", "a1.m/m3s", "a2.m/m3s2", "a3.m/m3s3", "a4.m/m3s4"];
+
+fn check_finite(
+    file: &str,
+    plant: u32,
+    line: usize,
+    column: &str,
+    value: f64,
+) -> Result<(), IoError> {
+    if value.is_finite() {
+        return Ok(());
+    }
+    Err(IoError::invalid_data(format!(
+        "plant {plant} has non-finite {column} {value} at line {line} in {file}"
+    )))
+}
+
 /// Read VHA geometry data from `CAD/CAD_GEOMETRIA_UHE.csv`.
 ///
 /// Returns a HashMap mapping plant codes to their VHA geometry data.
 /// Points are sorted by volume ascending within each plant.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
+/// Fails on a non-finite value or on two points of one plant with the same volume.
 pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryData>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_GEOMETRIA_UHE.csv");
 
@@ -83,7 +101,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
         .has_headers(true)
         .from_path(&file_path)?;
 
-    let mut grouped: HashMap<u32, Vec<VhaPoint>> = HashMap::new();
+    let mut grouped: HashMap<u32, Vec<(usize, VhaPoint)>> = HashMap::new();
 
     for (line_idx, record) in reader.deserialize().enumerate() {
         let row: VhaRow = record.map_err(|e| {
@@ -92,6 +110,20 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
                 line_idx + 2
             ))
         })?;
+
+        for (column, value) in [
+            ("volume.hm3", row.volume_hm3),
+            ("cota.m", row.cota_m),
+            ("area.km2", row.area_km2),
+        ] {
+            check_finite(
+                "CAD_GEOMETRIA_UHE.csv",
+                row.codigo,
+                line_idx + 2,
+                column,
+                value,
+            )?;
+        }
 
         if row.volume_hm3 < 0.0 {
             return Err(IoError::invalid_data(format!(
@@ -120,32 +152,38 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
             )));
         }
 
-        grouped.entry(row.codigo).or_default().push(VhaPoint {
-            volume_hm3: row.volume_hm3,
-            height_m: row.cota_m,
-            area_km2: row.area_km2,
-        });
+        grouped.entry(row.codigo).or_default().push((
+            line_idx + 2,
+            VhaPoint {
+                volume_hm3: row.volume_hm3,
+                height_m: row.cota_m,
+                area_km2: row.area_km2,
+            },
+        ));
     }
 
-    let result = grouped
+    grouped
         .into_iter()
         .map(|(code, mut points)| {
-            points.sort_by(|a, b| {
-                a.volume_hm3
-                    .partial_cmp(&b.volume_hm3)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            (
+            points.sort_by(|(_, a), (_, b)| a.volume_hm3.total_cmp(&b.volume_hm3));
+            if let Some(pair) = points
+                .windows(2)
+                .find(|pair| pair[0].1.volume_hm3 == pair[1].1.volume_hm3)
+            {
+                return Err(IoError::invalid_data(format!(
+                    "plant {code} has duplicate volume {} at lines {} and {} in CAD_GEOMETRIA_UHE.csv",
+                    pair[0].1.volume_hm3, pair[0].0, pair[1].0
+                )));
+            }
+            Ok((
                 code,
                 VhaGeometryData {
                     plant_code: code,
-                    points,
+                    points: points.into_iter().map(|(_, point)| point).collect(),
                 },
-            )
+            ))
         })
-        .collect();
-
-    Ok(result)
+        .collect()
 }
 
 /// Read tailrace polynomial coefficients from `CAD/CAD_TAILRACE.csv`.
@@ -153,6 +191,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
 /// Returns a HashMap mapping plant codes to their tailrace data.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
+/// Fails on a non-finite coefficient or on a second row for the same plant.
 pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_TAILRACE.csv");
 
@@ -169,6 +208,7 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
         .from_path(&file_path)?;
 
     let mut result = HashMap::new();
+    let mut first_lines: HashMap<u32, usize> = HashMap::new();
 
     for (line_idx, record) in reader.deserialize().enumerate() {
         let row: TailraceRow = record.map_err(|e| {
@@ -178,11 +218,25 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
             ))
         })?;
 
+        let coefficients = [row.a0, row.a1, row.a2, row.a3, row.a4];
+        for (column, value) in TAILRACE_COLUMNS.into_iter().zip(coefficients) {
+            check_finite("CAD_TAILRACE.csv", row.codigo, line_idx + 2, column, value)?;
+        }
+
+        if let Some(first_line) = first_lines.insert(row.codigo, line_idx + 2) {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has duplicate rows at lines {} and {} in CAD_TAILRACE.csv",
+                row.codigo,
+                first_line,
+                line_idx + 2
+            )));
+        }
+
         result.insert(
             row.codigo,
             TailraceData {
                 plant_code: row.codigo,
-                coefficients: [row.a0, row.a1, row.a2, row.a3, row.a4],
+                coefficients,
             },
         );
     }
@@ -222,6 +276,7 @@ struct FphaConfigRow {
 /// Returns a HashMap mapping plant codes to their configuration overrides.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
+/// Fails on a non-finite value or on a second row for the same plant.
 pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_FPHA_CONFIG.csv");
 
@@ -238,6 +293,7 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
         .from_path(&file_path)?;
 
     let mut result = HashMap::new();
+    let mut first_lines: HashMap<u32, usize> = HashMap::new();
 
     for (line_idx, record) in reader.deserialize().enumerate() {
         let row: FphaConfigRow = record.map_err(|e| {
@@ -246,6 +302,22 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
                 line_idx + 2
             ))
         })?;
+
+        for (column, value) in [
+            ("tolerance", row.tolerance),
+            ("min_volume_pct", row.min_volume_pct),
+            ("max_volume_pct", row.max_volume_pct),
+        ] {
+            if let Some(value) = value {
+                check_finite(
+                    "CAD_FPHA_CONFIG.csv",
+                    row.codigo,
+                    line_idx + 2,
+                    column,
+                    value,
+                )?;
+            }
+        }
 
         if let Some(tol) = row.tolerance {
             if tol < 0.0 {
@@ -278,6 +350,15 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
                     line_idx + 2
                 )));
             }
+        }
+
+        if let Some(first_line) = first_lines.insert(row.codigo, line_idx + 2) {
+            return Err(IoError::invalid_data(format!(
+                "plant {} has duplicate rows at lines {} and {} in CAD_FPHA_CONFIG.csv",
+                row.codigo,
+                first_line,
+                line_idx + 2
+            )));
         }
 
         result.insert(
@@ -529,6 +610,159 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("max_volume_pct"));
+    }
+
+    fn error_message<T>(result: Result<T, IoError>) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(result.err().ok_or("expected an error")?.to_string())
+    }
+
+    const NON_FINITE_SPELLINGS: [&str; 3] = ["NaN", "inf", "-inf"];
+
+    #[test]
+    fn read_vha_geometry_non_finite_value_error() -> Result<(), Box<dyn std::error::Error>> {
+        for (index, column) in ["volume.hm3", "cota.m", "area.km2"].into_iter().enumerate() {
+            for spelling in NON_FINITE_SPELLINGS {
+                let mut cells = ["2000.0", "260.0", "75.0"];
+                cells[index] = spelling;
+                let content = format!(
+                    "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;50.0\n1;{}",
+                    cells.join(";")
+                );
+                let dir = create_test_case(Some(&content), None);
+
+                let message = error_message(read_vha_geometry(dir.path()))?;
+
+                assert_eq!(
+                    message,
+                    format!(
+                        "plant 1 has non-finite {column} {spelling} at line 3 in CAD_GEOMETRIA_UHE.csv"
+                    )
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn read_vha_geometry_duplicate_volume_error() -> Result<(), Box<dyn std::error::Error>> {
+        let content = "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;50.0\n1;2000.0;260.0;75.0\n1;1000.0;251.0;51.0";
+        let dir = create_test_case(Some(content), None);
+
+        let message = error_message(read_vha_geometry(dir.path()))?;
+
+        assert_eq!(
+            message,
+            "plant 1 has duplicate volume 1000 at lines 2 and 4 in CAD_GEOMETRIA_UHE.csv"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn read_vha_geometry_same_volume_for_two_plants_is_valid()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let content =
+            "codigo_usina;volume.hm3;cota.m;area.km2\n1;1000.0;250.0;50.0\n2;1000.0;180.0;25.0";
+        let dir = create_test_case(Some(content), None);
+
+        let result = read_vha_geometry(dir.path())?;
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[&1].points.len(), 1);
+        assert_eq!(result[&2].points.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn read_tailrace_non_finite_value_error() -> Result<(), Box<dyn std::error::Error>> {
+        for (index, column) in TAILRACE_COLUMNS.into_iter().enumerate() {
+            for spelling in NON_FINITE_SPELLINGS {
+                let mut cells = ["120.5", "0.001", "0.0", "0.0", "0.0"];
+                cells[index] = spelling;
+                let content = format!(
+                    "codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4\n2;95.2;0.002;0.0;0.0;0.0\n1;{}",
+                    cells.join(";")
+                );
+                let dir = create_test_case(None, Some(&content));
+
+                let message = error_message(read_tailrace(dir.path()))?;
+
+                assert_eq!(
+                    message,
+                    format!(
+                        "plant 1 has non-finite {column} {spelling} at line 3 in CAD_TAILRACE.csv"
+                    )
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn read_tailrace_duplicate_plant_error() -> Result<(), Box<dyn std::error::Error>> {
+        let content = "codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4\n1;120.5;0.001;0.0;0.0;0.0\n2;95.2;0.002;0.0;0.0;0.0\n1;130.0;0.003;0.0;0.0;0.0";
+        let dir = create_test_case(None, Some(content));
+
+        let message = error_message(read_tailrace(dir.path()))?;
+
+        assert_eq!(
+            message,
+            "plant 1 has duplicate rows at lines 2 and 4 in CAD_TAILRACE.csv"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn read_tailrace_absent_optional_columns_default_to_zero()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let content = "codigo_usina;a0.m\n1;120.5";
+        let dir = create_test_case(None, Some(content));
+
+        let result = read_tailrace(dir.path())?;
+
+        assert_eq!(result[&1].coefficients, [120.5, 0.0, 0.0, 0.0, 0.0]);
+        Ok(())
+    }
+
+    #[test]
+    fn read_fpha_config_non_finite_value_error() -> Result<(), Box<dyn std::error::Error>> {
+        for (index, column) in ["tolerance", "min_volume_pct", "max_volume_pct"]
+            .into_iter()
+            .enumerate()
+        {
+            for spelling in NON_FINITE_SPELLINGS {
+                let mut cells = ["0.01", "0.05", "1.0"];
+                cells[index] = spelling;
+                let content = format!(
+                    "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct\n2;5;0.01;0.05;1.0\n1;5;{}",
+                    cells.join(";")
+                );
+                let dir = create_config_test_case(Some(&content));
+
+                let message = error_message(read_fpha_config(dir.path()))?;
+
+                assert_eq!(
+                    message,
+                    format!(
+                        "plant 1 has non-finite {column} {spelling} at line 3 in CAD_FPHA_CONFIG.csv"
+                    )
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn read_fpha_config_duplicate_plant_error() -> Result<(), Box<dyn std::error::Error>> {
+        let content = "codigo_usina;num_planes\n1;5\n3;7\n1;9";
+        let dir = create_config_test_case(Some(content));
+
+        let message = error_message(read_fpha_config(dir.path()))?;
+
+        assert_eq!(
+            message,
+            "plant 1 has duplicate rows at lines 2 and 4 in CAD_FPHA_CONFIG.csv"
+        );
+        Ok(())
     }
 
     // Column alias tests for VHA geometry
