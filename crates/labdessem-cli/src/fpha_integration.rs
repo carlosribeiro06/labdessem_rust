@@ -280,7 +280,6 @@ fn build_long_term_mean_inflow_table(inflow_history: &[InflowHistoryRow]) -> Has
     }
 
     acc.into_iter()
-        .filter(|(_, (_, count))| *count > 0)
         .map(|(id, (sum, count))| (id, sum / count as f64))
         .collect()
 }

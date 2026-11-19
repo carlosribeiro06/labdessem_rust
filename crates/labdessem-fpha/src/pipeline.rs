@@ -51,19 +51,18 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     let (pf, bounds) = fit_context(params)?;
 
     // Stage 1: Hull fitting
-    let raw_planes = fit_hull_planes(&pf, &bounds).map_err(|e| FphaFittingError::HullFailed {
+    let mut planes = fit_hull_planes(&pf, &bounds).map_err(|e| FphaFittingError::HullFailed {
         hydro_name: params.nome.clone(),
         reason: e.to_string(),
     })?;
 
-    if raw_planes.is_empty() {
+    if planes.is_empty() {
         return Err(FphaFittingError::NoHyperplanesProduced {
             hydro_name: params.nome.clone(),
         });
     }
 
     // Stage 2: γₛ secant fitting on the unscaled planes
-    let mut planes = raw_planes;
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, params.long_term_mean_inflow_m3s);
 
     // Stage 3: Plane reduction on the unscaled planes, within the plane limit
