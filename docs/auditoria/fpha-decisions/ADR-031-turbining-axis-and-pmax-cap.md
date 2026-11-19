@@ -27,12 +27,17 @@ since `8b8afaa`, the commit the ticket verified.
    to `[0, max_turbined_m3s]`; `evaluate_capped` returns `evaluate(..).min(max_generation_mw)`.
 3. The Pmax cap reaches three stages of `fit_plant` (`crates/labdessem-fpha/src/pipeline.rs`) through
    `evaluate_capped`: the hull cloud (`fit_hull_planes`, `fitting/hull_fit.rs`), alpha (`compute_alpha_fpha`,
-   `fitting/alpha.rs`) and the deviation (`compute_fit_deviation`, `fitting/deviation.rs`). The gamma_S secant
-   (`fit_gamma_s_for_planes`, `fitting/secant.rs`) and the reduction (`reduce_planes`, `fitting/reduction.rs`)
-   call the uncapped `evaluate`.
-4. `build_grid` (`fitting/grid.rs`) spans the flow axis `[0, pf.max_turbined_m3s()]` and also uses
-   `max_turbined_m3s` as the upper end of the spillage axis of the secant. Any change of `max_turbined_m3s`
-   therefore moves the flow axis, the clamp of `evaluate` and the secant's spillage axis together.
+   `fitting/alpha.rs`) and the deviation (`compute_fit_deviation`, `fitting/deviation.rs`; the public
+   per-point export `collect_fit_deviation_points` in the same file uses the same capped reference and
+   `fit_plant` does not call it). The gamma_S secant (`fit_gamma_s_for_planes`, `fitting/secant.rs`) and
+   the reduction (`reduce_planes`, `fitting/reduction.rs`) call the uncapped `evaluate`.
+4. `build_grid` (`fitting/grid.rs`) spans the flow axis `[0, pf.max_turbined_m3s()]`. It also fills
+   `s_points` on `[0, pf.max_turbined_m3s()]`, but no code outside `grid.rs` reads them. The secant takes
+   its spillage range from `resolve_s_max(long_term_mean_inflow_m3s, pf.max_turbined_m3s())`
+   (`fitting/secant.rs`), which returns 2 x MLT when the MLT is positive and 2 x `max_turbined_m3s` only
+   when the MLT is 0. Any change of `max_turbined_m3s` therefore moves the flow axis and the clamp of
+   `evaluate`; it moves the secant S_max only when the MLT is 0, and gamma_S can still change through the
+   representative operating point that `fit_gamma_s_for_planes` picks on the flow axis.
 5. EngMax: `calculate_max_swallowing(q_ef, effective_head_m, net_head_m, alpha)`
    (`crates/labdessem-fpha/src/calculator/mod.rs`, MM eq. 9.34) is called by `plant_bound_hm3`
    (`crates/labdessem-simulation/src/engmax.rs`) with `PlantReference::from_plant` (Q_ef = sum of unit
@@ -217,8 +222,9 @@ unchanged in MM 22.4.1, `42-metodologia-hidreletricas.md` section 20) and the Li
 - Risks: the head is not stated by the sources `[to confirm]`; any scalar head is a labdessem choice, and a
   head below the operating range shortens the cloud under the LP domain. A raw (unclipped) bound samples Q
   above Q_sum that the static unit rows forbid (CAMARGOS 217.82, FURNAS 1541.58 m3/s). Moving
-  `max_turbined_m3s` also moves the `evaluate` clamp and the secant's spillage axis (`build_grid`), so the
-  gamma_S fit changes with it.
+  `max_turbined_m3s` also moves the `evaluate` clamp, and the secant S_max only when the MLT is 0
+  (`resolve_s_max`; otherwise 2 x MLT); gamma_S can still change through the representative operating
+  point on the flow axis (`build_grid`).
 - Fit cloud: Q axis `[0, min(QmaxEng(h_S1), Q_sum)]` per S1; Pmax cap unchanged in the three stages.
 - EngMax coupling: computed FPHA calls `calculate_max_swallowing` with the EngMax plant reference (Q_ef,
   h_ef, turbine exponent) even when `EngMax` is 0, so EngMax input errors (partial `Hef.m`, Unknown
@@ -299,9 +305,10 @@ which the decision must accept explicitly.
 
 S3: For (c), the cloud (`fit_hull_planes`) and alpha (`compute_alpha_fpha`) drop the cap, since both define
 the fit; the deviation (`compute_fit_deviation`) keeps `evaluate_capped` as its reference and compares it
-with `min(alpha * envelope, Pmax)`, the envelope the LP can reach under the unit bounds. Dropping the cap in
-the deviation as well would report the region above Pmax (FURNAS up to 75.824625 MW) as fit error that never
-reaches the LP. `evaluate_capped` then has one call site.
+with `min(alpha * envelope, Pmax)`, the envelope the LP can reach under the unit bounds. The per-point
+export `collect_fit_deviation_points` keeps the capped reference like the aggregate deviation. Dropping
+the cap in the deviation as well would report the region above Pmax (FURNAS up to 75.824625 MW) as fit
+error that never reaches the LP. `evaluate_capped` then has the two call sites in `fitting/deviation.rs`.
 
 S4: Under (a) no implementation ticket: ticket-029 documents the Q axis `[0, Q_sum]`, the Pmax cap in three
 stages, the confirmed divergence from MM §9.17.1, the rework trigger and the `[to confirm]` items; ticket-030
@@ -331,10 +338,11 @@ Sub-question S2 (inputs when `EngMax` is 0): moot under (a); computed FPHA reads
 condition of a reopening: a typed `MissingInputs` for a partial `Hef.m` or an Unknown `Turbina`, the unit sum
 kept only when `Hef.m <= 0` on every unit, and an explicit extension of ADR-027 S2.
 
-Sub-question S3 (call sites that drop the cap): moot under (a); all three `evaluate_capped` call sites
-keep the cap. Recorded as the condition of a reopening of (c): the cloud (`fit_hull_planes`) and alpha
-(`compute_alpha_fpha`) drop the cap, the deviation (`compute_fit_deviation`) keeps `evaluate_capped` as its
-reference against `min(alpha * envelope, Pmax)`.
+Sub-question S3 (call sites that drop the cap): moot under (a); the `evaluate_capped` call sites of all
+three stages keep the cap. Recorded as the condition of a reopening of (c): the cloud (`fit_hull_planes`)
+and alpha (`compute_alpha_fpha`) drop the cap, the deviation (`compute_fit_deviation`) keeps
+`evaluate_capped` as its reference against `min(alpha * envelope, Pmax)`, and the per-point export
+`collect_fit_deviation_points` keeps the capped reference too.
 
 Sub-question S4 (delivery): accepted as recommended — no implementation ticket in this plan; ticket-029
 documents the Q axis `[0, Q_sum]`, the Pmax cap in three stages, the divergence from MM §9.17.1, the rework

@@ -122,7 +122,7 @@ The default window is the whole `[Vmin.hm3, Vmax.hm3]` interval of `CAD/CAD_UHE.
 
 ```
 codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct
-3;;5.0;;
+1;;5.0;;
 0;2;;;
 3;;;0.5;0.6
 ```

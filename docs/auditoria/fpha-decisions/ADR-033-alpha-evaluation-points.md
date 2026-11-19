@@ -41,10 +41,15 @@ Accepted (2026-11-19)
    angle predicate is not invariant to a scaling of the planes (the `-1` is not scaled); ADR-029 S2
    recorded this without changing it. Under both options below the reduction runs on unscaled planes,
    so alpha never decides which planes survive.
-5. Tests that pin the current order bit for bit: `fit_plant_returns_unscaled_planes` and
+5. Tests the ticket names as pinning the current order bit for bit: `fit_plant_returns_unscaled_planes` and
    `fit_plant_deviation_matches_alpha_scaled_envelope` (`pipeline.rs`), `fit_plant_enforces_plane_limit`
    (`pipeline.rs`, asserts that alpha with a binding limit equals alpha without it) and
-   `plane_limit_is_bit_deterministic` (`crates/labdessem-fpha/tests/regression.rs`).
+   `plane_limit_is_bit_deterministic` (`crates/labdessem-fpha/tests/regression.rs`). Two of them do not
+   depend on the stage order: `fit_plant_deviation_matches_alpha_scaled_envelope` takes its expectation
+   from `result.alpha`, and `plane_limit_is_bit_deterministic` compares two runs with identical parameters.
+   One test depends on it and is not named: `probe_fit_context_reproduces_pipeline_alpha`
+   (`crates/labdessem-cli/src/fpha_integration/probe.rs`) recomputes alpha on the raw hull planes and
+   compares it with the pipeline alpha bit for bit.
 6. Section 9 of `docs/auditoria/fpha-baseline-reproduction.md` (commit `51751ba`): alpha CAMARGOS
    0.972834, ITUTINGA 1.0, FUNIL-GRANDE 1.0, FURNAS 0.993203; planes 6 / 3 / 3 / 5; computed objective
    2420590.3195 R$. Alpha moved from section 8 (0.969607 and 0.991295, 6 x 6 grid) to section 9 because
@@ -160,8 +165,8 @@ the only deck evidence is what the references quote.
 - Losses: alpha changes for the reservoir plants (CAMARGOS 0.968663, FURNAS 0.989872 with 6V x 5Q) and the objective changes `[not measured]`; the fit_plant stage order changes (alpha moves after `reduce_within_plane_limit`), which reopens the ADR-025 rework trigger and the ADR-029 statement that alpha is not recomputed after the reduction.
 - Risks: alpha depends on `max_planes`, so a binding `MaxPlanes` of `CAD_FPHA_CONFIG.csv` changes alpha (CAMARGOS 0.955708 / 0.913740 / 0.797232 for limits 5 / 4 / 3); the 30-point distribution is not in the sources `[to confirm]`, and off-grid points lift the alpha of single-volume plants above 1 (ITUTINGA 1.014733, FUNIL-GRANDE 1.011552 with 2V x 15Q), so their envelope exceeds the FPH at the grid nodes; the MU `FP` field 7 default and the AVL_FPHA1 `Fcorrec` 1.00000 row suggest DESSEM may not fit alpha by default at all `[to confirm]`.
 - Alpha per plant: CAMARGOS 0.968663 (6 planes), ITUTINGA 1.000000 (3), FUNIL-GRANDE 1.000000 (3), FURNAS 0.989872 (5) with 30 points 6V x 5Q on the fit window (the single-volume plants then get 2 x 5 = 10 points; with 2V x 15Q they get 1.014733 and 1.011552); on the fit grid instead: 0.969920 / 1.0 / 1.0 / 0.989526.
-- Pinned tests: `fit_plant_enforces_plane_limit` is inverted (alpha with a binding limit must differ from, not equal, the unlimited alpha); `fit_plant_deviation_matches_alpha_scaled_envelope` and `plane_limit_is_bit_deterministic` are re-pinned to the post-reduction alpha (they still pass formally, but their expected values come from a new alpha source); `fit_plant_returns_unscaled_planes` is re-pinned only if S3 changes the secant target (the planes are otherwise bit-identical).
-- Tickets affected: a new implementation ticket (stage order of `fit_plant`, `compute_alpha_fpha` evaluation points, the four tests, a regression value for CAMARGOS and FURNAS, CHANGELOG entry for the alpha change); ticket-029 documents the new order and the point set; ticket-032's evidence report gets a new section for the objective.
+- Pinned tests: `fit_plant_enforces_plane_limit` is inverted (alpha with a binding limit must differ from, not equal, the unlimited alpha); `probe_fit_context_reproduces_pipeline_alpha` (`crates/labdessem-cli/src/fpha_integration/probe.rs`) is re-pinned, because it recomputes alpha on the raw hull planes and breaks once alpha is computed on the final planes; `fit_plant_deviation_matches_alpha_scaled_envelope` and `plane_limit_is_bit_deterministic` pass unchanged (the first derives its expectation from `result.alpha`, the second compares two runs with identical parameters); `fit_plant_returns_unscaled_planes` is re-pinned only if S3 changes the secant target (the planes are otherwise bit-identical).
+- Tickets affected: a new implementation ticket (stage order of `fit_plant`, `compute_alpha_fpha` evaluation points, the tests of the Pinned tests line including `probe_fit_context_reproduces_pipeline_alpha` in `crates/labdessem-cli/src/fpha_integration/probe.rs`, a regression value for CAMARGOS and FURNAS, CHANGELOG entry for the alpha change); ticket-029 documents the new order and the point set; ticket-032's evidence report gets a new section for the objective. Ticket-036 (commit `8f0a0e0`) is that implementation; its test changes are the record of which tests changed.
 
 ## Recommendation
 
@@ -176,7 +181,7 @@ S1: A separate evaluation set of 30 points, as the MM default count: a uniform 6
 S2: On the final reduced planes, after `fit_gamma_s_for_planes` and `reduce_within_plane_limit` (spill 0, so gamma_S does not enter alpha); alpha therefore depends on `max_planes`, which reopens the ADR-029 statement that alpha is not recomputed after the reduction (the statement is replaced, not the ADR-029 decision: the cap and its doubling rule stay); the deviation keeps describing `alpha x planes`.
 S3: Keep the unscaled FPH target of the secant in this change. The methodology fits the secant against the FPH (MM step 5) and the Libs form puts gamma_S inside the alpha bracket, which suggests a target of FPH / alpha, but no source read states the target `[to confirm]`; changing it would re-pin `fit_plant_returns_unscaled_planes` and scale every gamma_S by 1 / alpha (about +3 % for CAMARGOS, +1 % for FURNAS, not measured on the LP), so it waits for the Libs/MM text and, if confirmed, gets its own follow-up item.
 S4: Record, do not change: the reduction runs on unscaled planes under both options, so alpha does not change which planes survive; the angle predicate (`plane_normal` = `[gamma_v, gamma_q, -1.0]`) is still not scale-free. The CAMARGOS plane-count changes (Epic 02: 6 to 7; Epic 03: 7 to 6, coinciding with the ADR-028 grid change) are `[not measured]` here; recommend a follow-up investigation outside this plan (follow-up plan backlog), not in this ADR.
-S5: Deliver (b) by an [ADD] implementation ticket in Epic 04 of this plan, as the master-plan rework trigger anticipates ("an implementation ticket is added at Epic 4 refinement when (b) is accepted"); that ticket also performs the ADR-025 rework of the fit_plant stage order, re-pins the four tests, records the CAMARGOS and FURNAS alpha as regression values and appends the objective to the evidence report. Ticket-029 documents the new stage order, the 30-point set (marked `[to confirm]` until the MM/Libs text is read) and the open `FP` field 7 question. Under (a), ticket-029 documents the divergence and nothing is added.
+S5: Deliver (b) by an [ADD] implementation ticket in Epic 04 of this plan, as the master-plan rework trigger anticipates ("an implementation ticket is added at Epic 4 refinement when (b) is accepted"); that ticket also performs the ADR-025 rework of the fit_plant stage order, inverts `fit_plant_enforces_plane_limit`, re-pins `probe_fit_context_reproduces_pipeline_alpha` (`fit_plant_deviation_matches_alpha_scaled_envelope` and `plane_limit_is_bit_deterministic`, also named in option (b), pass unchanged), records the CAMARGOS and FURNAS alpha as regression values and appends the objective to the evidence report. Ticket-029 documents the new stage order, the 30-point set (marked `[to confirm]` until the MM/Libs text is read) and the open `FP` field 7 question. Under (a), ticket-029 documents the divergence and nothing is added.
 
 ## Decision
 
@@ -205,8 +210,10 @@ planes are `[not measured]` and go to a follow-up investigation outside this pla
 
 Sub-question S5 (delivery): accepted as recommended — an [ADD] implementation ticket is to be added to
 Epic 04 of this plan, before ticket-029, by the orchestrator; it performs the ADR-025 rework of the
-fit_plant stage order and re-pins the four tests named in option (b). Ticket-029 documents the new stage
-order, the 30-point set and the open `FP` field 7 question.
+fit_plant stage order, inverts `fit_plant_enforces_plane_limit` and re-pins
+`probe_fit_context_reproduces_pipeline_alpha` (`fit_plant_deviation_matches_alpha_scaled_envelope` and
+`plane_limit_is_bit_deterministic`, also named in option (b), pass unchanged). Ticket-029 documents the
+new stage order, the 30-point set and the open `FP` field 7 question.
 
 Amendment requests considered and not chosen: (b') alpha on the fit grid on the final reduced planes
 (no uncited distribution, no envelope overshoot on single-volume plants) and (c') alpha = 1 by default
@@ -225,8 +232,10 @@ Option (b) was chosen (see Decision); the other branch is kept for the record.
 - Under (a): no code change; ticket-029 would have documented alpha on the fit grid before the reduction
   as a divergence from MM §9.16.11 step 4; ADR-025 and ADR-029 would have stood unchanged.
 - Under (b): an implementation ticket is to be added to Epic 04 by the orchestrator ([ADD]), before
-  ticket-029; it changes `fit_plant` and `compute_alpha_fpha`, re-pins the four tests named above and
-  records the new alpha values; ADR-025's rework trigger is exercised; ADR-029's statement that alpha is
+  ticket-029; it changes `fit_plant` and `compute_alpha_fpha`, inverts `fit_plant_enforces_plane_limit`,
+  re-pins `probe_fit_context_reproduces_pipeline_alpha` (`fit_plant_deviation_matches_alpha_scaled_envelope`
+  and `plane_limit_is_bit_deterministic` pass unchanged) and records the new alpha values; ADR-025's
+  rework trigger is exercised; ADR-029's statement that alpha is
   not recomputed after the reduction is superseded by this ADR (the plane-cap rule stays); ticket-029
   documents the outcome.
 - In all cases: the `[to confirm]` items (30-point distribution, reduction position in the Libs, the
