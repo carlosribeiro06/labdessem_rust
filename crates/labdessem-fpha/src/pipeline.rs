@@ -2,13 +2,13 @@
 
 use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
-use crate::fitting::{
-    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
-    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes, ForebayTable,
-    FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
-};
 #[cfg(test)]
 use crate::fitting::PlaneReductionConfig;
+use crate::fitting::{
+    ForebayTable, FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
+    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
+    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
+};
 use crate::types::TailraceModel;
 
 /// A fitted plant's FPHA result.
@@ -37,6 +37,13 @@ pub struct FitPlantParams {
 }
 
 /// Fit FPHA planes for a single plant.
+///
+/// # Contract — `alpha` is applied once, by the consumer
+///
+/// `FphaPlantResult::planes` are **unscaled**: they are not multiplied by `alpha`. The consumer
+/// (the model's `correction_factor`) multiplies all four coefficients `γ₀, γᵥ, γᵩ, γₛ` by `alpha`
+/// exactly once, so the LP envelope is `alpha × min_k P_k`. `FphaPlantResult::deviation` describes
+/// that envelope, `alpha × planes`.
 pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFittingError> {
     let pf = ProductionFunction::new(
         params.forebay.clone(),
@@ -49,10 +56,9 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     );
 
     // Get config-based bounds first (n_volume_points, n_flow_points, etc.)
-    let config_bounds = params.config.to_fitting_bounds(
-        params.forebay.v_min(),
-        params.forebay.v_max(),
-    );
+    let config_bounds = params
+        .config
+        .to_fitting_bounds(params.forebay.v_min(), params.forebay.v_max());
 
     // For run-of-river detection, useful storage is the forebay table span.
     // Single-point tables yield 0.0, triggering minimum half-width.
@@ -67,11 +73,9 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     );
 
     // Stage 1: Hull fitting
-    let raw_planes = fit_hull_planes(&pf, &bounds).map_err(|e| {
-        FphaFittingError::HullFailed {
-            hydro_name: params.nome.clone(),
-            reason: e.to_string(),
-        }
+    let raw_planes = fit_hull_planes(&pf, &bounds).map_err(|e| FphaFittingError::HullFailed {
+        hydro_name: params.nome.clone(),
+        reason: e.to_string(),
     })?;
 
     if raw_planes.is_empty() {
@@ -80,14 +84,14 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
         });
     }
 
-    // Stage 2: α correction
+    // Stage 2: α correction (computed here, applied once by the consumer; planes stay unscaled)
     let alpha = compute_alpha_fpha(&raw_planes, &pf, &bounds);
-    let mut planes = scale_planes(&raw_planes, alpha);
+    let mut planes = raw_planes;
 
-    // Stage 3: γₛ secant fitting
+    // Stage 3: γₛ secant fitting on the unscaled planes
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, params.long_term_mean_inflow_m3s);
 
-    // Stage 4: Plane reduction
+    // Stage 4: Plane reduction on the unscaled planes
     let planes = reduce_planes(
         &planes,
         &params.config.reduction_config,
@@ -97,10 +101,10 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
         0,
     );
 
-    // Stage 5: Deviation diagnostics
-    let deviation = compute_fit_deviation(&planes, &pf, &bounds);
+    // Stage 5: Deviation diagnostics of the envelope the LP uses, α × planes
+    let deviation = compute_fit_deviation(&scale_planes(&planes, alpha), &pf, &bounds);
 
-    // Stage 6: Validation
+    // Stage 6: Validation (sign checks are scale-invariant for α > 0)
     validate_fitted_planes(&planes, alpha, &params.nome)?;
 
     Ok(FphaPlantResult {
@@ -113,21 +117,39 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
 }
 
 /// Batch fit multiple plants.
-pub fn fit_plants(params_list: &[FitPlantParams]) -> Vec<Result<FphaPlantResult, FphaFittingError>> {
+pub fn fit_plants(
+    params_list: &[FitPlantParams],
+) -> Vec<Result<FphaPlantResult, FphaFittingError>> {
     params_list.iter().map(fit_plant).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fitting::VhaRow;
+    use crate::fitting::{FittingBounds, VhaRow};
 
     fn test_forebay() -> ForebayTable {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         ForebayTable::new(&rows, "Test").unwrap()
     }
@@ -146,7 +168,9 @@ mod tests {
             max_generation_mw: 5_000.0,
             long_term_mean_inflow_m3s: 1_500.0,
             config: FphaPlantConfig::computed(
-                10, 6, 6,
+                10,
+                6,
+                6,
                 PlaneReductionConfig::Angle { tolerance_deg: 1.0 },
             ),
         }
@@ -202,10 +226,98 @@ mod tests {
         }
     }
 
+    fn fit_context(params: &FitPlantParams) -> (ProductionFunction, FittingBounds) {
+        let pf = ProductionFunction::new(
+            params.forebay.clone(),
+            TailraceSource::Entity(params.tailrace.clone()),
+            params.hydraulic_loss_m,
+            params.efficiency,
+            params.max_turbined_m3s,
+            params.max_generation_mw,
+            params.nome.clone(),
+        );
+        let config_bounds = params
+            .config
+            .to_fitting_bounds(params.forebay.v_min(), params.forebay.v_max());
+        let bounds = resolve_fitting_bounds(
+            params.forebay.v_min(),
+            params.forebay.v_max(),
+            params.forebay.v_max() - params.forebay.v_min(),
+            &config_bounds,
+        );
+        (pf, bounds)
+    }
+
+    #[test]
+    fn fit_plant_returns_unscaled_planes() -> Result<(), Box<dyn std::error::Error>> {
+        let params = test_params();
+        let result = fit_plant(&params)?;
+        assert!(
+            (result.alpha - 1.0).abs() > 1e-6,
+            "fixture alpha {} must differ from 1 for the test to discriminate",
+            result.alpha
+        );
+
+        let (pf, bounds) = fit_context(&params);
+        let mut chain = fit_hull_planes(&pf, &bounds)?;
+        fit_gamma_s_for_planes(&mut chain, &pf, &bounds, params.long_term_mean_inflow_m3s);
+        let expected = reduce_planes(
+            &chain,
+            &params.config.reduction_config,
+            &pf,
+            &bounds,
+            params.codigo,
+            0,
+        );
+
+        assert_eq!(result.planes.len(), expected.len());
+        for (got, want) in result.planes.iter().zip(&expected) {
+            assert_eq!(got.gamma_0.to_bits(), want.gamma_0.to_bits());
+            assert_eq!(got.gamma_v.to_bits(), want.gamma_v.to_bits());
+            assert_eq!(got.gamma_q.to_bits(), want.gamma_q.to_bits());
+            assert_eq!(got.gamma_s.to_bits(), want.gamma_s.to_bits());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn fit_plant_deviation_matches_alpha_scaled_envelope() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let params = test_params();
+        let result = fit_plant(&params)?;
+        let (pf, bounds) = fit_context(&params);
+
+        let expected =
+            compute_fit_deviation(&scale_planes(&result.planes, result.alpha), &pf, &bounds);
+
+        assert_eq!(
+            result.deviation.mean_abs_mw.to_bits(),
+            expected.mean_abs_mw.to_bits()
+        );
+        assert_eq!(
+            result.deviation.max_abs_mw.to_bits(),
+            expected.max_abs_mw.to_bits()
+        );
+        assert_eq!(result.deviation.rms_mw.to_bits(), expected.rms_mw.to_bits());
+        assert_eq!(
+            result.deviation.mean_signed_mw.to_bits(),
+            expected.mean_signed_mw.to_bits()
+        );
+        assert_eq!(
+            result.deviation.relative.to_bits(),
+            expected.relative.to_bits()
+        );
+        Ok(())
+    }
+
     #[test]
     fn fit_plant_run_of_river() {
         // Single-point forebay table
-        let rows = vec![VhaRow { volume_hm3: 500.0, height_m: 400.0, area_km2: 5.0 }];
+        let rows = vec![VhaRow {
+            volume_hm3: 500.0,
+            height_m: 400.0,
+            area_km2: 5.0,
+        }];
         let forebay = ForebayTable::new(&rows, "FioAgua").unwrap();
 
         let params = FitPlantParams {

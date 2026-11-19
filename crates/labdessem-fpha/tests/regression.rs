@@ -3,17 +3,33 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
 use labdessem_fpha::{
-    compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
-    scale_planes, FitPlantParams, FittingBounds, ForebayTable, FphaPlantConfig,
-    PlaneReductionConfig, ProductionFunction, TailraceModel, TailraceSource, VhaRow,
+    FitPlantParams, FittingBounds, ForebayTable, FphaPlantConfig, PlaneReductionConfig,
+    ProductionFunction, TailraceModel, TailraceSource, VhaRow, compute_alpha_fpha,
+    fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
 };
 
 fn reference_forebay() -> ForebayTable {
     let rows = vec![
-        VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 1000.0 },
-        VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 1200.0 },
-        VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 1300.0 },
-        VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 1400.0 },
+        VhaRow {
+            volume_hm3: 0.0,
+            height_m: 380.0,
+            area_km2: 1000.0,
+        },
+        VhaRow {
+            volume_hm3: 10_000.0,
+            height_m: 396.0,
+            area_km2: 1200.0,
+        },
+        VhaRow {
+            volume_hm3: 20_000.0,
+            height_m: 404.0,
+            area_km2: 1300.0,
+        },
+        VhaRow {
+            volume_hm3: 30_000.0,
+            height_m: 408.0,
+            area_km2: 1400.0,
+        },
     ];
     ForebayTable::new(&rows, "REFERENCE").unwrap()
 }
@@ -78,11 +94,8 @@ fn alpha_correction_is_bit_deterministic() {
 fn gamma_s_fitting_is_bit_deterministic() {
     let pf = reference_pf();
     let bounds = reference_bounds();
-    let raw = fit_hull_planes(&pf, &bounds).unwrap();
-    let alpha = compute_alpha_fpha(&raw, &pf, &bounds);
-
-    let mut planes1 = scale_planes(&raw, alpha);
-    let mut planes2 = scale_planes(&raw, alpha);
+    let mut planes1 = fit_hull_planes(&pf, &bounds).unwrap();
+    let mut planes2 = planes1.clone();
 
     fit_gamma_s_for_planes(&mut planes1, &pf, &bounds, 1_500.0);
     fit_gamma_s_for_planes(&mut planes2, &pf, &bounds, 1_500.0);
@@ -96,9 +109,7 @@ fn gamma_s_fitting_is_bit_deterministic() {
 fn reduction_is_bit_deterministic() {
     let pf = reference_pf();
     let bounds = reference_bounds();
-    let raw = fit_hull_planes(&pf, &bounds).unwrap();
-    let alpha = compute_alpha_fpha(&raw, &pf, &bounds);
-    let mut planes = scale_planes(&raw, alpha);
+    let mut planes = fit_hull_planes(&pf, &bounds).unwrap();
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, 1_500.0);
 
     let config = PlaneReductionConfig::Angle { tolerance_deg: 1.0 };
@@ -142,7 +153,10 @@ fn full_pipeline_is_bit_deterministic() {
         assert_eq!(p1.gamma_s.to_bits(), p2.gamma_s.to_bits());
     }
 
-    assert_eq!(r1.deviation.mean_abs_mw.to_bits(), r2.deviation.mean_abs_mw.to_bits());
+    assert_eq!(
+        r1.deviation.mean_abs_mw.to_bits(),
+        r2.deviation.mean_abs_mw.to_bits()
+    );
 }
 
 #[test]
@@ -168,17 +182,20 @@ fn planes_satisfy_sign_constraints() {
         assert!(
             plane.gamma_v >= -1e-10,
             "plane {}: γᵥ = {} must be >= 0",
-            idx, plane.gamma_v
+            idx,
+            plane.gamma_v
         );
         assert!(
             plane.gamma_q >= -1e-10,
             "plane {}: γᵩ = {} must be >= 0",
-            idx, plane.gamma_q
+            idx,
+            plane.gamma_q
         );
         assert!(
             plane.gamma_s <= 1e-10,
             "plane {}: γₛ = {} must be <= 0",
-            idx, plane.gamma_s
+            idx,
+            plane.gamma_s
         );
     }
 }
