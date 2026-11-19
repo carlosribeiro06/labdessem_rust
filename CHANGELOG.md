@@ -14,9 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The `max_deviation_mw`, `mean_deviation_mw` and `rms_deviation_mw` columns describe `alpha` x plane against the FPH on the fit grid
   - Column names, positions and number format are unchanged
   - Copying the rows into `OPER_FPHA.csv` reproduces the computed run with `USIH = codigo_usina`, `SegFPHA = plane_index + 1`, `Fcorrec = alpha`, `Rhs.mw = gamma_0`, `Varm.mw/hm3 = gamma_v`, `Qtur.mw/m3s = gamma_q` and `Qlat.mw/m3s = gamma_s`
+- **BREAKING**: Computed FPHA runs now fail when a hydro plant with generating units cannot be fitted
+  - Before: `compute_fpha` printed a `Warning:` and skipped a plant with units whose geometry rows were missing, whose fit parameters were invalid or whose fit failed (every plant, when `CAD/CAD_GEOMETRIA_UHE.csv` was absent), and the plant generated without water
+  - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` listing every such plant, and the CLI prints `Error: computed FPHA could not be fitted for <n> hydro plant(s) with generating units:` with one `plant <id> (<name>): <reason>` line per plant and exits with code 1 before writing any result
+  - Plants without generating units are no longer fitted: they are excluded before any geometry or `inflow_history.parquet` lookup and counted in `plants_skipped`
+  - `FphaComputeError::MissingHydro` is unchanged and still fails the run at the first plant missing from `inflow_history.parquet`
 
 ### Fixed
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and never to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
+- A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
 
 ## [0.12.0] - 2026-11-05
 

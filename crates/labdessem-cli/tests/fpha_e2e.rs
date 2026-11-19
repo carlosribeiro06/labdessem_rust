@@ -3,12 +3,10 @@
 //! end-to-end case; an integration test cannot import bin modules, so the helpers live here.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Display;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
-use std::str::FromStr;
 use std::time::Instant;
 
 use tempfile::TempDir;
@@ -33,15 +31,6 @@ const HYDRO_RESULTS_FILE: &str = "RESULTADOS/resultado_hidreletricas.csv";
 
 /// Plant whose geometry rows are removed in the A2 case: FUNIL-GRANDE in `examples/24Barras`.
 const SKIPPED_PLANT_CODE: u32 = 2;
-
-/// `Conjunto` and `Unidade` value of a plant aggregate row in the hydro results table.
-const AGGREGATE_CODE: u32 = 99;
-
-/// A plant generating more than this [MW] counts as generating.
-const GENERATION_THRESHOLD_MW: f64 = 1.0;
-
-/// A plant turbining at most this [m3/s] counts as not turbining; the CSV prints `{:.6}`.
-const TURBINING_THRESHOLD_M3S: f64 = 1e-6;
 
 /// Relative path to the bytes of every file below a root; a directory maps to `None`.
 type TreeSnapshot = BTreeMap<PathBuf, Option<Vec<u8>>>;
@@ -68,15 +57,6 @@ struct ComputedPlane {
     gamma_q: String,
     gamma_s: String,
     alpha: String,
-}
-
-/// One plant aggregate row (`Conjunto` = 99, `Unidade` = 99) of the hydro results table.
-#[derive(Debug)]
-struct HydroAggregateRow {
-    plant: String,
-    period: u32,
-    generation_mw: f64,
-    turbining_m3s: f64,
 }
 
 /// Outcome of one `labdessem run`.
@@ -332,18 +312,6 @@ fn column_index(header: &[&str], column: &str, file: &str) -> usize {
         .expect("a required CSV column is missing")
 }
 
-/// Parses field `index` (column `column` of `file`) of an already split row.
-fn parse_field<T>(fields: &[&str], index: usize, column: &str, file: &str) -> T
-where
-    T: FromStr,
-    T::Err: Display,
-{
-    fields[index]
-        .parse::<T>()
-        .map_err(|error| format!("{file}: column {column} value {:?}: {error}", fields[index]))
-        .expect("a CSV column holds a malformed value")
-}
-
 /// Trimmed `Nome` of the `CAD/CAD_UHE.csv` row whose `Codigo` is `plant_code`: the name the
 /// results table carries (the input pads it with spaces).
 fn plant_name_in_cad(case: &Path, plant_code: u32) -> String {
@@ -373,65 +341,6 @@ fn plant_name_in_cad(case: &Path, plant_code: u32) -> String {
         .ok_or_else(|| format!("{PLANTS_FILE}: the row of plant {plant_code} has no Nome field"))
         .expect("the plant row is shorter than the header")
         .to_owned()
-}
-
-/// Plant aggregate rows of `RESULTADOS/resultado_hidreletricas.csv`, selected by header names.
-/// Lines before the header that starts with `Usina;` are the preamble (its column list uses
-/// `Usina:`); every field is trimmed.
-fn read_hydro_aggregate_rows(case: &Path) -> Vec<HydroAggregateRow> {
-    let text = fs::read_to_string(case.join(HYDRO_RESULTS_FILE))
-        .expect("read RESULTADOS/resultado_hidreletricas.csv");
-    let mut lines = text.lines().skip_while(|line| !line.starts_with("Usina;"));
-    let header: Vec<&str> = lines
-        .next()
-        .expect("resultado_hidreletricas.csv has no `Usina;` header line")
-        .split(';')
-        .map(str::trim)
-        .collect();
-    let plant_column = column_index(&header, "Usina", HYDRO_RESULTS_FILE);
-    let group_column = column_index(&header, "Conjunto", HYDRO_RESULTS_FILE);
-    let unit_column = column_index(&header, "Unidade", HYDRO_RESULTS_FILE);
-    let period_column = column_index(&header, "Periodo", HYDRO_RESULTS_FILE);
-    let generation_column = column_index(&header, "GeracaoMW", HYDRO_RESULTS_FILE);
-    let turbining_column = column_index(&header, "TurbinamentoM3s", HYDRO_RESULTS_FILE);
-    lines
-        .filter(|line| !line.trim().is_empty())
-        .filter_map(|line| {
-            let fields: Vec<&str> = line.split(';').map(str::trim).collect();
-            assert_eq!(
-                fields.len(),
-                header.len(),
-                "{HYDRO_RESULTS_FILE}: a row has {} fields, the header has {}: {line}",
-                fields.len(),
-                header.len()
-            );
-            let is_aggregate = [group_column, unit_column]
-                .iter()
-                .all(|&column| fields[column].parse::<u32>().ok() == Some(AGGREGATE_CODE));
-            is_aggregate.then(|| HydroAggregateRow {
-                plant: fields[plant_column].to_owned(),
-                period: parse_field(&fields, period_column, "Periodo", HYDRO_RESULTS_FILE),
-                generation_mw: parse_field(
-                    &fields,
-                    generation_column,
-                    "GeracaoMW",
-                    HYDRO_RESULTS_FILE,
-                ),
-                turbining_m3s: parse_field(
-                    &fields,
-                    turbining_column,
-                    "TurbinamentoM3s",
-                    HYDRO_RESULTS_FILE,
-                ),
-            })
-        })
-        .collect()
-}
-
-/// True when the row generates more than `GENERATION_THRESHOLD_MW` with a turbining of at most
-/// `TURBINING_THRESHOLD_M3S`.
-fn generates_without_water(row: &HydroAggregateRow) -> bool {
-    row.generation_mw > GENERATION_THRESHOLD_MW && row.turbining_m3s <= TURBINING_THRESHOLD_M3S
 }
 
 #[test]
@@ -535,15 +444,10 @@ fn computed_csv_round_trip_reproduces_objective() {
     );
 }
 
-/// Characterizes audit HI-03 (FP-01, NU-04) on the pre-fix code. Replaced by ticket-014.
-///
-/// With plant 2 stripped of its geometry the run still succeeds, warns that the plant is skipped,
-/// and the LP lets the plant generate in periods where it turbines nothing: the audit saw
-/// FUNIL-GRANDE at 180 MW with zero turbining in 48 of 48 periods. If the run failed on the
-/// skipped plant, the exit-code assertion would fail; if the plant were linked to water, no period
-/// would show generation without turbining.
+/// Regression for audit HI-03 (FP-01, NU-04): a plant with units and no geometry fails the run
+/// with an error naming the plant and the geometry table, before any result file is written.
 #[test]
-fn baseline_a2_plant_without_geometry_generates_without_water() {
+fn plant_without_geometry_fails_run() {
     // Arrange
     let case = derived_case("computed");
     let plant_name = plant_name_in_cad(case.path(), SKIPPED_PLANT_CODE);
@@ -563,85 +467,23 @@ fn baseline_a2_plant_without_geometry_generates_without_water() {
     // Assert
     assert_eq!(
         outcome.code,
-        Some(0),
-        "the run must exit 0 although plant {SKIPPED_PLANT_CODE} is skipped; stderr:\n{}",
+        Some(1),
+        "the run must exit 1 because plant {SKIPPED_PLANT_CODE} cannot be fitted; stderr:\n{}",
         outcome.stderr
     );
-    let objective = expect_objective("computed without the geometry of plant 2", &outcome);
-    assert!(
-        outcome
-            .stderr
-            .contains("has no VHA geometry data, skipping"),
-        "stderr lacks the skip warning:\n{}",
-        outcome.stderr
-    );
-    let skip_warning = format!(
-        "Warning: Plant {SKIPPED_PLANT_CODE} ({plant_name}) has no VHA geometry data, skipping"
-    );
-    assert!(
-        outcome.stderr.contains(&skip_warning),
-        "stderr lacks `{skip_warning}`:\n{}",
-        outcome.stderr
-    );
-
-    let rows = read_hydro_aggregate_rows(case.path());
-    let (plant_rows, other_rows): (Vec<&HydroAggregateRow>, Vec<&HydroAggregateRow>) =
-        rows.iter().partition(|row| row.plant == plant_name);
-    assert!(
-        !plant_rows.is_empty(),
-        "{HYDRO_RESULTS_FILE} has no aggregate row for {plant_name}"
-    );
-    let distinct_periods: BTreeSet<u32> = plant_rows.iter().map(|row| row.period).collect();
-    assert_eq!(
-        distinct_periods.len(),
-        plant_rows.len(),
-        "{plant_name}: the aggregate rows must be one per period"
-    );
-    let signature_periods = plant_rows
-        .iter()
-        .filter(|row| generates_without_water(row))
-        .count();
-    let max_generation_mw = plant_rows
-        .iter()
-        .map(|row| row.generation_mw)
-        .fold(f64::NEG_INFINITY, f64::max);
-    eprintln!(
-        "A2 plant {plant_name}: periods_with_generation_and_no_turbining={signature_periods} \
-         of {} aggregate periods, max GeracaoMW={max_generation_mw:.6}",
-        plant_rows.len()
-    );
-    eprintln!(
-        "A2 objective={objective:.4} elapsed={:.2} s",
-        outcome.elapsed_s
-    );
-
-    let mut other_plants: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
-    for row in &other_rows {
-        let (without_water, periods) = other_plants.entry(row.plant.as_str()).or_default();
-        *periods += 1;
-        if generates_without_water(row) {
-            *without_water += 1;
-        }
-    }
-    for (name, (without_water, periods)) in &other_plants {
-        eprintln!(
-            "A2 plant {name}: periods_with_generation_and_no_turbining={without_water} of \
-             {periods} aggregate periods"
-        );
-    }
-
-    assert!(
-        signature_periods >= 1,
-        "{plant_name} never generates without turbining: max GeracaoMW={max_generation_mw}"
-    );
-    assert!(
-        !other_plants.is_empty(),
-        "{HYDRO_RESULTS_FILE} has no aggregate row of another plant"
-    );
-    for (name, (without_water, periods)) in &other_plants {
+    for fragment in [
+        "computed FPHA could not be fitted",
+        plant_name.as_str(),
+        GEOMETRY_FILE,
+    ] {
         assert!(
-            without_water < periods,
-            "{name} generates without turbining in every one of its {periods} periods"
+            outcome.stderr.contains(fragment),
+            "stderr lacks `{fragment}`:\n{}",
+            outcome.stderr
         );
     }
+    assert!(
+        !case.path().join(HYDRO_RESULTS_FILE).exists(),
+        "{HYDRO_RESULTS_FILE} must not be written when the FPHA computation fails"
+    );
 }

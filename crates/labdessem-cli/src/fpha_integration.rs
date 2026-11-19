@@ -26,16 +26,47 @@ use labdessem_io::{
 pub struct FphaComputeResult {
     pub plant_results: Vec<FphaPlantResult>,
     pub plants_processed: usize,
+    /// Plants without generating units (no FPHA needed).
     pub plants_skipped: usize,
+}
+
+/// Why the computed FPHA of a plant with generating units could not be fitted.
+#[derive(Debug)]
+pub enum FitFailureReason {
+    MissingGeometry,
+    InvalidParameters(String),
+    FittingFailed(String),
+}
+
+impl std::fmt::Display for FitFailureReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FitFailureReason::MissingGeometry => {
+                write!(f, "no rows in CAD/CAD_GEOMETRIA_UHE.csv")
+            }
+            FitFailureReason::InvalidParameters(msg) => {
+                write!(f, "invalid fit parameters: {msg}")
+            }
+            FitFailureReason::FittingFailed(msg) => write!(f, "fitting failed: {msg}"),
+        }
+    }
+}
+
+/// A plant with generating units whose computed FPHA could not be fitted.
+#[derive(Debug)]
+pub struct PlantFitFailure {
+    pub hydro_id: i32,
+    pub hydro_name: String,
+    pub reason: FitFailureReason,
 }
 
 /// Error type for FPHA computation.
 #[derive(Debug)]
 pub enum FphaComputeError {
     Io(String),
-    #[allow(dead_code)]
     Fitting(String),
     MissingHydro { hydro_id: i32, hydro_name: String },
+    PlantsNotFitted { failures: Vec<PlantFitFailure> },
 }
 
 impl std::fmt::Display for FphaComputeError {
@@ -45,6 +76,23 @@ impl std::fmt::Display for FphaComputeError {
             FphaComputeError::Fitting(msg) => write!(f, "Fitting error: {msg}"),
             FphaComputeError::MissingHydro { hydro_id, hydro_name } => {
                 write!(f, "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet")
+            }
+            FphaComputeError::PlantsNotFitted { failures } => {
+                write!(
+                    f,
+                    "computed FPHA could not be fitted for {} hydro plant(s) with generating units:",
+                    failures.len()
+                )?;
+                for failure in failures {
+                    write!(
+                        f,
+                        "\n  plant {} ({}): {}",
+                        failure.hydro_id,
+                        failure.hydro_name.trim(),
+                        failure.reason
+                    )?;
+                }
+                Ok(())
             }
         }
     }
@@ -58,7 +106,9 @@ impl From<labdessem_io::IoError> for FphaComputeError {
     }
 }
 
-/// Compute FPHA planes from VHA geometry for all plants with available data.
+/// Compute FPHA planes from VHA geometry for every plant with generating units.
+///
+/// Fails with `PlantsNotFitted`, listing every plant with units that could not be fitted.
 pub fn compute_fpha(
     case_path: &Path,
     system: &System,
@@ -79,28 +129,31 @@ pub fn compute_fpha(
     let tailrace_data = read_tailrace(case_path)?;
     let fpha_config = read_fpha_config(case_path)?;
 
-    if vha_data.is_empty() {
-        eprintln!("Warning: No VHA geometry data found. No planes will be computed.");
-        return Ok(FphaComputeResult {
-            plant_results: vec![],
-            plants_processed: 0,
-            plants_skipped: plants.len(),
-        });
-    }
-
     let mut results = Vec::new();
+    let mut failures = Vec::new();
     let mut processed = 0;
     let mut skipped = 0;
 
     for plant in plants {
+        if plant.groups.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
         let plant_code = plant.id.0 as u32;
+        // Deck plant codes are small; the width matches `MissingHydro::hydro_id`.
+        #[allow(clippy::cast_possible_wrap)]
+        let hydro_id = plant.id.0 as i32;
+        let mut fail = |reason| {
+            failures.push(PlantFitFailure {
+                hydro_id,
+                hydro_name: plant.name.clone(),
+                reason,
+            });
+        };
 
         let Some(vha) = vha_data.get(&plant_code) else {
-            eprintln!(
-                "Warning: Plant {} ({}) has no VHA geometry data, skipping",
-                plant_code, plant.name
-            );
-            skipped += 1;
+            fail(FitFailureReason::MissingGeometry);
             continue;
         };
 
@@ -114,16 +167,10 @@ pub fn compute_fpha(
             parquet_present,
         ) {
             Ok(p) => p,
+            // MissingHydro is a fatal error, not a fit failure
+            Err(e @ FphaComputeError::MissingHydro { .. }) => return Err(e),
             Err(e) => {
-                // MissingHydro is a fatal error, not a skip
-                if matches!(e, FphaComputeError::MissingHydro { .. }) {
-                    return Err(e);
-                }
-                eprintln!(
-                    "Warning: Plant {} ({}): failed to build fit params: {}",
-                    plant_code, plant.name, e
-                );
-                skipped += 1;
+                fail(FitFailureReason::InvalidParameters(e.to_string()));
                 continue;
             }
         };
@@ -140,14 +187,12 @@ pub fn compute_fpha(
                 results.push(result);
                 processed += 1;
             }
-            Err(e) => {
-                eprintln!(
-                    "Warning: Plant {} ({}): fitting failed: {}",
-                    plant_code, plant.name, e
-                );
-                skipped += 1;
-            }
+            Err(e) => fail(FitFailureReason::FittingFailed(e.to_string())),
         }
+    }
+
+    if !failures.is_empty() {
+        return Err(FphaComputeError::PlantsNotFitted { failures });
     }
 
     eprintln!(
@@ -596,5 +641,34 @@ mod tests {
         assert!(msg.contains("42"));
         assert!(msg.contains("TestPlant"));
         assert!(msg.contains("inflow_history.parquet"));
+    }
+
+    #[test]
+    fn plants_not_fitted_display_lists_every_failure() {
+        let err = FphaComputeError::PlantsNotFitted {
+            failures: vec![
+                PlantFitFailure {
+                    hydro_id: 2,
+                    hydro_name: " FUNIL-GRANDE ".to_string(),
+                    reason: FitFailureReason::MissingGeometry,
+                },
+                PlantFitFailure {
+                    hydro_id: 7,
+                    hydro_name: "TestPlant".to_string(),
+                    reason: FitFailureReason::FittingFailed("no feasible plane".to_string()),
+                },
+            ],
+        };
+
+        assert_eq!(
+            err.to_string(),
+            "computed FPHA could not be fitted for 2 hydro plant(s) with generating units:\n  \
+             plant 2 (FUNIL-GRANDE): no rows in CAD/CAD_GEOMETRIA_UHE.csv\n  \
+             plant 7 (TestPlant): fitting failed: no feasible plane"
+        );
+        assert_eq!(
+            FitFailureReason::InvalidParameters("bad volume".to_string()).to_string(),
+            "invalid fit parameters: bad volume"
+        );
     }
 }

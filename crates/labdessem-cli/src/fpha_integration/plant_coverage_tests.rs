@@ -1,25 +1,32 @@
-//! Characterization of audit finding HI-03 (FP-01, NU-04): in computed-FPHA mode a plant whose
-//! planes cannot be computed is skipped with a warning and keeps no link between generation and
-//! water, on the pre-fix pipeline.
+//! Plant coverage of the computed FPHA (audit finding HI-03, FP-01, NU-04): a plant with generating
+//! units whose planes cannot be fitted fails `compute_fpha` with `PlantsNotFitted`, and a plant
+//! without units is excluded from fitting.
 //!
-//! Each test runs the computed-FPHA sequence on a derived copy of `examples/24Barras`, builds the LP
-//! model and counts the `hydro_fpha[...]` and `hydro_generation_turbining_coupling[...]` rows by
-//! name prefix. The control test shows the same counts are positive when the geometry is complete,
-//! so a zero count in a baseline test is a property of the skipped plant, not of the row-name
-//! format. The tests print the counts the baseline evidence report quotes.
+//! Each test runs `compute_fpha` on a derived copy of `examples/24Barras`. The control test runs the
+//! computed-FPHA sequence, builds the LP model and counts the `hydro_fpha[...]` and
+//! `hydro_generation_turbining_coupling[...]` rows by name prefix, so the failure tests are a
+//! property of the missing input, not of the row-name format.
+
+use std::error::Error;
+use std::path::Path;
 
 use labdessem_core::entities::HydroPlant;
 use labdessem_core::system::System;
+use labdessem_io::read_study_from_path;
 use labdessem_model::constraints::LinearConstraint;
 use labdessem_model::{Model, SolveMode};
 
 use super::probe::{DerivedCase, computed_system};
+use super::{FitFailureReason, FphaComputeError, PlantFitFailure, compute_fpha};
 
 /// Geometry table the computed FPHA reads, relative to the case directory.
 const GEOMETRY_FILE: &str = "CAD/CAD_GEOMETRIA_UHE.csv";
 
-/// Plant whose geometry rows are removed in the partial-geometry cases: FUNIL-GRANDE in
-/// `examples/24Barras`, three units.
+/// Unit table (one row per plant and unit group), relative to the case directory.
+const UNITS_FILE: &str = "CAD/CAD_CONJ_UHE.csv";
+
+/// Plant whose rows are removed in the derived cases: FUNIL-GRANDE in `examples/24Barras`, three
+/// units.
 const SKIPPED_PLANT_CODE: u32 = 2;
 
 /// Hydro plants of `examples/24Barras`.
@@ -46,13 +53,25 @@ fn fpha_row_count(model: &Model, plant_name: &str) -> usize {
     count_with_prefix(&model.constraints.hydro_fpha(), &prefix)
 }
 
-/// Number of unit coupling rows of the plant named `plant_name`, over every unit and period.
-fn plant_coupling_row_count(model: &Model, plant_name: &str) -> usize {
-    let prefix = format!("hydro_generation_turbining_coupling[p={plant_name},");
-    count_with_prefix(
-        &model.constraints.hydro_generation_turbining_coupling(),
-        &prefix,
-    )
+/// Message and failures of `compute_fpha` on `case`, which must fail with `PlantsNotFitted`.
+fn plants_not_fitted(
+    case: &Path,
+    system: &System,
+) -> Result<(String, Vec<PlantFitFailure>), Box<dyn Error>> {
+    match compute_fpha(case, system) {
+        Err(error) => {
+            let message = error.to_string();
+            match error {
+                FphaComputeError::PlantsNotFitted { failures } => Ok((message, failures)),
+                other => Err(format!("expected PlantsNotFitted, got: {other}").into()),
+            }
+        }
+        Ok(result) => Err(format!(
+            "compute_fpha must fail, but it fitted {} plants",
+            result.plant_results.len()
+        )
+        .into()),
+    }
 }
 
 /// Number of coupling rows of one unit over the horizon: the full `p=,g=,u=,` prefix is matched so
@@ -71,153 +90,133 @@ fn unit_coupling_row_count(
     )
 }
 
-/// Characterizes audit HI-03 (FP-01, NU-04) on the pre-fix code. Replaced by ticket-014.
-///
-/// A plant without geometry is skipped, not rejected: `computed_system` returns `Ok`, the plant
-/// keeps no FPHA segment, and the model holds neither a `hydro_fpha` row nor a unit coupling row
-/// for it. `System::validate` would reject the plant once FPHA is enabled, but production code
-/// never calls it after the injection. If the skipped plant raised a typed error, the `Ok`
-/// expectation would fail; if it were linked to water, the zero-row assertions would fail.
+/// A plant with units and no geometry rows fails the computed FPHA, naming the plant and the
+/// geometry table, instead of reaching the model without a link between generation and water.
 #[test]
-fn baseline_a2_plant_without_geometry_has_no_fpha_rows() {
+fn plant_without_geometry_fails_with_typed_error() -> Result<(), Box<dyn Error>> {
     // Arrange
-    let case = DerivedCase::new("computed").expect("derived case from examples/24Barras");
-    let removed = case
-        .remove_plant_rows(GEOMETRY_FILE, SKIPPED_PLANT_CODE)
-        .expect("remove the plant rows from CAD_GEOMETRIA_UHE.csv");
-    eprintln!("baseline_a2[without_geometry] removed_geometry_rows={removed}");
+    let case = DerivedCase::new("computed")?;
+    let removed = case.remove_plant_rows(GEOMETRY_FILE, SKIPPED_PLANT_CODE)?;
+    eprintln!("a2[without_geometry] removed_geometry_rows={removed}");
     assert!(
         removed >= 1,
         "plant {SKIPPED_PLANT_CODE} has no rows in {GEOMETRY_FILE}: the case would not be derived"
     );
-
-    // Act
-    let (system, result) = computed_system(case.path())
-        .expect("computed_system must succeed although plant 2 has no geometry");
-    let model = Model::from_system(&system, SolveMode::LinearProgramming);
+    let system = read_study_from_path(case.path())?;
     let skipped = plant_by_code(&system, SKIPPED_PLANT_CODE);
-    let skipped_fpha_rows = fpha_row_count(&model, &skipped.name);
-    let skipped_coupling_rows = plant_coupling_row_count(&model, &skipped.name);
-    let validation = system.validate();
-    eprintln!(
-        "baseline_a2[without_geometry] plants_processed={} plants_skipped={} plant={} \
-         segments={} hydro_fpha_rows={skipped_fpha_rows} coupling_rows={skipped_coupling_rows}",
-        result.plants_processed,
-        result.plants_skipped,
-        skipped.name,
-        skipped.fpha_segments.len(),
-    );
-
-    // Assert
-    assert_eq!(
-        result.plants_skipped, 1,
-        "only the plant without geometry must be skipped"
-    );
-    assert_eq!(
-        result.plants_processed,
-        HYDRO_PLANT_COUNT - 1,
-        "the other plants must still be processed"
-    );
-    assert_eq!(result.plant_results.len(), HYDRO_PLANT_COUNT - 1);
-    assert_eq!(
-        skipped.fpha_segments.len(),
-        0,
-        "plant {} must keep no FPHA segment",
-        skipped.name
-    );
     assert!(
         !skipped.groups.is_empty(),
-        "plant {} must have units: a plant without units has no coupling to lose",
+        "plant {} must have units: a plant without units is not fitted",
         skipped.name
     );
-    assert_eq!(
-        skipped_fpha_rows, 0,
-        "plant {} must have no hydro_fpha row",
-        skipped.name
-    );
-    assert_eq!(
-        skipped_coupling_rows, 0,
-        "plant {} must have no hydro_generation_turbining_coupling row",
-        skipped.name
-    );
-    for plant in system
-        .hydro_plants
-        .iter()
-        .filter(|plant| plant.id != skipped.id && !plant.groups.is_empty())
-    {
-        assert!(
-            fpha_row_count(&model, &plant.name) >= 1,
-            "plant {} kept its geometry and must keep its hydro_fpha rows: the row-name prefix \
-             would match nothing otherwise",
-            plant.name
-        );
-    }
-    let error = validation
-        .expect_err("a plant with units and no FPHA segment must fail validation with FPHA on");
-    let message = error.to_string();
-    assert!(
-        message.contains("at least one FPHA segment"),
-        "unexpected validation error: {message}"
-    );
-}
-
-/// Characterizes audit HI-03 (FP-01, NU-04) on the pre-fix code. Replaced by ticket-014.
-///
-/// Without the geometry table `compute_fpha` returns early with every plant skipped (a different
-/// warning from the per-plant one), and the model keeps no generation-water link for any plant.
-/// If a missing table raised a typed error, the `Ok` expectation would fail.
-#[test]
-fn baseline_a2_missing_geometry_file_skips_every_plant() {
-    // Arrange
-    let case = DerivedCase::new("computed").expect("derived case from examples/24Barras");
-    case.remove_file(GEOMETRY_FILE)
-        .expect("remove CAD_GEOMETRIA_UHE.csv from the copy");
 
     // Act
-    let (system, result) = computed_system(case.path())
-        .expect("computed_system must succeed although the geometry file is missing");
-    let model = Model::from_system(&system, SolveMode::LinearProgramming);
-    let fpha_rows = model.constraints.hydro_fpha().len();
-    let coupling_rows = model
-        .constraints
-        .hydro_generation_turbining_coupling()
-        .len();
-    let injected_segments: usize = system
-        .hydro_plants
-        .iter()
-        .map(|plant| plant.fpha_segments.len())
-        .sum();
-    eprintln!(
-        "baseline_a2[missing_file] plants_processed={} plants_skipped={} hydro_plants={} \
-         plant_results={} injected_segments={injected_segments} hydro_fpha_rows={fpha_rows} \
-         coupling_rows={coupling_rows}",
-        result.plants_processed,
-        result.plants_skipped,
-        system.hydro_plants.len(),
-        result.plant_results.len(),
-    );
+    let (message, failures) = plants_not_fitted(case.path(), &system)?;
+    eprintln!("a2[without_geometry] failures={failures:?}\n{message}");
 
     // Assert
     assert!(
-        result.plant_results.is_empty(),
-        "no plant can be fitted without geometry"
+        matches!(
+            failures.as_slice(),
+            [PlantFitFailure {
+                hydro_id: 2,
+                reason: FitFailureReason::MissingGeometry,
+                ..
+            }]
+        ),
+        "expected one MissingGeometry failure for plant 2, got {failures:?}"
     );
-    assert_eq!(result.plants_processed, 0);
-    assert_eq!(
-        result.plants_skipped,
-        system.hydro_plants.len(),
-        "every hydro plant must be counted as skipped"
+    assert!(
+        message.contains(skipped.name.trim()),
+        "the error does not name plant {}: {message}",
+        skipped.name
     );
-    assert_eq!(result.plants_skipped, HYDRO_PLANT_COUNT);
-    assert_eq!(injected_segments, 0, "no FPHA segment can be injected");
-    assert_eq!(fpha_rows, 0, "the model must hold no hydro_fpha row");
-    assert_eq!(
-        coupling_rows, 0,
-        "the model must hold no hydro_generation_turbining_coupling row"
+    assert!(
+        message.contains(GEOMETRY_FILE),
+        "the error does not name {GEOMETRY_FILE}: {message}"
     );
+    Ok(())
 }
 
-/// Control for the A2 baselines: with the complete geometry no plant is skipped and every plant
+/// Without the geometry table every plant with units is listed in the one error.
+#[test]
+fn missing_geometry_file_lists_every_plant_with_units() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    case.remove_file(GEOMETRY_FILE)?;
+    let system = read_study_from_path(case.path())?;
+
+    // Act
+    let (message, failures) = plants_not_fitted(case.path(), &system)?;
+    eprintln!("a2[missing_file] failures={failures:?}\n{message}");
+
+    // Assert
+    let hydro_ids: Vec<i32> = failures.iter().map(|failure| failure.hydro_id).collect();
+    assert_eq!(
+        hydro_ids,
+        [0, 1, 2, 3],
+        "one failure per plant, in plant order"
+    );
+    assert_eq!(failures.len(), HYDRO_PLANT_COUNT);
+    assert!(
+        failures
+            .iter()
+            .all(|failure| matches!(failure.reason, FitFailureReason::MissingGeometry)),
+        "every failure must be MissingGeometry: {failures:?}"
+    );
+    assert!(
+        message.contains(GEOMETRY_FILE),
+        "the error does not name {GEOMETRY_FILE}: {message}"
+    );
+    Ok(())
+}
+
+/// A plant without units needs no FPHA: it is excluded before any geometry lookup, so its missing
+/// geometry is not a failure.
+#[test]
+fn plant_without_units_is_excluded_from_fitting() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let removed_units = case.remove_plant_rows(UNITS_FILE, SKIPPED_PLANT_CODE)?;
+    let removed_geometry = case.remove_plant_rows(GEOMETRY_FILE, SKIPPED_PLANT_CODE)?;
+    eprintln!(
+        "a2[without_units] removed_unit_rows={removed_units} removed_geometry_rows={removed_geometry}"
+    );
+    assert!(
+        removed_units >= 1 && removed_geometry >= 1,
+        "plant {SKIPPED_PLANT_CODE} has no rows in {UNITS_FILE} or {GEOMETRY_FILE}: the case would \
+         not be derived"
+    );
+    let system = read_study_from_path(case.path())?;
+    let skipped = plant_by_code(&system, SKIPPED_PLANT_CODE);
+    assert!(
+        skipped.groups.is_empty(),
+        "plant {} must have no units after its rows are removed from {UNITS_FILE}",
+        skipped.name
+    );
+
+    // Act
+    let result = compute_fpha(case.path(), &system)?;
+    eprintln!(
+        "a2[without_units] plants_processed={} plants_skipped={}",
+        result.plants_processed, result.plants_skipped
+    );
+
+    // Assert
+    assert_eq!(result.plant_results.len(), HYDRO_PLANT_COUNT - 1);
+    assert_eq!(result.plants_processed, HYDRO_PLANT_COUNT - 1);
+    assert!(
+        result
+            .plant_results
+            .iter()
+            .all(|plant_result| plant_result.codigo != 2),
+        "plant {SKIPPED_PLANT_CODE} has no units and must have no fitted result"
+    );
+    assert_eq!(result.plants_skipped, 1);
+    Ok(())
+}
+
+/// Control for the A2 cases: with the complete geometry no plant is skipped and every plant
 /// with units keeps both links between generation and water. Stays valid after the fix.
 #[test]
 fn control_a2_full_geometry_links_every_plant() {
