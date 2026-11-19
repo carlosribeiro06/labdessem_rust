@@ -15,7 +15,7 @@ reduction, and the CAMARGOS plane-count changes.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -180,17 +180,57 @@ S5: Deliver (b) by an [ADD] implementation ticket in Epic 04 of this plan, as th
 
 ## Decision
 
-PENDING
+Accepted: option (b) — the correction factor alpha is computed on separate evaluation points (MM
+default count of 30) on the final reduced planes, after the gamma_S secant and the plane reduction.
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation.
+
+Sub-question S1 (points): accepted as recommended — 30 points, a uniform 6 V x 5 Q grid over the fit
+window and `[0, Q_max]` for plants with a volume axis, and 2 V x 15 Q for single-volume plants; the
+distribution is a labdessem choice `[to confirm]` against the MM/Libs text.
+
+Sub-question S2 (stage): accepted as recommended — alpha is computed on the final reduced planes, after
+`fit_gamma_s_for_planes` and `reduce_within_plane_limit`, so alpha depends on `max_planes`; this
+supersedes the ADR-029 statement that alpha is not recomputed after the reduction (the ADR-029 plane-cap
+rule itself, iterative reduction with tolerance doubling, is unchanged); the deviation keeps describing
+`alpha x planes`.
+
+Sub-question S3 (secant target): accepted as recommended — keep the unscaled FPH target of the secant;
+the FPH / alpha target suggested by the Libs form stays `[to confirm]` and, if confirmed, gets its own
+follow-up item.
+
+Sub-question S4 (reduction and CAMARGOS plane counts): accepted as recommended — record only: the
+reduction keeps running on unscaled planes and the angle predicate is not scale-free; the cause of the
+CAMARGOS plane-count changes (Epic 02: 6 to 7; Epic 03: 7 to 6) and the effect of reducing unscaled
+planes are `[not measured]` and go to a follow-up investigation outside this plan.
+
+Sub-question S5 (delivery): accepted as recommended — an [ADD] implementation ticket is to be added to
+Epic 04 of this plan, before ticket-029, by the orchestrator; it performs the ADR-025 rework of the
+fit_plant stage order and re-pins the four tests named in option (b). Ticket-029 documents the new stage
+order, the 30-point set and the open `FP` field 7 question.
+
+Amendment requests considered and not chosen: (b') alpha on the fit grid on the final reduced planes
+(no uncited distribution, no envelope overshoot on single-volume plants) and (c') alpha = 1 by default
+per MU `FP` field 7. The open points stay `[to confirm]`: the 30-point distribution, the `FP` field 7
+default versus the Libs FPHA, the AVL_FPHA1 `Fcorrec` 1.00000 of the 032026 case, and the secant target;
+the objective change is `[not measured]` until the [ADD] ticket runs. Rework trigger: if the MM/Libs text
+defines a different 30-point distribution, the S1 point set is revised (fallback (b'), fit grid on the
+final planes, if no distribution can be confirmed); if it confirms the FPH / alpha secant target, S3 is
+reopened as a follow-up item; if it confirms that DESSEM does not fit alpha by default (`FP` field 7,
+`Fcorrec` 1.00000), this ADR is reopened for (c').
 
 ## Consequences
 
-- If (a) is chosen: no code change; ticket-029 documents alpha on the fit grid before the reduction
-  as a divergence from MM §9.16.11 step 4; ADR-025 and ADR-029 stand unchanged.
-- If (b) is chosen: an implementation ticket is added to Epic 04 by the orchestrator ([ADD]) or a
-  follow-up plan per S5; it changes `fit_plant` and `compute_alpha_fpha`, re-pins the four tests named
-  above and records the new alpha values; ADR-025's rework trigger is exercised; ADR-029's statement
-  that alpha is not recomputed after the reduction is superseded; ticket-029 documents the outcome.
+Option (b) was chosen (see Decision); the other branch is kept for the record.
+
+- Under (a): no code change; ticket-029 would have documented alpha on the fit grid before the reduction
+  as a divergence from MM §9.16.11 step 4; ADR-025 and ADR-029 would have stood unchanged.
+- Under (b): an implementation ticket is to be added to Epic 04 by the orchestrator ([ADD]), before
+  ticket-029; it changes `fit_plant` and `compute_alpha_fpha`, re-pins the four tests named above and
+  records the new alpha values; ADR-025's rework trigger is exercised; ADR-029's statement that alpha is
+  not recomputed after the reduction is superseded by this ADR (the plane-cap rule stays); ticket-029
+  documents the outcome.
 - In all cases: the `[to confirm]` items (30-point distribution, reduction position in the Libs, the
   `FP` field 7 default versus the Libs FPHA, the AVL_FPHA1 `Fcorrec` values of the 032026 case, the
   secant target) need the MM/MU/Libs PDFs, a full-case AVL_FPHA1 or a CEPEL answer; the CAMARGOS
-  plane-count question goes to a follow-up investigation if S4 is accepted.
+  plane-count question and the reduction on unscaled planes (`[not measured]`) go to a follow-up
+  investigation outside this plan.
