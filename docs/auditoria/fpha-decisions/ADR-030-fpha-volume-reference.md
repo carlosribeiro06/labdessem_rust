@@ -11,7 +11,7 @@ tailrace families and alpha points are ADR-031, ADR-032 and ADR-033.
 
 ## Status
 
-Proposed
+Accepted (2026-11-19)
 
 ## Context
 
@@ -254,15 +254,46 @@ the mean volume as current behaviour, the S1 form and the ADR-006 symmetry, and 
 
 ## Decision
 
-PENDING
+Accepted: option (b) — every FPHA row reads the period-mean volume `(V[t] + V[t+1]) / 2` instead of the
+end-of-period volume `V[t+1]`, aligning the rows with the Libs form (Libs §15.6.1) and with the EngMax
+head volume (ADR-006). The measured static effect on 24Barras is at most 0.011043 MW (FURNAS); the
+re-optimized objective under (b) stays `[not measured]` until the implementation ticket re-records it.
+
+Sub-question S1 (LP form): accepted as recommended — the volume coefficient is split as
+`alpha*gamma_v/2` on slots `t` and `t + 1` of `hydro_volume`; in period 0 the fixed initial-volume half
+moves to the right-hand side (`rhs = alpha*(gamma_0 + gamma_v*VolInic/2)`) and the row keeps one volume
+term on slot 1; turbining and spillage terms are unchanged; the probe `envelope_row` accepts the split.
+
+Sub-question S2 (scope of the change): accepted as recommended — one row builder
+(`build_hydro_fpha_constraints`) for precomputed (`OPER_FPHA.csv`) and computed planes alike, no
+computed-only variant and no new `OPER_FPHA.csv` column; `GeracaoMaxPontoMW`
+(`hydro_generation_max_at_point_mw`) follows the period mean; `VolumeHM3` stays the end-of-period volume.
+
+Sub-question S3 (ADR-028 and one-point plants): accepted as recommended — ADR-028 is unchanged (window
+and reference describe the fit domain, not the row); the one-point plants (ITUTINGA, FUNIL-GRANDE,
+`Vmin = Vmax`) are unaffected.
+
+Sub-question S4 (delivery): accepted as recommended — an [ADD] implementation ticket inside this plan,
+added by the orchestrator through the Scope Change Approval protocol, to run before ticket-029; ticket-029
+then documents the period mean as current behaviour.
+
+Chosen by the user on 2026-11-19 at the decision gate, matching the recommendation. ADR-028 stays
+accepted. The rework trigger stays recorded `[to confirm]`: if the 032026 full-case check (AVL_FPHA1 cuts
+at `Varm Med` against `Ghid (FPHA`) shows that DESSEM 22.0.2 evaluates the FPHA at the end-of-period
+volume, the deck wins and (a) is reopened. The other open points stay `[to confirm]`: the meaning of
+`V_i^t` in MM (9.33), the row form of DESSEM 22.0.2 under the Libs FPHA, the volume at which
+AVL_DESVFPHA evaluates `Ghid (FPHA`, and useful versus total volume in AVL_FPHA1 `Varm`.
 
 ## Consequences
 
+Option (b) with [ADD] was chosen (see Decision); the other branches are kept for the record.
+
 - Under (a): no code change; ticket-029 documents the end-of-period volume, the divergence from the Libs
   form and from ADR-006, and the `[to confirm]` items; the section 9 baseline stays current.
-- Under (b) with [ADD]: a new implementation ticket changes the rows (S1), `GeracaoMaxPontoMW` (S2), the
-  probe and the tests, and re-records the section 9 objectives; ticket-029 and ticket-030 document the
-  period mean as current behaviour.
+- Under (b) with [ADD] (chosen): a new implementation ticket, added before ticket-029, changes the rows
+  (S1), `GeracaoMaxPontoMW` (S2), the probe and the tests, and re-records the section 9 objectives (the
+  re-optimized objective is `[not measured]` here); ticket-029 and ticket-030 document the period mean as
+  current behaviour, the S1 form and the ADR-006 symmetry.
 - Under (b) with a follow-up plan: ticket-029 documents the end-of-period volume as current behaviour and
   (b) as accepted and planned.
 - Under either option, ADR-028 stays accepted (S3). The `[to confirm]` items stay open: the meaning of
