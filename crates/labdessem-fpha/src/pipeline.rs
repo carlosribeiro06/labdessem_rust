@@ -44,6 +44,9 @@ pub struct FitPlantParams {
 /// (the model's `correction_factor`) multiplies all four coefficients `γ₀, γᵥ, γᵩ, γₛ` by `alpha`
 /// exactly once, so the LP envelope is `alpha × min_k P_k`. `FphaPlantResult::deviation` describes
 /// that envelope, `alpha × planes`.
+///
+/// `alpha` is fitted on the final (reduced) planes over the 30 evaluation points of
+/// [`compute_alpha_fpha`], so it depends on `max_planes` (ADR-033).
 pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFittingError> {
     let (pf, bounds) = fit_context(params)?;
 
@@ -59,15 +62,15 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
         });
     }
 
-    // Stage 2: α correction (computed here, applied once by the consumer; planes stay unscaled)
-    let alpha = compute_alpha_fpha(&raw_planes, &pf, &bounds);
+    // Stage 2: γₛ secant fitting on the unscaled planes
     let mut planes = raw_planes;
-
-    // Stage 3: γₛ secant fitting on the unscaled planes
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, params.long_term_mean_inflow_m3s);
 
-    // Stage 4: Plane reduction on the unscaled planes, within the plane limit
+    // Stage 3: Plane reduction on the unscaled planes, within the plane limit
     let planes = reduce_within_plane_limit(&planes, params, &pf, &bounds)?;
+
+    // Stage 4: α correction on the final planes (applied once by the consumer; planes stay unscaled)
+    let alpha = compute_alpha_fpha(&planes, &pf, &bounds);
 
     // Stage 5: Deviation diagnostics of the envelope the LP uses, α × planes
     let deviation = compute_fit_deviation(&scale_planes(&planes, alpha), &pf, &bounds);
@@ -341,6 +344,25 @@ mod tests {
     }
 
     #[test]
+    fn fit_plant_computes_alpha_on_final_planes() -> Result<(), Box<dyn std::error::Error>> {
+        let params = test_params();
+        let result = fit_plant(&params)?;
+        let (pf, bounds) = fit_context(&params)?;
+
+        let on_final = compute_alpha_fpha(&result.planes, &pf, &bounds);
+        assert_eq!(result.alpha.to_bits(), on_final.to_bits());
+
+        let on_hull = compute_alpha_fpha(&fit_hull_planes(&pf, &bounds)?, &pf, &bounds);
+        assert_ne!(
+            result.alpha.to_bits(),
+            on_hull.to_bits(),
+            "fixture alpha on the final planes {} must differ from alpha on the raw hull {on_hull}",
+            result.alpha
+        );
+        Ok(())
+    }
+
+    #[test]
     fn fit_plant_deviation_matches_alpha_scaled_envelope() -> Result<(), Box<dyn std::error::Error>>
     {
         let params = test_params();
@@ -375,17 +397,22 @@ mod tests {
         let baseline = fit_plant(&test_params())?;
         let baseline_count = baseline.planes.len();
         assert!(
-            baseline_count > 1,
-            "fixture baseline {baseline_count} must exceed 1 plane for the limit to bind"
+            baseline_count > 2,
+            "fixture baseline {baseline_count} must exceed 2 planes for the limit to bind"
         );
 
-        let limit = baseline_count - 1;
+        let limit = baseline_count - 2;
         let mut params = test_params();
         params.config.max_planes = limit;
         let limited = fit_plant(&params)?;
 
         assert!(limited.planes.len() <= limit);
-        assert_eq!(limited.alpha.to_bits(), baseline.alpha.to_bits());
+        assert_ne!(limited.alpha.to_bits(), baseline.alpha.to_bits());
+        let (pf, bounds) = fit_context(&params)?;
+        assert_eq!(
+            limited.alpha.to_bits(),
+            compute_alpha_fpha(&limited.planes, &pf, &bounds).to_bits()
+        );
         Ok(())
     }
 

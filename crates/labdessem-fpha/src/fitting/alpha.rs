@@ -1,18 +1,52 @@
-//! Least-squares α correction on the spill = 0 grid.
+//! Least-squares α correction on 30 evaluation points at spill = 0.
 //!
-//! The raw upper-envelope hull (`FPHA_0`) is biased. A single scalar `α_FPHA`
-//! minimizing `Σ (α·FPHA_0 − FPH)²` over the `(V, Q)` fit grid corrects it.
+//! The planes the LP uses (`FPHA_0`) are biased against the production function. A single scalar
+//! `α_FPHA` minimizing `Σ (α·FPHA_0 − FPH)²` over 30 evaluation points of the fit window
+//! corrects them: 6 volume × 5 flow points, or 2 × 15 for single-volume plants. The count is the
+//! MM default (§9.16.11 step 4); the point distribution is a labdessem choice `[to confirm]`
+//! against the MM/Libs text (ADR-033).
 
 use super::geometry::FittingBounds;
-use super::grid::build_grid;
+use super::grid::{GridParams, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
 
-/// Compute the least-squares α correction factor for a raw hull envelope.
+const ALPHA_VOLUME_POINTS: usize = 6;
+const ALPHA_FLOW_POINTS: usize = 5;
+const ALPHA_SINGLE_VOLUME_FLOW_POINTS: usize = 15;
+
+fn alpha_evaluation_grid(pf: &ProductionFunction, bounds: &FittingBounds) -> GridParams {
+    let n_flow_points = if bounds.single_volume {
+        ALPHA_SINGLE_VOLUME_FLOW_POINTS
+    } else {
+        ALPHA_FLOW_POINTS
+    };
+    build_grid(
+        pf,
+        &FittingBounds {
+            n_volume_points: ALPHA_VOLUME_POINTS,
+            n_flow_points,
+            ..*bounds
+        },
+    )
+}
+
+/// Compute the least-squares α correction factor for the final FPHA planes.
+///
+/// # Contract — evaluation points, not the fit grid
+///
+/// α is fitted on its own 30 evaluation points (see the module doc), uniform over the fit window
+/// `[bounds.v_min, bounds.v_max]` and `[0, Q_max]`. `bounds.n_volume_points` and
+/// `bounds.n_flow_points` are ignored; only the window, `single_volume` and `Q_max` are read.
+///
+/// # Contract — pass the final planes
+///
+/// `planes` are the planes the LP will use (after the γₛ secant and the plane reduction), so α
+/// depends on `max_planes` (ADR-033).
 ///
 /// # Contract — regress the MIN envelope
 ///
-/// `FPHA_0` is the pointwise **min** over the raw hull planes. The LP applies
+/// `FPHA_0` is the pointwise **min** over `planes`. The LP applies
 /// `g ≤ plane_k` for every plane, so the binding cap is the minimum.
 ///
 /// # Contract — degenerate denominator returns α = 1.0
@@ -28,7 +62,7 @@ pub fn compute_alpha_fpha(
         return 1.0;
     }
 
-    let grid = build_grid(pf, bounds);
+    let grid = alpha_evaluation_grid(pf, bounds);
 
     let mut sum_fpha0_fph = 0.0_f64;
     let mut sum_fpha0_sq = 0.0_f64;
@@ -123,8 +157,10 @@ mod tests {
             gamma_s: 0.0,
         }];
 
-        let v_pts = [0.0_f64, 30_000.0];
-        let q_pts = [0.0_f64, pf.max_turbined_m3s()];
+        let v_pts: Vec<f64> = (0..6).map(|i| 30_000.0 * f64::from(i) / 5.0).collect();
+        let q_pts: Vec<f64> = (0..5)
+            .map(|j| pf.max_turbined_m3s() * f64::from(j) / 4.0)
+            .collect();
         let mut num = 0.0_f64;
         let mut den = 0.0_f64;
         for &v in &v_pts {
@@ -139,6 +175,30 @@ mod tests {
 
         let alpha = compute_alpha_fpha(&planes, &pf, &bounds);
         assert!((alpha - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn alpha_evaluation_grid_has_thirty_points() {
+        let pf = concave_pf();
+        let q_max = pf.max_turbined_m3s();
+
+        let multi = alpha_evaluation_grid(&pf, &small_bounds());
+        assert_eq!(multi.v_points.len(), 6);
+        assert_eq!(multi.q_points.len(), 5);
+        assert_eq!(multi.v_points.first(), Some(&0.0));
+        assert_eq!(multi.v_points.last(), Some(&30_000.0));
+        assert_eq!(multi.q_points.first(), Some(&0.0));
+        assert_eq!(multi.q_points.last(), Some(&q_max));
+        assert_eq!(multi.v_points.len() * multi.q_points.len(), 30);
+
+        let single_bounds = FittingBounds {
+            single_volume: true,
+            ..small_bounds()
+        };
+        let single = alpha_evaluation_grid(&pf, &single_bounds);
+        assert_eq!(single.v_points.len(), 2);
+        assert_eq!(single.q_points.len(), 15);
+        assert_eq!(single.v_points.len() * single.q_points.len(), 30);
     }
 
     #[test]

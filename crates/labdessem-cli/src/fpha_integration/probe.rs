@@ -18,7 +18,6 @@ use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::system::System;
 use labdessem_fpha::{
     FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha,
-    fit_hull_planes,
 };
 use labdessem_io::readers::{read_fpha_config, read_tailrace, read_vha_geometry};
 use labdessem_io::{read_study_config, read_study_from_path};
@@ -862,11 +861,7 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
         assert_eq!(ctx.params.codigo, plant_result.codigo);
         assert_eq!(ctx.params.nome, plant_result.nome);
 
-        let alpha = compute_alpha_fpha(
-            &fit_hull_planes(&ctx.pf, &ctx.bounds)?,
-            &ctx.pf,
-            &ctx.bounds,
-        );
+        let alpha = compute_alpha_fpha(&plant_result.planes, &ctx.pf, &ctx.bounds);
         assert_eq!(
             alpha.to_bits(),
             plant_result.alpha.to_bits(),
@@ -890,6 +885,35 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
                 plant_result.nome
             );
         }
+    }
+    Ok(())
+}
+
+#[test]
+fn pipeline_alpha_matches_adr033_values() -> Result<(), Box<dyn Error>> {
+    // ADR-033 brief S5: alpha on the 30 evaluation points of the final planes, and plane count.
+    const EXPECTED: [(&str, f64, usize); 4] = [
+        ("CAMARGOS", 0.968_663, 6),
+        ("ITUTINGA", 1.014_733, 3),
+        ("FUNIL-GRANDE", 1.011_552, 3),
+        ("FURNAS", 0.989_872, 5),
+    ];
+    let case = DerivedCase::new("computed")?;
+    let (_, result) = computed_system(case.path())?;
+
+    assert_eq!(result.plant_results.len(), EXPECTED.len());
+    for (name, alpha, plane_count) in EXPECTED {
+        let plant = result
+            .plant_results
+            .iter()
+            .find(|plant| plant.nome == name)
+            .ok_or_else(|| format!("no fit result for plant {name}"))?;
+        assert!(
+            (plant.alpha - alpha).abs() <= 5e-7,
+            "plant {name}: alpha {} vs ADR-033 {alpha}",
+            plant.alpha
+        );
+        assert_eq!(plant.planes.len(), plane_count, "plant {name}: plane count");
     }
     Ok(())
 }
