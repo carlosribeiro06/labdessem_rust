@@ -3,12 +3,25 @@
 //! Usage:
 //!   cargo run --example fpha_fit -- examples/fpha_example
 //!
-//! This reads CSV files from CAD/ and writes results to RESULTADOS/.
+//! Reads from the case directory:
+//!   - CAD/CAD_GEOMETRIA_UHE.csv: volume, forebay level and area per plant
+//!   - CAD/CAD_TAILRACE.csv: tailrace polynomial per plant
+//!   - CAD/CAD_FPHA_CONFIG.csv (optional): per-plant `num_planes`, `tolerance`, `min_volume_pct`
+//!     and `max_volume_pct`
+//!   - CAD/CAD_UHE_PARAMS.csv, columns
+//!     `Codigo;Nome;MaxTurbinedM3s;MaxGenerationMW;HydraulicLossM;Efficiency;MeanInflowM3s`
+//!
+//! and writes results to RESULTADOS/. The fit follows the ADR-028 defaults and every
+//! CAD_FPHA_CONFIG.csv field as the CLI's computed mode does, except that the volume window is a
+//! fraction of the geometry-table span because the example has no CAD_UHE.csv `[Vmin, Vmax]`.
 
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
+use labdessem_fpha::config::{
+    DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
+};
 use labdessem_fpha::{
     fit_plant, forebay_from_vha, tailrace_from_data,
     FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig,
@@ -40,6 +53,34 @@ fn read_plant_params(path: &Path) -> Result<HashMap<i32, PlantParams>, Box<dyn s
     let rows: Vec<PlantParams> = read_csv(path)?;
     let params = rows.into_iter().map(|r| (r.codigo, r)).collect();
     Ok(params)
+}
+
+fn example_config(row: Option<&labdessem_io::readers::FphaPlantConfig>) -> FphaPlantConfig {
+    let mut config = FphaPlantConfig::computed(
+        DEFAULT_MAX_PLANES,
+        DEFAULT_VOLUME_POINTS,
+        DEFAULT_FLOW_POINTS,
+        PlaneReductionConfig::Angle {
+            tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
+        },
+    );
+
+    if let Some(row) = row {
+        if let Some(n) = row.num_planes {
+            config.max_planes = n;
+        }
+        if let Some(tolerance_deg) = row.tolerance {
+            config.reduction_config = PlaneReductionConfig::Angle { tolerance_deg };
+        }
+        if let Some(min_fraction) = row.min_volume_pct {
+            config.volume_window.min_fraction = min_fraction;
+        }
+        if let Some(max_fraction) = row.max_volume_pct {
+            config.volume_window.max_fraction = max_fraction;
+        }
+    }
+
+    config
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -101,15 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let fpha_config = configs.get(codigo).map(|c| {
-            let mut config = FphaPlantConfig::computed(8, 6, 6, PlaneReductionConfig::default());
-            if let Some(n) = c.num_planes {
-                config.max_planes = n;
-            }
-            config
-        }).unwrap_or_else(|| {
-            FphaPlantConfig::computed(8, 6, 6, PlaneReductionConfig::default())
-        });
+        let fpha_config = example_config(configs.get(codigo));
 
         // Convert tailrace using from_io conversion
         let tailrace_model = tailrace_data.get(codigo).map(tailrace_from_data);
