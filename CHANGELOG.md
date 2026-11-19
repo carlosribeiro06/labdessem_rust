@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: `resultado_fpha_computed.csv`: the gamma columns are now unscaled and the model applies `alpha` once
+  - Before: `gamma_0`, `gamma_v` and `gamma_q` were already multiplied by `alpha`, `gamma_s` was not, and the model multiplied all four by `alpha` again
+  - Now `gamma_0`, `gamma_v`, `gamma_q` and `gamma_s` hold the unscaled fitted planes, and the model applies `alpha` once to all four coefficients
+  - The `max_deviation_mw`, `mean_deviation_mw` and `rms_deviation_mw` columns describe `alpha` x plane against the FPH on the fit grid
+  - Column names, positions and number format are unchanged
+  - Copying the rows into `OPER_FPHA.csv` reproduces the computed run with `USIH = codigo_usina`, `SegFPHA = plane_index + 1`, `Fcorrec = alpha`, `Rhs.mw = gamma_0`, `Varm.mw/hm3 = gamma_v`, `Qtur.mw/m3s = gamma_q` and `Qlat.mw/m3s = gamma_s`
+
+### Fixed
+- Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and never to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
+
 ## [0.12.0] - 2026-11-05
 
 ### Added

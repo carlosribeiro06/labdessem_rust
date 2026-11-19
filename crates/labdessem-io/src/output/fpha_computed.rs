@@ -42,24 +42,36 @@ pub fn write_fpha_computed(case_path: &Path, records: &[ComputedFphaRecord]) -> 
             ("plane_index", "indice do plano FPHA (0-indexed)"),
             (
                 "gamma_0",
-                "coeficiente independente do hiperplano (RHS em MW)",
+                "coeficiente independente do hiperplano (RHS em MW), sem o fator alpha",
             ),
             (
                 "gamma_v",
-                "coeficiente do volume armazenado (MW/hm3)",
+                "coeficiente do volume armazenado (MW/hm3), sem o fator alpha",
             ),
             (
                 "gamma_q",
-                "coeficiente da vazao turbinada (MW/m3/s)",
+                "coeficiente da vazao turbinada (MW/m3/s), sem o fator alpha",
             ),
             (
                 "gamma_s",
-                "coeficiente do vertimento (MW/m3/s)",
+                "coeficiente do vertimento (MW/m3/s), sem o fator alpha",
             ),
-            ("alpha", "fator de correcao aplicado aos coeficientes"),
-            ("max_deviation_mw", "desvio maximo absoluto da aproximacao (MW)"),
-            ("mean_deviation_mw", "desvio medio absoluto da aproximacao (MW)"),
-            ("rms_deviation_mw", "raiz do erro quadratico medio da aproximacao (MW)"),
+            (
+                "alpha",
+                "fator de correcao que o modelo aplica uma vez aos quatro coeficientes (Fcorrec do OPER_FPHA)",
+            ),
+            (
+                "max_deviation_mw",
+                "desvio maximo absoluto da aproximacao (MW) de alpha x plano em relacao a FPH",
+            ),
+            (
+                "mean_deviation_mw",
+                "desvio medio absoluto da aproximacao (MW) de alpha x plano em relacao a FPH",
+            ),
+            (
+                "rms_deviation_mw",
+                "raiz do erro quadratico medio da aproximacao (MW) de alpha x plano em relacao a FPH",
+            ),
         ],
     );
 

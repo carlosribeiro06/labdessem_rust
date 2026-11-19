@@ -305,6 +305,9 @@ pub fn write_computed_results(
 }
 
 /// Convert fitting results to model-compatible segments.
+///
+/// Segments carry the unscaled planes. The model multiplies all four coefficients
+/// (`gamma_0` as the RHS, `gamma_v`, `gamma_q`, `gamma_s`) by `correction_factor` once.
 pub fn convert_to_fpha_segments(result: &FphaPlantResult) -> Vec<HydroFphaSegment> {
     result
         .planes
@@ -407,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_single_plane() {
+    fn convert_single_plane_lp_product_is_alpha_times_plane() {
         use labdessem_fpha::fitting::{FphaFitDeviation, RawPlane};
 
         let result = FphaPlantResult {
@@ -431,13 +434,29 @@ mod tests {
 
         let segments = convert_to_fpha_segments(&result);
 
+        let plane = result.planes[0];
+        let segment = &segments[0];
+        let alpha = result.alpha;
+
         assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0].segment, 1);
-        assert_eq!(segments[0].rhs, 1000.0);
-        assert_eq!(segments[0].volume_coefficient, -0.002);
-        assert_eq!(segments[0].turbining_coefficient, 0.05);
-        assert_eq!(segments[0].lateral_flow_coefficient, 0.001);
-        assert_eq!(segments[0].correction_factor, 0.95);
+        assert_eq!(segment.segment, 1);
+        assert_eq!(segment.correction_factor, alpha);
+        assert_eq!(
+            segment.correction_factor * segment.rhs,
+            alpha * plane.gamma_0
+        );
+        assert_eq!(
+            segment.correction_factor * segment.volume_coefficient,
+            alpha * plane.gamma_v
+        );
+        assert_eq!(
+            segment.correction_factor * segment.turbining_coefficient,
+            alpha * plane.gamma_q
+        );
+        assert_eq!(
+            segment.correction_factor * segment.lateral_flow_coefficient,
+            alpha * plane.gamma_s
+        );
     }
 
     #[test]
