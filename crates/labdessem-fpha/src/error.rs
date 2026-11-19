@@ -32,6 +32,9 @@ pub enum FphaFittingError {
         detail: String,
     },
 
+    #[error("hydro {hydro_name}: invalid fit volume window: {reason}")]
+    InvalidFitWindow { hydro_name: String, reason: String },
+
     #[error("I/O error reading {path}: {detail}")]
     IoError { path: String, detail: String },
 }

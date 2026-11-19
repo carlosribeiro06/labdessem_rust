@@ -17,8 +17,8 @@ use std::path::{Component, Path, PathBuf};
 use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::system::System;
 use labdessem_fpha::{
-    FitPlantParams, FittingBounds, ProductionFunction, TailraceSource, build_grid,
-    compute_alpha_fpha, fit_hull_planes, resolve_fitting_bounds,
+    FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha,
+    fit_hull_planes,
 };
 use labdessem_io::readers::{read_fpha_config, read_tailrace, read_vha_geometry};
 use labdessem_io::{read_study_config, read_study_from_path};
@@ -419,26 +419,8 @@ pub(super) fn fit_contexts(
             parquet_present,
         )?;
 
-        // Mirrors labdessem_fpha::pipeline::fit_plant lines 41-67; keep in sync.
-        let pf = ProductionFunction::new(
-            params.forebay.clone(),
-            TailraceSource::Entity(params.tailrace.clone()),
-            params.hydraulic_loss_m,
-            params.efficiency,
-            params.max_turbined_m3s,
-            params.max_generation_mw,
-            params.nome.clone(),
-        );
-        let config_bounds = params
-            .config
-            .to_fitting_bounds(params.forebay.v_min(), params.forebay.v_max());
-        let useful_storage_hm3 = params.forebay.v_max() - params.forebay.v_min();
-        let bounds = resolve_fitting_bounds(
-            params.forebay.v_min(),
-            params.forebay.v_max(),
-            useful_storage_hm3,
-            &config_bounds,
-        );
+        let (pf, bounds) = labdessem_fpha::pipeline::fit_context(&params)
+            .map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
 
         contexts.insert(params.codigo, FitContext { params, pf, bounds });
     }

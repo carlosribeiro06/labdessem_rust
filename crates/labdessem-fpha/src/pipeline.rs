@@ -5,7 +5,7 @@ use crate::error::FphaFittingError;
 #[cfg(test)]
 use crate::fitting::PlaneReductionConfig;
 use crate::fitting::{
-    ForebayTable, FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
+    FittingBounds, ForebayTable, FphaFitDeviation, ProductionFunction, RawPlane, TailraceSource,
     compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
     reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
 };
@@ -45,32 +45,7 @@ pub struct FitPlantParams {
 /// exactly once, so the LP envelope is `alpha × min_k P_k`. `FphaPlantResult::deviation` describes
 /// that envelope, `alpha × planes`.
 pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFittingError> {
-    let pf = ProductionFunction::new(
-        params.forebay.clone(),
-        TailraceSource::Entity(params.tailrace.clone()),
-        params.hydraulic_loss_m,
-        params.efficiency,
-        params.max_turbined_m3s,
-        params.max_generation_mw,
-        params.nome.clone(),
-    );
-
-    // Get config-based bounds first (n_volume_points, n_flow_points, etc.)
-    let config_bounds = params
-        .config
-        .to_fitting_bounds(params.forebay.v_min(), params.forebay.v_max());
-
-    // For run-of-river detection, useful storage is the forebay table span.
-    // Single-point tables yield 0.0, triggering minimum half-width.
-    let useful_storage_hm3 = params.forebay.v_max() - params.forebay.v_min();
-
-    // Resolve bounds with single-volume synthesis for run-of-river plants
-    let bounds = resolve_fitting_bounds(
-        params.forebay.v_min(),
-        params.forebay.v_max(),
-        useful_storage_hm3,
-        &config_bounds,
-    );
+    let (pf, bounds) = fit_context(params)?;
 
     // Stage 1: Hull fitting
     let raw_planes = fit_hull_planes(&pf, &bounds).map_err(|e| FphaFittingError::HullFailed {
@@ -116,6 +91,70 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     })
 }
 
+/// Build the production function and the fitting bounds of a plant.
+///
+/// The fit volume interval is `[lo_ref + min_fraction * span, hi_ref - (1 - max_fraction) * span]`
+/// with `[lo_ref, hi_ref]` the configured reference or the forebay table span; the full window
+/// returns the reference bit for bit. A single-point forebay table ignores the window and the
+/// reference and keeps the run-of-river synthesis.
+pub fn fit_context(
+    params: &FitPlantParams,
+) -> Result<(ProductionFunction, FittingBounds), FphaFittingError> {
+    let pf = ProductionFunction::new(
+        params.forebay.clone(),
+        TailraceSource::Entity(params.tailrace.clone()),
+        params.hydraulic_loss_m,
+        params.efficiency,
+        params.max_turbined_m3s,
+        params.max_generation_mw,
+        params.nome.clone(),
+    );
+
+    let (table_min, table_max) = (params.forebay.v_min(), params.forebay.v_max());
+    let (lo, hi, span) = if table_min == table_max {
+        (table_min, table_max, table_max - table_min)
+    } else {
+        let invalid = |reason: String| FphaFittingError::InvalidFitWindow {
+            hydro_name: params.nome.clone(),
+            reason,
+        };
+        let window = params.config.volume_window;
+        let (min_f, max_f) = (window.min_fraction, window.max_fraction);
+        if !(0.0..=1.0).contains(&min_f) || !(0.0..=1.0).contains(&max_f) {
+            return Err(invalid(format!(
+                "fractions ({min_f}, {max_f}) must be finite and within [0, 1]"
+            )));
+        }
+        if min_f >= max_f {
+            return Err(invalid(format!(
+                "min fraction {min_f} must be below max fraction {max_f}"
+            )));
+        }
+        let (lo_ref, hi_ref) = params
+            .config
+            .window_reference_hm3
+            .unwrap_or((table_min, table_max));
+        if !lo_ref.is_finite() || !hi_ref.is_finite() || lo_ref > hi_ref {
+            return Err(invalid(format!(
+                "reference [{lo_ref}, {hi_ref}] hm3 must be finite and ordered"
+            )));
+        }
+        let span = hi_ref - lo_ref;
+        let lo = lo_ref + min_f * span;
+        let hi = hi_ref - (1.0 - max_f) * span;
+        if lo < table_min || hi > table_max {
+            return Err(invalid(format!(
+                "window [{lo}, {hi}] hm3 lies outside the forebay table [{table_min}, {table_max}]"
+            )));
+        }
+        (lo, hi, span)
+    };
+
+    let config_bounds = params.config.to_fitting_bounds(lo, hi);
+    let bounds = resolve_fitting_bounds(lo, hi, span, &config_bounds);
+    Ok((pf, bounds))
+}
+
 /// Batch fit multiple plants.
 pub fn fit_plants(
     params_list: &[FitPlantParams],
@@ -126,7 +165,8 @@ pub fn fit_plants(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fitting::{FittingBounds, VhaRow};
+    use crate::config::VolumeWindow;
+    use crate::fitting::VhaRow;
 
     fn test_forebay() -> ForebayTable {
         let rows = vec![
@@ -226,28 +266,6 @@ mod tests {
         }
     }
 
-    fn fit_context(params: &FitPlantParams) -> (ProductionFunction, FittingBounds) {
-        let pf = ProductionFunction::new(
-            params.forebay.clone(),
-            TailraceSource::Entity(params.tailrace.clone()),
-            params.hydraulic_loss_m,
-            params.efficiency,
-            params.max_turbined_m3s,
-            params.max_generation_mw,
-            params.nome.clone(),
-        );
-        let config_bounds = params
-            .config
-            .to_fitting_bounds(params.forebay.v_min(), params.forebay.v_max());
-        let bounds = resolve_fitting_bounds(
-            params.forebay.v_min(),
-            params.forebay.v_max(),
-            params.forebay.v_max() - params.forebay.v_min(),
-            &config_bounds,
-        );
-        (pf, bounds)
-    }
-
     #[test]
     fn fit_plant_returns_unscaled_planes() -> Result<(), Box<dyn std::error::Error>> {
         let params = test_params();
@@ -258,7 +276,7 @@ mod tests {
             result.alpha
         );
 
-        let (pf, bounds) = fit_context(&params);
+        let (pf, bounds) = fit_context(&params)?;
         let mut chain = fit_hull_planes(&pf, &bounds)?;
         fit_gamma_s_for_planes(&mut chain, &pf, &bounds, params.long_term_mean_inflow_m3s);
         let expected = reduce_planes(
@@ -285,7 +303,7 @@ mod tests {
     {
         let params = test_params();
         let result = fit_plant(&params)?;
-        let (pf, bounds) = fit_context(&params);
+        let (pf, bounds) = fit_context(&params)?;
 
         let expected =
             compute_fit_deviation(&scale_planes(&result.planes, result.alpha), &pf, &bounds);
@@ -307,6 +325,87 @@ mod tests {
             result.deviation.relative.to_bits(),
             expected.relative.to_bits()
         );
+        Ok(())
+    }
+
+    fn windowed_params(window: VolumeWindow, reference: Option<(f64, f64)>) -> FitPlantParams {
+        let mut params = test_params();
+        params.config.volume_window = window;
+        params.config.window_reference_hm3 = reference;
+        params
+    }
+
+    #[test]
+    fn fit_window_restricts_volume_domain() -> Result<(), Box<dyn std::error::Error>> {
+        let full = test_params();
+        let windowed = windowed_params(
+            VolumeWindow {
+                min_fraction: 0.5,
+                max_fraction: 0.6,
+            },
+            None,
+        );
+
+        let (_, bounds) = fit_context(&windowed)?;
+        let full_result = fit_plant(&full)?;
+        let windowed_result = fit_plant(&windowed)?;
+
+        assert_eq!(bounds.v_min.to_bits(), 15_000.0_f64.to_bits());
+        assert!(
+            (bounds.v_max - 18_000.0).abs() < 1e-9,
+            "v_max {}",
+            bounds.v_max
+        );
+        let identical = full_result.planes.len() == windowed_result.planes.len()
+            && full_result
+                .planes
+                .iter()
+                .zip(&windowed_result.planes)
+                .all(|(a, b)| {
+                    a.gamma_0.to_bits() == b.gamma_0.to_bits()
+                        && a.gamma_v.to_bits() == b.gamma_v.to_bits()
+                        && a.gamma_q.to_bits() == b.gamma_q.to_bits()
+                        && a.gamma_s.to_bits() == b.gamma_s.to_bits()
+                });
+        assert!(
+            !identical,
+            "windowed fit must differ from the full-window fit"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn fit_window_reference_sets_domain() -> Result<(), Box<dyn std::error::Error>> {
+        let params = windowed_params(VolumeWindow::FULL, Some((10_000.0, 20_000.0)));
+
+        let (_, bounds) = fit_context(&params)?;
+
+        assert_eq!(bounds.v_min.to_bits(), 10_000.0_f64.to_bits());
+        assert_eq!(bounds.v_max.to_bits(), 20_000.0_f64.to_bits());
+        Ok(())
+    }
+
+    #[test]
+    fn fit_window_rejects_invalid() -> Result<(), Box<dyn std::error::Error>> {
+        let inverted = windowed_params(
+            VolumeWindow {
+                min_fraction: 0.6,
+                max_fraction: 0.5,
+            },
+            None,
+        );
+        let outside = windowed_params(VolumeWindow::FULL, Some((-5_000.0, 20_000.0)));
+
+        for params in [inverted, outside] {
+            match fit_context(&params) {
+                Err(FphaFittingError::InvalidFitWindow { hydro_name, .. }) => {
+                    assert_eq!(hydro_name, "FURNAS");
+                }
+                other => {
+                    return Err(format!("expected InvalidFitWindow, got {other:?}").into());
+                }
+            }
+        }
         Ok(())
     }
 
