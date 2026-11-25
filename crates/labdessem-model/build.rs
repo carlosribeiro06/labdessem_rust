@@ -1,8 +1,8 @@
-//! Build script for labdessem-fpha.
+//! Build script for labdessem-model.
 //!
 //! Compiles the vendored libqhull_r reentrant library and the C shim.
 
-#![allow(clippy::expect_used, clippy::panic)]
+#![allow(clippy::expect_used)]
 
 use std::env;
 use std::path::PathBuf;
@@ -33,12 +33,11 @@ fn main() {
 
     let qhull_dir = manifest_dir.join("vendor/qhull/src/libqhull_r");
 
-    if !qhull_dir.join("libqhull_r.c").exists() {
-        panic!(
-            "qhull source not found under crates/labdessem-fpha/vendor/qhull/src/libqhull_r/. \
-             Run: git submodule update --init --recursive"
-        );
-    }
+    assert!(
+        qhull_dir.join("libqhull_r.c").exists(),
+        "qhull source not found under crates/labdessem-model/vendor/qhull/src/libqhull_r/. \
+         Run: git submodule update --init --recursive"
+    );
 
     println!("cargo:rerun-if-changed=vendor/qhull/src/libqhull_r/");
 
@@ -49,12 +48,11 @@ fn main() {
 
     for source in QHULL_SOURCES {
         let path = qhull_dir.join(source);
-        if !path.exists() {
-            panic!(
-                "qhull source {source} not found. \
-                 Run: git submodule update --init --recursive"
-            );
-        }
+        assert!(
+            path.exists(),
+            "qhull source {source} not found. \
+             Run: git submodule update --init --recursive"
+        );
         qhull_build.file(path);
     }
 
@@ -62,9 +60,10 @@ fn main() {
 
     let shim_dir = manifest_dir.join("csrc");
     let shim_source = shim_dir.join("qhull_wrapper.c");
-    if !shim_source.exists() {
-        panic!("C shim not found at crates/labdessem-fpha/csrc/qhull_wrapper.c");
-    }
+    assert!(
+        shim_source.exists(),
+        "C shim not found at crates/labdessem-model/csrc/qhull_wrapper.c"
+    );
 
     println!("cargo:rerun-if-changed=csrc/qhull_wrapper.c");
     println!("cargo:rerun-if-changed=csrc/qhull_wrapper.h");
@@ -75,5 +74,5 @@ fn main() {
     shim_build.warnings(true);
     shim_build.opt_level(2);
     shim_build.file(&shim_source);
-    shim_build.compile("cobre_qhull_shim");
+    shim_build.compile("labdessem_qhull_wrapper");
 }

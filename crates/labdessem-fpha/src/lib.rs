@@ -8,7 +8,6 @@ pub mod config;
 pub mod error;
 pub mod fitting;
 pub mod from_io;
-pub mod hull;
 pub mod pipeline;
 pub mod types;
 
@@ -24,6 +23,5 @@ pub use fitting::{
     validate_fitted_planes,
 };
 pub use from_io::{forebay_from_vha, tailrace_from_data};
-pub use hull::{HullError, Hyperplane3d, convex_hull_3d};
 pub use pipeline::{FitPlantParams, FphaPlantResult, fit_plant, fit_plants};
 pub use types::TailraceModel;

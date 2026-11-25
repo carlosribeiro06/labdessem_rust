@@ -3,7 +3,7 @@
 use super::geometry::FittingBounds;
 use super::grid::build_grid;
 use super::production::ProductionFunction;
-use crate::hull::{HullError, convex_hull_3d};
+use labdessem_model::hull::{HullError, convex_hull_3d};
 
 /// An unscaled FPHA plane: generation = γ₀ + γᵥ·V + γᵩ·Q + γₛ·S.
 #[derive(Debug, Clone, Copy, PartialEq)]

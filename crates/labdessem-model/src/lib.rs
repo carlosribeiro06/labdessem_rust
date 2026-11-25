@@ -2,6 +2,8 @@
 pub mod constraints;
 #[forbid(unsafe_code)]
 mod error;
+#[allow(unsafe_code)]
+pub mod hull;
 #[forbid(unsafe_code)]
 pub mod indexing;
 #[forbid(unsafe_code)]

@@ -163,6 +163,5 @@ The crate declares these dependencies in [`Cargo.toml`](Cargo.toml):
 - `labdessem-io` (workspace crate): supplies the readers and the writer used by `src/from_io.rs`, the example and the integration tests.
 - `labdessem-core` (workspace crate): declared as a dependency; no source, test or example file of this crate imports it.
 - `thiserror` for the error types. `serde` (with the `derive` feature) is used by `examples/fpha_fit.rs` to read `CAD_UHE_PARAMS.csv`.
-- `qhull`, vendored as a git submodule in `vendor/qhull` and compiled by [`build.rs`](build.rs) with the C shim in `csrc/qhull_wrapper.c`. If the build reports that the qhull source is missing, run `git submodule update --init --recursive`.
-- Build dependency `cc`, which compiles the qhull sources and the shim.
+- `labdessem-model` (workspace crate): supplies the qhull convex hull (`labdessem_model::hull`) used by `src/fitting/hull_fit.rs`; model vendors qhull as a git submodule and compiles it with the C shim. If the build reports that the qhull source is missing, run `git submodule update --init --recursive`.
 - Development dependency `tempfile`, declared in `[dev-dependencies]`; no test of this crate imports it.

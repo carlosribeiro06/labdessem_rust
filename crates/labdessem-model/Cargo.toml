@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+links = "qhull_r"
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
@@ -13,6 +14,9 @@ thiserror = "2"
 
 [dev-dependencies]
 labdessem-io = { path = "../labdessem-io" }
+
+[build-dependencies]
+cc = "1.2"
 
 # labdessem-model cannot inherit the workspace lints: Cargo rejects `[lints] workspace = true`
 # combined with any override, and the qhull FFI module needs `unsafe_code` at `deny` (not `forbid`)
