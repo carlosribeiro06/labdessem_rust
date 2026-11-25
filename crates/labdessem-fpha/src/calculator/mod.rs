@@ -1,13 +1,13 @@
-//! Maximum swallowing (EngMax) calculator.
+//! Maximum swallowing calculator.
 
-/// Dynamic maximum swallowing (EngMax) from the head ratio: `Q_ef * (h_l / h_ef)^alpha`.
+/// Dynamic maximum swallowing from the head ratio: `Q_ef * (h_l / h_ef)^alpha`.
 ///
 /// Pure: it does not log. Callers that report a non-positive net head count it themselves
 /// (labdessem-simulation summarises them once per bound computation, ADR-013).
 ///
 /// # Arguments
 /// * `q_ef` - Maximum turbining at the effective head (Q_ef), in any flow or volume
-///   unit (EngMax passes hm3 per period)
+///   unit (max swallowing passes hm3 per period)
 /// * `effective_head_m` - Effective head (h_ef) in metres
 /// * `net_head_m` - Net head (h_l) in metres
 /// * `alpha` - Turbine curve exponent

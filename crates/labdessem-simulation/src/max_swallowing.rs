@@ -1,14 +1,14 @@
-//! EngMax (dynamic maximum swallowing) bounds across the solves of one simulation run.
+//! Dynamic maximum swallowing bounds across the solves of one simulation run.
 //!
-//! [`EngMaxState`] holds the bounds of one simulation run. `solve_stage` and
+//! [`MaxSwallowingState`] holds the bounds of one simulation run. `solve_stage` and
 //! `solve_stage_without_network` (in `stages/solve.rs`) build each model from
-//! [`EngMaxState::bounds`] and call [`EngMaxState::after_solve`] once after every solve of
+//! [`MaxSwallowingState::bounds`] and call [`MaxSwallowingState::after_solve`] once after every solve of
 //! the full-horizon re-solve sequence (LP cut loop, MILP, LP-FIXED, LP-CALC-CMO).
 //!
-//! The first solve uses the bounds of [`EngMaxState::new`] (initial volume); every later solve
+//! The first solve uses the bounds of [`MaxSwallowingState::new`] (initial volume); every later solve
 //! uses the bounds recalculated from the solution of the solve before it.
 
-use labdessem_core::entities::{EngMaxBounds, HydroPlant};
+use labdessem_core::entities::{HydroPlant, MaxSwallowingBounds};
 use labdessem_core::system::System;
 use labdessem_fpha::calculator::calculate_max_swallowing;
 use labdessem_fpha::{
@@ -23,10 +23,10 @@ use tracing::{debug, info, warn};
 
 use crate::error::SimulationError;
 use crate::flow_units::volume_hm3_to_flow_m3s;
-use crate::results::{EngMaxDiagnostic, EngMaxOutcome};
+use crate::results::{MaxSwallowingDiagnostic, MaxSwallowingOutcome};
 use crate::workflow::IterationStage;
 
-/// Plant-level EngMax reference values (DESSEM eq. 9.34) over all registered units.
+/// Plant-level max swallowing reference values (DESSEM eq. 9.34) over all registered units.
 struct PlantReference {
     q_ef_hm3: f64,
     h_ef_m: f64,
@@ -63,7 +63,7 @@ impl PlantReference {
 /// Items kept in a [`WarningSummary`] sample.
 const WARNING_SAMPLE_SIZE: usize = 5;
 
-/// Count and first [`WARNING_SAMPLE_SIZE`] items of one EngMax warning class, returned as
+/// Count and first [`WARNING_SAMPLE_SIZE`] items of one max swallowing warning class, returned as
 /// data so tests assert counts, never log text (ADR-013).
 #[derive(Debug, Default, PartialEq, Eq)]
 struct WarningSummary<T> {
@@ -91,10 +91,10 @@ fn plant_max_outflow_m3s(plant: &HydroPlant, period_duration_hours: f64) -> f64 
     )
 }
 
-/// fpha geometry of an EngMax plant (one with at least one unit), built once per run (ADR-018).
+/// fpha geometry of a max swallowing plant (one with at least one unit), built once per run (ADR-018).
 ///
-/// Validates the VHA table of every EngMax plant that has one. Returns `Ok(None)` when the plant
-/// has no unit, no VHA table or no tailrace polynomial; EngMax then falls back to `h_ef`.
+/// Validates the VHA table of every max swallowing plant that has one. Returns `Ok(None)` when the plant
+/// has no unit, no VHA table or no tailrace polynomial; max swallowing then falls back to `h_ef`.
 fn plant_geometry(
     plant: &HydroPlant,
     period_duration_hours: f64,
@@ -157,7 +157,7 @@ fn net_head_m(
     geometry.map_or(fallback_head_m, |g| g.net_head(volume_hm3, outflow_m3s))
 }
 
-/// Raw plant EngMax in hm3 per period for a net head.
+/// Raw plant max swallowing in hm3 per period for a net head.
 fn plant_bound_hm3(reference: &PlantReference, net_head_m: f64) -> f64 {
     calculate_max_swallowing(
         reference.q_ef_hm3,
@@ -178,7 +178,7 @@ fn period_average_volume_hm3(
     0.5 * (accessor.hydro_volume(plant_idx, period) + accessor.hydro_volume(plant_idx, period + 1))
 }
 
-/// Accessor over a solution of the model built for `system` in `solve_mode`. EngMax reads only
+/// Accessor over a solution of the model built for `system` in `solve_mode`. Max swallowing reads only
 /// its volume, turbining and spillage columns.
 fn primal_accessor<'a>(
     system: &System,
@@ -262,7 +262,7 @@ fn check_effective_heads(system: &System) -> Result<(), SimulationError> {
     Ok(())
 }
 
-/// Plants with at least one unit and `Hef.m <= 0` on every unit (their EngMax is `Q_ef`
+/// Plants with at least one unit and `Hef.m <= 0` on every unit (their max swallowing is `Q_ef`
 /// and their row never binds), warned once per run (R53, ADR-013).
 ///
 /// Plants without units are not counted: they get bound 0 and no row. The partial case is
@@ -292,9 +292,9 @@ fn summarise_inert_plants(system: &System) -> WarningSummary<String> {
 fn initial_bounds(
     system: &System,
     geometry: &[Option<ProductionFunction>],
-) -> (EngMaxBounds, WarningSummary<(String, usize)>) {
+) -> (MaxSwallowingBounds, WarningSummary<(String, usize)>) {
     let periods = system.horizon.periods;
-    let mut bounds = EngMaxBounds::new(system.hydro_plants.len() * periods);
+    let mut bounds = MaxSwallowingBounds::new(system.hydro_plants.len() * periods);
     let mut summary = WarningSummary::default();
 
     for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
@@ -331,13 +331,13 @@ fn initial_bounds(
     (bounds, summary)
 }
 
-/// Recalculate every bound of `engmax_bounds` from `solution`, the solution of the previous
+/// Recalculate every bound of `max_swallowing_bounds` from `solution`, the solution of the previous
 /// solve, with the geometry of `system`.
 ///
 /// The bound for period `t` uses the previous solve's average volume over `t`,
 /// `(V[t] + V[t + 1]) / 2` in the accessor slot layout (slot 0 = initial volume,
 /// slot `t + 1` = end of period `t`). The first solve's bounds come from
-/// [`EngMaxState::new`] (initial volume).
+/// [`MaxSwallowingState::new`] (initial volume).
 ///
 /// When the plant has VHA and tailrace data, the net head is the VHA forebay
 /// level at that volume, minus the tailrace polynomial level, minus the hydraulic
@@ -345,7 +345,7 @@ fn initial_bounds(
 /// of period `t`: unit turbining plus plant spillage, in m3/s; diversion and pumping
 /// are excluded (ADR-007). The first solve's bounds use the plant maximum outflow
 /// with zero spillage. Without VHA and tailrace data the net head falls back to the
-/// plant `h_ef`. The bound is the raw EngMax, not capped by `Q_ef`.
+/// plant `h_ef`. The bound is the raw max swallowing, not capped by `Q_ef`.
 ///
 /// Returns the plant-periods (plant name, 1-based period) that got a zero bound from a
 /// non-positive net head.
@@ -355,7 +355,7 @@ fn recalculate_bounds(
     solve_mode: SolveMode,
     solution: &LpSolution,
     indexing: &Indexing,
-    engmax_bounds: &mut EngMaxBounds,
+    max_swallowing_bounds: &mut MaxSwallowingBounds,
 ) -> WarningSummary<(String, usize)> {
     let accessor = primal_accessor(system, solve_mode, solution, indexing);
     let mut summary = WarningSummary::default();
@@ -382,7 +382,7 @@ fn recalculate_bounds(
             if reference.h_ef_m > 0.0 && net_head <= 0.0 {
                 summary.record((plant.name.clone(), display_period(period)));
             }
-            engmax_bounds.set(plant_idx, period, plant_bound_hm3(&reference, net_head));
+            max_swallowing_bounds.set(plant_idx, period, plant_bound_hm3(&reference, net_head));
         }
     }
 
@@ -403,30 +403,30 @@ fn recalculate_bounds(
     summary
 }
 
-/// Excess (m3/s) of a plant's turbining over its recomputed EngMax treated as zero (ADR-011).
+/// Excess (m3/s) of a plant's turbining over its recomputed max swallowing treated as zero (ADR-011).
 const EXCESS_TOLERANCE_M3S: f64 = 0.01;
 
 /// Largest relative excess the consistency diagnostic logs at INFO; above it, WARN (ADR-011).
 const WARN_RELATIVE_EXCESS: f64 = 0.01;
 
-fn diagnostic_warns(diagnostic: &EngMaxDiagnostic) -> bool {
+fn diagnostic_warns(diagnostic: &MaxSwallowingDiagnostic) -> bool {
     diagnostic.max_relative_excess > WARN_RELATIVE_EXCESS || diagnostic.zero_bound_exceed_count > 0
 }
 
 /// Compares the turbining of `solution` with `recomputed` over every plant with units and every
 /// model period, in input order, and logs the result once (ADR-011, R12).
 ///
-/// Plants without units are skipped, like the engmax rows of the model.
+/// Plants without units are skipped, like the max swallowing rows of the model.
 fn consistency_diagnostic(
     system: &System,
     indexing: &Indexing,
     solve_mode: SolveMode,
     solution: &LpSolution,
-    recomputed: &EngMaxBounds,
-) -> Result<EngMaxDiagnostic, SimulationError> {
+    recomputed: &MaxSwallowingBounds,
+) -> Result<MaxSwallowingDiagnostic, SimulationError> {
     let accessor = primal_accessor(system, solve_mode, solution, indexing);
     let duration_hours = system.horizon.period_duration_hours;
-    let mut diagnostic = EngMaxDiagnostic::default();
+    let mut diagnostic = MaxSwallowingDiagnostic::default();
 
     for (plant_idx, plant) in system.hydro_plants.iter().enumerate() {
         let unit_entries = plant_unit_entries(indexing, plant_idx);
@@ -436,7 +436,7 @@ fn consistency_diagnostic(
 
         for period in 0..system.horizon.periods {
             let bound_hm3 = recomputed.get(plant_idx, period).ok_or_else(|| {
-                ModelError::MissingEngMaxBound {
+                ModelError::MissingMaxSwallowingBound {
                     plant: plant.name.clone(),
                     period,
                 }
@@ -490,27 +490,27 @@ fn consistency_diagnostic(
 /// One `after_solve` call recorded for the path-level tests (ADR-016).
 #[cfg(test)]
 #[derive(Debug, Clone)]
-pub(crate) struct EngMaxTraceEntry {
+pub(crate) struct MaxSwallowingTraceEntry {
     pub(crate) stage: IterationStage,
     pub(crate) iteration: usize,
-    pub(crate) used: EngMaxBounds,
+    pub(crate) used: MaxSwallowingBounds,
     pub(crate) objective: f64,
-    pub(crate) produced: EngMaxBounds,
+    pub(crate) produced: MaxSwallowingBounds,
 }
 
-/// EngMax bounds across the solves of one simulation run (R1, ADR-010).
-pub(crate) struct EngMaxState {
-    // bounds the next solve builds its engmax rows from
-    next: EngMaxBounds,
+/// Max swallowing bounds across the solves of one simulation run (R1, ADR-010).
+pub(crate) struct MaxSwallowingState {
+    // bounds the next solve builds its max swallowing rows from
+    next: MaxSwallowingBounds,
     // bounds the last finished solve was built from
-    used: EngMaxBounds,
+    used: MaxSwallowingBounds,
     // fpha geometry of each plant, built once in `new`; indexed by plant
     geometry: Vec<Option<ProductionFunction>>,
     #[cfg(test)]
-    trace: Vec<EngMaxTraceEntry>,
+    trace: Vec<MaxSwallowingTraceEntry>,
 }
 
-impl EngMaxState {
+impl MaxSwallowingState {
     /// Start a run: `next` holds the initial-volume bounds and `used` is empty.
     ///
     /// # Errors
@@ -524,15 +524,15 @@ impl EngMaxState {
         summarise_inert_plants(system);
         Ok(Self {
             next: initial_bounds(system, &geometry).0,
-            used: EngMaxBounds::default(),
+            used: MaxSwallowingBounds::default(),
             geometry,
             #[cfg(test)]
             trace: Vec::new(),
         })
     }
 
-    /// Bounds the next solve builds its engmax rows from.
-    pub(crate) fn bounds(&self) -> &EngMaxBounds {
+    /// Bounds the next solve builds its max swallowing rows from.
+    pub(crate) fn bounds(&self) -> &MaxSwallowingBounds {
         &self.next
     }
 
@@ -566,7 +566,7 @@ impl EngMaxState {
             "EngMax bounds recalculated after solve"
         );
         #[cfg(test)]
-        self.trace.push(EngMaxTraceEntry {
+        self.trace.push(MaxSwallowingTraceEntry {
             stage,
             iteration,
             used: self.used.clone(),
@@ -576,7 +576,7 @@ impl EngMaxState {
     }
 
     /// The outcome of the run (ADR-011), called after its last solve (LP-CALC-CMO) with the
-    /// solution of that solve: `used` built it, `recomputed` is EngMax of its solution and
+    /// solution of that solve: `used` built it, `recomputed` is the max swallowing of its solution and
     /// `diagnostic` compares its turbining with `recomputed`.
     ///
     /// `solve_mode` is the mode that solve used (LP-FIXED for LP-CALC-CMO).
@@ -590,9 +590,9 @@ impl EngMaxState {
         system: &System,
         solve_mode: SolveMode,
         solution: &LpSolution,
-    ) -> Result<EngMaxOutcome, SimulationError> {
+    ) -> Result<MaxSwallowingOutcome, SimulationError> {
         let indexing = Indexing::from_system(system);
-        Ok(EngMaxOutcome {
+        Ok(MaxSwallowingOutcome {
             used: self.used.clone(),
             recomputed: self.next.clone(),
             diagnostic: consistency_diagnostic(
@@ -602,7 +602,7 @@ impl EngMaxState {
     }
 
     #[cfg(test)]
-    pub(crate) fn trace(&self) -> &[EngMaxTraceEntry] {
+    pub(crate) fn trace(&self) -> &[MaxSwallowingTraceEntry] {
         &self.trace
     }
 }
@@ -612,15 +612,15 @@ impl EngMaxState {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{
-        EngMaxState, PlantReference, WarningSummary, consistency_diagnostic, diagnostic_warns,
-        initial_bounds, net_head_m, plant_bound_hm3, plant_geometry, recalculate_bounds,
-        summarise_inert_plants, system_geometry,
+        MaxSwallowingState, PlantReference, WarningSummary, consistency_diagnostic,
+        diagnostic_warns, initial_bounds, net_head_m, plant_bound_hm3, plant_geometry,
+        recalculate_bounds, summarise_inert_plants, system_geometry,
     };
     use crate::error::SimulationError;
-    use crate::results::EngMaxDiagnostic;
+    use crate::results::MaxSwallowingDiagnostic;
     use crate::workflow::IterationStage;
     use labdessem_core::entities::{
-        EngMaxBounds, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
+        HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, MaxSwallowingBounds, Reservoir,
         TurbineType,
     };
     use labdessem_core::ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId};
@@ -631,9 +631,9 @@ mod tests {
     use labdessem_solver::types::LpSolution;
     use std::error::Error;
 
-    /// The bounds a new [`EngMaxState`] gives the first solve.
-    fn new_state_bounds(system: &System) -> Result<EngMaxBounds, SimulationError> {
-        EngMaxState::new(system).map(|state| state.next)
+    /// The bounds a new [`MaxSwallowingState`] gives the first solve.
+    fn new_state_bounds(system: &System) -> Result<MaxSwallowingBounds, SimulationError> {
+        MaxSwallowingState::new(system).map(|state| state.next)
     }
 
     fn build_test_system() -> System {
@@ -730,8 +730,8 @@ mod tests {
         let bounds = new_state_bounds(&system).expect("initialize bounds");
 
         // Single unit, no geometry: bound = Q_ef = 10.0
-        let engmax = bounds.get(0, 0).unwrap();
-        assert!((engmax - 10.0).abs() < 0.01);
+        let max_swallowing = bounds.get(0, 0).unwrap();
+        assert!((max_swallowing - 10.0).abs() < 0.01);
     }
 
     /// `build_test_system` with plant `UHE-MULTI`: groups `CJ-1` (`UG-1`, `UG-2`) and `CJ-2`
@@ -932,7 +932,7 @@ mod tests {
                 sample: vec!["UHE-INERT".to_owned()],
             }
         );
-        assert!(EngMaxState::new(&system).is_ok());
+        assert!(MaxSwallowingState::new(&system).is_ok());
     }
 
     #[test]
@@ -1052,7 +1052,7 @@ mod tests {
 
         let indexing = Indexing::from_system(&system);
         let solution = uniform_solution(&system, 250.0, 0.36);
-        let mut recalculated = EngMaxBounds::new(periods);
+        let mut recalculated = MaxSwallowingBounds::new(periods);
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
@@ -1084,7 +1084,7 @@ mod tests {
         let volume_start = indexing.compute_column_offsets(periods).hydro_volume;
         solution.primal[volume_start..volume_start + slots.len()].copy_from_slice(&slots);
 
-        let mut bounds = EngMaxBounds::new(periods);
+        let mut bounds = MaxSwallowingBounds::new(periods);
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
@@ -1150,7 +1150,7 @@ mod tests {
             solution.primal[offsets.hydro_diversion + period] = 0.09;
         }
 
-        let mut bounds = EngMaxBounds::new(periods);
+        let mut bounds = MaxSwallowingBounds::new(periods);
         recalculate_bounds(
             &system,
             &system_geometry(&system).expect("valid geometry"),
@@ -1195,7 +1195,7 @@ mod tests {
 
     #[test]
     fn after_solve_swaps_buffers_and_records_trace() {
-        fn assert_bounds(bounds: &EngMaxBounds, expected: f64) {
+        fn assert_bounds(bounds: &MaxSwallowingBounds, expected: f64) {
             for period in 0..2 {
                 assert_rel(
                     bounds
@@ -1208,7 +1208,7 @@ mod tests {
 
         let system = geometry_plant_system(30.0, None);
         let indexing = Indexing::from_system(&system);
-        let mut state = EngMaxState::new(&system).expect("initialize state");
+        let mut state = MaxSwallowingState::new(&system).expect("initialize state");
 
         // Initial volume 250 hm3: 0.72 * (21.616 / 30)^0.5 = 0.611166491228
         assert_bounds(state.bounds(), 0.611_166_491_228);
@@ -1259,10 +1259,10 @@ mod tests {
     }
 
     #[test]
-    fn engmax_outcome_holds_used_and_recomputed_bounds() {
+    fn max_swallowing_outcome_holds_used_and_recomputed_bounds() {
         let system = geometry_plant_system(30.0, None);
         let indexing = Indexing::from_system(&system);
-        let mut state = EngMaxState::new(&system).expect("initialize state");
+        let mut state = MaxSwallowingState::new(&system).expect("initialize state");
 
         let first = uniform_solution(&system, 600.0, 0.36);
         state.after_solve(
@@ -1296,7 +1296,7 @@ mod tests {
         // at 200 m3/s: forebay 911.5, net head 25.616, 0.72 * (25.616 / 30)^0.5 = 0.665315323738
         assert_every_bound(&outcome.used, 2, 0.665_315_323_738);
 
-        // `recomputed` is EngMax of the last solution: uniform 400 hm3: forebay 910, net head
+        // `recomputed` is the max swallowing of the last solution: uniform 400 hm3: forebay 910, net head
         // 24.116, 0.72 * (24.116 / 30)^0.5 = 0.645542004830
         assert_every_bound(&outcome.recomputed, 2, 0.645_542_004_830);
 
@@ -1317,8 +1317,8 @@ mod tests {
         );
     }
 
-    fn bounds_from(rows: &[[f64; 2]]) -> EngMaxBounds {
-        let mut bounds = EngMaxBounds::new(rows.len() * 2);
+    fn bounds_from(rows: &[[f64; 2]]) -> MaxSwallowingBounds {
+        let mut bounds = MaxSwallowingBounds::new(rows.len() * 2);
         for (plant_idx, row) in rows.iter().enumerate() {
             for (period, &bound_hm3) in row.iter().enumerate() {
                 bounds.set(plant_idx, period, bound_hm3);
@@ -1327,7 +1327,11 @@ mod tests {
         bounds
     }
 
-    fn diagnose(system: &System, turbining_hm3: f64, bounds: &EngMaxBounds) -> EngMaxDiagnostic {
+    fn diagnose(
+        system: &System,
+        turbining_hm3: f64,
+        bounds: &MaxSwallowingBounds,
+    ) -> MaxSwallowingDiagnostic {
         consistency_diagnostic(
             system,
             &Indexing::from_system(system),
@@ -1385,7 +1389,7 @@ mod tests {
         // 0.000018 hm3 over 1 h is 0.005 m3/s, within the tolerance over a zero bound.
         let diagnostic = diagnose(&system, 0.000_018, &bounds_from(&[[0.0, 0.0]]));
 
-        assert_eq!(diagnostic, EngMaxDiagnostic::default());
+        assert_eq!(diagnostic, MaxSwallowingDiagnostic::default());
         assert!(!diagnostic_warns(&diagnostic));
     }
 
@@ -1421,13 +1425,13 @@ mod tests {
         // No bound is stored for the plant without units, as the initial bounds leave none.
         let diagnostic = diagnose(&system, 0.36, &bounds_from(&[[0.36, 0.36]]));
 
-        assert_eq!(diagnostic, EngMaxDiagnostic::default());
+        assert_eq!(diagnostic, MaxSwallowingDiagnostic::default());
     }
 
     #[test]
     fn consistency_diagnostic_rejects_missing_bound() {
         let system = build_test_system();
-        let mut bounds = EngMaxBounds::new(1);
+        let mut bounds = MaxSwallowingBounds::new(1);
         bounds.set(0, 0, 0.36);
 
         let error = consistency_diagnostic(
@@ -1441,13 +1445,13 @@ mod tests {
 
         assert!(matches!(
             &error,
-            SimulationError::Model(ModelError::MissingEngMaxBound { plant, period })
+            SimulationError::Model(ModelError::MissingMaxSwallowingBound { plant, period })
                 if plant == "UHE-1" && *period == 1
         ));
     }
 
     #[test]
-    fn engmax_state_rejects_malformed_vha_table() {
+    fn max_swallowing_state_rejects_malformed_vha_table() {
         let duplicate = vec![
             (100.0, 905.0),
             (400.0, 910.0),
@@ -1457,7 +1461,7 @@ mod tests {
 
         let mut empty = geometry_plant_system(30.0, None);
         empty.hydro_plants[0].volume_level_table = Some(vec![]);
-        let error = EngMaxState::new(&empty)
+        let error = MaxSwallowingState::new(&empty)
             .err()
             .expect("empty VHA table must be rejected");
         assert!(matches!(
@@ -1468,7 +1472,7 @@ mod tests {
 
         let mut repeated = geometry_plant_system(30.0, None);
         repeated.hydro_plants[0].volume_level_table = Some(duplicate.clone());
-        let error = EngMaxState::new(&repeated)
+        let error = MaxSwallowingState::new(&repeated)
             .err()
             .expect("duplicate VHA volume must be rejected");
         assert!(matches!(
@@ -1490,7 +1494,7 @@ mod tests {
         let mut without_tailrace = geometry_plant_system(30.0, None);
         without_tailrace.hydro_plants[0].volume_level_table = Some(duplicate);
         without_tailrace.hydro_plants[0].tailrace_coefficients = None;
-        let error = EngMaxState::new(&without_tailrace)
+        let error = MaxSwallowingState::new(&without_tailrace)
             .err()
             .expect("a malformed table is rejected without a tailrace polynomial");
         assert!(matches!(
@@ -1501,15 +1505,15 @@ mod tests {
         let mut without_units = geometry_plant_system(30.0, None);
         without_units.hydro_plants[0].volume_level_table = Some(vec![]);
         without_units.hydro_plants[0].groups.clear();
-        assert!(EngMaxState::new(&without_units).is_ok());
+        assert!(MaxSwallowingState::new(&without_units).is_ok());
     }
 
     #[test]
-    fn engmax_state_accepts_single_point_vha_table() {
+    fn max_swallowing_state_accepts_single_point_vha_table() {
         let mut system = geometry_plant_system(30.0, None);
         system.hydro_plants[0].volume_level_table = Some(vec![(250.0, 907.5)]);
 
-        let state = EngMaxState::new(&system).expect("single-point VHA table is accepted");
+        let state = MaxSwallowingState::new(&system).expect("single-point VHA table is accepted");
 
         // 907.5 - 885.884 = 21.616 m: 0.72 * (21.616 / 30)^0.5
         for period in 0..system.horizon.periods {
@@ -1530,11 +1534,11 @@ mod tests {
     /// unit turbining 0.36 hm3), each with its non-positive net-head summary.
     fn initial_and_recalculated(
         system: &System,
-    ) -> [(EngMaxBounds, WarningSummary<(String, usize)>); 2] {
+    ) -> [(MaxSwallowingBounds, WarningSummary<(String, usize)>); 2] {
         let geometry = system_geometry(system).expect("valid geometry");
         let initial = initial_bounds(system, &geometry);
         let solution = uniform_solution(system, 250.0, 0.36);
-        let mut bounds = EngMaxBounds::new(system.horizon.periods);
+        let mut bounds = MaxSwallowingBounds::new(system.horizon.periods);
         let summary = recalculate_bounds(
             system,
             &geometry,
@@ -1546,7 +1550,7 @@ mod tests {
         [initial, (bounds, summary)]
     }
 
-    fn assert_every_bound(bounds: &EngMaxBounds, periods: usize, expected: f64) {
+    fn assert_every_bound(bounds: &MaxSwallowingBounds, periods: usize, expected: f64) {
         for period in 0..periods {
             assert_rel(
                 bounds

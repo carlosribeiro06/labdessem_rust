@@ -6,7 +6,7 @@ use labdessem_core::system::System;
 use labdessem_core::test_support::golden::{GoldenFailure, GoldenRecord, check_or_bless};
 use labdessem_io::{StudyConfig, read_study_config, read_study_from_path};
 
-use crate::engmax::EngMaxState;
+use crate::max_swallowing::MaxSwallowingState;
 use crate::results::IterativeSimulationResult;
 use crate::workflow::ExecutionOption;
 
@@ -39,7 +39,7 @@ fn record_run(
     prefix: &str,
     system: &System,
     result: &IterativeSimulationResult,
-    state: &EngMaxState,
+    state: &MaxSwallowingState,
 ) {
     for (index, entry) in state.trace().iter().enumerate() {
         let trace = format!("{prefix}/trace={}", index + 1);
@@ -72,7 +72,7 @@ fn record_run(
     );
 
     let outcome = result
-        .engmax
+        .max_swallowing
         .as_ref()
         .expect("a run with a swallowing state carries the outcome");
     record_bounds(
@@ -124,7 +124,7 @@ fn capture(
     record.text("case/opcao", config.opcao_execucao.to_string());
     record.text("case/rede", config.rede.to_string());
 
-    let mut state = EngMaxState::new(system).map_err(|error| failure(&error))?;
+    let mut state = MaxSwallowingState::new(system).map_err(|error| failure(&error))?;
     record_bounds(
         &mut record,
         "swallowing/initial/24barras",

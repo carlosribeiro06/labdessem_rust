@@ -108,7 +108,7 @@ pub struct StudyConfig {
     pub ton_residual: u8,
     /// Enable dynamic maximum swallowing constraint (0 = disabled, 1 = enabled).
     #[serde(rename = "EngMax", default)]
-    pub engmax: u8,
+    pub max_swallowing: u8,
 }
 
 pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, IoError> {
@@ -410,7 +410,7 @@ mod fpha_option_tests {
             fpha: FphaOption::ConstantProductivity,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"constant_productivity""#));
@@ -426,7 +426,7 @@ mod fpha_option_tests {
             fpha: FphaOption::Precomputed,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"precomputed""#));
@@ -442,7 +442,7 @@ mod fpha_option_tests {
             fpha: FphaOption::Computed,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"computed""#));
@@ -473,7 +473,7 @@ mod fpha_option_tests {
                 fpha: original,
                 fcf: 0,
                 ton_residual: 0,
-                engmax: 0,
+                max_swallowing: 0,
             };
             let json = serde_json::to_string(&config).unwrap();
             let parsed: StudyConfig = serde_json::from_str(&json).unwrap();

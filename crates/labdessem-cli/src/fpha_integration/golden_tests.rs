@@ -15,7 +15,7 @@ use labdessem_io::output::write_all_results;
 use labdessem_io::read_study_from_path;
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
 use labdessem_model::{Model, SolveMode};
-use labdessem_simulation::{ExecutionOption, run_simulation_with_engmax};
+use labdessem_simulation::{ExecutionOption, run_simulation_with_max_swallowing};
 
 use super::probe::{DerivedCase, computed_system, fit_contexts};
 use super::{FphaComputeResult, write_computed_results};
@@ -246,7 +246,8 @@ fn record_solve(
     system: &System,
     case: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    let result = run_simulation_with_engmax(system, false, ExecutionOption::SingleMilp, true)?;
+    let result =
+        run_simulation_with_max_swallowing(system, false, ExecutionOption::SingleMilp, true)?;
     for (index, step) in result.steps.iter().enumerate() {
         let key = format!("solve/step={}", index + 1);
         record.text(
@@ -258,7 +259,7 @@ fn record_solve(
     record.f64("solve/cmo/objective", result.cmo_solution.objective);
 
     let outcome = result
-        .engmax
+        .max_swallowing
         .as_ref()
         .ok_or("a run with max swallowing enabled carries the outcome")?;
     record_bounds(record, "solve/outcome/used", system, |plant, period| {
@@ -293,13 +294,13 @@ fn record_solve(
     );
 
     let mut model = Model::from_system(system, SolveMode::LinearProgramming);
-    model.constraints.extend_with_engmax(
+    model.constraints.extend_with_max_swallowing(
         system,
         &model.indexing,
         &model.variables,
         &outcome.used,
     )?;
-    for row in model.constraints.engmax() {
+    for row in model.constraints.max_swallowing() {
         record_row_shape(record, row);
         record.f64(format!("solve/{}/rhs", row.name), row.rhs);
     }
