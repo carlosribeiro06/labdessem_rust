@@ -571,6 +571,10 @@ mod plant_coverage_tests;
 mod physical_data_tests;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+mod golden_tests;
+
+#[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use std::fs;

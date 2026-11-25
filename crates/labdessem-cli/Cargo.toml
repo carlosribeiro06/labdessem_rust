@@ -22,6 +22,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 
 [dev-dependencies]
 chrono = "0.4"
+labdessem-core = { path = "../labdessem-core", features = ["test-support"] }
 tempfile = "3"
 
 [lints]

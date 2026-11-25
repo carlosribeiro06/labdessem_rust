@@ -1,0 +1,244 @@
+# labdessem golden v1
+# solve_keys=exact
+fit/uhe=0:CAMARGOS/bounds/max_planes_per_hydro	text	10
+fit/uhe=0:CAMARGOS/bounds/n_flow_points	text	5
+fit/uhe=0:CAMARGOS/bounds/n_spillage_points	text	2
+fit/uhe=0:CAMARGOS/bounds/n_volume_points	text	5
+fit/uhe=0:CAMARGOS/bounds/single_volume	text	false
+fit/uhe=0:CAMARGOS/bounds/v_max	f64	0x4088c00000000000	792.0
+fit/uhe=0:CAMARGOS/bounds/v_min	f64	0x405e000000000000	120.0
+fit/uhe=0:CAMARGOS/config/flow_points	text	5
+fit/uhe=0:CAMARGOS/config/max_planes	text	10
+fit/uhe=0:CAMARGOS/config/reduction/angle_tolerance_deg	f64	0x3ff0000000000000	1.0
+fit/uhe=0:CAMARGOS/config/volume_points	text	5
+fit/uhe=0:CAMARGOS/config/window_max_fraction	f64	0x3ff0000000000000	1.0
+fit/uhe=0:CAMARGOS/config/window_min_fraction	f64	0x0000000000000000	0.0
+fit/uhe=0:CAMARGOS/config/window_reference/hi	f64	0x4088c00000000000	792.0
+fit/uhe=0:CAMARGOS/config/window_reference/lo	f64	0x405e000000000000	120.0
+fit/uhe=0:CAMARGOS/efficiency	f64	0x3fec98da1e1083a8	0.893658694
+fit/uhe=0:CAMARGOS/forebay/height_at=0	f64	0x408c183d70a3d70a	899.03
+fit/uhe=0:CAMARGOS/forebay/height_at=1	f64	0x408c2bd0d39dda54	901.4769661266569
+fit/uhe=0:CAMARGOS/forebay/height_at=10	f64	0x408c880000000000	913.0
+fit/uhe=0:CAMARGOS/forebay/height_at=2	f64	0x408c3b8d34131f6a	903.4439469808542
+fit/uhe=0:CAMARGOS/forebay/height_at=3	f64	0x408c489976da76a1	905.0749337260678
+fit/uhe=0:CAMARGOS/forebay/height_at=4	f64	0x408c53d2c98328d3	906.4779234167894
+fit/uhe=0:CAMARGOS/forebay/height_at=5	f64	0x408c5e0000000000	907.75
+fit/uhe=0:CAMARGOS/forebay/height_at=6	f64	0x408c676cb053bacf	908.9280706921944
+fit/uhe=0:CAMARGOS/forebay/height_at=7	f64	0x408c70811f9ff6d4	910.0630486008836
+fit/uhe=0:CAMARGOS/forebay/height_at=8	f64	0x408c790e6700d457	911.1320324005891
+fit/uhe=0:CAMARGOS/forebay/height_at=9	f64	0x408c810a45295647	912.1300147275405
+fit/uhe=0:CAMARGOS/hydraulic_loss_m	f64	0x3fb851eb80d33558	0.094999999
+fit/uhe=0:CAMARGOS/long_term_mean_inflow_m3s	f64	0x4057000000000008	92.00000000000011
+fit/uhe=0:CAMARGOS/max_generation_mw	f64	0x4047000000000000	46.0
+fit/uhe=0:CAMARGOS/max_turbined_m3s	f64	0x406ac00000000000	214.0
+fit/uhe=0:CAMARGOS/tailrace/level_at=0	f64	0x408baa710cb295ea	885.3052
+fit/uhe=0:CAMARGOS/tailrace/level_at=1	f64	0x408baadc881e561b	885.3576815004375
+fit/uhe=0:CAMARGOS/tailrace/level_at=2	f64	0x408babfefd5edd53	885.4995067035001
+fit/uhe=0:CAMARGOS/tailrace/level_at=3	f64	0x408bada870f01585	885.7072466618125
+fit/uhe=0:CAMARGOS/tailrace/level_at=4	f64	0x408bafa8e74de8a7	885.957472428
+fit/uhe=1:ITUTINGA/bounds/max_planes_per_hydro	text	10
+fit/uhe=1:ITUTINGA/bounds/n_flow_points	text	5
+fit/uhe=1:ITUTINGA/bounds/n_spillage_points	text	2
+fit/uhe=1:ITUTINGA/bounds/n_volume_points	text	2
+fit/uhe=1:ITUTINGA/bounds/single_volume	text	true
+fit/uhe=1:ITUTINGA/bounds/v_max	f64	0x402747ae147ae148	11.64
+fit/uhe=1:ITUTINGA/bounds/v_min	f64	0x402347ae147ae148	9.64
+fit/uhe=1:ITUTINGA/config/flow_points	text	5
+fit/uhe=1:ITUTINGA/config/max_planes	text	10
+fit/uhe=1:ITUTINGA/config/reduction/angle_tolerance_deg	f64	0x3ff0000000000000	1.0
+fit/uhe=1:ITUTINGA/config/volume_points	text	5
+fit/uhe=1:ITUTINGA/config/window_max_fraction	f64	0x3ff0000000000000	1.0
+fit/uhe=1:ITUTINGA/config/window_min_fraction	f64	0x0000000000000000	0.0
+fit/uhe=1:ITUTINGA/config/window_reference/hi	f64	0x4026000000000000	11.0
+fit/uhe=1:ITUTINGA/config/window_reference/lo	f64	0x4026000000000000	11.0
+fit/uhe=1:ITUTINGA/efficiency	f64	0x3fec36d5ef57b393	0.881693809
+fit/uhe=1:ITUTINGA/forebay/height_at=0	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=1	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=10	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=2	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=3	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=4	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=5	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=6	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=7	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=8	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/forebay/height_at=9	f64	0x408bad47ae147ae1	885.66
+fit/uhe=1:ITUTINGA/hydraulic_loss_m	f64	0x3fe43126dfceee4b	0.630999982
+fit/uhe=1:ITUTINGA/long_term_mean_inflow_m3s	f64	0x0000000000000000	0.0
+fit/uhe=1:ITUTINGA/max_generation_mw	f64	0x404a000000000000	52.0
+fit/uhe=1:ITUTINGA/max_turbined_m3s	f64	0x406e1fffffffffff	240.99999999999997
+fit/uhe=1:ITUTINGA/tailrace/level_at=0	f64	0x408abe50d62bf120	855.789471
+fit/uhe=1:ITUTINGA/tailrace/level_at=1	f64	0x408ac3eea83329b6	856.4915317532639
+fit/uhe=1:ITUTINGA/tailrace/level_at=2	f64	0x408ac91f64a50b24	857.1403286832833
+fit/uhe=1:ITUTINGA/tailrace/level_at=3	f64	0x408acd2d0c4eb754	857.6469961309144
+fit/uhe=1:ITUTINGA/tailrace/level_at=4	f64	0x408acf6306235324	857.9233515510318
+fit/uhe=2:FUNIL-GRANDE/bounds/max_planes_per_hydro	text	10
+fit/uhe=2:FUNIL-GRANDE/bounds/n_flow_points	text	5
+fit/uhe=2:FUNIL-GRANDE/bounds/n_spillage_points	text	2
+fit/uhe=2:FUNIL-GRANDE/bounds/n_volume_points	text	2
+fit/uhe=2:FUNIL-GRANDE/bounds/single_volume	text	true
+fit/uhe=2:FUNIL-GRANDE/bounds/v_max	f64	0x4070adc28f5c28f6	266.86
+fit/uhe=2:FUNIL-GRANDE/bounds/v_min	f64	0x40708dc28f5c28f6	264.86
+fit/uhe=2:FUNIL-GRANDE/config/flow_points	text	5
+fit/uhe=2:FUNIL-GRANDE/config/max_planes	text	10
+fit/uhe=2:FUNIL-GRANDE/config/reduction/angle_tolerance_deg	f64	0x3ff0000000000000	1.0
+fit/uhe=2:FUNIL-GRANDE/config/volume_points	text	5
+fit/uhe=2:FUNIL-GRANDE/config/window_max_fraction	f64	0x3ff0000000000000	1.0
+fit/uhe=2:FUNIL-GRANDE/config/window_min_fraction	f64	0x0000000000000000	0.0
+fit/uhe=2:FUNIL-GRANDE/config/window_reference/hi	f64	0x4073000000000000	304.0
+fit/uhe=2:FUNIL-GRANDE/config/window_reference/lo	f64	0x4073000000000000	304.0
+fit/uhe=2:FUNIL-GRANDE/efficiency	f64	0x3fed642ccc809078	0.918478393
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=0	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=1	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=10	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=2	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=3	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=4	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=5	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=6	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=7	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=8	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/forebay/height_at=9	f64	0x40893f47ae147ae1	807.91
+fit/uhe=2:FUNIL-GRANDE/hydraulic_loss_m	f64	0x3fd9374bc036ab27	0.393999994
+fit/uhe=2:FUNIL-GRANDE/long_term_mean_inflow_m3s	f64	0x4065dffffffffffe	174.99999999999994
+fit/uhe=2:FUNIL-GRANDE/max_generation_mw	f64	0x4066800000000000	180.0
+fit/uhe=2:FUNIL-GRANDE/max_turbined_m3s	f64	0x4081e80000000001	573.0000000000001
+fit/uhe=2:FUNIL-GRANDE/tailrace/level_at=0	f64	0x4087ee1cf0b6b6e1	765.764131
+fit/uhe=2:FUNIL-GRANDE/tailrace/level_at=1	f64	0x4087fa1461ae9384	767.2599519385117
+fit/uhe=2:FUNIL-GRANDE/tailrace/level_at=2	f64	0x4088043e8cac09cd	768.5305417480937
+fit/uhe=2:FUNIL-GRANDE/tailrace/level_at=3	f64	0x40880cdaa8172f83	769.6067659198164
+fit/uhe=2:FUNIL-GRANDE/tailrace/level_at=4	f64	0x40881427ea581a6c	770.5194899447501
+fit/uhe=3:FURNAS/bounds/max_planes_per_hydro	text	10
+fit/uhe=3:FURNAS/bounds/n_flow_points	text	5
+fit/uhe=3:FURNAS/bounds/n_spillage_points	text	2
+fit/uhe=3:FURNAS/bounds/n_volume_points	text	5
+fit/uhe=3:FURNAS/bounds/single_volume	text	false
+fit/uhe=3:FURNAS/bounds/v_max	f64	0x40d6698000000000	22950.0
+fit/uhe=3:FURNAS/bounds/v_min	f64	0x40b6650000000000	5733.0
+fit/uhe=3:FURNAS/config/flow_points	text	5
+fit/uhe=3:FURNAS/config/max_planes	text	10
+fit/uhe=3:FURNAS/config/reduction/angle_tolerance_deg	f64	0x3ff0000000000000	1.0
+fit/uhe=3:FURNAS/config/volume_points	text	5
+fit/uhe=3:FURNAS/config/window_max_fraction	f64	0x3ff0000000000000	1.0
+fit/uhe=3:FURNAS/config/window_min_fraction	f64	0x0000000000000000	0.0
+fit/uhe=3:FURNAS/config/window_reference/hi	f64	0x40d6698000000000	22950.0
+fit/uhe=3:FURNAS/config/window_reference/lo	f64	0x40b6650000000000	5733.0
+fit/uhe=3:FURNAS/efficiency	f64	0x3fed57eca6060e8d	0.91698296
+fit/uhe=3:FURNAS/forebay/height_at=0	f64	0x4087700000000000	750.0
+fit/uhe=3:FURNAS/forebay/height_at=1	f64	0x4087873958e0c2bb	752.9030015525271
+fit/uhe=3:FURNAS/forebay/height_at=10	f64	0x4088000000000000	768.0
+fit/uhe=3:FURNAS/forebay/height_at=2	f64	0x40879ad4ff56b95f	755.3540026450463
+fit/uhe=3:FURNAS/forebay/height_at=3	f64	0x4087abd70c0c7fd0	757.4800034500604
+fit/uhe=3:FURNAS/forebay/height_at=4	f64	0x4087bac8b66503df	759.3480041400725
+fit/uhe=3:FURNAS/forebay/height_at=5	f64	0x4087c86666666666	761.05
+fit/uhe=3:FURNAS/forebay/height_at=6	f64	0x4087d50a3ba194ab	762.6299965499396
+fit/uhe=3:FURNAS/forebay/height_at=7	f64	0x4087e0eb83c36cf1	764.1149974124547
+fit/uhe=3:FURNAS/forebay/height_at=8	f64	0x4087ec24dc57027a	765.5179983899718
+fit/uhe=3:FURNAS/forebay/height_at=9	f64	0x4087f693745fcddc	766.8219993099879
+fit/uhe=3:FURNAS/hydraulic_loss_m	f64	0x3fe9b22cffd72a0d	0.802999973
+fit/uhe=3:FURNAS/long_term_mean_inflow_m3s	f64	0x4080580000000005	523.0000000000006
+fit/uhe=3:FURNAS/max_generation_mw	f64	0x4093000000000000	1216.0
+fit/uhe=3:FURNAS/max_turbined_m3s	f64	0x4097880000000000	1506.0
+fit/uhe=3:FURNAS/tailrace/level_at=0	f64	0x4084e9f54c985f07	669.244775
+fit/uhe=3:FURNAS/tailrace/level_at=1	f64	0x4084f8cae0b32c4e	671.0990613935371
+fit/uhe=3:FURNAS/tailrace/level_at=2	f64	0x4085018c23fbce21	672.193428008297
+fit/uhe=3:FURNAS/tailrace/level_at=3	f64	0x4085062c282bd46a	672.7715609955023
+fit/uhe=3:FURNAS/tailrace/level_at=4	f64	0x4085089dfefccf15	673.0771465063759
+fpha/processed	text	4
+fpha/skipped	text	0
+fpha/uhe=0:CAMARGOS/alpha	f64	0x3feeff49d64f780f	0.9686631379843237
+fpha/uhe=0:CAMARGOS/deviation/max_abs_mw	f64	0x40069bd3a3ed68fc	2.826087265665704
+fpha/uhe=0:CAMARGOS/deviation/mean_abs_mw	f64	0x3fec7be45373de81	0.8901235227521768
+fpha/uhe=0:CAMARGOS/deviation/mean_signed_mw	f64	0x3fccc94b8a98064f	0.22489303843763017
+fpha/uhe=0:CAMARGOS/deviation/relative	f64	0x3f93d09ed5e14cdf	0.019350511364177755
+fpha/uhe=0:CAMARGOS/deviation/rms_mw	f64	0x3ff3a9365a6721b1	1.2288116008149752
+fpha/uhe=0:CAMARGOS/plane=0/gamma_0	f64	0xc018d74630dee3d1	-6.210228694538231
+fpha/uhe=0:CAMARGOS/plane=0/gamma_q	f64	0x3fbdb80bb61cfa45	0.11608956524012466
+fpha/uhe=0:CAMARGOS/plane=0/gamma_s	f64	0xbf82307e77e13e1f	-0.008881557496493163
+fpha/uhe=0:CAMARGOS/plane=0/gamma_v	f64	0x3fabb3a88931dd9b	0.054105059382830244
+fpha/uhe=0:CAMARGOS/plane=1/gamma_0	f64	0xc010d5df1496121f	-4.208858796748728
+fpha/uhe=0:CAMARGOS/plane=1/gamma_q	f64	0x3fc14c8c01b45390	0.13514852603171024
+fpha/uhe=0:CAMARGOS/plane=1/gamma_s	f64	0xbf82307e77e13e1e	-0.00888155749649316
+fpha/uhe=0:CAMARGOS/plane=1/gamma_v	f64	0x3fa1f53238178acf	0.03507382330623942
+fpha/uhe=0:CAMARGOS/plane=2/gamma_0	f64	0xbff89d65259402ba	-1.5384265392205365
+fpha/uhe=0:CAMARGOS/plane=2/gamma_q	f64	0x3fc7a635fb0e901a	0.18475985296856906
+fpha/uhe=0:CAMARGOS/plane=2/gamma_s	f64	0xbf82307e77e13e1f	-0.008881557496493163
+fpha/uhe=0:CAMARGOS/plane=2/gamma_v	f64	0x3f8a417cf4e224e7	0.012820221160171076
+fpha/uhe=0:CAMARGOS/plane=3/gamma_0	f64	0xbfb0674423b67796	-0.06407571670430764
+fpha/uhe=0:CAMARGOS/plane=3/gamma_q	f64	0x3fce52e5263b6abc	0.23690475813676481
+fpha/uhe=0:CAMARGOS/plane=3/gamma_s	f64	0xbf771777e79489b8	-0.005637615563758684
+fpha/uhe=0:CAMARGOS/plane=3/gamma_v	f64	0x3f417f379d8f6ecc	0.0005339643058692388
+fpha/uhe=0:CAMARGOS/plane=4/gamma_0	f64	0x402e2735813bb661	15.076580084361185
+fpha/uhe=0:CAMARGOS/plane=4/gamma_q	f64	0x3fc27f0a50fa1acd	0.14450196222261127
+fpha/uhe=0:CAMARGOS/plane=4/gamma_s	f64	0xbf82307e77e13e2d	-0.008881557496493187
+fpha/uhe=0:CAMARGOS/plane=4/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=0:CAMARGOS/plane=5/gamma_0	f64	0x0000000000000000	0.0
+fpha/uhe=0:CAMARGOS/plane=5/gamma_q	f64	0x3fcee9864d06b006	0.24150160561600859
+fpha/uhe=0:CAMARGOS/plane=5/gamma_s	f64	0xbf5e6269d2658e3e	-0.0018545182625410296
+fpha/uhe=0:CAMARGOS/plane=5/gamma_v	f64	0x8000000000000000	-0.0
+fpha/uhe=0:CAMARGOS/planes	text	6
+fpha/uhe=1:ITUTINGA/alpha	f64	0x3ff03c58d6769b5f	1.0147331597779254
+fpha/uhe=1:ITUTINGA/deviation/max_abs_mw	f64	0x3fe88417202f1f00	0.7661243084521345
+fpha/uhe=1:ITUTINGA/deviation/mean_abs_mw	f64	0x3fda2a636c544cd3	0.40883718089135107
+fpha/uhe=1:ITUTINGA/deviation/mean_signed_mw	f64	0x3fda2a636c544cd3	0.40883718089135107
+fpha/uhe=1:ITUTINGA/deviation/relative	f64	0x3f801a15cc82a56e	0.007862253478679828
+fpha/uhe=1:ITUTINGA/deviation/rms_mw	f64	0x3fdf904a0fdf77bf	0.4931817202576631
+fpha/uhe=1:ITUTINGA/plane=0/gamma_0	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=0/gamma_q	f64	0x3fcf9834996fe16b	0.2468324422077431
+fpha/uhe=1:ITUTINGA/plane=0/gamma_s	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=0/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=1/gamma_0	f64	0x3ff215622b4b8362	1.1302205744943525
+fpha/uhe=1:ITUTINGA/plane=1/gamma_q	f64	0x3fcdacf9d07b9bda	0.231841303632989
+fpha/uhe=1:ITUTINGA/plane=1/gamma_s	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=1/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=2/gamma_0	f64	0x402e77df7bec3a83	15.234126923166746
+fpha/uhe=1:ITUTINGA/plane=2/gamma_q	f64	0x3fc386f03411ff57	0.15255548994536625
+fpha/uhe=1:ITUTINGA/plane=2/gamma_s	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/plane=2/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=1:ITUTINGA/planes	text	3
+fpha/uhe=2:FUNIL-GRANDE/alpha	f64	0x3ff02f50aad49aa4	1.0115515397134596
+fpha/uhe=2:FUNIL-GRANDE/deviation/max_abs_mw	f64	0x4000a25c0ebe5d80	2.0792771484227046
+fpha/uhe=2:FUNIL-GRANDE/deviation/mean_abs_mw	f64	0x3ff1b877a7b05e33	1.1075359869336239
+fpha/uhe=2:FUNIL-GRANDE/deviation/mean_signed_mw	f64	0x3ff1b877a7b05e33	1.1075359869336239
+fpha/uhe=2:FUNIL-GRANDE/deviation/relative	f64	0x3f7933dd6044ca3d	0.006152977705186799
+fpha/uhe=2:FUNIL-GRANDE/deviation/rms_mw	f64	0x3ff55bef3aecb59f	1.3349449445480344
+fpha/uhe=2:FUNIL-GRANDE/plane=0/gamma_0	f64	0x0000000000000000	0.0
+fpha/uhe=2:FUNIL-GRANDE/plane=0/gamma_q	f64	0x3fd736c57e2df667	0.36271798441143804
+fpha/uhe=2:FUNIL-GRANDE/plane=0/gamma_s	f64	0xbf84e1aba442046c	-0.010196057272198376
+fpha/uhe=2:FUNIL-GRANDE/plane=0/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=2:FUNIL-GRANDE/plane=1/gamma_0	f64	0x40173aab928d0b98	5.8072951220118725
+fpha/uhe=2:FUNIL-GRANDE/plane=1/gamma_q	f64	0x3fd52f19ebb00686	0.33099983230940955
+fpha/uhe=2:FUNIL-GRANDE/plane=1/gamma_s	f64	0xbf942d871cef3cfe	-0.01970492471792528
+fpha/uhe=2:FUNIL-GRANDE/plane=1/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=2:FUNIL-GRANDE/plane=2/gamma_0	f64	0x404794e428fdbb7b	47.16321289433741
+fpha/uhe=2:FUNIL-GRANDE/plane=2/gamma_q	f64	0x3fcdac80993f1d43	0.2318268535875437
+fpha/uhe=2:FUNIL-GRANDE/plane=2/gamma_s	f64	0xbf9a20708d449393	-0.025514372465426382
+fpha/uhe=2:FUNIL-GRANDE/plane=2/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=2:FUNIL-GRANDE/planes	text	3
+fpha/uhe=3:FURNAS/alpha	f64	0x3fefad07020e0960	0.9898715057500276
+fpha/uhe=3:FURNAS/deviation/max_abs_mw	f64	0x40363eefd7dc1230	22.245847216823847
+fpha/uhe=3:FURNAS/deviation/mean_abs_mw	f64	0x401ee679269ba7f3	7.725071528673641
+fpha/uhe=3:FURNAS/deviation/mean_signed_mw	f64	0x40030bc1c627f660	2.38074068841415
+fpha/uhe=3:FURNAS/deviation/relative	f64	0x3f7a05737ed3ebbf	0.006352854875553981
+fpha/uhe=3:FURNAS/deviation/rms_mw	f64	0x4024b3e66fa6e2ec	10.351367463228108
+fpha/uhe=3:FURNAS/plane=0/gamma_0	f64	0xc055db16e4e94496	-87.42327235012121
+fpha/uhe=3:FURNAS/plane=0/gamma_q	f64	0x3fe649c48efabc63	0.6965048592154627
+fpha/uhe=3:FURNAS/plane=0/gamma_s	f64	0xbf928bf8563ecee6	-0.01811206842803772
+fpha/uhe=3:FURNAS/plane=0/gamma_v	f64	0x3f90130097ee5409	0.015697488091593246
+fpha/uhe=3:FURNAS/plane=1/gamma_0	f64	0xc044b3a2a7c241aa	-41.40340134606534
+fpha/uhe=3:FURNAS/plane=1/gamma_q	f64	0x3fe7db413e6bbf4a	0.7455145091207467
+fpha/uhe=3:FURNAS/plane=1/gamma_s	f64	0xbf928bf8563ececc	-0.018112068428037628
+fpha/uhe=3:FURNAS/plane=1/gamma_v	f64	0x3f7d94c1a9793e78	0.007221943371021326
+fpha/uhe=3:FURNAS/plane=2/gamma_0	f64	0xc0098582d091e4c0	-3.190190915539091
+fpha/uhe=3:FURNAS/plane=2/gamma_q	f64	0x3feaf0c5c393b5db	0.8418911762107045
+fpha/uhe=3:FURNAS/plane=2/gamma_s	f64	0xbf7f20661fb7f3b8	-0.007599257394301277
+fpha/uhe=3:FURNAS/plane=2/gamma_v	f64	0x3f423beee632072e	0.0005564610004429088
+fpha/uhe=3:FURNAS/plane=3/gamma_0	f64	0x4067b4d788a36ab0	189.65131027142843
+fpha/uhe=3:FURNAS/plane=3/gamma_q	f64	0x3fe5cee694ccc35e	0.6815064340827168
+fpha/uhe=3:FURNAS/plane=3/gamma_s	f64	0xbf928bf8563eced6	-0.018112068428037663
+fpha/uhe=3:FURNAS/plane=3/gamma_v	f64	0x0000000000000000	0.0
+fpha/uhe=3:FURNAS/plane=4/gamma_0	f64	0x0000000000000000	0.0
+fpha/uhe=3:FURNAS/plane=4/gamma_q	f64	0x3feba9a5b05ec505	0.8644588894586894
+fpha/uhe=3:FURNAS/plane=4/gamma_s	f64	0xbf78b9596b286fd5	-0.006036137858725217
+fpha/uhe=3:FURNAS/plane=4/gamma_v	f64	0x8000000000000000	-0.0
+fpha/uhe=3:FURNAS/planes	text	5
