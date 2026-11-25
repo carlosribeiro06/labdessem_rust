@@ -243,7 +243,12 @@ pub struct FphaPlantConfig {
 
 #[derive(Debug, Deserialize)]
 struct FphaConfigRow {
-    #[serde(alias = "codigo_usina", alias = "Codigo", alias = "CODIGO", alias = "codigo")]
+    #[serde(
+        alias = "codigo_usina",
+        alias = "Codigo",
+        alias = "CODIGO",
+        alias = "codigo"
+    )]
     codigo: u32,
     #[serde(default, alias = "MaxPlanes", alias = "max_planes")]
     num_planes: Option<usize>,
@@ -393,8 +398,7 @@ mod tests {
         std::fs::create_dir(&cad_dir).unwrap();
 
         if let Some(content) = vha_content {
-            let mut file =
-                std::fs::File::create(cad_dir.join("CAD_GEOMETRIA_UHE.csv")).unwrap();
+            let mut file = std::fs::File::create(cad_dir.join("CAD_GEOMETRIA_UHE.csv")).unwrap();
             file.write_all(content.as_bytes()).unwrap();
         }
         if let Some(content) = tailrace_content {
@@ -564,8 +568,7 @@ mod tests {
 
     #[test]
     fn read_fpha_config_multiple_plants() {
-        let content =
-            "codigo_usina;num_planes;tolerance\n1;5;0.01\n3;7;0.005";
+        let content = "codigo_usina;num_planes;tolerance\n1;5;0.01\n3;7;0.005";
         let dir = create_config_test_case(Some(content));
 
         let result = read_fpha_config(dir.path()).unwrap();
@@ -606,7 +609,8 @@ mod tests {
 
     #[test]
     fn read_fpha_config_invalid_max_volume_pct_error() {
-        let content = "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct\n1;5;0.01;0.05;-0.5";
+        let content =
+            "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct\n1;5;0.01;0.05;-0.5";
         let dir = create_config_test_case(Some(content));
 
         let result = read_fpha_config(dir.path());

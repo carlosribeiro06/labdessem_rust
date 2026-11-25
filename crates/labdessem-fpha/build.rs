@@ -28,9 +28,8 @@ const QHULL_SOURCES: [&str; 17] = [
 ];
 
 fn main() {
-    let manifest_dir = PathBuf::from(
-        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
-    );
+    let manifest_dir =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"));
 
     let qhull_dir = manifest_dir.join("vendor/qhull/src/libqhull_r");
 

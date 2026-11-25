@@ -3,7 +3,7 @@
 use super::geometry::FittingBounds;
 use super::grid::build_grid;
 use super::production::ProductionFunction;
-use crate::hull::{convex_hull_3d, HullError};
+use crate::hull::{HullError, convex_hull_3d};
 
 /// An unscaled FPHA plane: generation = γ₀ + γᵥ·V + γᵩ·Q + γₛ·S.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -117,10 +117,26 @@ mod tests {
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Concave").unwrap();
         let tailrace = TailraceModel::Polynomial {
@@ -193,8 +209,16 @@ mod tests {
     #[test]
     fn single_volume_yields_zero_gamma_v() {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 400.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 400.0, area_km2: 0.0 }, // Flat
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 400.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 400.0,
+                area_km2: 0.0,
+            }, // Flat
         ];
         let forebay = ForebayTable::new(&rows, "RunOfRiver").unwrap();
         let tailrace = TailraceModel::Polynomial {

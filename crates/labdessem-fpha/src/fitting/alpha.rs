@@ -100,7 +100,10 @@ pub fn scale_plane_affine(plane: &RawPlane, alpha: f64) -> RawPlane {
 
 /// Apply α scaling to all planes.
 pub fn scale_planes(planes: &[RawPlane], alpha: f64) -> Vec<RawPlane> {
-    planes.iter().map(|p| scale_plane_affine(p, alpha)).collect()
+    planes
+        .iter()
+        .map(|p| scale_plane_affine(p, alpha))
+        .collect()
 }
 
 #[cfg(test)]
@@ -113,10 +116,26 @@ mod tests {
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Concave").unwrap();
         let tailrace = TailraceModel::Polynomial {
@@ -227,11 +246,21 @@ mod tests {
     #[test]
     fn degenerate_denominator_returns_neutral_alpha() {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 100.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 100.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 100.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 100.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Zero").unwrap();
-        let tailrace = TailraceModel::Polynomial { coefficients: vec![200.0] };
+        let tailrace = TailraceModel::Polynomial {
+            coefficients: vec![200.0],
+        };
         let pf = ProductionFunction::new(
             forebay,
             TailraceSource::Entity(Some(tailrace)),
@@ -267,8 +296,16 @@ mod tests {
         let pf = concave_pf();
         let bounds = small_bounds();
 
-        let base = RawPlane { gamma_0: 50.0, gamma_v: 0.01, gamma_q: 0.3, gamma_s: 0.0 };
-        let with_spill = RawPlane { gamma_s: -0.5, ..base };
+        let base = RawPlane {
+            gamma_0: 50.0,
+            gamma_v: 0.01,
+            gamma_q: 0.3,
+            gamma_s: 0.0,
+        };
+        let with_spill = RawPlane {
+            gamma_s: -0.5,
+            ..base
+        };
 
         let alpha_base = compute_alpha_fpha(&[base], &pf, &bounds);
         let alpha_spill = compute_alpha_fpha(&[with_spill], &pf, &bounds);
@@ -278,8 +315,18 @@ mod tests {
     #[test]
     fn scale_planes_applies_to_all() {
         let planes = vec![
-            RawPlane { gamma_0: 100.0, gamma_v: 0.01, gamma_q: 0.5, gamma_s: -0.1 },
-            RawPlane { gamma_0: 200.0, gamma_v: 0.02, gamma_q: 0.6, gamma_s: -0.2 },
+            RawPlane {
+                gamma_0: 100.0,
+                gamma_v: 0.01,
+                gamma_q: 0.5,
+                gamma_s: -0.1,
+            },
+            RawPlane {
+                gamma_0: 200.0,
+                gamma_v: 0.02,
+                gamma_q: 0.6,
+                gamma_s: -0.2,
+            },
         ];
         let alpha = 0.9;
         let scaled = scale_planes(&planes, alpha);

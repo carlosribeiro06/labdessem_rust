@@ -131,8 +131,16 @@ mod tests {
 
     fn test_pf(max_turbined: f64) -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 400.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 1000.0, height_m: 420.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 400.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 1000.0,
+                height_m: 420.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Grid").unwrap();
         ProductionFunction::new(

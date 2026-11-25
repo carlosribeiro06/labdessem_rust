@@ -3,9 +3,9 @@
 use std::{fmt, fs, path::Path};
 
 use labdessem_core::system::System;
+use schemars::JsonSchema;
 use schemars::r#gen::SchemaGenerator;
 use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::IoError;
@@ -73,7 +73,8 @@ impl JsonSchema for FphaOption {
             ]),
             metadata: Some(Box::new(schemars::schema::Metadata {
                 description: Some(
-                    "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\"".to_owned(),
+                    "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\""
+                        .to_owned(),
                 ),
                 ..Default::default()
             })),
@@ -393,7 +394,8 @@ mod fpha_option_tests {
 
     #[test]
     fn deserialize_number_fails() {
-        let json = r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let json =
+            r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
         let result: Result<StudyConfig, _> = serde_json::from_str(json);
         assert!(result.is_err());
     }
@@ -448,7 +450,10 @@ mod fpha_option_tests {
 
     #[test]
     fn display_trait() {
-        assert_eq!(FphaOption::ConstantProductivity.to_string(), "constant_productivity");
+        assert_eq!(
+            FphaOption::ConstantProductivity.to_string(),
+            "constant_productivity"
+        );
         assert_eq!(FphaOption::Precomputed.to_string(), "precomputed");
         assert_eq!(FphaOption::Computed.to_string(), "computed");
     }

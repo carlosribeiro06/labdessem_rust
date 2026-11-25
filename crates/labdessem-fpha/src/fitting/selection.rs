@@ -1,7 +1,7 @@
 //! Coefficient-sign and α validation of the fitted plane set.
 
-use crate::error::FphaFittingError;
 use super::hull_fit::RawPlane;
+use crate::error::FphaFittingError;
 
 const SIGN_TOLERANCE: f64 = 1e-10;
 
@@ -76,15 +76,17 @@ mod tests {
     use super::*;
 
     fn plane(gamma_0: f64, gamma_v: f64, gamma_q: f64, gamma_s: f64) -> RawPlane {
-        RawPlane { gamma_0, gamma_v, gamma_q, gamma_s }
+        RawPlane {
+            gamma_0,
+            gamma_v,
+            gamma_q,
+            gamma_s,
+        }
     }
 
     #[test]
     fn valid_planes_pass() {
-        let planes = vec![
-            plane(100.0, 0.001, 0.5, -0.01),
-            plane(50.0, 0.0, 0.3, 0.0),
-        ];
+        let planes = vec![plane(100.0, 0.001, 0.5, -0.01), plane(50.0, 0.0, 0.3, 0.0)];
         let result = validate_fitted_planes(&planes, 0.95, "ValidHydro");
         assert!(result.is_ok());
     }
@@ -92,42 +94,60 @@ mod tests {
     #[test]
     fn empty_planes_fails() {
         let result = validate_fitted_planes(&[], 1.0, "EmptyHydro");
-        assert!(matches!(result, Err(FphaFittingError::NoHyperplanesProduced { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::NoHyperplanesProduced { .. })
+        ));
     }
 
     #[test]
     fn zero_alpha_fails() {
         let planes = vec![plane(100.0, 0.001, 0.5, -0.01)];
         let result = validate_fitted_planes(&planes, 0.0, "ZeroAlpha");
-        assert!(matches!(result, Err(FphaFittingError::NonPositiveAlpha { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::NonPositiveAlpha { .. })
+        ));
     }
 
     #[test]
     fn negative_alpha_fails() {
         let planes = vec![plane(100.0, 0.001, 0.5, -0.01)];
         let result = validate_fitted_planes(&planes, -0.5, "NegativeAlpha");
-        assert!(matches!(result, Err(FphaFittingError::NonPositiveAlpha { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::NonPositiveAlpha { .. })
+        ));
     }
 
     #[test]
     fn negative_gamma_v_fails() {
         let planes = vec![plane(100.0, -0.001, 0.5, -0.01)];
         let result = validate_fitted_planes(&planes, 1.0, "NegGammaV");
-        assert!(matches!(result, Err(FphaFittingError::InvalidCoefficient { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::InvalidCoefficient { .. })
+        ));
     }
 
     #[test]
     fn negative_gamma_q_fails() {
         let planes = vec![plane(100.0, 0.001, -0.001, -0.01)];
         let result = validate_fitted_planes(&planes, 1.0, "NegGammaQ");
-        assert!(matches!(result, Err(FphaFittingError::InvalidCoefficient { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::InvalidCoefficient { .. })
+        ));
     }
 
     #[test]
     fn positive_gamma_s_fails() {
         let planes = vec![plane(100.0, 0.001, 0.5, 0.001)];
         let result = validate_fitted_planes(&planes, 1.0, "PosGammaS");
-        assert!(matches!(result, Err(FphaFittingError::InvalidCoefficient { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::InvalidCoefficient { .. })
+        ));
     }
 
     #[test]
@@ -141,6 +161,9 @@ mod tests {
     fn exactly_at_tolerance_fails() {
         let planes = vec![plane(100.0, -1e-10 - 1e-15, 0.5, -0.01)];
         let result = validate_fitted_planes(&planes, 1.0, "AtTolerance");
-        assert!(matches!(result, Err(FphaFittingError::InvalidCoefficient { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::InvalidCoefficient { .. })
+        ));
     }
 }

@@ -395,7 +395,10 @@ fn finalize_accepts_complete_results() -> Result<(), Box<dyn Error>> {
         matches!(outcome, Ok(())),
         "complete results must be accepted: {outcome:?}"
     );
-    assert!(system.fpha_enabled, "fpha_enabled must be set after finalize");
+    assert!(
+        system.fpha_enabled,
+        "fpha_enabled must be set after finalize"
+    );
     Ok(())
 }
 

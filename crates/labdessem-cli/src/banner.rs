@@ -1,6 +1,6 @@
 //! Terminal banner and display utilities for the labdessem CLI.
 
-use std::io::{stderr, IsTerminal};
+use std::io::{IsTerminal, stderr};
 
 use labdessem_io::FphaOption;
 
@@ -99,7 +99,7 @@ fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{render_banner, render_execution_info, ExecutionInfo};
+    use super::{ExecutionInfo, render_banner, render_execution_info};
     use labdessem_io::FphaOption;
 
     #[test]

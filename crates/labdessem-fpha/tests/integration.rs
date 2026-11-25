@@ -3,18 +3,33 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use labdessem_fpha::{
+    FitPlantParams, ForebayTable, FphaPlantConfig, PlaneReductionConfig, TailraceModel, VhaRow,
     fit_plant, fit_plants, forebay_from_vha, tailrace_from_data,
-    FitPlantParams, ForebayTable, FphaPlantConfig,
-    PlaneReductionConfig, TailraceModel, VhaRow,
 };
 use labdessem_io::readers::{TailraceData, VhaGeometryData, VhaPoint};
 
 fn storage_plant_params() -> FitPlantParams {
     let rows = vec![
-        VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 1000.0 },
-        VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 1200.0 },
-        VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 1300.0 },
-        VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 1400.0 },
+        VhaRow {
+            volume_hm3: 0.0,
+            height_m: 380.0,
+            area_km2: 1000.0,
+        },
+        VhaRow {
+            volume_hm3: 10_000.0,
+            height_m: 396.0,
+            area_km2: 1200.0,
+        },
+        VhaRow {
+            volume_hm3: 20_000.0,
+            height_m: 404.0,
+            area_km2: 1300.0,
+        },
+        VhaRow {
+            volume_hm3: 30_000.0,
+            height_m: 408.0,
+            area_km2: 1400.0,
+        },
     ];
     FitPlantParams {
         codigo: 1,
@@ -34,8 +49,16 @@ fn storage_plant_params() -> FitPlantParams {
 
 fn run_of_river_params() -> FitPlantParams {
     let rows = vec![
-        VhaRow { volume_hm3: 14_999.0, height_m: 400.0, area_km2: 50.0 },
-        VhaRow { volume_hm3: 15_001.0, height_m: 400.0, area_km2: 50.0 },
+        VhaRow {
+            volume_hm3: 14_999.0,
+            height_m: 400.0,
+            area_km2: 50.0,
+        },
+        VhaRow {
+            volume_hm3: 15_001.0,
+            height_m: 400.0,
+            area_km2: 50.0,
+        },
     ];
     FitPlantParams {
         codigo: 2,
@@ -55,9 +78,21 @@ fn run_of_river_params() -> FitPlantParams {
 
 fn high_head_params() -> FitPlantParams {
     let rows = vec![
-        VhaRow { volume_hm3: 0.0, height_m: 600.0, area_km2: 100.0 },
-        VhaRow { volume_hm3: 5_000.0, height_m: 700.0, area_km2: 120.0 },
-        VhaRow { volume_hm3: 10_000.0, height_m: 750.0, area_km2: 140.0 },
+        VhaRow {
+            volume_hm3: 0.0,
+            height_m: 600.0,
+            area_km2: 100.0,
+        },
+        VhaRow {
+            volume_hm3: 5_000.0,
+            height_m: 700.0,
+            area_km2: 120.0,
+        },
+        VhaRow {
+            volume_hm3: 10_000.0,
+            height_m: 750.0,
+            area_km2: 140.0,
+        },
     ];
     FitPlantParams {
         codigo: 3,
@@ -79,7 +114,10 @@ fn high_head_params() -> FitPlantParams {
 fn storage_plant_produces_multi_plane_envelope() {
     let result = fit_plant(&storage_plant_params()).unwrap();
 
-    assert!(result.planes.len() >= 2, "storage plant should produce multiple planes");
+    assert!(
+        result.planes.len() >= 2,
+        "storage plant should produce multiple planes"
+    );
     assert!(result.alpha > 0.0, "α must be positive");
     assert!(result.alpha < 2.0, "α should be close to 1.0");
 }
@@ -102,7 +140,10 @@ fn high_head_plant_fits_successfully() {
     let result = fit_plant(&high_head_params()).unwrap();
 
     assert!(!result.planes.is_empty());
-    assert!(result.deviation.relative < 0.15, "fit should be reasonably accurate");
+    assert!(
+        result.deviation.relative < 0.15,
+        "fit should be reasonably accurate"
+    );
 }
 
 #[test]
@@ -125,8 +166,16 @@ fn full_io_roundtrip() {
     let vha_data = VhaGeometryData {
         plant_code: 1,
         points: vec![
-            VhaPoint { volume_hm3: 0.0, height_m: 380.0, area_km2: 1000.0 },
-            VhaPoint { volume_hm3: 30000.0, height_m: 408.0, area_km2: 1400.0 },
+            VhaPoint {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 1000.0,
+            },
+            VhaPoint {
+                volume_hm3: 30000.0,
+                height_m: 408.0,
+                area_km2: 1400.0,
+            },
         ],
     };
 
@@ -156,9 +205,15 @@ fn full_io_roundtrip() {
     let result = fit_plant(&params).unwrap();
 
     // Verify the fitting produces valid results
-    assert!(!result.planes.is_empty(), "should produce at least one plane");
+    assert!(
+        !result.planes.is_empty(),
+        "should produce at least one plane"
+    );
     assert!(result.alpha > 0.0, "α must be positive");
-    assert!(result.deviation.mean_abs_mw.is_finite(), "deviation must be finite");
+    assert!(
+        result.deviation.mean_abs_mw.is_finite(),
+        "deviation must be finite"
+    );
 }
 
 #[test]
@@ -181,9 +236,11 @@ fn determinism_across_multiple_runs() {
 // --- Run-of-River Single-Point VHA Tests (epic-01 ticket-004) ---
 
 fn single_point_vha_params() -> FitPlantParams {
-    let rows = vec![
-        VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 },
-    ];
+    let rows = vec![VhaRow {
+        volume_hm3: 1500.0,
+        height_m: 386.5,
+        area_km2: 10.0,
+    }];
     FitPlantParams {
         codigo: 2,
         nome: "ITUTINGA".to_string(),

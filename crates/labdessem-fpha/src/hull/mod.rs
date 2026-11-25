@@ -125,7 +125,7 @@ pub fn convex_hull_3d(points: &[[f64; 3]]) -> Result<Vec<Hyperplane3d>, HullErro
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
-    use super::{convex_hull_3d, HullError, Hyperplane3d};
+    use super::{HullError, Hyperplane3d, convex_hull_3d};
 
     const TETRA: [[f64; 3]; 4] = [
         [0.0, 0.0, 0.0],

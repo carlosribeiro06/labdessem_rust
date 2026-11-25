@@ -18,10 +18,10 @@ use labdessem_fpha::{
     types::TailraceModel,
 };
 use labdessem_io::{
-    output::{write_fpha_computed, ComputedFphaRecord},
+    output::{ComputedFphaRecord, write_fpha_computed},
     readers::{
-        read_fpha_config, read_tailrace, read_vha_geometry, FphaPlantConfig as IoFphaPlantConfig,
-        TailraceData, VhaGeometryData,
+        FphaPlantConfig as IoFphaPlantConfig, TailraceData, VhaGeometryData, read_fpha_config,
+        read_tailrace, read_vha_geometry,
     },
 };
 
@@ -103,13 +103,18 @@ pub struct PlantFitFailure {
 pub enum FphaComputeError {
     Io(String),
     Fitting(String),
-    MissingHydro { hydro_id: i32, hydro_name: String },
+    MissingHydro {
+        hydro_id: i32,
+        hydro_name: String,
+    },
     MissingFphaInputs {
         hydro_id: i32,
         hydro_name: String,
         inputs: Vec<FphaInput>,
     },
-    PlantsNotFitted { failures: Vec<PlantFitFailure> },
+    PlantsNotFitted {
+        failures: Vec<PlantFitFailure>,
+    },
     InvalidSystem(String),
 }
 
@@ -118,8 +123,14 @@ impl std::fmt::Display for FphaComputeError {
         match self {
             FphaComputeError::Io(msg) => write!(f, "I/O error: {msg}"),
             FphaComputeError::Fitting(msg) => write!(f, "Fitting error: {msg}"),
-            FphaComputeError::MissingHydro { hydro_id, hydro_name } => {
-                write!(f, "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet")
+            FphaComputeError::MissingHydro {
+                hydro_id,
+                hydro_name,
+            } => {
+                write!(
+                    f,
+                    "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet"
+                )
             }
             FphaComputeError::MissingFphaInputs {
                 hydro_id,
@@ -334,7 +345,9 @@ fn build_fit_params(
         .groups
         .iter()
         .map(|g| g.units.iter().map(|u| u.max_turbining_hm3).sum::<f64>())
-        .sum::<f64>() * 1e6 / (period_duration_hours * 3600.0);
+        .sum::<f64>()
+        * 1e6
+        / (period_duration_hours * 3600.0);
 
     let max_generation_mw = plant
         .groups
@@ -349,7 +362,8 @@ fn build_fit_params(
         if plant.natural_inflow_hm3.is_empty() {
             0.0
         } else {
-            let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>() / plant.natural_inflow_hm3.len() as f64;
+            let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>()
+                / plant.natural_inflow_hm3.len() as f64;
             mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
         }
     } else {
@@ -452,8 +466,10 @@ pub fn write_computed_results(
         .iter()
         .flat_map(|r| {
             let name = plant_names.get(&r.codigo).unwrap_or(&"UNKNOWN");
-            r.planes.iter().enumerate().map(move |(idx, plane)| {
-                ComputedFphaRecord {
+            r.planes
+                .iter()
+                .enumerate()
+                .map(move |(idx, plane)| ComputedFphaRecord {
                     codigo_usina: r.codigo as u32,
                     nome_usina: (*name).to_string(),
                     plane_index: idx,
@@ -465,8 +481,7 @@ pub fn write_computed_results(
                     max_deviation_mw: Some(r.deviation.max_abs_mw),
                     mean_deviation_mw: Some(r.deviation.mean_abs_mw),
                     rms_deviation_mw: Some(r.deviation.rms_mw),
-                }
-            })
+                })
         })
         .collect();
 
@@ -495,10 +510,7 @@ pub fn convert_to_fpha_segments(result: &FphaPlantResult) -> Vec<HydroFphaSegmen
 }
 
 /// Inject computed FPHA segments into the system.
-pub fn inject_fpha_segments(
-    system: &mut System,
-    plant_results: &[FphaPlantResult],
-) {
+pub fn inject_fpha_segments(system: &mut System, plant_results: &[FphaPlantResult]) {
     let segments_by_plant: HashMap<i32, Vec<HydroFphaSegment>> = plant_results
         .iter()
         .map(|r| (r.codigo, convert_to_fpha_segments(r)))
@@ -533,10 +545,7 @@ pub fn inject_fpha_segments(
         }
     }
 
-    eprintln!(
-        "FPHA injection complete: {} plants updated",
-        injected
-    );
+    eprintln!("FPHA injection complete: {} plants updated", injected);
 }
 
 /// Inject computed FPHA segments, enable FPHA and re-validate the whole system.
@@ -867,9 +876,24 @@ mod tests {
             codigo: 1,
             nome: "TEST".to_string(),
             planes: vec![
-                RawPlane { gamma_0: 100.0, gamma_v: 0.1, gamma_q: 0.2, gamma_s: 0.3 },
-                RawPlane { gamma_0: 200.0, gamma_v: 0.4, gamma_q: 0.5, gamma_s: 0.6 },
-                RawPlane { gamma_0: 300.0, gamma_v: 0.7, gamma_q: 0.8, gamma_s: 0.9 },
+                RawPlane {
+                    gamma_0: 100.0,
+                    gamma_v: 0.1,
+                    gamma_q: 0.2,
+                    gamma_s: 0.3,
+                },
+                RawPlane {
+                    gamma_0: 200.0,
+                    gamma_v: 0.4,
+                    gamma_q: 0.5,
+                    gamma_s: 0.6,
+                },
+                RawPlane {
+                    gamma_0: 300.0,
+                    gamma_v: 0.7,
+                    gamma_q: 0.8,
+                    gamma_s: 0.9,
+                },
             ],
             alpha: 0.98,
             deviation: FphaFitDeviation {
@@ -981,7 +1005,7 @@ mod tests {
     fn fallback_uses_mlt_when_present() {
         let mut mlt_table = HashMap::new();
         mlt_table.insert(1, 123.45);
-        
+
         // mlt_table has the hydro, so it should return the value
         assert_eq!(mlt_table.get(&1), Some(&123.45));
     }

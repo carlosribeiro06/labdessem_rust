@@ -1,10 +1,10 @@
 //! Similar-hyperplane reduction of the fitted FPHA plane set.
 
 use super::geometry::FittingBounds;
-use super::grid::{build_grid, GridParams};
+use super::grid::{GridParams, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
-use super::rng::{fnv1a64, SplitMix64};
+use super::rng::{SplitMix64, fnv1a64};
 
 const ORIGIN_EPS: f64 = 1e-9;
 
@@ -160,7 +160,15 @@ fn reduce_planes_distance(
 
     reduce_planes_with(planes, |tail_slot, cand_slot, tail, candidate| {
         let seed = pair_seed(hydro_id, entry_level_bits, tail_slot, cand_slot);
-        pair_similar_distance(tail, candidate, &grid, generation_max, n_samples, seed, tolerance_pct)
+        pair_similar_distance(
+            tail,
+            candidate,
+            &grid,
+            generation_max,
+            n_samples,
+            seed,
+            tolerance_pct,
+        )
     })
 }
 
@@ -177,9 +185,18 @@ pub fn reduce_planes(
         PlaneReductionConfig::Angle { tolerance_deg } => {
             reduce_planes_angle(planes, *tolerance_deg)
         }
-        PlaneReductionConfig::Distance { tolerance_pct, n_samples } => {
-            reduce_planes_distance(planes, pf, bounds, *tolerance_pct, *n_samples, hydro_id, entry_level_bits)
-        }
+        PlaneReductionConfig::Distance {
+            tolerance_pct,
+            n_samples,
+        } => reduce_planes_distance(
+            planes,
+            pf,
+            bounds,
+            *tolerance_pct,
+            *n_samples,
+            hydro_id,
+            entry_level_bits,
+        ),
     }
 }
 
@@ -192,18 +209,41 @@ mod tests {
     use crate::types::TailraceModel;
 
     fn plane(gamma_0: f64, gamma_v: f64, gamma_q: f64, gamma_s: f64) -> RawPlane {
-        RawPlane { gamma_0, gamma_v, gamma_q, gamma_s }
+        RawPlane {
+            gamma_0,
+            gamma_v,
+            gamma_q,
+            gamma_s,
+        }
     }
 
     fn test_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Reduction").unwrap();
-        let tailrace = TailraceModel::Polynomial { coefficients: vec![0.0, 0.0008, -2e-8] };
+        let tailrace = TailraceModel::Polynomial {
+            coefficients: vec![0.0, 0.0008, -2e-8],
+        };
         ProductionFunction::new(
             forebay,
             TailraceSource::Entity(Some(tailrace)),
@@ -217,9 +257,13 @@ mod tests {
 
     fn test_bounds() -> FittingBounds {
         FittingBounds {
-            v_min: 0.0, v_max: 30_000.0,
-            n_volume_points: 6, n_flow_points: 6, n_spillage_points: 2,
-            max_planes_per_hydro: 10, single_volume: false,
+            v_min: 0.0,
+            v_max: 30_000.0,
+            n_volume_points: 6,
+            n_flow_points: 6,
+            n_spillage_points: 2,
+            max_planes_per_hydro: 10,
+            single_volume: false,
         }
     }
 
@@ -284,7 +328,10 @@ mod tests {
             plane(101.0, 0.0011, 0.81, -0.011),
             plane(300.0, 0.0050, 1.50, -0.030),
         ];
-        let config = PlaneReductionConfig::Distance { tolerance_pct: 0.5, n_samples: 64 };
+        let config = PlaneReductionConfig::Distance {
+            tolerance_pct: 0.5,
+            n_samples: 64,
+        };
 
         let first = reduce_planes(&planes, &config, &pf, &bounds, 7, 42);
         let second = reduce_planes(&planes, &config, &pf, &bounds, 7, 42);

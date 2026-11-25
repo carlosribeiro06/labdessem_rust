@@ -82,7 +82,11 @@ pub fn compute_fit_deviation(
     let n = count.max(1) as f64;
     let mean_abs_mw = sum_abs / n;
     let rms_mw = (sum_sq / n).sqrt();
-    let relative = if peak_fph > 0.0 { mean_abs_mw / peak_fph } else { 0.0 };
+    let relative = if peak_fph > 0.0 {
+        mean_abs_mw / peak_fph
+    } else {
+        0.0
+    };
 
     FphaFitDeviation {
         mean_abs_mw,
@@ -129,7 +133,11 @@ pub fn collect_fit_deviation_points(
             let deviation = fpha_fitted - fph_exact;
             peak_fph = peak_fph.max(fph_exact);
             points.push(FphaDeviationPoint {
-                v, q, fph_exact, fpha_fitted, deviation,
+                v,
+                q,
+                fph_exact,
+                fpha_fitted,
+                deviation,
                 relative_to_peak: 0.0,
             });
         }
@@ -154,25 +162,51 @@ mod tests {
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Concave").unwrap();
-        let tailrace = TailraceModel::Polynomial { coefficients: vec![0.0, 0.0008, -2e-8] };
+        let tailrace = TailraceModel::Polynomial {
+            coefficients: vec![0.0, 0.0008, -2e-8],
+        };
         ProductionFunction::new(
             forebay,
             TailraceSource::Entity(Some(tailrace)),
-            Some(2.0), Some(0.92), 3_000.0, 5_000.0, "Concave".to_owned(),
+            Some(2.0),
+            Some(0.92),
+            3_000.0,
+            5_000.0,
+            "Concave".to_owned(),
         )
     }
 
     fn small_bounds() -> FittingBounds {
         FittingBounds {
-            v_min: 0.0, v_max: 30_000.0,
-            n_volume_points: 2, n_flow_points: 2, n_spillage_points: 2,
-            max_planes_per_hydro: 10, single_volume: false,
+            v_min: 0.0,
+            v_max: 30_000.0,
+            n_volume_points: 2,
+            n_flow_points: 2,
+            n_spillage_points: 2,
+            max_planes_per_hydro: 10,
+            single_volume: false,
         }
     }
 
@@ -191,7 +225,10 @@ mod tests {
         let bounds = small_bounds();
 
         let planes = vec![RawPlane {
-            gamma_0: 50.0, gamma_v: 0.01, gamma_q: 0.3, gamma_s: 0.0,
+            gamma_0: 50.0,
+            gamma_v: 0.01,
+            gamma_q: 0.3,
+            gamma_s: 0.0,
         }];
 
         let v_pts = [0.0_f64, 30_000.0];
@@ -221,20 +258,37 @@ mod tests {
     #[test]
     fn zero_production_has_zero_relative() {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 100.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 100.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 100.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 100.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Zero").unwrap();
-        let tailrace = TailraceModel::Polynomial { coefficients: vec![200.0] };
+        let tailrace = TailraceModel::Polynomial {
+            coefficients: vec![200.0],
+        };
         let pf = ProductionFunction::new(
             forebay,
             TailraceSource::Entity(Some(tailrace)),
-            None, None, 3_000.0, 0.0, "Zero".to_owned(),
+            None,
+            None,
+            3_000.0,
+            0.0,
+            "Zero".to_owned(),
         );
         let bounds = small_bounds();
 
         let planes = vec![RawPlane {
-            gamma_0: 100.0, gamma_v: 0.0, gamma_q: 0.0, gamma_s: 0.0,
+            gamma_0: 100.0,
+            gamma_v: 0.0,
+            gamma_q: 0.0,
+            gamma_s: 0.0,
         }];
         let dev = compute_fit_deviation(&planes, &pf, &bounds);
         assert!(dev.mean_abs_mw > 0.0);
@@ -247,7 +301,10 @@ mod tests {
         let pf = concave_pf();
         let bounds = small_bounds();
         let planes = vec![RawPlane {
-            gamma_0: 1.0e6, gamma_v: 0.0, gamma_q: 0.0, gamma_s: 0.0,
+            gamma_0: 1.0e6,
+            gamma_v: 0.0,
+            gamma_q: 0.0,
+            gamma_s: 0.0,
         }];
         let dev = compute_fit_deviation(&planes, &pf, &bounds);
         assert!(dev.relative > WARN_RELATIVE_THRESHOLD);
@@ -259,7 +316,10 @@ mod tests {
         let pf = concave_pf();
         let bounds = small_bounds();
         let planes = vec![RawPlane {
-            gamma_0: 50.0, gamma_v: 0.01, gamma_q: 0.3, gamma_s: 0.0,
+            gamma_0: 50.0,
+            gamma_v: 0.01,
+            gamma_q: 0.3,
+            gamma_s: 0.0,
         }];
         let points = collect_fit_deviation_points(&planes, &pf, &bounds);
         assert_eq!(points.len(), 4);
@@ -270,7 +330,10 @@ mod tests {
         let pf = concave_pf();
         let bounds = small_bounds();
         let planes = vec![RawPlane {
-            gamma_0: 50.0, gamma_v: 0.01, gamma_q: 0.3, gamma_s: 0.0,
+            gamma_0: 50.0,
+            gamma_v: 0.01,
+            gamma_q: 0.3,
+            gamma_s: 0.0,
         }];
         let dev = compute_fit_deviation(&planes, &pf, &bounds);
         assert!(dev.rms_mw >= 0.0);

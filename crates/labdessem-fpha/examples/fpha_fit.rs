@@ -23,10 +23,10 @@ use labdessem_fpha::config::{
     DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
 };
 use labdessem_fpha::{
-    fit_plant, forebay_from_vha, tailrace_from_data,
-    FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig,
+    FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig, fit_plant,
+    forebay_from_vha, tailrace_from_data,
 };
-use labdessem_io::output::{write_fpha_computed, ComputedFphaRecord};
+use labdessem_io::output::{ComputedFphaRecord, write_fpha_computed};
 use labdessem_io::readers::{read_csv, read_fpha_config, read_tailrace, read_vha_geometry};
 use serde::Deserialize;
 
@@ -123,14 +123,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let codigo_i32 = *codigo as i32;
 
         let Some(params) = plant_params.get(&codigo_i32) else {
-            println!("  ⚠ Plant {} not found in CAD_UHE_PARAMS.csv, skipping", codigo);
+            println!(
+                "  ⚠ Plant {} not found in CAD_UHE_PARAMS.csv, skipping",
+                codigo
+            );
             continue;
         };
 
         let forebay = match forebay_from_vha(vha, &params.nome) {
             Ok(fb) => fb,
             Err(e) => {
-                println!("  ⚠ Plant {} geometry conversion failed: {}, skipping", codigo, e);
+                println!(
+                    "  ⚠ Plant {} geometry conversion failed: {}, skipping",
+                    codigo, e
+                );
                 continue;
             }
         };
@@ -181,9 +187,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let records: Vec<ComputedFphaRecord> = results
         .iter()
         .flat_map(|r| {
-            let name = plant_names.get(&r.codigo).cloned().unwrap_or_else(|| "UNKNOWN".to_string());
-            r.planes.iter().enumerate().map(move |(idx, plane)| {
-                ComputedFphaRecord {
+            let name = plant_names
+                .get(&r.codigo)
+                .cloned()
+                .unwrap_or_else(|| "UNKNOWN".to_string());
+            r.planes
+                .iter()
+                .enumerate()
+                .map(move |(idx, plane)| ComputedFphaRecord {
                     codigo_usina: r.codigo as u32,
                     nome_usina: name.clone(),
                     plane_index: idx,
@@ -195,13 +206,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     max_deviation_mw: Some(r.deviation.max_abs_mw),
                     mean_deviation_mw: Some(r.deviation.mean_abs_mw),
                     rms_deviation_mw: Some(r.deviation.rms_mw),
-                }
-            })
+                })
         })
         .collect();
 
     write_fpha_computed(case_path, &records)?;
-    println!("Results written to: {}/RESULTADOS/resultado_fpha_computed.csv", case_path.display());
+    println!(
+        "Results written to: {}/RESULTADOS/resultado_fpha_computed.csv",
+        case_path.display()
+    );
 
     let total_planes: usize = results.iter().map(|r| r.planes.len()).sum();
     let avg_mae: f64 = if results.is_empty() {
@@ -214,9 +227,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  Summary                                                         ║");
     println!("╠══════════════════════════════════════════════════════════════════╣");
-    println!("║  Plants fitted: {:3}                                              ║", results.len());
-    println!("║  Total planes:  {:3}                                              ║", total_planes);
-    println!("║  Avg MAE:       {:6.2} MW                                        ║", avg_mae);
+    println!(
+        "║  Plants fitted: {:3}                                              ║",
+        results.len()
+    );
+    println!(
+        "║  Total planes:  {:3}                                              ║",
+        total_planes
+    );
+    println!(
+        "║  Avg MAE:       {:6.2} MW                                        ║",
+        avg_mae
+    );
     println!("╚══════════════════════════════════════════════════════════════════╝");
 
     Ok(())

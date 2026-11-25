@@ -122,7 +122,12 @@ pub fn fit_gamma_s_for_planes(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp, clippy::cast_precision_loss)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::cast_precision_loss
+)]
 mod tests {
     use super::*;
     use crate::fitting::geometry::{ForebayTable, VhaRow};
@@ -131,10 +136,26 @@ mod tests {
 
     fn spill_sensitive_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 10_000.0, height_m: 396.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 20_000.0, height_m: 404.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 408.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 10_000.0,
+                height_m: 396.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 20_000.0,
+                height_m: 404.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 408.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "SpillSensitive").unwrap();
         let tailrace = TailraceModel::Polynomial {
@@ -153,11 +174,21 @@ mod tests {
 
     fn flat_tailrace_pf() -> ProductionFunction {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 400.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 420.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 400.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 420.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Flat").unwrap();
-        let tailrace = TailraceModel::Polynomial { coefficients: vec![10.0] };
+        let tailrace = TailraceModel::Polynomial {
+            coefficients: vec![10.0],
+        };
         ProductionFunction::new(
             forebay,
             TailraceSource::Entity(Some(tailrace)),
@@ -223,8 +254,18 @@ mod tests {
         let pf = spill_sensitive_pf();
         let bounds = small_bounds();
         let mut planes = vec![
-            RawPlane { gamma_0: 0.0, gamma_v: 0.001, gamma_q: 0.12, gamma_s: 0.0 },
-            RawPlane { gamma_0: 50.0, gamma_v: 0.0008, gamma_q: 0.08, gamma_s: 0.0 },
+            RawPlane {
+                gamma_0: 0.0,
+                gamma_v: 0.001,
+                gamma_q: 0.12,
+                gamma_s: 0.0,
+            },
+            RawPlane {
+                gamma_0: 50.0,
+                gamma_v: 0.0008,
+                gamma_q: 0.08,
+                gamma_s: 0.0,
+            },
         ];
         fit_gamma_s_for_planes(&mut planes, &pf, &bounds, 0.0);
         for plane in &planes {
@@ -256,7 +297,11 @@ mod tests {
         let n = N_LATERAL_FLOW_SAMPLES as f64;
         let mean_x = xs.iter().sum::<f64>() / n;
         let mean_y = ys.iter().sum::<f64>() / n;
-        let cov: f64 = xs.iter().zip(&ys).map(|(&x, &y)| (x - mean_x) * (y - mean_y)).sum();
+        let cov: f64 = xs
+            .iter()
+            .zip(&ys)
+            .map(|(&x, &y)| (x - mean_x) * (y - mean_y))
+            .sum();
         let var_x: f64 = xs.iter().map(|&x| (x - mean_x).powi(2)).sum();
         let expected = cov / var_x;
 

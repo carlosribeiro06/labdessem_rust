@@ -115,8 +115,16 @@ mod tests {
 
     fn simple_forebay() -> ForebayTable {
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 380.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 30_000.0, height_m: 410.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 380.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 30_000.0,
+                height_m: 410.0,
+                area_km2: 0.0,
+            },
         ];
         ForebayTable::new(&rows, "Simple").unwrap()
     }
@@ -229,8 +237,16 @@ mod tests {
     fn net_head_never_negative() {
         // Create scenario where tailrace > forebay
         let rows = vec![
-            VhaRow { volume_hm3: 0.0, height_m: 100.0, area_km2: 0.0 },
-            VhaRow { volume_hm3: 1000.0, height_m: 110.0, area_km2: 0.0 },
+            VhaRow {
+                volume_hm3: 0.0,
+                height_m: 100.0,
+                area_km2: 0.0,
+            },
+            VhaRow {
+                volume_hm3: 1000.0,
+                height_m: 110.0,
+                area_km2: 0.0,
+            },
         ];
         let forebay = ForebayTable::new(&rows, "Low").unwrap();
         let tailrace = TailraceSource::Entity(Some(TailraceModel::Constant { level_m: 150.0 }));

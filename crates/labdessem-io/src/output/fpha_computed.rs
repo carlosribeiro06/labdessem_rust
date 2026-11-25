@@ -25,7 +25,10 @@ pub struct ComputedFphaRecord {
 ///
 /// Creates the `RESULTADOS` directory if it does not exist.
 /// Overwrites the file if it already exists.
-pub fn write_fpha_computed(case_path: &Path, records: &[ComputedFphaRecord]) -> Result<(), IoError> {
+pub fn write_fpha_computed(
+    case_path: &Path,
+    records: &[ComputedFphaRecord],
+) -> Result<(), IoError> {
     let results_dir = case_path.join("RESULTADOS");
     std::fs::create_dir_all(&results_dir).map_err(|e| {
         IoError::invalid_data(format!(
@@ -37,7 +40,10 @@ pub fn write_fpha_computed(case_path: &Path, records: &[ComputedFphaRecord]) -> 
     let mut csv = csv_with_header(
         "codigo_usina;nome_usina;plane_index;gamma_0;gamma_v;gamma_q;gamma_s;alpha;max_deviation_mw;mean_deviation_mw;rms_deviation_mw",
         &[
-            ("codigo_usina", "codigo identificador da usina hidroeletrica"),
+            (
+                "codigo_usina",
+                "codigo identificador da usina hidroeletrica",
+            ),
             ("nome_usina", "nome da usina hidroeletrica"),
             ("plane_index", "indice do plano FPHA (0-indexed)"),
             (
@@ -76,9 +82,15 @@ pub fn write_fpha_computed(case_path: &Path, records: &[ComputedFphaRecord]) -> 
     );
 
     for record in records {
-        let max_dev = record.max_deviation_mw.map_or(String::new(), |v| format!("{:.3}", v));
-        let mean_dev = record.mean_deviation_mw.map_or(String::new(), |v| format!("{:.3}", v));
-        let rms_dev = record.rms_deviation_mw.map_or(String::new(), |v| format!("{:.3}", v));
+        let max_dev = record
+            .max_deviation_mw
+            .map_or(String::new(), |v| format!("{:.3}", v));
+        let mean_dev = record
+            .mean_deviation_mw
+            .map_or(String::new(), |v| format!("{:.3}", v));
+        let rms_dev = record
+            .rms_deviation_mw
+            .map_or(String::new(), |v| format!("{:.3}", v));
 
         csv.push_str(&format!(
             "{};{};{};{:.6};{:.9};{:.6};{:.9};{:.6};{};{};{}\n",
@@ -98,10 +110,7 @@ pub fn write_fpha_computed(case_path: &Path, records: &[ComputedFphaRecord]) -> 
 
     let file_path = results_dir.join("resultado_fpha_computed.csv");
     write_csv_file(&file_path, csv).map_err(|e| {
-        IoError::invalid_data(format!(
-            "failed to write {}: {e}",
-            file_path.display()
-        ))
+        IoError::invalid_data(format!("failed to write {}: {e}", file_path.display()))
     })?;
 
     Ok(())

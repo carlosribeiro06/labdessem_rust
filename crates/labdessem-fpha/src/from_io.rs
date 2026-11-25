@@ -18,7 +18,10 @@ use crate::types::TailraceModel;
 ///
 /// # Errors
 /// Returns `FphaFittingError` if the VHA data is empty or contains duplicate volumes.
-pub fn forebay_from_vha(data: &VhaGeometryData, name: &str) -> Result<ForebayTable, FphaFittingError> {
+pub fn forebay_from_vha(
+    data: &VhaGeometryData,
+    name: &str,
+) -> Result<ForebayTable, FphaFittingError> {
     let rows: Vec<VhaRow> = data
         .points
         .iter()

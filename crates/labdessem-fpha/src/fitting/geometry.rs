@@ -133,9 +133,21 @@ mod tests {
 
     fn test_rows() -> Vec<VhaRow> {
         vec![
-            VhaRow { volume_hm3: 100.0, height_m: 850.0, area_km2: 10.0 },
-            VhaRow { volume_hm3: 500.0, height_m: 880.0, area_km2: 20.0 },
-            VhaRow { volume_hm3: 1000.0, height_m: 900.0, area_km2: 30.0 },
+            VhaRow {
+                volume_hm3: 100.0,
+                height_m: 850.0,
+                area_km2: 10.0,
+            },
+            VhaRow {
+                volume_hm3: 500.0,
+                height_m: 880.0,
+                area_km2: 20.0,
+            },
+            VhaRow {
+                volume_hm3: 1000.0,
+                height_m: 900.0,
+                area_km2: 30.0,
+            },
         ]
     }
 
@@ -168,11 +180,22 @@ mod tests {
     #[test]
     fn rejects_duplicate_volumes() {
         let rows = vec![
-            VhaRow { volume_hm3: 100.0, height_m: 850.0, area_km2: 10.0 },
-            VhaRow { volume_hm3: 100.0, height_m: 855.0, area_km2: 11.0 },
+            VhaRow {
+                volume_hm3: 100.0,
+                height_m: 850.0,
+                area_km2: 10.0,
+            },
+            VhaRow {
+                volume_hm3: 100.0,
+                height_m: 855.0,
+                area_km2: 11.0,
+            },
         ];
         let result = ForebayTable::new(&rows, "Dup");
-        assert!(matches!(result, Err(FphaFittingError::DuplicateVolume { .. })));
+        assert!(matches!(
+            result,
+            Err(FphaFittingError::DuplicateVolume { .. })
+        ));
     }
 
     #[test]
@@ -187,14 +210,22 @@ mod tests {
 
     #[test]
     fn single_row_table_accepted() {
-        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let rows = vec![VhaRow {
+            volume_hm3: 1500.0,
+            height_m: 386.5,
+            area_km2: 10.0,
+        }];
         let table = ForebayTable::new(&rows, "SinglePoint");
         assert!(table.is_ok());
     }
 
     #[test]
     fn single_row_height_is_constant() {
-        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let rows = vec![VhaRow {
+            volume_hm3: 1500.0,
+            height_m: 386.5,
+            area_km2: 10.0,
+        }];
         let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
 
         assert_eq!(table.height(0.0), 386.5);
@@ -204,7 +235,11 @@ mod tests {
 
     #[test]
     fn single_row_bounds() {
-        let rows = vec![VhaRow { volume_hm3: 1500.0, height_m: 386.5, area_km2: 10.0 }];
+        let rows = vec![VhaRow {
+            volume_hm3: 1500.0,
+            height_m: 386.5,
+            area_km2: 10.0,
+        }];
         let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
 
         assert_eq!(table.v_min(), 1500.0);
@@ -214,9 +249,21 @@ mod tests {
     #[test]
     fn sorts_unsorted_input() {
         let rows = vec![
-            VhaRow { volume_hm3: 1000.0, height_m: 900.0, area_km2: 30.0 },
-            VhaRow { volume_hm3: 100.0, height_m: 850.0, area_km2: 10.0 },
-            VhaRow { volume_hm3: 500.0, height_m: 880.0, area_km2: 20.0 },
+            VhaRow {
+                volume_hm3: 1000.0,
+                height_m: 900.0,
+                area_km2: 30.0,
+            },
+            VhaRow {
+                volume_hm3: 100.0,
+                height_m: 850.0,
+                area_km2: 10.0,
+            },
+            VhaRow {
+                volume_hm3: 500.0,
+                height_m: 880.0,
+                area_km2: 20.0,
+            },
         ];
         let table = ForebayTable::new(&rows, "Unsorted").unwrap();
         assert!((table.height(300.0) - 865.0).abs() < 1e-9);

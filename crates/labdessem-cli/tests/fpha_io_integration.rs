@@ -20,7 +20,11 @@ fn read_vha_geometry_from_example() {
     let case_dir = common::fpha_test_case_dir();
 
     let result = read_vha_geometry(&case_dir);
-    assert!(result.is_ok(), "Failed to read VHA geometry: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to read VHA geometry: {:?}",
+        result.err()
+    );
 
     let data = result.unwrap();
 
@@ -29,12 +33,22 @@ fn read_vha_geometry_from_example() {
 
     // Check plant codes are present
     assert!(data.contains_key(&1), "FURNAS (code 1) should be present");
-    assert!(data.contains_key(&2), "EMBORCACAO (code 2) should be present");
-    assert!(data.contains_key(&3), "ILHA_SOLTEIRA (code 3) should be present");
+    assert!(
+        data.contains_key(&2),
+        "EMBORCACAO (code 2) should be present"
+    );
+    assert!(
+        data.contains_key(&3),
+        "ILHA_SOLTEIRA (code 3) should be present"
+    );
 
     // FURNAS has 6 points
     let furnas = data.get(&1).unwrap();
-    assert_eq!(furnas.points.len(), 6, "FURNAS should have 6 geometry points");
+    assert_eq!(
+        furnas.points.len(),
+        6,
+        "FURNAS should have 6 geometry points"
+    );
 
     // Verify first and last points of FURNAS
     assert_eq!(furnas.points[0].volume_hm3, 0.0);
@@ -47,7 +61,10 @@ fn read_vha_geometry_missing_file_returns_empty() {
     let result = read_vha_geometry(&missing_dir);
     // Geometry file is optional, should return empty HashMap
     assert!(result.is_ok(), "Should succeed even if file is missing");
-    assert!(result.unwrap().is_empty(), "Missing file should return empty HashMap");
+    assert!(
+        result.unwrap().is_empty(),
+        "Missing file should return empty HashMap"
+    );
 }
 
 // ====================
@@ -59,7 +76,11 @@ fn read_fpha_config_from_example() {
     let case_dir = common::fpha_test_case_dir();
 
     let result = read_fpha_config(&case_dir);
-    assert!(result.is_ok(), "Failed to read FPHA config: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to read FPHA config: {:?}",
+        result.err()
+    );
 
     let configs = result.unwrap();
 
@@ -78,7 +99,10 @@ fn read_fpha_config_missing_file_returns_empty() {
     let result = read_fpha_config(&missing_dir);
     // Config file is optional, should return empty HashMap
     assert!(result.is_ok(), "Config file should be optional");
-    assert!(result.unwrap().is_empty(), "Missing config should return empty HashMap");
+    assert!(
+        result.unwrap().is_empty(),
+        "Missing config should return empty HashMap"
+    );
 }
 
 // ====================
