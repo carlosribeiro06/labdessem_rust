@@ -70,10 +70,14 @@ fn fit_one_plant(case_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         codigo: 3,
         nome: name.to_string(),
         forebay: forebay_from_vha(vha, name)?,
-        tailrace: tailrace.get(&code).map(tailrace_from_data),
+        tailrace: tailrace_from_data(
+            tailrace
+                .get(&code)
+                .ok_or("plant has no row in CAD/CAD_TAILRACE.csv")?,
+        ),
         // Illustrative values; the CLI reads them from CAD_UHE.csv and the unit tables.
-        hydraulic_loss_m: Some(2.0),
-        efficiency: Some(0.92),
+        hydraulic_loss_m: 2.0,
+        efficiency: 0.92,
         max_turbined_m3s: 3_000.0,
         max_generation_mw: 5_000.0,
         long_term_mean_inflow_m3s: 1_500.0,
@@ -111,7 +115,7 @@ fn fit_one_plant(case_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-`fit_plant` fails with `FphaFittingError`. A library caller may pass `tailrace: None`, which gives a tailrace level of 0 m; the CLI rejects a plant without a tailrace row instead (see the design document, Known Limitations).
+`fit_plant` fails with `FphaFittingError`. The tailrace polynomial, the hydraulic loss and the efficiency are mandatory inputs; the CLI rejects a plant that lacks any of them (see the design document, Known Limitations).
 
 ### Run the example
 

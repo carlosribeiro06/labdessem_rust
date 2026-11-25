@@ -151,8 +151,8 @@ pub fn resolve_fitting_bounds(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::{ProductionFunction, TailraceSource};
-    use labdessem_model::hydro_geometry::{ForebayTable, VhaRow};
+    use crate::fitting::production::ProductionFunction;
+    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn test_pf(max_turbined: f64) -> ProductionFunction {
         let rows = vec![
@@ -168,9 +168,11 @@ mod tests {
         let forebay = ForebayTable::new(&rows, "Grid").unwrap();
         ProductionFunction::new(
             forebay,
-            TailraceSource::Entity(None),
-            None,
-            None,
+            TailraceModel {
+                coefficients: vec![0.0; 5],
+            },
+            0.0,
+            1.0,
             max_turbined,
             1000.0,
             "Grid".to_owned(),

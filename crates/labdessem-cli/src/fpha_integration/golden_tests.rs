@@ -53,12 +53,11 @@ fn record_fit_inputs(record: &mut GoldenRecord, case: &Path) -> Result<(), Box<d
             format!("{prefix}/long_term_mean_inflow_m3s"),
             params.long_term_mean_inflow_m3s,
         );
-        record_optional(
-            record,
+        record.f64(
             format!("{prefix}/hydraulic_loss_m"),
             params.hydraulic_loss_m,
         );
-        record_optional(record, format!("{prefix}/efficiency"), params.efficiency);
+        record.f64(format!("{prefix}/efficiency"), params.efficiency);
 
         record.text(
             format!("{prefix}/config/max_planes"),
@@ -126,14 +125,12 @@ fn record_fit_inputs(record: &mut GoldenRecord, case: &Path) -> Result<(), Box<d
             );
         }
         for k in 0..=4_u8 {
-            let key = format!("{prefix}/tailrace/level_at={k}");
-            match &params.tailrace {
-                Some(tailrace) => record.f64(
-                    key,
-                    tailrace.evaluate(params.max_turbined_m3s * f64::from(k) / 4.0),
-                ),
-                None => record.text(key, "none"),
-            }
+            record.f64(
+                format!("{prefix}/tailrace/level_at={k}"),
+                params
+                    .tailrace
+                    .evaluate(params.max_turbined_m3s * f64::from(k) / 4.0),
+            );
         }
     }
     Ok(())

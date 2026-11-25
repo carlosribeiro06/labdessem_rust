@@ -143,15 +143,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let fpha_config = example_config(configs.get(codigo));
 
-        let tailrace_model = tailrace_data.get(codigo).map(tailrace_from_data);
+        let Some(tailrace) = tailrace_data.get(codigo) else {
+            println!("  ⚠ Plant {codigo} not found in CAD_TAILRACE.csv, skipping");
+            continue;
+        };
 
         let fit_params = FitPlantParams {
             codigo: codigo_i32,
             nome: params.nome.clone(),
             forebay: forebay.clone(),
-            tailrace: tailrace_model,
-            hydraulic_loss_m: Some(params.hydraulic_loss_m),
-            efficiency: Some(params.efficiency),
+            tailrace: tailrace_from_data(tailrace),
+            hydraulic_loss_m: params.hydraulic_loss_m,
+            efficiency: params.efficiency,
             max_turbined_m3s: params.max_turbined_m3s,
             max_generation_mw: params.max_generation_mw,
             long_term_mean_inflow_m3s: params.mean_inflow_m3s,

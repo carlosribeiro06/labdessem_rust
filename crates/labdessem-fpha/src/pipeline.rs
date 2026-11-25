@@ -4,8 +4,8 @@ use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
 use crate::fitting::{
     FittingBounds, FphaFitDeviation, PlaneReductionConfig, ProductionFunction, RawPlane,
-    TailraceSource, compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes,
-    fit_hull_planes, reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
+    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
+    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
 };
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel};
 
@@ -27,9 +27,9 @@ pub struct FitPlantParams {
     pub codigo: i32,
     pub nome: String,
     pub forebay: ForebayTable,
-    pub tailrace: Option<TailraceModel>,
-    pub hydraulic_loss_m: Option<f64>,
-    pub efficiency: Option<f64>,
+    pub tailrace: TailraceModel,
+    pub hydraulic_loss_m: f64,
+    pub efficiency: f64,
     pub max_turbined_m3s: f64,
     pub max_generation_mw: f64,
     pub long_term_mean_inflow_m3s: f64,
@@ -146,7 +146,7 @@ pub fn fit_context(
 ) -> Result<(ProductionFunction, FittingBounds), FphaFittingError> {
     let pf = ProductionFunction::new(
         params.forebay.clone(),
-        TailraceSource::Entity(params.tailrace.clone()),
+        params.tailrace.clone(),
         params.hydraulic_loss_m,
         params.efficiency,
         params.max_turbined_m3s,
@@ -239,11 +239,11 @@ mod tests {
             codigo: 1,
             nome: "FURNAS".to_string(),
             forebay: test_forebay(),
-            tailrace: Some(TailraceModel {
+            tailrace: TailraceModel {
                 coefficients: vec![0.0, 0.0008, -2e-8],
-            }),
-            hydraulic_loss_m: Some(2.0),
-            efficiency: Some(0.92),
+            },
+            hydraulic_loss_m: 2.0,
+            efficiency: 0.92,
             max_turbined_m3s: 3_000.0,
             max_generation_mw: 5_000.0,
             long_term_mean_inflow_m3s: 1_500.0,
@@ -524,11 +524,11 @@ mod tests {
             codigo: 99,
             nome: "FIO_AGUA".to_string(),
             forebay,
-            tailrace: Some(TailraceModel {
+            tailrace: TailraceModel {
                 coefficients: vec![350.0],
-            }),
-            hydraulic_loss_m: Some(1.0),
-            efficiency: Some(0.9),
+            },
+            hydraulic_loss_m: 1.0,
+            efficiency: 0.9,
             max_turbined_m3s: 100.0,
             max_generation_mw: 50.0,
             long_term_mean_inflow_m3s: 80.0,

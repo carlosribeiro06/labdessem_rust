@@ -320,9 +320,12 @@ fn control_a3_official_inputs_carry_physical_data() {
             plant.name,
             plant.hydraulic_loss_m
         );
+        let tailrace = &run.context(code).params.tailrace;
         assert!(
-            run.context(code).params.tailrace.is_some(),
-            "plant {code} ({}): the fit params must carry a tailrace model",
+            plant
+                .tailrace_coefficients
+                .is_some_and(|coefficients| tailrace.coefficients == coefficients),
+            "plant {code} ({}): the fit params must carry the plant's tailrace polynomial",
             plant.name
         );
         plants_with_groups += 1;

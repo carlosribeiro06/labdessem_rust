@@ -306,23 +306,25 @@ fn build_fit_params(
 ) -> Result<FitPlantParams, FphaComputeError> {
     let plant_code = plant.id.0 as i32;
 
-    let mut missing_inputs = Vec::new();
-    if tailrace.is_none() {
-        missing_inputs.push(FphaInput::Tailrace);
-    }
-    if plant.efficiency.is_none() {
-        missing_inputs.push(FphaInput::Efficiency);
-    }
-    if plant.hydraulic_loss_m.is_none() {
-        missing_inputs.push(FphaInput::HydraulicLoss);
-    }
-    if !missing_inputs.is_empty() {
+    let (Some(tailrace), Some(efficiency), Some(hydraulic_loss_m)) =
+        (tailrace, plant.efficiency, plant.hydraulic_loss_m)
+    else {
+        let mut missing_inputs = Vec::new();
+        if tailrace.is_none() {
+            missing_inputs.push(FphaInput::Tailrace);
+        }
+        if plant.efficiency.is_none() {
+            missing_inputs.push(FphaInput::Efficiency);
+        }
+        if plant.hydraulic_loss_m.is_none() {
+            missing_inputs.push(FphaInput::HydraulicLoss);
+        }
         return Err(FphaComputeError::MissingFphaInputs {
             hydro_id: plant_code,
             hydro_name: plant.name.clone(),
             inputs: missing_inputs,
         });
-    }
+    };
 
     let vha_rows: Vec<VhaRow> = vha
         .points
@@ -336,9 +338,9 @@ fn build_fit_params(
     let forebay = ForebayTable::new(&vha_rows, &plant.name)
         .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?;
 
-    let tailrace_model = tailrace.map(|t| TailraceModel {
-        coefficients: t.coefficients.to_vec(),
-    });
+    let tailrace_model = TailraceModel {
+        coefficients: tailrace.coefficients.to_vec(),
+    };
 
     let max_turbined_m3s = plant
         .groups
@@ -389,8 +391,8 @@ fn build_fit_params(
         nome: plant.name.clone(),
         forebay,
         tailrace: tailrace_model,
-        hydraulic_loss_m: plant.hydraulic_loss_m,
-        efficiency: plant.efficiency,
+        hydraulic_loss_m,
+        efficiency,
         max_turbined_m3s,
         max_generation_mw,
         long_term_mean_inflow_m3s,

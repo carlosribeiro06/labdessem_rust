@@ -4,8 +4,7 @@
 
 use labdessem_fpha::{
     FitPlantParams, FittingBounds, FphaPlantConfig, PlaneReductionConfig, ProductionFunction,
-    TailraceSource, compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant,
-    reduce_planes,
+    compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
 };
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
@@ -37,9 +36,9 @@ fn reference_pf() -> ProductionFunction {
     };
     ProductionFunction::new(
         reference_forebay(),
-        TailraceSource::Entity(Some(tailrace)),
-        Some(2.0),
-        Some(0.92),
+        tailrace,
+        2.0,
+        0.92,
         3_000.0,
         5_000.0,
         "REFERENCE".to_owned(),
@@ -63,11 +62,11 @@ fn reference_params(nome: &str) -> FitPlantParams {
         codigo: 1,
         nome: nome.to_string(),
         forebay: reference_forebay(),
-        tailrace: Some(TailraceModel {
+        tailrace: TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
-        }),
-        hydraulic_loss_m: Some(2.0),
-        efficiency: Some(0.92),
+        },
+        hydraulic_loss_m: 2.0,
+        efficiency: 0.92,
         max_turbined_m3s: 3_000.0,
         max_generation_mw: 5_000.0,
         long_term_mean_inflow_m3s: 1_500.0,

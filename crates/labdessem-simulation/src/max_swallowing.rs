@@ -11,8 +11,9 @@
 use labdessem_core::entities::{HydroPlant, MaxSwallowingBounds};
 use labdessem_core::system::System;
 use labdessem_fpha::calculator::calculate_max_swallowing;
-use labdessem_fpha::{ProductionFunction, TailraceSource};
-use labdessem_model::hydro_geometry::{ForebayTable, GeometryError, TailraceModel, VhaRow};
+use labdessem_model::hydro_geometry::{
+    ForebayTable, GeometryError, NetHeadModel, TailraceModel, VhaRow,
+};
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::display_period;
 use labdessem_model::{ModelError, SolveMode};
@@ -90,14 +91,12 @@ fn plant_max_outflow_m3s(plant: &HydroPlant, period_duration_hours: f64) -> f64 
     )
 }
 
-/// fpha geometry of a max swallowing plant (one with at least one unit), built once per run (ADR-018).
+/// Net head model of a max swallowing plant (one with at least one unit), built once per run (ADR-018).
 ///
 /// Validates the VHA table of every max swallowing plant that has one. Returns `Ok(None)` when the plant
-/// has no unit, no VHA table or no tailrace polynomial; max swallowing then falls back to `h_ef`.
-fn plant_geometry(
-    plant: &HydroPlant,
-    period_duration_hours: f64,
-) -> Result<Option<ProductionFunction>, GeometryError> {
+/// has no unit, no VHA table or no tailrace polynomial; max swallowing then falls back to `h_ef`. A
+/// missing hydraulic loss counts as 0 m.
+fn plant_geometry(plant: &HydroPlant) -> Result<Option<NetHeadModel>, GeometryError> {
     if plant.groups.iter().all(|group| group.units.is_empty()) {
         return Ok(None);
     }
@@ -115,38 +114,24 @@ fn plant_geometry(
     let Some(coefficients) = &plant.tailrace_coefficients else {
         return Ok(None);
     };
-    let max_generation_mw: f64 = plant
-        .groups
-        .iter()
-        .flat_map(|group| &group.units)
-        .map(|unit| unit.max_generation_mw)
-        .sum();
 
-    Ok(Some(ProductionFunction::new(
+    Ok(Some(NetHeadModel::new(
         forebay,
-        TailraceSource::Entity(Some(TailraceModel {
+        TailraceModel {
             coefficients: coefficients.to_vec(),
-        })),
-        plant.hydraulic_loss_m,
-        plant.efficiency,
-        plant_max_outflow_m3s(plant, period_duration_hours),
-        max_generation_mw,
-        plant.name.clone(),
+        },
+        plant.hydraulic_loss_m.unwrap_or(0.0),
     )))
 }
 
 /// [`plant_geometry`] of every plant of `system`, indexed by plant.
-fn system_geometry(system: &System) -> Result<Vec<Option<ProductionFunction>>, GeometryError> {
-    system
-        .hydro_plants
-        .iter()
-        .map(|plant| plant_geometry(plant, system.horizon.period_duration_hours))
-        .collect()
+fn system_geometry(system: &System) -> Result<Vec<Option<NetHeadModel>>, GeometryError> {
+    system.hydro_plants.iter().map(plant_geometry).collect()
 }
 
 /// Net head (m) from the plant geometry, or `fallback_head_m` when the plant has none.
 fn net_head_m(
-    geometry: Option<&ProductionFunction>,
+    geometry: Option<&NetHeadModel>,
     fallback_head_m: f64,
     volume_hm3: f64,
     outflow_m3s: f64,
@@ -288,7 +273,7 @@ fn summarise_inert_plants(system: &System) -> WarningSummary<String> {
 /// plant-periods (plant name, 1-based period) that got a zero bound from a non-positive net head.
 fn initial_bounds(
     system: &System,
-    geometry: &[Option<ProductionFunction>],
+    geometry: &[Option<NetHeadModel>],
 ) -> (MaxSwallowingBounds, WarningSummary<(String, usize)>) {
     let periods = system.horizon.periods;
     let mut bounds = MaxSwallowingBounds::new(system.hydro_plants.len() * periods);
@@ -348,7 +333,7 @@ fn initial_bounds(
 /// non-positive net head.
 fn recalculate_bounds(
     system: &System,
-    geometry: &[Option<ProductionFunction>],
+    geometry: &[Option<NetHeadModel>],
     solve_mode: SolveMode,
     solution: &LpSolution,
     indexing: &Indexing,
@@ -501,8 +486,8 @@ pub(crate) struct MaxSwallowingState {
     next: MaxSwallowingBounds,
     // bounds the last finished solve was built from
     used: MaxSwallowingBounds,
-    // fpha geometry of each plant, built once in `new`; indexed by plant
-    geometry: Vec<Option<ProductionFunction>>,
+    // net head model of each plant, built once in `new`; indexed by plant
+    geometry: Vec<Option<NetHeadModel>>,
     #[cfg(test)]
     trace: Vec<MaxSwallowingTraceEntry>,
 }
@@ -942,7 +927,7 @@ mod tests {
     #[test]
     fn net_head_follows_plant_geometry() {
         let system = geometry_plant_system(30.0, None);
-        let geometry = plant_geometry(&system.hydro_plants[0], 1.0).expect("valid geometry");
+        let geometry = plant_geometry(&system.hydro_plants[0]).expect("valid geometry");
 
         // Tailrace at 200 m3/s: 885.3 + 1.97e-5 * 200^2 - 2.55e-8 * 200^3
         //   = 885.3 + 0.788 - 0.204 = 885.884 m.
@@ -968,7 +953,7 @@ mod tests {
 
         // The loss is subtracted in metres: 21.616 - 0.095 = 21.521
         let lossy = geometry_plant_system(30.0, Some(0.095));
-        let lossy_geometry = plant_geometry(&lossy.hydro_plants[0], 1.0).expect("valid geometry");
+        let lossy_geometry = plant_geometry(&lossy.hydro_plants[0]).expect("valid geometry");
         assert_rel(
             net_head_m(lossy_geometry.as_ref(), 30.0, 250.0, 200.0),
             21.521,
@@ -983,7 +968,7 @@ mod tests {
         system.hydro_plants[0].tailrace_coefficients = Some([920.0, 0.0, 1.97e-5, -2.55e-8, 0.0]);
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant, 1.0).expect("valid geometry");
+        let geometry = plant_geometry(plant).expect("valid geometry");
 
         let head_m = net_head_m(geometry.as_ref(), 30.0, 250.0, 200.0);
         assert_rel(head_m, 0.0);
@@ -1010,7 +995,7 @@ mod tests {
         ];
 
         for plant in &plants {
-            let geometry = plant_geometry(plant, 1.0).expect("valid geometry");
+            let geometry = plant_geometry(plant).expect("valid geometry");
             assert!(geometry.is_none());
             assert_rel(net_head_m(geometry.as_ref(), 37.5, 250.0, 200.0), 37.5);
 
@@ -1026,7 +1011,7 @@ mod tests {
         let system = geometry_plant_system(30.0, None);
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant, 1.0).expect("valid geometry");
+        let geometry = plant_geometry(plant).expect("valid geometry");
 
         // Net head at V = 250 hm3, Q = 200 m3/s is 21.616 m < h_ef = 30 m:
         // 0.72 * (21.616 / 30)^0.5 = 0.72 * 0.848842... = 0.611166491228
@@ -1103,7 +1088,7 @@ mod tests {
         //   end of period (600, 400):   0.665315 and 0.645542.
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant, 1.0).expect("valid geometry");
+        let geometry = plant_geometry(plant).expect("valid geometry");
         let head_volumes = [
             d2_head_volume_hm3(slots[0], slots[1]),
             d2_head_volume_hm3(slots[1], slots[2]),
@@ -1171,7 +1156,7 @@ mod tests {
         //   outflow plus diversion (175, 275): 0.612823 and 0.605835.
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant, 1.0).expect("valid geometry");
+        let geometry = plant_geometry(plant).expect("valid geometry");
         let flows = [
             d3_tailrace_flow_m3s(&[0.18, 0.18], 0.18, system.horizon.period_duration_hours),
             d3_tailrace_flow_m3s(&[0.09, 0.09], 0.72, system.horizon.period_duration_hours),

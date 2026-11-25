@@ -129,7 +129,7 @@ pub fn fit_gamma_s_for_planes(
 )]
 mod tests {
     use super::*;
-    use crate::fitting::production::{ProductionFunction, TailraceSource};
+    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn spill_sensitive_pf() -> ProductionFunction {
@@ -157,9 +157,9 @@ mod tests {
         };
         ProductionFunction::new(
             forebay,
-            TailraceSource::Entity(Some(tailrace)),
-            Some(0.0),
-            Some(0.9),
+            tailrace,
+            0.0,
+            0.9,
             3_000.0,
             5_000.0,
             "SpillSensitive".to_owned(),
@@ -183,9 +183,9 @@ mod tests {
         };
         ProductionFunction::new(
             forebay,
-            TailraceSource::Entity(Some(tailrace)),
-            None,
-            Some(1.0),
+            tailrace,
+            0.0,
+            1.0,
             3_000.0,
             5_000.0,
             "Flat".to_owned(),

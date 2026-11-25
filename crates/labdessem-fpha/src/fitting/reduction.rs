@@ -203,7 +203,7 @@ pub fn reduce_planes(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::{ProductionFunction, TailraceSource};
+    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn plane(gamma_0: f64, gamma_v: f64, gamma_q: f64, gamma_s: f64) -> RawPlane {
@@ -240,9 +240,9 @@ mod tests {
         };
         ProductionFunction::new(
             forebay,
-            TailraceSource::Entity(Some(tailrace)),
-            Some(2.0),
-            Some(0.92),
+            tailrace,
+            2.0,
+            0.92,
             3_000.0,
             5_000.0,
             "Reduction".to_owned(),

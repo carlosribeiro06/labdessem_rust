@@ -109,7 +109,7 @@ pub fn scale_planes(planes: &[RawPlane], alpha: f64) -> Vec<RawPlane> {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::{ProductionFunction, TailraceSource};
+    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
@@ -137,9 +137,9 @@ mod tests {
         };
         ProductionFunction::new(
             forebay,
-            TailraceSource::Entity(Some(tailrace)),
-            Some(2.0),
-            Some(0.92),
+            tailrace,
+            2.0,
+            0.92,
             3_000.0,
             5_000.0,
             "Concave".to_owned(),
@@ -253,15 +253,8 @@ mod tests {
         let tailrace = TailraceModel {
             coefficients: vec![200.0],
         };
-        let pf = ProductionFunction::new(
-            forebay,
-            TailraceSource::Entity(Some(tailrace)),
-            None,
-            None,
-            3_000.0,
-            0.0,
-            "Zero".to_owned(),
-        );
+        let pf =
+            ProductionFunction::new(forebay, tailrace, 0.0, 1.0, 3_000.0, 0.0, "Zero".to_owned());
         let bounds = small_bounds();
 
         let planes = vec![RawPlane {
