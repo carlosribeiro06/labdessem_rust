@@ -2,8 +2,8 @@
 
 use std::{error::Error, fmt};
 
-use labdessem_fpha::FphaFittingError;
 use labdessem_model::ModelError;
+use labdessem_model::hydro_geometry::GeometryError;
 use labdessem_network::NetworkError;
 use labdessem_solver::SolverError;
 
@@ -28,7 +28,7 @@ pub enum SimulationError {
         groups: Vec<String>,
     },
     /// Max swallowing is enabled and a plant's VHA table is malformed (ADR-018).
-    Geometry(FphaFittingError),
+    Geometry(GeometryError),
     /// A solve with max swallowing rows is infeasible and the same model without them is
     /// feasible (ADR-017): `rows` names the max swallowing rows the max-swallowing-free solution
     /// exceeds, ordered by plant, then period.
@@ -101,8 +101,8 @@ impl From<ModelError> for SimulationError {
     }
 }
 
-impl From<FphaFittingError> for SimulationError {
-    fn from(value: FphaFittingError) -> Self {
+impl From<GeometryError> for SimulationError {
+    fn from(value: GeometryError) -> Self {
         Self::Geometry(value)
     }
 }

@@ -6,8 +6,7 @@
 //! MM default (§9.16.11 step 4); the point distribution is a labdessem choice `[to confirm]`
 //! against the MM/Libs text (ADR-033).
 
-use super::geometry::FittingBounds;
-use super::grid::{GridParams, build_grid};
+use super::grid::{FittingBounds, GridParams, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
 
@@ -110,35 +109,30 @@ pub fn scale_planes(planes: &[RawPlane], alpha: f64) -> Vec<RawPlane> {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::{ForebayTable, VhaRow};
     use crate::fitting::production::{ProductionFunction, TailraceSource};
-    use crate::types::TailraceModel;
+    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 10_000.0,
                 height_m: 396.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 20_000.0,
                 height_m: 404.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 408.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Concave").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         };
         ProductionFunction::new(
@@ -249,16 +243,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 100.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 100.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Zero").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![200.0],
         };
         let pf = ProductionFunction::new(

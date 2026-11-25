@@ -1,13 +1,12 @@
-//! Forebay geometry: VHA table and fitting bounds.
+//! Forebay geometry: the VHA table and its height interpolation.
 
-use crate::error::FphaFittingError;
+use super::GeometryError;
 
-/// Row of the VHA (Volume-Height-Area) table.
+/// Volume and forebay height of one row of the VHA (volume-height-area) table.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VhaRow {
     pub volume_hm3: f64,
     pub height_m: f64,
-    pub area_km2: f64,
 }
 
 /// Forebay height interpolation table.
@@ -17,17 +16,17 @@ pub struct VhaRow {
 #[derive(Debug, Clone)]
 pub struct ForebayTable {
     rows: Vec<VhaRow>,
-    hydro_name: String,
 }
 
 impl ForebayTable {
     /// Construct from VHA rows, sorting by volume and validating.
     ///
     /// Single-point tables are accepted and represent run-of-river plants
-    /// with constant forebay height. Empty tables are rejected.
-    pub fn new(rows: &[VhaRow], hydro_name: &str) -> Result<Self, FphaFittingError> {
+    /// with constant forebay height. Empty tables are rejected. `hydro_name`
+    /// only names the plant in a [`GeometryError`].
+    pub fn new(rows: &[VhaRow], hydro_name: &str) -> Result<Self, GeometryError> {
         if rows.is_empty() {
-            return Err(FphaFittingError::InsufficientPoints {
+            return Err(GeometryError::InsufficientPoints {
                 hydro_name: hydro_name.to_owned(),
                 count: 0,
             });
@@ -39,17 +38,14 @@ impl ForebayTable {
         // Check for duplicate volumes (only relevant for multi-point tables)
         for w in sorted.windows(2) {
             if (w[0].volume_hm3 - w[1].volume_hm3).abs() < 1e-9 {
-                return Err(FphaFittingError::DuplicateVolume {
+                return Err(GeometryError::DuplicateVolume {
                     hydro_name: hydro_name.to_owned(),
                     volume_hm3: w[0].volume_hm3,
                 });
             }
         }
 
-        Ok(Self {
-            rows: sorted,
-            hydro_name: hydro_name.to_owned(),
-        })
+        Ok(Self { rows: sorted })
     }
 
     /// Forebay height (m) at reservoir volume (hm³), clamped to table bounds.
@@ -93,37 +89,6 @@ impl ForebayTable {
     pub fn v_max(&self) -> f64 {
         self.rows[self.rows.len() - 1].volume_hm3
     }
-
-    /// Hydro plant name.
-    pub fn hydro_name(&self) -> &str {
-        &self.hydro_name
-    }
-}
-
-/// Fitting bounds for the (V, Q, S) discretization grid.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FittingBounds {
-    pub v_min: f64,
-    pub v_max: f64,
-    pub n_volume_points: usize,
-    pub n_flow_points: usize,
-    pub n_spillage_points: usize,
-    pub max_planes_per_hydro: usize,
-    pub single_volume: bool,
-}
-
-impl Default for FittingBounds {
-    fn default() -> Self {
-        Self {
-            v_min: 0.0,
-            v_max: 0.0,
-            n_volume_points: 10,
-            n_flow_points: 10,
-            n_spillage_points: 2,
-            max_planes_per_hydro: 15,
-            single_volume: false,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -136,17 +101,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 100.0,
                 height_m: 850.0,
-                area_km2: 10.0,
             },
             VhaRow {
                 volume_hm3: 500.0,
                 height_m: 880.0,
-                area_km2: 20.0,
             },
             VhaRow {
                 volume_hm3: 1000.0,
                 height_m: 900.0,
-                area_km2: 30.0,
             },
         ]
     }
@@ -183,19 +145,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 100.0,
                 height_m: 850.0,
-                area_km2: 10.0,
             },
             VhaRow {
                 volume_hm3: 100.0,
                 height_m: 855.0,
-                area_km2: 11.0,
             },
         ];
         let result = ForebayTable::new(&rows, "Dup");
-        assert!(matches!(
-            result,
-            Err(FphaFittingError::DuplicateVolume { .. })
-        ));
+        assert!(matches!(result, Err(GeometryError::DuplicateVolume { .. })));
     }
 
     #[test]
@@ -204,7 +161,7 @@ mod tests {
         let result = ForebayTable::new(&rows, "Empty");
         assert!(matches!(
             result,
-            Err(FphaFittingError::InsufficientPoints { count: 0, .. })
+            Err(GeometryError::InsufficientPoints { count: 0, .. })
         ));
     }
 
@@ -213,7 +170,6 @@ mod tests {
         let rows = vec![VhaRow {
             volume_hm3: 1500.0,
             height_m: 386.5,
-            area_km2: 10.0,
         }];
         let table = ForebayTable::new(&rows, "SinglePoint");
         assert!(table.is_ok());
@@ -224,7 +180,6 @@ mod tests {
         let rows = vec![VhaRow {
             volume_hm3: 1500.0,
             height_m: 386.5,
-            area_km2: 10.0,
         }];
         let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
 
@@ -238,7 +193,6 @@ mod tests {
         let rows = vec![VhaRow {
             volume_hm3: 1500.0,
             height_m: 386.5,
-            area_km2: 10.0,
         }];
         let table = ForebayTable::new(&rows, "SinglePoint").unwrap();
 
@@ -252,17 +206,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 1000.0,
                 height_m: 900.0,
-                area_km2: 30.0,
             },
             VhaRow {
                 volume_hm3: 100.0,
                 height_m: 850.0,
-                area_km2: 10.0,
             },
             VhaRow {
                 volume_hm3: 500.0,
                 height_m: 880.0,
-                area_km2: 20.0,
             },
         ];
         let table = ForebayTable::new(&rows, "Unsorted").unwrap();

@@ -1,7 +1,6 @@
 //! Convex-hull FPHA fitter: production cloud → upper-envelope hyperplanes.
 
-use super::geometry::FittingBounds;
-use super::grid::build_grid;
+use super::grid::{FittingBounds, build_grid};
 use super::production::ProductionFunction;
 use labdessem_model::hull::{HullError, convex_hull_3d};
 
@@ -111,35 +110,30 @@ pub fn envelope_max(planes: &[RawPlane], v: f64, q: f64) -> f64 {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::{ForebayTable, VhaRow};
     use crate::fitting::production::{ProductionFunction, TailraceSource};
-    use crate::types::TailraceModel;
+    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 10_000.0,
                 height_m: 396.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 20_000.0,
                 height_m: 404.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 408.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Concave").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         };
         ProductionFunction::new(
@@ -212,16 +206,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 400.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 400.0,
-                area_km2: 0.0,
             }, // Flat
         ];
         let forebay = ForebayTable::new(&rows, "RunOfRiver").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         };
         let pf = ProductionFunction::new(

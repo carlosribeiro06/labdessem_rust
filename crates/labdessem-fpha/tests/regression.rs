@@ -3,39 +3,36 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
 use labdessem_fpha::{
-    FitPlantParams, FittingBounds, ForebayTable, FphaPlantConfig, PlaneReductionConfig,
-    ProductionFunction, TailraceModel, TailraceSource, VhaRow, compute_alpha_fpha,
-    fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
+    FitPlantParams, FittingBounds, FphaPlantConfig, PlaneReductionConfig, ProductionFunction,
+    TailraceSource, compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant,
+    reduce_planes,
 };
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 fn reference_forebay() -> ForebayTable {
     let rows = vec![
         VhaRow {
             volume_hm3: 0.0,
             height_m: 380.0,
-            area_km2: 1000.0,
         },
         VhaRow {
             volume_hm3: 10_000.0,
             height_m: 396.0,
-            area_km2: 1200.0,
         },
         VhaRow {
             volume_hm3: 20_000.0,
             height_m: 404.0,
-            area_km2: 1300.0,
         },
         VhaRow {
             volume_hm3: 30_000.0,
             height_m: 408.0,
-            area_km2: 1400.0,
         },
     ];
     ForebayTable::new(&rows, "REFERENCE").unwrap()
 }
 
 fn reference_pf() -> ProductionFunction {
-    let tailrace = TailraceModel::Polynomial {
+    let tailrace = TailraceModel {
         coefficients: vec![0.0, 0.0008, -2e-8],
     };
     ProductionFunction::new(
@@ -66,7 +63,7 @@ fn reference_params(nome: &str) -> FitPlantParams {
         codigo: 1,
         nome: nome.to_string(),
         forebay: reference_forebay(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         }),
         hydraulic_loss_m: Some(2.0),

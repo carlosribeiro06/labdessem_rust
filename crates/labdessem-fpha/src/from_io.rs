@@ -5,16 +5,15 @@
 //! files into the domain types used by the FPHA fitting algorithms.
 
 use labdessem_io::readers::{TailraceData, VhaGeometryData};
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 use crate::error::FphaFittingError;
-use crate::fitting::{ForebayTable, VhaRow};
-use crate::types::TailraceModel;
 
 /// Convert VHA geometry data from labdessem-io into a ForebayTable.
 ///
 /// # Arguments
 /// * `data` - VHA geometry data read from `CAD_GEOMETRIA_UHE.csv`
-/// * `name` - Plant name for error messages and ForebayTable identification
+/// * `name` - Plant name for error messages
 ///
 /// # Errors
 /// Returns `FphaFittingError` if the VHA data is empty or contains duplicate volumes.
@@ -28,11 +27,10 @@ pub fn forebay_from_vha(
         .map(|p| VhaRow {
             volume_hm3: p.volume_hm3,
             height_m: p.height_m,
-            area_km2: p.area_km2,
         })
         .collect();
 
-    ForebayTable::new(&rows, name)
+    Ok(ForebayTable::new(&rows, name)?)
 }
 
 /// Convert tailrace data from labdessem-io into a TailraceModel.
@@ -44,9 +42,9 @@ pub fn forebay_from_vha(
 /// * `data` - Tailrace data read from `CAD_TAILRACE.csv`
 ///
 /// # Returns
-/// A `TailraceModel::Polynomial` with the coefficient vector.
+/// A `TailraceModel` with the coefficient vector.
 pub fn tailrace_from_data(data: &TailraceData) -> TailraceModel {
-    TailraceModel::Polynomial {
+    TailraceModel {
         coefficients: data.coefficients.to_vec(),
     }
 }
@@ -84,7 +82,6 @@ mod tests {
 
         assert_eq!(table.v_min(), 1000.0);
         assert_eq!(table.v_max(), 3000.0);
-        assert_eq!(table.hydro_name(), "TEST");
     }
 
     #[test]
@@ -130,16 +127,12 @@ mod tests {
             coefficients: [100.0, 0.001, -1e-8, 0.0, 0.0],
         };
 
-        let model = tailrace_from_data(&data);
+        let coefficients = tailrace_from_data(&data).coefficients;
 
-        if let TailraceModel::Polynomial { coefficients } = model {
-            assert_eq!(coefficients.len(), 5);
-            assert_eq!(coefficients[0], 100.0);
-            assert_eq!(coefficients[1], 0.001);
-            assert_eq!(coefficients[2], -1e-8);
-        } else {
-            panic!("Expected Polynomial model");
-        }
+        assert_eq!(coefficients.len(), 5);
+        assert_eq!(coefficients[0], 100.0);
+        assert_eq!(coefficients[1], 0.001);
+        assert_eq!(coefficients[2], -1e-8);
     }
 
     #[test]

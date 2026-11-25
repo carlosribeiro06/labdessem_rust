@@ -11,9 +11,8 @@
 use labdessem_core::entities::{HydroPlant, MaxSwallowingBounds};
 use labdessem_core::system::System;
 use labdessem_fpha::calculator::calculate_max_swallowing;
-use labdessem_fpha::{
-    ForebayTable, FphaFittingError, ProductionFunction, TailraceModel, TailraceSource, VhaRow,
-};
+use labdessem_fpha::{ProductionFunction, TailraceSource};
+use labdessem_model::hydro_geometry::{ForebayTable, GeometryError, TailraceModel, VhaRow};
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::display_period;
 use labdessem_model::{ModelError, SolveMode};
@@ -98,20 +97,18 @@ fn plant_max_outflow_m3s(plant: &HydroPlant, period_duration_hours: f64) -> f64 
 fn plant_geometry(
     plant: &HydroPlant,
     period_duration_hours: f64,
-) -> Result<Option<ProductionFunction>, FphaFittingError> {
+) -> Result<Option<ProductionFunction>, GeometryError> {
     if plant.groups.iter().all(|group| group.units.is_empty()) {
         return Ok(None);
     }
     let Some(table) = &plant.volume_level_table else {
         return Ok(None);
     };
-    // `HydroPlant` carries no VHA area, and neither `height` nor `net_head` reads it.
     let rows: Vec<VhaRow> = table
         .iter()
         .map(|&(volume_hm3, height_m)| VhaRow {
             volume_hm3,
             height_m,
-            area_km2: 0.0,
         })
         .collect();
     let forebay = ForebayTable::new(&rows, &plant.name)?;
@@ -127,7 +124,7 @@ fn plant_geometry(
 
     Ok(Some(ProductionFunction::new(
         forebay,
-        TailraceSource::Entity(Some(TailraceModel::Polynomial {
+        TailraceSource::Entity(Some(TailraceModel {
             coefficients: coefficients.to_vec(),
         })),
         plant.hydraulic_loss_m,
@@ -139,7 +136,7 @@ fn plant_geometry(
 }
 
 /// [`plant_geometry`] of every plant of `system`, indexed by plant.
-fn system_geometry(system: &System) -> Result<Vec<Option<ProductionFunction>>, FphaFittingError> {
+fn system_geometry(system: &System) -> Result<Vec<Option<ProductionFunction>>, GeometryError> {
     system
         .hydro_plants
         .iter()
@@ -625,7 +622,7 @@ mod tests {
     };
     use labdessem_core::ids::{BusId, HydroGroupId, HydroPlantId, HydroUnitId, SubmarketId};
     use labdessem_core::system::{StudyHorizon, Submarket, System};
-    use labdessem_fpha::FphaFittingError;
+    use labdessem_model::hydro_geometry::GeometryError;
     use labdessem_model::indexing::Indexing;
     use labdessem_model::{ModelError, SolveMode};
     use labdessem_solver::types::LpSolution;
@@ -1466,7 +1463,7 @@ mod tests {
             .expect("empty VHA table must be rejected");
         assert!(matches!(
             &error,
-            SimulationError::Geometry(FphaFittingError::InsufficientPoints { hydro_name, count: 0 })
+            SimulationError::Geometry(GeometryError::InsufficientPoints { hydro_name, count: 0 })
                 if hydro_name == "UHE-GEO"
         ));
 
@@ -1477,7 +1474,7 @@ mod tests {
             .expect("duplicate VHA volume must be rejected");
         assert!(matches!(
             &error,
-            SimulationError::Geometry(FphaFittingError::DuplicateVolume { hydro_name, volume_hm3 })
+            SimulationError::Geometry(GeometryError::DuplicateVolume { hydro_name, volume_hm3 })
                 if hydro_name == "UHE-GEO" && *volume_hm3 == 400.0
         ));
         assert_eq!(
@@ -1487,7 +1484,7 @@ mod tests {
         assert!(
             error
                 .source()
-                .and_then(|source| source.downcast_ref::<FphaFittingError>())
+                .and_then(|source| source.downcast_ref::<GeometryError>())
                 .is_some()
         );
 
@@ -1499,7 +1496,7 @@ mod tests {
             .expect("a malformed table is rejected without a tailrace polynomial");
         assert!(matches!(
             error,
-            SimulationError::Geometry(FphaFittingError::DuplicateVolume { .. })
+            SimulationError::Geometry(GeometryError::DuplicateVolume { .. })
         ));
 
         let mut without_units = geometry_plant_system(30.0, None);

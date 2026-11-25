@@ -1,7 +1,6 @@
 //! Per-plane lateral-flow secant γₛ on the spillage axis.
 
-use super::geometry::FittingBounds;
-use super::grid::build_grid;
+use super::grid::{FittingBounds, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
 
@@ -130,35 +129,30 @@ pub fn fit_gamma_s_for_planes(
 )]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::{ForebayTable, VhaRow};
     use crate::fitting::production::{ProductionFunction, TailraceSource};
-    use crate::types::TailraceModel;
+    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn spill_sensitive_pf() -> ProductionFunction {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 10_000.0,
                 height_m: 396.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 20_000.0,
                 height_m: 404.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 408.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "SpillSensitive").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![5.0, 0.001],
         };
         ProductionFunction::new(
@@ -177,16 +171,14 @@ mod tests {
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 400.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 420.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Flat").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![10.0],
         };
         ProductionFunction::new(

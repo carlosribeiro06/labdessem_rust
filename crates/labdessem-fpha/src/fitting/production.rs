@@ -1,7 +1,6 @@
 //! Production function φ(v, q, s) = K · η · q · h_net.
 
-use super::geometry::ForebayTable;
-use crate::types::TailraceModel;
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel};
 
 /// Gravitational constant for power calculation.
 const K_GRAVITY: f64 = 0.00981; // MW / (m³/s · m)
@@ -111,30 +110,30 @@ impl ProductionFunction {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::VhaRow;
+    use labdessem_model::hydro_geometry::VhaRow;
 
     fn simple_forebay() -> ForebayTable {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 410.0,
-                area_km2: 0.0,
             },
         ];
         ForebayTable::new(&rows, "Simple").unwrap()
     }
 
     fn constant_tailrace() -> TailraceSource {
-        TailraceSource::Entity(Some(TailraceModel::Constant { level_m: 300.0 }))
+        TailraceSource::Entity(Some(TailraceModel {
+            coefficients: vec![300.0],
+        }))
     }
 
     fn polynomial_tailrace() -> TailraceSource {
-        TailraceSource::Entity(Some(TailraceModel::Polynomial {
+        TailraceSource::Entity(Some(TailraceModel {
             coefficients: vec![300.0, 0.001, -1e-8],
         }))
     }
@@ -240,16 +239,16 @@ mod tests {
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 100.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 1000.0,
                 height_m: 110.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Low").unwrap();
-        let tailrace = TailraceSource::Entity(Some(TailraceModel::Constant { level_m: 150.0 }));
+        let tailrace = TailraceSource::Entity(Some(TailraceModel {
+            coefficients: vec![150.0],
+        }));
 
         let pf = ProductionFunction::new(
             forebay,

@@ -14,8 +14,7 @@ use labdessem_fpha::{
         DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
     },
     fit_plant,
-    fitting::{ForebayTable, PlaneReductionConfig, VhaRow},
-    types::TailraceModel,
+    fitting::PlaneReductionConfig,
 };
 use labdessem_io::{
     output::{ComputedFphaRecord, write_fpha_computed},
@@ -24,6 +23,7 @@ use labdessem_io::{
         read_tailrace, read_vha_geometry,
     },
 };
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 /// Result of the FPHA computation process.
 #[derive(Debug)]
@@ -330,14 +330,13 @@ fn build_fit_params(
         .map(|p| VhaRow {
             volume_hm3: p.volume_hm3,
             height_m: p.height_m,
-            area_km2: p.area_km2,
         })
         .collect();
 
     let forebay = ForebayTable::new(&vha_rows, &plant.name)
         .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?;
 
-    let tailrace_model = tailrace.map(|t| TailraceModel::Polynomial {
+    let tailrace_model = tailrace.map(|t| TailraceModel {
         coefficients: t.coefficients.to_vec(),
     });
 

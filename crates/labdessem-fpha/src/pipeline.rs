@@ -3,11 +3,11 @@
 use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
 use crate::fitting::{
-    FittingBounds, ForebayTable, FphaFitDeviation, PlaneReductionConfig, ProductionFunction,
-    RawPlane, TailraceSource, compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes,
+    FittingBounds, FphaFitDeviation, PlaneReductionConfig, ProductionFunction, RawPlane,
+    TailraceSource, compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes,
     fit_hull_planes, reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
 };
-use crate::types::TailraceModel;
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel};
 
 const MAX_TOLERANCE_DOUBLINGS: u32 = 32;
 
@@ -210,29 +210,25 @@ pub fn fit_plants(
 mod tests {
     use super::*;
     use crate::config::VolumeWindow;
-    use crate::fitting::VhaRow;
+    use labdessem_model::hydro_geometry::VhaRow;
 
     fn test_forebay() -> ForebayTable {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 10_000.0,
                 height_m: 396.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 20_000.0,
                 height_m: 404.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 408.0,
-                area_km2: 0.0,
             },
         ];
         ForebayTable::new(&rows, "Test").unwrap()
@@ -243,7 +239,7 @@ mod tests {
             codigo: 1,
             nome: "FURNAS".to_string(),
             forebay: test_forebay(),
-            tailrace: Some(TailraceModel::Polynomial {
+            tailrace: Some(TailraceModel {
                 coefficients: vec![0.0, 0.0008, -2e-8],
             }),
             hydraulic_loss_m: Some(2.0),
@@ -521,7 +517,6 @@ mod tests {
         let rows = vec![VhaRow {
             volume_hm3: 500.0,
             height_m: 400.0,
-            area_km2: 5.0,
         }];
         let forebay = ForebayTable::new(&rows, "FioAgua").unwrap();
 
@@ -529,7 +524,9 @@ mod tests {
             codigo: 99,
             nome: "FIO_AGUA".to_string(),
             forebay,
-            tailrace: Some(TailraceModel::Constant { level_m: 350.0 }),
+            tailrace: Some(TailraceModel {
+                coefficients: vec![350.0],
+            }),
             hydraulic_loss_m: Some(1.0),
             efficiency: Some(0.9),
             max_turbined_m3s: 100.0,

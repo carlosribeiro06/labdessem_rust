@@ -1,7 +1,6 @@
 //! Similar-hyperplane reduction of the fitted FPHA plane set.
 
-use super::geometry::FittingBounds;
-use super::grid::{GridParams, build_grid};
+use super::grid::{FittingBounds, GridParams, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
 use super::rng::{SplitMix64, fnv1a64};
@@ -204,9 +203,8 @@ pub fn reduce_planes(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::{ForebayTable, VhaRow};
     use crate::fitting::production::{ProductionFunction, TailraceSource};
-    use crate::types::TailraceModel;
+    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn plane(gamma_0: f64, gamma_v: f64, gamma_q: f64, gamma_s: f64) -> RawPlane {
         RawPlane {
@@ -222,26 +220,22 @@ mod tests {
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 380.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 10_000.0,
                 height_m: 396.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 20_000.0,
                 height_m: 404.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 30_000.0,
                 height_m: 408.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Reduction").unwrap();
-        let tailrace = TailraceModel::Polynomial {
+        let tailrace = TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         };
         ProductionFunction::new(

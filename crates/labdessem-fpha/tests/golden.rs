@@ -5,31 +5,27 @@
 use labdessem_core::test_support::golden::{GoldenFailure, GoldenRecord, check_or_bless};
 use labdessem_fpha::config::VolumeWindow;
 use labdessem_fpha::{
-    FitPlantParams, ForebayTable, FphaPlantConfig, PlaneReductionConfig, TailraceModel, VhaRow,
-    calculate_max_swallowing, fit_plant,
+    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, calculate_max_swallowing, fit_plant,
 };
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 fn reference_forebay() -> ForebayTable {
     let rows = vec![
         VhaRow {
             volume_hm3: 0.0,
             height_m: 380.0,
-            area_km2: 1000.0,
         },
         VhaRow {
             volume_hm3: 10_000.0,
             height_m: 396.0,
-            area_km2: 1200.0,
         },
         VhaRow {
             volume_hm3: 20_000.0,
             height_m: 404.0,
-            area_km2: 1300.0,
         },
         VhaRow {
             volume_hm3: 30_000.0,
             height_m: 408.0,
-            area_km2: 1400.0,
         },
     ];
     ForebayTable::new(&rows, "REFERENCE").unwrap()
@@ -40,7 +36,7 @@ fn reference_params(nome: &str) -> FitPlantParams {
         codigo: 1,
         nome: nome.to_string(),
         forebay: reference_forebay(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         }),
         hydraulic_loss_m: Some(2.0),
@@ -57,29 +53,25 @@ fn storage_plant_params() -> FitPlantParams {
         VhaRow {
             volume_hm3: 0.0,
             height_m: 380.0,
-            area_km2: 1000.0,
         },
         VhaRow {
             volume_hm3: 10_000.0,
             height_m: 396.0,
-            area_km2: 1200.0,
         },
         VhaRow {
             volume_hm3: 20_000.0,
             height_m: 404.0,
-            area_km2: 1300.0,
         },
         VhaRow {
             volume_hm3: 30_000.0,
             height_m: 408.0,
-            area_km2: 1400.0,
         },
     ];
     FitPlantParams {
         codigo: 1,
         nome: "STORAGE".to_string(),
         forebay: ForebayTable::new(&rows, "STORAGE").unwrap(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         }),
         hydraulic_loss_m: Some(2.0),
@@ -96,19 +88,17 @@ fn run_of_river_params() -> FitPlantParams {
         VhaRow {
             volume_hm3: 14_999.0,
             height_m: 400.0,
-            area_km2: 50.0,
         },
         VhaRow {
             volume_hm3: 15_001.0,
             height_m: 400.0,
-            area_km2: 50.0,
         },
     ];
     FitPlantParams {
         codigo: 2,
         nome: "RUN_OF_RIVER".to_string(),
         forebay: ForebayTable::new(&rows, "RUN_OF_RIVER").unwrap(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![380.0],
         }),
         hydraulic_loss_m: None,
@@ -125,24 +115,21 @@ fn high_head_params() -> FitPlantParams {
         VhaRow {
             volume_hm3: 0.0,
             height_m: 600.0,
-            area_km2: 100.0,
         },
         VhaRow {
             volume_hm3: 5_000.0,
             height_m: 700.0,
-            area_km2: 120.0,
         },
         VhaRow {
             volume_hm3: 10_000.0,
             height_m: 750.0,
-            area_km2: 140.0,
         },
     ];
     FitPlantParams {
         codigo: 3,
         nome: "HIGH_HEAD".to_string(),
         forebay: ForebayTable::new(&rows, "HIGH_HEAD").unwrap(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![200.0, 0.001],
         }),
         hydraulic_loss_m: Some(5.0),
@@ -158,13 +145,12 @@ fn single_point_vha_params() -> FitPlantParams {
     let rows = vec![VhaRow {
         volume_hm3: 1500.0,
         height_m: 386.5,
-        area_km2: 10.0,
     }];
     FitPlantParams {
         codigo: 2,
         nome: "ITUTINGA".to_string(),
         forebay: ForebayTable::new(&rows, "ITUTINGA").unwrap(),
-        tailrace: Some(TailraceModel::Polynomial {
+        tailrace: Some(TailraceModel {
             coefficients: vec![0.0, 0.0005, -1e-8],
         }),
         hydraulic_loss_m: Some(1.5),

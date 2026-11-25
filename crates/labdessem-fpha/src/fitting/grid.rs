@@ -1,6 +1,5 @@
 //! Grid discretization for the (V, Q) production cloud.
 
-use super::geometry::FittingBounds;
 use super::production::ProductionFunction;
 
 /// Tolerance for single-volume detection (hm³).
@@ -8,6 +7,32 @@ const V_EPS: f64 = 1e-9;
 
 /// Absolute minimum half-width for synthesized volume samples (hm³).
 const V_SYNTH_ABS: f64 = 1.0;
+
+/// Fitting bounds for the (V, Q, S) discretization grid.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FittingBounds {
+    pub v_min: f64,
+    pub v_max: f64,
+    pub n_volume_points: usize,
+    pub n_flow_points: usize,
+    pub n_spillage_points: usize,
+    pub max_planes_per_hydro: usize,
+    pub single_volume: bool,
+}
+
+impl Default for FittingBounds {
+    fn default() -> Self {
+        Self {
+            v_min: 0.0,
+            v_max: 0.0,
+            n_volume_points: 10,
+            n_flow_points: 10,
+            n_spillage_points: 2,
+            max_planes_per_hydro: 15,
+            single_volume: false,
+        }
+    }
+}
 
 /// Fraction of useful storage for half-width (0.5%).
 const V_SYNTH_FRAC: f64 = 0.005;
@@ -126,20 +151,18 @@ pub fn resolve_fitting_bounds(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::geometry::{ForebayTable, VhaRow};
     use crate::fitting::production::{ProductionFunction, TailraceSource};
+    use labdessem_model::hydro_geometry::{ForebayTable, VhaRow};
 
     fn test_pf(max_turbined: f64) -> ProductionFunction {
         let rows = vec![
             VhaRow {
                 volume_hm3: 0.0,
                 height_m: 400.0,
-                area_km2: 0.0,
             },
             VhaRow {
                 volume_hm3: 1000.0,
                 height_m: 420.0,
-                area_km2: 0.0,
             },
         ];
         let forebay = ForebayTable::new(&rows, "Grid").unwrap();
