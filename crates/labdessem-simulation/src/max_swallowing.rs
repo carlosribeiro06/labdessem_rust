@@ -984,23 +984,12 @@ mod tests {
 
     #[test]
     fn after_solve_swaps_buffers_and_records_trace() {
-        fn assert_bounds(bounds: &MaxSwallowingBounds, expected: f64) {
-            for period in 0..2 {
-                assert_rel(
-                    bounds
-                        .get(0, period)
-                        .expect("bound stored for every period"),
-                    expected,
-                );
-            }
-        }
-
         let system = geometry_plant_system(30.0, None);
         let indexing = Indexing::from_system(&system);
         let mut state = MaxSwallowingState::new(&system).expect("initialize state");
 
         // Initial volume 250 hm3: 0.72 * (21.616 / 30)^0.5 = 0.611166491228
-        assert_bounds(state.bounds(), 0.611_166_491_228);
+        assert_every_bound(state.bounds(), 2, 0.611_166_491_228);
 
         // Uniform 600 hm3 at 200 m3/s: forebay 911.5, net head 25.616,
         //   0.72 * (25.616 / 30)^0.5 = 0.665315323738
@@ -1033,18 +1022,18 @@ mod tests {
         assert_eq!(trace[0].stage, IterationStage::LinearProgramming);
         assert_eq!(trace[0].iteration, 1);
         assert_rel(trace[0].objective, 7.0);
-        assert_bounds(&trace[0].used, 0.611_166_491_228);
-        assert_bounds(&trace[0].produced, 0.665_315_323_738);
+        assert_every_bound(&trace[0].used, 2, 0.611_166_491_228);
+        assert_every_bound(&trace[0].produced, 2, 0.665_315_323_738);
 
         assert_eq!(
             trace[1].stage,
             IterationStage::MixedIntegerLinearProgramming
         );
         assert_eq!(trace[1].iteration, 1);
-        assert_bounds(&trace[1].used, 0.665_315_323_738);
-        assert_bounds(&trace[1].produced, 0.645_542_004_830);
+        assert_every_bound(&trace[1].used, 2, 0.665_315_323_738);
+        assert_every_bound(&trace[1].produced, 2, 0.645_542_004_830);
 
-        assert_bounds(state.bounds(), 0.645_542_004_830);
+        assert_every_bound(state.bounds(), 2, 0.645_542_004_830);
     }
 
     #[test]

@@ -52,7 +52,6 @@ impl ForebayTable {
     ///
     /// For single-row tables (run-of-river plants), returns constant height.
     pub fn height(&self, volume_hm3: f64) -> f64 {
-        // Single-row table: constant forebay height
         if self.rows.len() == 1 {
             return self.rows[0].height_m;
         }

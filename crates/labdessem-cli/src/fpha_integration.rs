@@ -466,13 +466,13 @@ pub fn write_computed_results(
     let records: Vec<ComputedFphaRecord> = results
         .iter()
         .flat_map(|r| {
-            let name = plant_names.get(&r.codigo).unwrap_or(&"UNKNOWN");
+            let name = plant_names.get(&r.codigo).copied().unwrap_or("UNKNOWN");
             r.planes
                 .iter()
                 .enumerate()
                 .map(move |(idx, plane)| ComputedFphaRecord {
                     codigo_usina: r.codigo as u32,
-                    nome_usina: (*name).to_string(),
+                    nome_usina: name.to_string(),
                     plane_index: idx,
                     gamma_0: plane.gamma_0,
                     gamma_v: plane.gamma_v,
