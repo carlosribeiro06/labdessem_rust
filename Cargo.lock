@@ -795,7 +795,6 @@ name = "labdessem-simulation"
 version = "0.12.0"
 dependencies = [
  "labdessem-core",
- "labdessem-fpha",
  "labdessem-io",
  "labdessem-model",
  "labdessem-network",

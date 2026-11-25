@@ -10,12 +10,12 @@
 
 use labdessem_core::entities::{HydroPlant, MaxSwallowingBounds};
 use labdessem_core::system::System;
-use labdessem_fpha::calculator::calculate_max_swallowing;
 use labdessem_model::hydro_geometry::{
     ForebayTable, GeometryError, NetHeadModel, TailraceModel, VhaRow,
 };
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::display_period;
+use labdessem_model::swallowing::calculate_max_swallowing;
 use labdessem_model::{ModelError, SolveMode};
 use labdessem_solver::accessor::SolutionAccessor;
 use labdessem_solver::types::LpSolution;

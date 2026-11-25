@@ -15,6 +15,8 @@ pub mod names;
 #[forbid(unsafe_code)]
 pub mod objective;
 #[forbid(unsafe_code)]
+pub mod swallowing;
+#[forbid(unsafe_code)]
 pub mod variables;
 
 pub use error::ModelError;

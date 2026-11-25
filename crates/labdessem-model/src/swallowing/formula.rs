@@ -1,4 +1,4 @@
-//! Maximum swallowing calculator.
+//! Maximum swallowing formula (MM eq. 9.34).
 
 /// Dynamic maximum swallowing from the head ratio: `Q_ef * (h_l / h_ef)^alpha`.
 ///
