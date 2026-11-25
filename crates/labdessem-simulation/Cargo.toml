@@ -16,6 +16,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 labdessem-core = { path = "../labdessem-core", features = ["test-support"] }
+labdessem-io = { path = "../labdessem-io" }
 
 [lints]
 workspace = true
