@@ -1,0 +1,329 @@
+# labdessem golden v1
+# solve_keys=exact
+solve/binding/opcao=1/network=0/cmo/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/binding/opcao=1/network=0/outcome/exceed_count	text	2
+solve/binding/opcao=1/network=0/outcome/max_excess_m3s	f64	0x405c2f1ede6170dc	112.73625907436093
+solve/binding/opcao=1/network=0/outcome/max_relative_excess	f64	0x3f770100a52af59d	0.00561619045282438
+solve/binding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/binding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/binding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/binding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/binding/opcao=1/network=0/outcome/worst	text	UHE-ENG:3
+solve/binding/opcao=1/network=0/outcome/zero_bound_exceed_count	text	0
+solve/binding/opcao=1/network=0/step=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/binding/opcao=1/network=0/step=1/stage	text	LP#01
+solve/binding/opcao=1/network=0/step=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/binding/opcao=1/network=0/step=2/stage	text	MILP#01
+solve/binding/opcao=1/network=0/step=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/binding/opcao=1/network=0/step=3/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=1/network=0/trace=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/binding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/binding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/binding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/binding/opcao=1/network=0/trace=1/stage	text	LP#01
+solve/binding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=0/trace=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/binding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/binding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/binding/opcao=1/network=0/trace=2/stage	text	MILP#01
+solve/binding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/binding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/binding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/binding/opcao=1/network=0/trace=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/binding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/binding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/binding/opcao=1/network=0/trace=3/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/binding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/binding/opcao=1/network=1/cmo/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=1/network=1/outcome/exceed_count	text	0
+solve/binding/opcao=1/network=1/outcome/max_excess_m3s	f64	0x0000000000000000	0.0
+solve/binding/opcao=1/network=1/outcome/max_relative_excess	f64	0x0000000000000000	0.0
+solve/binding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/outcome/worst	text	none
+solve/binding/opcao=1/network=1/outcome/zero_bound_exceed_count	text	0
+solve/binding/opcao=1/network=1/step=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/binding/opcao=1/network=1/step=1/stage	text	LP#01
+solve/binding/opcao=1/network=1/step=2/objective	f64	0x40cd4c9999999999	15001.199999999999
+solve/binding/opcao=1/network=1/step=2/stage	text	LP#02
+solve/binding/opcao=1/network=1/step=3/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=1/network=1/step=3/stage	text	MILP#01
+solve/binding/opcao=1/network=1/step=4/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=1/network=1/step=4/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=1/network=1/trace=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/binding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/binding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/binding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/binding/opcao=1/network=1/trace=1/stage	text	LP#01
+solve/binding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=1/network=1/trace=2/objective	f64	0x40cd4c9999999999	15001.199999999999
+solve/binding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/trace=2/stage	text	LP#02
+solve/binding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/binding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/binding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/binding/opcao=1/network=1/trace=3/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/trace=3/stage	text	MILP#01
+solve/binding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/trace=4/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=1/network=1/trace=4/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/trace=4/produced/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/trace=4/produced/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=1/network=1/trace=4/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=1/network=1/trace=4/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=1/network=1/trace=4/used/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=1/network=1/trace=4/used/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=2/network=0/cmo/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/binding/opcao=2/network=0/outcome/exceed_count	text	0
+solve/binding/opcao=2/network=0/outcome/max_excess_m3s	f64	0x0000000000000000	0.0
+solve/binding/opcao=2/network=0/outcome/max_relative_excess	f64	0x0000000000000000	0.0
+solve/binding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/binding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/binding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/binding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/binding/opcao=2/network=0/outcome/worst	text	none
+solve/binding/opcao=2/network=0/outcome/zero_bound_exceed_count	text	0
+solve/binding/opcao=2/network=0/step=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/binding/opcao=2/network=0/step=1/stage	text	MILP#01
+solve/binding/opcao=2/network=0/step=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/binding/opcao=2/network=0/step=2/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=2/network=0/trace=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/binding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/binding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/binding/opcao=2/network=0/trace=1/stage	text	MILP#01
+solve/binding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=0/trace=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/binding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/binding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/binding/opcao=2/network=0/trace=2/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/binding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/binding/opcao=2/network=1/cmo/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=2/network=1/outcome/exceed_count	text	0
+solve/binding/opcao=2/network=1/outcome/max_excess_m3s	f64	0x0000000000000000	0.0
+solve/binding/opcao=2/network=1/outcome/max_relative_excess	f64	0x0000000000000000	0.0
+solve/binding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=2/network=1/outcome/worst	text	none
+solve/binding/opcao=2/network=1/outcome/zero_bound_exceed_count	text	0
+solve/binding/opcao=2/network=1/step=1/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=2/network=1/step=1/stage	text	MILP#01
+solve/binding/opcao=2/network=1/step=2/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=2/network=1/step=2/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=2/network=1/trace=1/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=2/network=1/trace=1/stage	text	MILP#01
+solve/binding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/binding/opcao=2/network=1/trace=2/objective	f64	0x40cd4d1999999999	15002.199999999999
+solve/binding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/binding/opcao=2/network=1/trace=2/stage	text	LP-CALC-CMO#01
+solve/binding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/binding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x4052e9aa5273ccfc	75.65102063473381
+solve/binding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40531d7306024dbf	76.46014547562571
+solve/nonbinding/opcao=1/network=0/cmo/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=0/outcome/exceed_count	text	2
+solve/nonbinding/opcao=1/network=0/outcome/max_excess_m3s	f64	0x405c2f1ede6170dc	112.73625907436093
+solve/nonbinding/opcao=1/network=0/outcome/max_relative_excess	f64	0x3f770100a52af59d	0.00561619045282438
+solve/nonbinding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/nonbinding/opcao=1/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/nonbinding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=0/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=1/network=0/outcome/worst	text	UHE-ENG:3
+solve/nonbinding/opcao=1/network=0/outcome/zero_bound_exceed_count	text	0
+solve/nonbinding/opcao=1/network=0/step=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/nonbinding/opcao=1/network=0/step=1/stage	text	LP#01
+solve/nonbinding/opcao=1/network=0/step=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/nonbinding/opcao=1/network=0/step=2/stage	text	MILP#01
+solve/nonbinding/opcao=1/network=0/step=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=0/step=3/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=1/network=0/trace=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/nonbinding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/nonbinding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/nonbinding/opcao=1/network=0/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/nonbinding/opcao=1/network=0/trace=1/stage	text	LP#01
+solve/nonbinding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=0/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=0/trace=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/nonbinding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=0/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=1/network=0/trace=2/stage	text	MILP#01
+solve/nonbinding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/nonbinding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/nonbinding/opcao=1/network=0/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/nonbinding/opcao=1/network=0/trace=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/nonbinding/opcao=1/network=0/trace=3/produced/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/nonbinding/opcao=1/network=0/trace=3/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=0/trace=3/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=1/network=1/cmo/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=1/outcome/exceed_count	text	2
+solve/nonbinding/opcao=1/network=1/outcome/max_excess_m3s	f64	0x405c2f1ede6170dc	112.73625907436093
+solve/nonbinding/opcao=1/network=1/outcome/max_relative_excess	f64	0x3f770100a52af59d	0.00561619045282438
+solve/nonbinding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/nonbinding/opcao=1/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/nonbinding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=1/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=1/network=1/outcome/worst	text	UHE-ENG:3
+solve/nonbinding/opcao=1/network=1/outcome/zero_bound_exceed_count	text	0
+solve/nonbinding/opcao=1/network=1/step=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/nonbinding/opcao=1/network=1/step=1/stage	text	LP#01
+solve/nonbinding/opcao=1/network=1/step=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/nonbinding/opcao=1/network=1/step=2/stage	text	MILP#01
+solve/nonbinding/opcao=1/network=1/step=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=1/step=3/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=1/network=1/trace=1/objective	f64	0x40b243fafb708f11	4675.980399165085
+solve/nonbinding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/nonbinding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/nonbinding/opcao=1/network=1/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/nonbinding/opcao=1/network=1/trace=1/stage	text	LP#01
+solve/nonbinding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=1/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=1/network=1/trace=2/objective	f64	0x40c17b99c24629c2	8951.201241274252
+solve/nonbinding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=1/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=1/network=1/trace=2/stage	text	MILP#01
+solve/nonbinding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x405259debb7f5d1c	73.40421950757849
+solve/nonbinding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x4051d4f61a82fbf6	71.32752096930912
+solve/nonbinding/opcao=1/network=1/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40514c10aebb67bd	69.18851822186748
+solve/nonbinding/opcao=1/network=1/trace=3/objective	f64	0x40c035a0786cd9aa	8299.253675085336
+solve/nonbinding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f5dff5026d6	74.24011214091601
+solve/nonbinding/opcao=1/network=1/trace=3/produced/uhe=1:UHE-ENG/t=3	f64	0x405210eba2c7656d	72.26438207123074
+solve/nonbinding/opcao=1/network=1/trace=3/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=2	f64	0x4052976b7789dfbb	74.36593426193478
+solve/nonbinding/opcao=1/network=1/trace=3/used/uhe=1:UHE-ENG/t=3	f64	0x40522ae5174a9d3b	72.67023260389844
+solve/nonbinding/opcao=2/network=0/cmo/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=0/outcome/exceed_count	text	0
+solve/nonbinding/opcao=2/network=0/outcome/max_excess_m3s	f64	0x0000000000000000	0.0
+solve/nonbinding/opcao=2/network=0/outcome/max_relative_excess	f64	0x0000000000000000	0.0
+solve/nonbinding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/nonbinding/opcao=2/network=0/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/nonbinding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=0/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/nonbinding/opcao=2/network=0/outcome/worst	text	none
+solve/nonbinding/opcao=2/network=0/outcome/zero_bound_exceed_count	text	0
+solve/nonbinding/opcao=2/network=0/step=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/nonbinding/opcao=2/network=0/step=1/stage	text	MILP#01
+solve/nonbinding/opcao=2/network=0/step=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=0/step=2/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=2/network=0/trace=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/nonbinding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=0/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/nonbinding/opcao=2/network=0/trace=1/stage	text	MILP#01
+solve/nonbinding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=0/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=0/trace=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/nonbinding/opcao=2/network=0/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/nonbinding/opcao=2/network=0/trace=2/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=0/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/nonbinding/opcao=2/network=1/cmo/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=1/outcome/exceed_count	text	0
+solve/nonbinding/opcao=2/network=1/outcome/max_excess_m3s	f64	0x0000000000000000	0.0
+solve/nonbinding/opcao=2/network=1/outcome/max_relative_excess	f64	0x0000000000000000	0.0
+solve/nonbinding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/nonbinding/opcao=2/network=1/outcome/recomputed/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/nonbinding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=1/outcome/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/nonbinding/opcao=2/network=1/outcome/worst	text	none
+solve/nonbinding/opcao=2/network=1/outcome/zero_bound_exceed_count	text	0
+solve/nonbinding/opcao=2/network=1/step=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/nonbinding/opcao=2/network=1/step=1/stage	text	MILP#01
+solve/nonbinding/opcao=2/network=1/step=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=1/step=2/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=2/network=1/trace=1/objective	f64	0x40bfb6b8635c1b1b	8118.7202661100555
+solve/nonbinding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=1/trace=1/produced/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/nonbinding/opcao=2/network=1/trace=1/stage	text	MILP#01
+solve/nonbinding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=1/trace=1/used/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+solve/nonbinding/opcao=2/network=1/trace=2/objective	f64	0x40c05448b931d516	8360.568151692434
+solve/nonbinding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=2	f64	0x40528fb4fa6e7ed0	74.2454210356766
+solve/nonbinding/opcao=2/network=1/trace=2/produced/uhe=1:UHE-ENG/t=3	f64	0x405212f0a9d91df6	72.29593893244586
+solve/nonbinding/opcao=2/network=1/trace=2/stage	text	LP-CALC-CMO#01
+solve/nonbinding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=1	f64	0x4052b5524ae1278c	74.8331477354788
+solve/nonbinding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=2	f64	0x40528f38b67b3d0e	74.23783647570619
+solve/nonbinding/opcao=2/network=1/trace=2/used/uhe=1:UHE-ENG/t=3	f64	0x40520bd9139b4015	72.18512430344738
+solve/zero/network=0/infeasible/iteration	text	1
+solve/zero/network=0/infeasible/rows	text	engmax[p=UHE-ENG,t=1],engmax[p=UHE-ENG,t=2],engmax[p=UHE-ENG,t=3]
+solve/zero/network=0/infeasible/stage	text	LP
+solve/zero/network=1/infeasible/iteration	text	1
+solve/zero/network=1/infeasible/rows	text	engmax[p=UHE-ENG,t=1],engmax[p=UHE-ENG,t=2],engmax[p=UHE-ENG,t=3]
+solve/zero/network=1/infeasible/stage	text	LP
+swallowing/initial/binding/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/binding/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/binding/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/no_geometry/uhe=1:UHE-ENG/t=1	f64	0x4059000000000000	100.0
+swallowing/initial/no_geometry/uhe=1:UHE-ENG/t=2	f64	0x4059000000000000	100.0
+swallowing/initial/no_geometry/uhe=1:UHE-ENG/t=3	f64	0x4059000000000000	100.0
+swallowing/initial/no_tailrace/uhe=1:UHE-ENG/t=1	f64	0x4059000000000000	100.0
+swallowing/initial/no_tailrace/uhe=1:UHE-ENG/t=2	f64	0x4059000000000000	100.0
+swallowing/initial/no_tailrace/uhe=1:UHE-ENG/t=3	f64	0x4059000000000000	100.0
+swallowing/initial/nonbinding/uhe=1:UHE-ENG/t=1	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/nonbinding/uhe=1:UHE-ENG/t=2	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/nonbinding/uhe=1:UHE-ENG/t=3	f64	0x40529aef0e0e4db5	74.42084075352507
+swallowing/initial/zero/uhe=1:UHE-ENG/t=1	f64	0x0000000000000000	0.0
+swallowing/initial/zero/uhe=1:UHE-ENG/t=2	f64	0x0000000000000000	0.0
+swallowing/initial/zero/uhe=1:UHE-ENG/t=3	f64	0x0000000000000000	0.0
