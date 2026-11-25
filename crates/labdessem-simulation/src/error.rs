@@ -51,17 +51,17 @@ impl fmt::Display for SimulationError {
             Self::IterativeProcess(message) => write!(f, "{message}"),
             Self::PartialEffectiveHead { plant, groups } => write!(
                 f,
-                "EngMax: plant {plant} has Hef.m <= 0 on group(s) {} but not on every group; set Hef.m for every group of the plant",
+                "max swallowing: plant {plant} has Hef.m <= 0 on group(s) {} but not on every group; set Hef.m for every group of the plant",
                 groups.join(", ")
             ),
-            Self::Geometry(error) => write!(f, "EngMax: {error}"),
+            Self::Geometry(error) => write!(f, "max swallowing: {error}"),
             Self::MaxSwallowingInfeasible {
                 stage,
                 iteration,
                 rows,
             } => write!(
                 f,
-                "EngMax: {} #{iteration:02} is infeasible with the EngMax rows and feasible without them; the EngMax-free solution exceeds {}",
+                "max swallowing: {} #{iteration:02} is infeasible with the max swallowing rows and feasible without them; the solution without them exceeds {}",
                 stage.label(),
                 rows.join(", ")
             ),
@@ -129,7 +129,7 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "EngMax: LP #01 is infeasible with the EngMax rows and feasible without them; the EngMax-free solution exceeds engmax[p=UHE-ENG,t=1], engmax[p=UHE-ENG,t=2]"
+            "max swallowing: LP #01 is infeasible with the max swallowing rows and feasible without them; the solution without them exceeds engmax[p=UHE-ENG,t=1], engmax[p=UHE-ENG,t=2]"
         );
         assert!(error.source().is_none());
     }

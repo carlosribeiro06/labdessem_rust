@@ -343,7 +343,7 @@ pub fn write_hydro_csv(
                             .map(|&period| {
                                 bounds.get(plant_idx, period).ok_or_else(|| {
                                     IoError::invalid_data(format!(
-                                        "missing EngMax bound for plant {} period {period}",
+                                        "missing max swallowing bound for plant {} period {period}",
                                         plant.name
                                     ))
                                 })
@@ -540,12 +540,12 @@ mod tests {
             temp_dir.path(),
             Some(&bounds),
         )
-        .expect_err("missing EngMax bound must be an error");
+        .expect_err("missing max swallowing bound must be an error");
 
         assert!(matches!(
             &error,
             IoError::InvalidData(message)
-                if message == "missing EngMax bound for plant HYDRO-1 period 0"
+                if message == "missing max swallowing bound for plant HYDRO-1 period 0"
         ));
     }
 }

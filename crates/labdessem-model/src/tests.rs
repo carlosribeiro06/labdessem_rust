@@ -1335,14 +1335,14 @@ fn extend_with_max_swallowing_adds_plant_rows() {
     let c1 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=1]")
-        .expect("engmax constraint for t=1 should exist");
+        .expect("max swallowing constraint for t=1 should exist");
     assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((c1.rhs - 15.0).abs() < 1e-6);
 
     let c2 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=2]")
-        .expect("engmax constraint for t=2 should exist");
+        .expect("max swallowing constraint for t=2 should exist");
     assert!((c2.rhs - 18.0).abs() < 1e-6);
 }
 

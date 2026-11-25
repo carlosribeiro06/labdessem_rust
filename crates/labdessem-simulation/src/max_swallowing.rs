@@ -280,7 +280,7 @@ fn summarise_inert_plants(system: &System) -> WarningSummary<String> {
         warn!(
             count = summary.count,
             sample = ?summary.sample,
-            "EngMax: plants with Hef.m <= 0 on every unit are inert (EngMax = Q_ef, the row never binds)"
+            "max swallowing: plants with Hef.m <= 0 on every unit are inert (bound = Q_ef, the row never binds)"
         );
     }
 
@@ -318,13 +318,13 @@ fn initial_bounds(
         plants = system.hydro_plants.len(),
         periods,
         total_bounds = bounds.len(),
-        "Initialized EngMax bounds from initial volumes"
+        "Initialized max swallowing bounds from initial volumes"
     );
     if summary.count > 0 {
         warn!(
             count = summary.count,
             sample = ?summary.sample,
-            "EngMax: non-positive net head at the initial volume; these plant-periods get a zero bound"
+            "max swallowing: non-positive net head at the initial volume; these plant-periods get a zero bound"
         );
     }
 
@@ -390,13 +390,13 @@ fn recalculate_bounds(
         updated_count = system.hydro_plants.len() * system.horizon.periods,
         plants = system.hydro_plants.len(),
         periods = system.horizon.periods,
-        "Recalculated EngMax bounds"
+        "Recalculated max swallowing bounds"
     );
     if summary.count > 0 {
         warn!(
             count = summary.count,
             sample = ?summary.sample,
-            "EngMax: non-positive net head in the recalculated bounds; these plant-periods get a zero bound"
+            "max swallowing: non-positive net head in the recalculated bounds; these plant-periods get a zero bound"
         );
     }
 
@@ -471,7 +471,7 @@ fn consistency_diagnostic(
             max_excess_m3s = diagnostic.max_excess_m3s,
             max_relative_excess = diagnostic.max_relative_excess,
             worst = ?diagnostic.worst,
-            "EngMax consistency: the final turbining exceeds the recomputed EngMax"
+            "max swallowing consistency: the final turbining exceeds the recomputed max swallowing bound"
         );
     } else {
         info!(
@@ -480,7 +480,7 @@ fn consistency_diagnostic(
             max_excess_m3s = diagnostic.max_excess_m3s,
             max_relative_excess = diagnostic.max_relative_excess,
             worst = ?diagnostic.worst,
-            "EngMax consistency of the final solution"
+            "max swallowing consistency of the final solution"
         );
     }
 
@@ -563,7 +563,7 @@ impl MaxSwallowingState {
             stage = stage.label(),
             iteration,
             solve_mode = ?solve_mode,
-            "EngMax bounds recalculated after solve"
+            "max swallowing bounds recalculated after solve"
         );
         #[cfg(test)]
         self.trace.push(MaxSwallowingTraceEntry {
@@ -890,7 +890,7 @@ mod tests {
         ));
         assert_eq!(
             error.to_string(),
-            "EngMax: plant UHE-MULTI has Hef.m <= 0 on group(s) CJ-2 but not on every group; \
+            "max swallowing: plant UHE-MULTI has Hef.m <= 0 on group(s) CJ-2 but not on every group; \
              set Hef.m for every group of the plant"
         );
     }
@@ -1482,7 +1482,7 @@ mod tests {
         ));
         assert_eq!(
             error.to_string(),
-            "EngMax: hydro UHE-GEO: duplicate volume 400 in geometry table"
+            "max swallowing: hydro UHE-GEO: duplicate volume 400 in geometry table"
         );
         assert!(
             error

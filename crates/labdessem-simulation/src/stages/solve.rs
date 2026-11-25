@@ -497,7 +497,7 @@ mod tests {
             &col_offsets,
             None,
         )
-        .expect("no EngMax bounds to build");
+        .expect("no max swallowing bounds to build");
 
         assert_eq!(model.constraints.max_swallowing().len(), 0);
     }
@@ -530,7 +530,7 @@ mod tests {
             let row = rows
                 .iter()
                 .find(|row| row.name == name)
-                .expect("engmax row for every period");
+                .expect("max swallowing row for every period");
             assert_eq!(row.rhs, expected);
         }
     }

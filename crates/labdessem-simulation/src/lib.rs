@@ -405,7 +405,7 @@ mod tests {
         let system = build_system();
         let result =
             run_simulation_with_max_swallowing(&system, false, ExecutionOption::Iterative, true)
-                .expect("Simulation with EngMax enabled should succeed");
+                .expect("Simulation with max swallowing enabled should succeed");
 
         assert!(
             !result.steps.is_empty(),
@@ -417,7 +417,7 @@ mod tests {
         );
         assert!(
             result.max_swallowing.is_some(),
-            "EngMax enabled should carry the EngMax outcome"
+            "max swallowing enabled should carry the max swallowing outcome"
         );
     }
 
@@ -432,15 +432,15 @@ mod tests {
 
         let result_max_swallowing_off =
             run_simulation_with_max_swallowing(&system, false, ExecutionOption::Iterative, false)
-                .expect("Simulation with EngMax disabled should succeed");
+                .expect("Simulation with max swallowing disabled should succeed");
 
         assert!(
             result_regular.max_swallowing.is_none(),
-            "run_simulation should not carry an EngMax outcome"
+            "run_simulation should not carry a max swallowing outcome"
         );
         assert!(
             result_max_swallowing_off.max_swallowing.is_none(),
-            "EngMax disabled should not carry an EngMax outcome"
+            "max swallowing disabled should not carry a max swallowing outcome"
         );
 
         // Same number of stages

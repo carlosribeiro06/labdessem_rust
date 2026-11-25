@@ -4,7 +4,7 @@
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {
     /// Max swallowing is enabled but no bound is stored for this plant and period.
-    #[error("missing EngMax bound for plant {plant} period {period}")]
+    #[error("missing max swallowing bound for plant {plant} period {period}")]
     MissingMaxSwallowingBound {
         /// Hydro plant name.
         plant: String,
@@ -26,7 +26,7 @@ mod tests {
 
         assert_eq!(
             err.to_string(),
-            "missing EngMax bound for plant UHE-1 period 3"
+            "missing max swallowing bound for plant UHE-1 period 3"
         );
         assert!(std::error::Error::source(&err).is_none());
     }

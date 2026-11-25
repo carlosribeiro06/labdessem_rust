@@ -335,7 +335,7 @@ fn cut_loop_feeds_each_lp_the_previous_lp_bounds() {
     assert_eq!(
         trace.len(),
         result.steps.len(),
-        "R6: the EngMax trace is not aligned with the steps: a solve stage skipped after_solve"
+        "R6: the max swallowing trace is not aligned with the steps: a solve stage skipped after_solve"
     );
     let lp_first = lp_indices[0];
     let lp_second = lp_indices[1];
@@ -394,7 +394,7 @@ fn max_swallowing_trace_is_consistent_on_every_path() {
 
         assert!(
             !state.trace().is_empty(),
-            "{case}: the run recorded no EngMax trace, so the checker would pass vacuously"
+            "{case}: the run recorded no max swallowing trace, so the checker would pass vacuously"
         );
         assert_max_swallowing_trace_consistent(&system, &result.steps, state.trace());
     }
@@ -420,11 +420,11 @@ fn max_swallowing_outcome_matches_final_trace_entry() {
         let outcome = result
             .max_swallowing
             .as_ref()
-            .expect("an EngMax-enabled run carries the outcome");
+            .expect("a run with max swallowing enabled carries the outcome");
         let last = state
             .trace()
             .last()
-            .expect("an EngMax-enabled run records a trace");
+            .expect("a run with max swallowing enabled records a trace");
 
         assert_eq!(
             last.stage,
@@ -442,7 +442,7 @@ fn max_swallowing_outcome_matches_final_trace_entry() {
         );
         assert!(
             bounds_equal(&system, &outcome.recomputed, &last.produced),
-            "{case}: outcome.recomputed is not EngMax of the final LP-CALC-CMO solution"
+            "{case}: outcome.recomputed is not the max swallowing of the final LP-CALC-CMO solution"
         );
     }
 }
@@ -791,13 +791,13 @@ fn disabled_max_swallowing_infeasibility_is_unchanged() {
         );
         assert_eq!(
             control.solve_count, 1,
-            "network={network}: EngMax off must not run a diagnosis"
+            "network={network}: max swallowing off must not run a diagnosis"
         );
 
         let zero = run_stage(&max_swallowing_zero_fixture(), network, false);
         assert!(
             zero.result.is_ok(),
-            "network={network}: the zero-bound fixture must be feasible without EngMax: {:?}",
+            "network={network}: the zero-bound fixture must be feasible without max swallowing: {:?}",
             zero.result
         );
     }
