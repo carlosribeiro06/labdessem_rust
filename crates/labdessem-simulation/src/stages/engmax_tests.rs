@@ -21,7 +21,7 @@ use labdessem_solver::{HighsSolver, SolverError, SolverInterface};
 
 use crate::engmax::{EngMaxState, EngMaxTraceEntry};
 use crate::error::SimulationError;
-use crate::results::IterationReport;
+use crate::results::{IterationReport, IterativeSimulationResult};
 use crate::workflow::{ExecutionOption, IterationStage};
 
 use super::orchestration::run_simulation_with_state;
@@ -838,7 +838,7 @@ fn record_run(
     record: &mut GoldenRecord,
     prefix: &str,
     system: &System,
-    result: &crate::results::IterativeSimulationResult,
+    result: &IterativeSimulationResult,
     state: &EngMaxState,
 ) {
     for (index, entry) in state.trace().iter().enumerate() {
