@@ -2,6 +2,8 @@
 //!
 //! Provides builders for creating minimal entities and systems in tests.
 
+pub mod golden;
+
 use crate::entities::{
     Bus, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
     Submarket, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
