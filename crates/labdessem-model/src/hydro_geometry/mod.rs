@@ -4,6 +4,7 @@
 mod forebay;
 mod tailrace;
 
+use labdessem_core::entities::HydroPlant;
 use thiserror::Error;
 
 pub use forebay::{ForebayTable, VhaRow};
@@ -47,6 +48,41 @@ impl NetHeadModel {
         let gross_head = forebay_height - tailrace_level;
         (gross_head - self.loss_m).max(0.0)
     }
+}
+
+/// Forebay table and tailrace polynomial of `plant`: the single `HydroPlant` -> geometry conversion
+/// (RD-22).
+///
+/// Returns `Ok(None)` when the plant has no VHA table or no tailrace polynomial; each consumer applies
+/// its own missing-data policy to that case. The VHA table is validated before the tailrace polynomial
+/// is read, so a malformed table is reported even when the polynomial is missing.
+///
+/// # Errors
+///
+/// [`GeometryError`] when the VHA table is empty or repeats a volume.
+pub fn plant_geometry(
+    plant: &HydroPlant,
+) -> Result<Option<(ForebayTable, TailraceModel)>, GeometryError> {
+    let Some(table) = &plant.volume_level_table else {
+        return Ok(None);
+    };
+    let rows: Vec<VhaRow> = table
+        .iter()
+        .map(|&(volume_hm3, height_m)| VhaRow {
+            volume_hm3,
+            height_m,
+        })
+        .collect();
+    let forebay = ForebayTable::new(&rows, &plant.name)?;
+    let Some(coefficients) = &plant.tailrace_coefficients else {
+        return Ok(None);
+    };
+    Ok(Some((
+        forebay,
+        TailraceModel {
+            coefficients: coefficients.to_vec(),
+        },
+    )))
 }
 
 #[cfg(test)]

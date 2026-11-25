@@ -10,12 +10,12 @@
 
 use labdessem_core::entities::{HydroPlant, MaxSwallowingBounds};
 use labdessem_core::system::System;
-use labdessem_model::hydro_geometry::{
-    ForebayTable, GeometryError, NetHeadModel, TailraceModel, VhaRow,
-};
+use labdessem_model::hydro_geometry::{GeometryError, NetHeadModel};
 use labdessem_model::indexing::{ConstraintOffsetParams, Indexing};
 use labdessem_model::names::display_period;
-use labdessem_model::swallowing::calculate_max_swallowing;
+use labdessem_model::swallowing::{
+    PlantReference, net_head_m, partial_effective_head_groups, plant_bound_hm3, plant_head_model,
+};
 use labdessem_model::{ModelError, SolveMode};
 use labdessem_solver::accessor::SolutionAccessor;
 use labdessem_solver::types::LpSolution;
@@ -25,40 +25,6 @@ use crate::error::SimulationError;
 use crate::flow_units::volume_hm3_to_flow_m3s;
 use crate::results::{MaxSwallowingDiagnostic, MaxSwallowingOutcome};
 use crate::workflow::IterationStage;
-
-/// Plant-level max swallowing reference values (DESSEM eq. 9.34) over all registered units.
-struct PlantReference {
-    q_ef_hm3: f64,
-    h_ef_m: f64,
-    alpha: f64,
-}
-
-impl PlantReference {
-    fn from_plant(plant: &HydroPlant) -> Self {
-        let (q_ef_hm3, head_sum_m, unit_count) = plant
-            .groups
-            .iter()
-            .flat_map(|group| &group.units)
-            .fold((0.0, 0.0, 0.0), |(q, h, n), unit| {
-                (
-                    q + unit.max_turbining_hm3,
-                    h + unit.effective_head_m,
-                    n + 1.0,
-                )
-            });
-        let h_ef_m = if unit_count > 0.0 {
-            head_sum_m / unit_count
-        } else {
-            0.0
-        };
-
-        Self {
-            q_ef_hm3,
-            h_ef_m,
-            alpha: plant.turbine_type.alpha(),
-        }
-    }
-}
 
 /// Items kept in a [`WarningSummary`] sample.
 const WARNING_SAMPLE_SIZE: usize = 5;
@@ -91,62 +57,9 @@ fn plant_max_outflow_m3s(plant: &HydroPlant, period_duration_hours: f64) -> f64 
     )
 }
 
-/// Net head model of a max swallowing plant (one with at least one unit), built once per run (ADR-018).
-///
-/// Validates the VHA table of every max swallowing plant that has one. Returns `Ok(None)` when the plant
-/// has no unit, no VHA table or no tailrace polynomial; max swallowing then falls back to `h_ef`. A
-/// missing hydraulic loss counts as 0 m.
-fn plant_geometry(plant: &HydroPlant) -> Result<Option<NetHeadModel>, GeometryError> {
-    if plant.groups.iter().all(|group| group.units.is_empty()) {
-        return Ok(None);
-    }
-    let Some(table) = &plant.volume_level_table else {
-        return Ok(None);
-    };
-    let rows: Vec<VhaRow> = table
-        .iter()
-        .map(|&(volume_hm3, height_m)| VhaRow {
-            volume_hm3,
-            height_m,
-        })
-        .collect();
-    let forebay = ForebayTable::new(&rows, &plant.name)?;
-    let Some(coefficients) = &plant.tailrace_coefficients else {
-        return Ok(None);
-    };
-
-    Ok(Some(NetHeadModel::new(
-        forebay,
-        TailraceModel {
-            coefficients: coefficients.to_vec(),
-        },
-        plant.hydraulic_loss_m.unwrap_or(0.0),
-    )))
-}
-
-/// [`plant_geometry`] of every plant of `system`, indexed by plant.
+/// [`plant_head_model`] of every plant of `system`, indexed by plant.
 fn system_geometry(system: &System) -> Result<Vec<Option<NetHeadModel>>, GeometryError> {
-    system.hydro_plants.iter().map(plant_geometry).collect()
-}
-
-/// Net head (m) from the plant geometry, or `fallback_head_m` when the plant has none.
-fn net_head_m(
-    geometry: Option<&NetHeadModel>,
-    fallback_head_m: f64,
-    volume_hm3: f64,
-    outflow_m3s: f64,
-) -> f64 {
-    geometry.map_or(fallback_head_m, |g| g.net_head(volume_hm3, outflow_m3s))
-}
-
-/// Raw plant max swallowing in hm3 per period for a net head.
-fn plant_bound_hm3(reference: &PlantReference, net_head_m: f64) -> f64 {
-    calculate_max_swallowing(
-        reference.q_ef_hm3,
-        reference.h_ef_m,
-        net_head_m,
-        reference.alpha,
-    )
+    system.hydro_plants.iter().map(plant_head_model).collect()
 }
 
 /// Average volume (hm3) of `plant_idx` over `period` in the solved model:
@@ -157,7 +70,10 @@ fn period_average_volume_hm3(
     plant_idx: usize,
     period: usize,
 ) -> f64 {
-    0.5 * (accessor.hydro_volume(plant_idx, period) + accessor.hydro_volume(plant_idx, period + 1))
+    f64::midpoint(
+        accessor.hydro_volume(plant_idx, period),
+        accessor.hydro_volume(plant_idx, period + 1),
+    )
 }
 
 /// Accessor over a solution of the model built for `system` in `solve_mode`. Max swallowing reads only
@@ -210,24 +126,6 @@ fn previous_outflow_m3s(
             + accessor.hydro_spillage(plant_idx, period),
         period_duration_hours,
     )
-}
-
-/// Names of the groups holding a unit with `effective_head_m <= 0.0`, in input order,
-/// when the plant has such units and also units with `effective_head_m > 0.0`.
-fn partial_effective_head_groups(plant: &HydroPlant) -> Vec<String> {
-    let units = || plant.groups.iter().flat_map(|group| &group.units);
-    if !(units().any(|unit| unit.effective_head_m > 0.0)
-        && units().any(|unit| unit.effective_head_m <= 0.0))
-    {
-        return Vec::new();
-    }
-
-    plant
-        .groups
-        .iter()
-        .filter(|group| group.units.iter().any(|unit| unit.effective_head_m <= 0.0))
-        .map(|group| group.name.clone())
-        .collect()
 }
 
 /// Rejects a plant with `Hef.m <= 0` on some of its groups but not on all of them.
@@ -594,9 +492,9 @@ impl MaxSwallowingState {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{
-        MaxSwallowingState, PlantReference, WarningSummary, consistency_diagnostic,
-        diagnostic_warns, initial_bounds, net_head_m, plant_bound_hm3, plant_geometry,
-        recalculate_bounds, summarise_inert_plants, system_geometry,
+        MaxSwallowingState, WarningSummary, consistency_diagnostic, diagnostic_warns,
+        initial_bounds, plant_max_outflow_m3s, recalculate_bounds, summarise_inert_plants,
+        system_geometry,
     };
     use crate::error::SimulationError;
     use crate::results::MaxSwallowingDiagnostic;
@@ -609,6 +507,9 @@ mod tests {
     use labdessem_core::system::{StudyHorizon, Submarket, System};
     use labdessem_model::hydro_geometry::GeometryError;
     use labdessem_model::indexing::Indexing;
+    use labdessem_model::swallowing::{
+        PlantReference, net_head_m, plant_bound_hm3, plant_head_model,
+    };
     use labdessem_model::{ModelError, SolveMode};
     use labdessem_solver::types::LpSolution;
     use std::error::Error;
@@ -818,24 +719,6 @@ mod tests {
     }
 
     #[test]
-    fn plant_reference_aggregates_all_registered_units() {
-        let mut system = build_multi_group_system();
-        set_effective_head(&mut system, 0, 40.0);
-        let plant = &mut system.hydro_plants[0];
-        plant.groups[1].units.truncate(1);
-        plant.groups[1].units[0].max_turbining_hm3 = 20.0;
-        plant.groups[1].units[0].effective_head_m = 70.0;
-
-        let reference = PlantReference::from_plant(&system.hydro_plants[0]);
-
-        // Sum of every unit: 10 + 10 + 20
-        assert!((reference.q_ef_hm3 - 40.0).abs() < 1e-12);
-        // Unit-count weighted: (40 + 40 + 70) / 3, not the group mean (40 + 70) / 2 = 55
-        assert!((reference.h_ef_m - 50.0).abs() < 1e-12);
-        assert!((reference.alpha - 0.5).abs() < 1e-12);
-    }
-
-    #[test]
     fn initialize_stores_one_bound_per_plant_and_period() {
         let system = build_multi_group_system();
         let bounds = new_state_bounds(&system).expect("initialize bounds");
@@ -925,101 +808,25 @@ mod tests {
     }
 
     #[test]
-    fn net_head_follows_plant_geometry() {
-        let system = geometry_plant_system(30.0, None);
-        let geometry = plant_geometry(&system.hydro_plants[0]).expect("valid geometry");
+    fn plant_max_outflow_pins_furnas_first_solve_flow() {
+        // 24Barras FURNAS over 0.5 h periods: six units of 188 m3/s in group 1 and two of 189 m3/s
+        // in group 2, converted to hm3 as io's flow_m3s_to_hm3 does. The flat unit fold of
+        // PlantReference gives 1505.9999999999998 m3/s, not 1506 (RD-23, R31).
+        let mut system = build_multi_group_system();
+        let plant = &mut system.hydro_plants[0];
+        let template = plant.groups[0].units[0].clone();
+        let unit = |n: usize, max_turbining_m3s: f64| HydroUnit {
+            id: HydroUnitId(n),
+            name: format!("UG-{n}"),
+            max_turbining_hm3: max_turbining_m3s * 0.5 * 0.0036,
+            ..template.clone()
+        };
+        plant.groups[0].units = (1..=6).map(|n| unit(n, 188.0)).collect();
+        plant.groups[1].units = (7..=8).map(|n| unit(n, 189.0)).collect();
 
-        // Tailrace at 200 m3/s: 885.3 + 1.97e-5 * 200^2 - 2.55e-8 * 200^3
-        //   = 885.3 + 0.788 - 0.204 = 885.884 m.
-        // Forebay table: (100 hm3, 905 m), (400, 910), (800, 913); net head = forebay - 885.884.
-        let cases = [
-            // segment 1, t = (250 - 100) / 300 = 0.5: 905 + 0.5 * 5 = 907.5
-            (250.0, 21.616),
-            // segment 2, t = (600 - 400) / 400 = 0.5: 910 + 0.5 * 3 = 911.5
-            (600.0, 25.616),
-            // breakpoint: 910
-            (400.0, 24.116),
-            // clamped to 100 hm3: 905
-            (50.0, 19.116),
-            // clamped to 800 hm3: 913
-            (900.0, 27.116),
-        ];
-        for (volume_hm3, expected_m) in cases {
-            assert_rel(
-                net_head_m(geometry.as_ref(), 30.0, volume_hm3, 200.0),
-                expected_m,
-            );
-        }
+        let flow_m3s = plant_max_outflow_m3s(&system.hydro_plants[0], 0.5);
 
-        // The loss is subtracted in metres: 21.616 - 0.095 = 21.521
-        let lossy = geometry_plant_system(30.0, Some(0.095));
-        let lossy_geometry = plant_geometry(&lossy.hydro_plants[0]).expect("valid geometry");
-        assert_rel(
-            net_head_m(lossy_geometry.as_ref(), 30.0, 250.0, 200.0),
-            21.521,
-        );
-    }
-
-    #[test]
-    fn net_head_floors_non_positive_gross_head() {
-        let mut system = geometry_plant_system(30.0, None);
-        // Tailrace at 200 m3/s: 920.0 + 0.788 - 0.204 = 920.584 m above the 907.5 m forebay at
-        // 250 hm3, so the gross head is 907.5 - 920.584 = -13.084 m.
-        system.hydro_plants[0].tailrace_coefficients = Some([920.0, 0.0, 1.97e-5, -2.55e-8, 0.0]);
-        let plant = &system.hydro_plants[0];
-        let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant).expect("valid geometry");
-
-        let head_m = net_head_m(geometry.as_ref(), 30.0, 250.0, 200.0);
-        assert_rel(head_m, 0.0);
-        assert_rel(plant_bound_hm3(&reference, head_m), 0.0);
-    }
-
-    #[test]
-    fn net_head_falls_back_without_full_geometry() {
-        let full = geometry_plant_system(30.0, None).hydro_plants.remove(0);
-        let plants = [
-            HydroPlant {
-                volume_level_table: None,
-                ..full.clone()
-            },
-            HydroPlant {
-                tailrace_coefficients: None,
-                ..full.clone()
-            },
-            HydroPlant {
-                volume_level_table: None,
-                tailrace_coefficients: None,
-                ..full
-            },
-        ];
-
-        for plant in &plants {
-            let geometry = plant_geometry(plant).expect("valid geometry");
-            assert!(geometry.is_none());
-            assert_rel(net_head_m(geometry.as_ref(), 37.5, 250.0, 200.0), 37.5);
-
-            // Net head falls back to h_ef = 30 m: 0.72 * (30 / 30)^0.5 = Q_ef
-            let reference = PlantReference::from_plant(plant);
-            let head_m = net_head_m(geometry.as_ref(), reference.h_ef_m, 250.0, 200.0);
-            assert_rel(plant_bound_hm3(&reference, head_m), 0.72);
-        }
-    }
-
-    #[test]
-    fn plant_bound_is_below_q_ef_when_head_is_below_h_ef() {
-        let system = geometry_plant_system(30.0, None);
-        let plant = &system.hydro_plants[0];
-        let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant).expect("valid geometry");
-
-        // Net head at V = 250 hm3, Q = 200 m3/s is 21.616 m < h_ef = 30 m:
-        // 0.72 * (21.616 / 30)^0.5 = 0.72 * 0.848842... = 0.611166491228
-        let head_m = net_head_m(geometry.as_ref(), reference.h_ef_m, 250.0, 200.0);
-        let bound = plant_bound_hm3(&reference, head_m);
-
-        assert_rel(bound, 0.611_166_491_228);
-        assert!(bound < 0.72);
+        assert_eq!(flow_m3s.to_bits(), 0x4097_87ff_ffff_ffff);
     }
 
     #[test]
@@ -1088,7 +895,7 @@ mod tests {
         //   end of period (600, 400):   0.665315 and 0.645542.
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant).expect("valid geometry");
+        let geometry = plant_head_model(plant).expect("valid geometry");
         let head_volumes = [
             d2_head_volume_hm3(slots[0], slots[1]),
             d2_head_volume_hm3(slots[1], slots[2]),
@@ -1156,7 +963,7 @@ mod tests {
         //   outflow plus diversion (175, 275): 0.612823 and 0.605835.
         let plant = &system.hydro_plants[0];
         let reference = PlantReference::from_plant(plant);
-        let geometry = plant_geometry(plant).expect("valid geometry");
+        let geometry = plant_head_model(plant).expect("valid geometry");
         let flows = [
             d3_tailrace_flow_m3s(&[0.18, 0.18], 0.18, system.horizon.period_duration_hours),
             d3_tailrace_flow_m3s(&[0.09, 0.09], 0.72, system.horizon.period_duration_hours),
