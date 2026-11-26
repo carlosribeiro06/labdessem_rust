@@ -2,10 +2,15 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use std::error::Error;
+use std::path::Path;
+
 use labdessem_core::ids::HydroPlantId;
+use labdessem_io::read_study_from_path;
+use labdessem_io::readers::read_fpha_config;
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 use labdessem_model::production::{
-    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant,
+    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant, fit_system,
 };
 
 fn storage_plant_params() -> FitPlantParams {
@@ -221,4 +226,39 @@ fn run_of_river_deterministic() {
         assert_eq!(p1.gamma_q.to_bits(), p2.gamma_q.to_bits());
         assert_eq!(p1.gamma_s.to_bits(), p2.gamma_s.to_bits());
     }
+}
+
+/// `examples/24Barras` read through io fits every plant with generating units, in plant order
+/// (the System-fed replacement of the deleted `full_io_roundtrip`).
+#[test]
+fn fit_system_fits_every_24barras_plant() -> Result<(), Box<dyn Error>> {
+    let case = Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../examples/24Barras"
+    ));
+    let system = read_study_from_path(case)?;
+    let overrides = read_fpha_config(case)?;
+
+    let fit = fit_system(&system, &overrides)
+        .expect("every 24Barras plant with units has an inflow history row");
+
+    assert_eq!(fit.plants_without_units, 0);
+    let ids: Vec<usize> = fit.plants.iter().map(|plant| plant.id.0).collect();
+    assert_eq!(ids, [0, 1, 2, 3]);
+    for plant in &fit.plants {
+        let code = plant.id.0;
+        let result = plant
+            .outcome
+            .as_ref()
+            .map_err(|reason| format!("plant {code}: {reason:?}"))?;
+        assert!(!result.planes.is_empty(), "plant {code}: no planes");
+        assert!(result.alpha > 0.0, "plant {code}: alpha {}", result.alpha);
+        assert!(
+            result.deviation.mean_abs_mw.is_finite(),
+            "plant {code}: mean deviation {}",
+            result.deviation.mean_abs_mw
+        );
+        assert_eq!(plant.ignored_window, None);
+    }
+    Ok(())
 }

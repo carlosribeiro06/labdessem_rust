@@ -21,12 +21,13 @@ use labdessem_io::readers::read_fpha_config;
 use labdessem_io::{read_study_config, read_study_from_path};
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
 use labdessem_model::production::{
-    FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha, fit_context,
+    FitPlantParams, FittingBounds, ProductionFunction, build_fit_params, build_grid,
+    build_long_term_mean_inflow_table, compute_alpha_fpha, fit_context,
 };
 use labdessem_model::{Model, SolveMode};
 use tempfile::TempDir;
 
-use super::{FphaComputeError, FphaComputeResult};
+use super::{FphaComputeError, FphaComputeResult, fit_failure_text};
 
 /// Official example every derived case is copied from. Read-only.
 const SOURCE_CASE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/24Barras");
@@ -435,10 +436,10 @@ pub(super) struct FitContext {
 pub(super) fn fit_contexts(
     case: &Path,
     system: &System,
-) -> Result<BTreeMap<HydroPlantId, FitContext>, FphaComputeError> {
+) -> Result<BTreeMap<HydroPlantId, FitContext>, Box<dyn Error>> {
     let period_duration_hours = system.horizon.period_duration_hours;
-    let mlt_table = super::build_long_term_mean_inflow_table(&system.inflow_history);
-    let parquet_present = !system.inflow_history.is_empty();
+    let mlt_table = build_long_term_mean_inflow_table(&system.inflow_history);
+    let history_present = !system.inflow_history.is_empty();
     let fpha_config = read_fpha_config(case)?;
 
     let mut contexts = BTreeMap::new();
@@ -446,16 +447,17 @@ pub(super) fn fit_contexts(
         if plant.volume_level_table.is_none() {
             continue;
         }
-        let params = super::build_fit_params(
+        let params = build_fit_params(
             plant,
             fpha_config.get(&plant.id),
             period_duration_hours,
             &mlt_table,
-            parquet_present,
-        )?;
+            history_present,
+        )
+        .map_err(FphaComputeError::from)?
+        .map_err(|reason| fit_failure_text(&reason))?;
 
-        let (pf, bounds) =
-            fit_context(&params).map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
+        let (pf, bounds) = fit_context(&params)?;
 
         contexts.insert(params.id, FitContext { params, pf, bounds });
     }

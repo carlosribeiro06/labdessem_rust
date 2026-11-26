@@ -16,11 +16,12 @@ use labdessem_core::entities::HydroPlant;
 use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
+use labdessem_model::production::{
+    FitFailureReason, FphaFittingError, FphaInput, build_fit_params,
+};
 
 use super::probe::{DerivedCase, FitContext, computed_system, fit_contexts};
-use super::{
-    FitFailureReason, FphaComputeError, FphaInput, PlantFitFailure, build_fit_params, compute_fpha,
-};
+use super::{FphaComputeError, PlantFitFailure, compute_fpha, fit_failure_text};
 
 /// Tailrace table the computed FPHA reads, relative to the case directory.
 const TAILRACE_FILE: &str = "CAD/CAD_TAILRACE.csv";
@@ -152,10 +153,10 @@ fn missing_tailrace_row_fails_fitting() -> Result<(), Box<dyn Error>> {
     };
     assert_eq!(failure.hydro_id, HydroPlantId(3));
     assert_eq!(missing_inputs(failure)?, [FphaInput::Tailrace]);
+    let message = fit_failure_text(&failure.reason);
     assert!(
-        failure.reason.to_string().contains(TAILRACE_FILE),
-        "the failure must name {TAILRACE_FILE}: {}",
-        failure.reason
+        message.contains(TAILRACE_FILE),
+        "the failure must name {TAILRACE_FILE}: {message}"
     );
     Ok(())
 }
@@ -180,7 +181,7 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
             "plant {}",
             failure.hydro_id.0
         );
-        let message = failure.reason.to_string();
+        let message = fit_failure_text(&failure.reason);
         assert!(
             message.contains("Eficiencia") && message.contains("Perda.m"),
             "plant {}: the failure must name Eficiencia and Perda.m: {message}",
@@ -191,7 +192,7 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
 }
 
 /// The missing inputs are checked before the VHA table: a plant without a tailrace row fails with
-/// `MissingFphaInputs` even when its table repeats a volume, and with its tailrace row the same table
+/// `MissingInputs` even when its table repeats a volume, and with its tailrace row the same table
 /// fails the forebay construction.
 #[test]
 fn missing_inputs_are_reported_before_a_malformed_table() -> Result<(), Box<dyn Error>> {
@@ -212,17 +213,14 @@ fn missing_inputs_are_reported_before_a_malformed_table() -> Result<(), Box<dyn 
 
     // Assert
     match missing {
-        Err(FphaComputeError::MissingFphaInputs { inputs, .. }) => {
+        Ok(Err(FitFailureReason::MissingInputs(inputs))) => {
             assert_eq!(inputs, [FphaInput::Tailrace]);
         }
-        other => return Err(format!("expected MissingFphaInputs, got {other:?}").into()),
+        other => return Err(format!("expected MissingInputs, got {other:?}").into()),
     }
     match malformed {
-        Err(FphaComputeError::Fitting(message)) => assert!(
-            message.starts_with("ForebayTable creation failed: "),
-            "the failure must come from the forebay table: {message}"
-        ),
-        other => return Err(format!("expected a Fitting error, got {other:?}").into()),
+        Ok(Err(FitFailureReason::Fitting(FphaFittingError::Geometry(_)))) => {}
+        other => return Err(format!("expected a forebay table error, got {other:?}").into()),
     }
     Ok(())
 }

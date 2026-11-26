@@ -3,6 +3,7 @@
 //! spill coefficient. The formulation is in `docs/design/fpha-formulation.md`.
 
 mod alpha;
+mod assembly;
 mod config;
 mod deviation;
 mod error;
@@ -15,6 +16,11 @@ mod secant;
 mod selection;
 
 pub use alpha::compute_alpha_fpha;
+pub use assembly::{
+    FitFailureReason, FphaInput, IgnoredVolumeWindow, MissingInflowHistory, PlantFit, SystemFit,
+    build_fit_params, build_long_term_mean_inflow_table, convert_to_fpha_segments, fit_system,
+    ignored_volume_window,
+};
 pub use config::{
     DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
     FphaConfigOverrides, FphaPlantConfig, VolumeWindow,
