@@ -13,28 +13,21 @@ use crate::error::IoError;
 
 /// A single point in the Volume-Height-Area table.
 #[derive(Debug, Clone)]
-pub struct VhaPoint {
-    pub volume_hm3: f64,
-    #[allow(dead_code)]
-    pub height_m: f64,
-    #[allow(dead_code)]
-    pub area_km2: f64,
+pub(crate) struct VhaPoint {
+    pub(crate) volume_hm3: f64,
+    pub(crate) height_m: f64,
 }
 
 /// VHA geometry data for a single hydro plant.
 #[derive(Debug, Clone)]
-pub struct VhaGeometryData {
-    #[allow(dead_code)]
-    pub plant_code: u32,
-    pub points: Vec<VhaPoint>,
+pub(crate) struct VhaGeometryData {
+    pub(crate) points: Vec<VhaPoint>,
 }
 
 /// Tailrace polynomial coefficients for a single hydro plant.
 #[derive(Debug, Clone)]
-pub struct TailraceData {
-    #[allow(dead_code)]
-    pub plant_code: u32,
-    pub coefficients: [f64; 5],
+pub(crate) struct TailraceData {
+    pub(crate) coefficients: [f64; 5],
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,7 +83,9 @@ fn check_finite(
 /// Returns an empty HashMap if the file does not exist (file is optional).
 /// Fails on a non-finite value or on two points of one plant with the same volume, reporting the
 /// lowest plant code first.
-pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryData>, IoError> {
+pub(crate) fn read_vha_geometry(
+    case_path: &Path,
+) -> Result<HashMap<u32, VhaGeometryData>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_GEOMETRIA_UHE.csv");
 
     if !file_path.exists() {
@@ -147,7 +142,6 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
             VhaPoint {
                 volume_hm3: row.volume_hm3,
                 height_m: row.cota_m,
-                area_km2: row.area_km2,
             },
         ));
     }
@@ -168,7 +162,6 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
             Ok((
                 code,
                 VhaGeometryData {
-                    plant_code: code,
                     points: points.into_iter().map(|(_, point)| point).collect(),
                 },
             ))
@@ -182,7 +175,7 @@ pub fn read_vha_geometry(case_path: &Path) -> Result<HashMap<u32, VhaGeometryDat
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
 /// Fails on a non-finite coefficient or on a second row for the same plant.
-pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoError> {
+pub(crate) fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_TAILRACE.csv");
 
     if !file_path.exists() {
@@ -222,13 +215,7 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
             )));
         }
 
-        result.insert(
-            row.codigo,
-            TailraceData {
-                plant_code: row.codigo,
-                coefficients,
-            },
-        );
+        result.insert(row.codigo, TailraceData { coefficients });
     }
 
     Ok(result)
@@ -817,5 +804,92 @@ mod tests {
             "plant 1 has duplicate rows at lines 2 and 4 in CAD_FPHA_CONFIG.csv"
         );
         Ok(())
+    }
+
+    /// The `fpha_test_case` fixture: three plants in `CAD/CAD_GEOMETRIA_UHE.csv` and
+    /// `CAD/CAD_FPHA_CONFIG.csv`.
+    fn fpha_test_case_dir() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fpha_test_case")
+    }
+
+    #[test]
+    fn read_vha_geometry_from_example() {
+        let case_dir = fpha_test_case_dir();
+
+        let result = read_vha_geometry(&case_dir);
+        assert!(
+            result.is_ok(),
+            "Failed to read VHA geometry: {:?}",
+            result.err()
+        );
+
+        let data = result.unwrap();
+
+        // The file has 3 plants
+        assert_eq!(data.len(), 3, "Expected 3 plants in geometry data");
+
+        // Check plant codes are present
+        assert!(data.contains_key(&1), "FURNAS (code 1) should be present");
+        assert!(
+            data.contains_key(&2),
+            "EMBORCACAO (code 2) should be present"
+        );
+        assert!(
+            data.contains_key(&3),
+            "ILHA_SOLTEIRA (code 3) should be present"
+        );
+
+        // FURNAS has 6 points
+        let furnas = data.get(&1).unwrap();
+        assert_eq!(
+            furnas.points.len(),
+            6,
+            "FURNAS should have 6 geometry points"
+        );
+
+        // Verify first and last points of FURNAS
+        assert_eq!(furnas.points[0].volume_hm3, 0.0);
+        assert_eq!(furnas.points[5].volume_hm3, 22000.0);
+    }
+
+    #[test]
+    fn read_fpha_config_from_example() {
+        let case_dir = fpha_test_case_dir();
+
+        let result = read_fpha_config(&case_dir);
+        assert!(
+            result.is_ok(),
+            "Failed to read FPHA config: {:?}",
+            result.err()
+        );
+
+        let configs = result.unwrap();
+
+        // The file has 3 plants
+        assert_eq!(configs.len(), 3, "Expected 3 plants in config");
+
+        // Check FURNAS config (code 1)
+        let furnas_config = configs
+            .get(&HydroPlantId(1))
+            .expect("FURNAS config not found");
+        assert_eq!(furnas_config.max_planes, Some(8));
+        assert_eq!(furnas_config.tolerance_deg, Some(1.0));
+    }
+
+    #[test]
+    fn geometry_and_config_plant_codes_match() {
+        let case_dir = fpha_test_case_dir();
+
+        let geometry = read_vha_geometry(&case_dir).expect("Failed to read geometry");
+        let configs = read_fpha_config(&case_dir).expect("Failed to read config");
+
+        // All plants in config should have geometry data
+        for id in configs.keys() {
+            let code = id.0 as u32;
+            assert!(
+                geometry.contains_key(&code),
+                "Plant code {code} in config has no geometry data"
+            );
+        }
     }
 }

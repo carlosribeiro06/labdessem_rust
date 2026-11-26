@@ -15,9 +15,7 @@ pub mod submarket;
 pub mod thermal;
 
 pub use common::read_csv;
-pub use fpha_geometry::{
-    TailraceData, VhaGeometryData, VhaPoint, read_fpha_config, read_tailrace, read_vha_geometry,
-};
+pub use fpha_geometry::read_fpha_config;
 pub use future_cost::read_future_cost_cuts;
 pub use horizon::read_horizon;
 pub use hydro::read_hydro_plants;

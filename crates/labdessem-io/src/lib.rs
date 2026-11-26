@@ -21,9 +21,7 @@ pub mod readers;
 pub mod study;
 
 pub use error::IoError;
-pub use readers::{
-    TailraceData, VhaGeometryData, VhaPoint, read_fpha_config, read_tailrace, read_vha_geometry,
-};
+pub use readers::read_fpha_config;
 pub use study::{
     FphaOption, StudyConfig, generate_study_config_schema, read_study_config, read_study_from_path,
 };
