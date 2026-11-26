@@ -10,7 +10,6 @@ use labdessem_core::system::System;
 use labdessem_core::test_support::golden::{
     GoldenFailure, GoldenRecord, check_or_bless, check_or_bless_bytes, fnv1a64,
 };
-use labdessem_fpha::PlaneReductionConfig;
 use labdessem_io::output::write_all_results;
 use labdessem_io::read_study_from_path;
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
@@ -86,13 +85,10 @@ fn record_fit_inputs(record: &mut GoldenRecord, case: &Path) -> Result<(), Box<d
             }
             None => record.text(format!("{prefix}/config/window_reference"), "none"),
         }
-        let reduction_key = format!("{prefix}/config/reduction/angle_tolerance_deg");
-        match config.reduction_config {
-            PlaneReductionConfig::Angle { tolerance_deg } => {
-                record.f64(reduction_key, tolerance_deg);
-            }
-            PlaneReductionConfig::Distance { .. } => record.text(reduction_key, "other"),
-        }
+        record.f64(
+            format!("{prefix}/config/reduction/angle_tolerance_deg"),
+            config.reduction_config.tolerance_deg,
+        );
 
         record.f64(format!("{prefix}/bounds/v_min"), bounds.v_min);
         record.f64(format!("{prefix}/bounds/v_max"), bounds.v_max);

@@ -54,7 +54,7 @@ impl Default for FphaPlantConfig {
             max_planes: DEFAULT_MAX_PLANES,
             volume_points: DEFAULT_VOLUME_POINTS,
             flow_points: DEFAULT_FLOW_POINTS,
-            reduction_config: PlaneReductionConfig::Angle {
+            reduction_config: PlaneReductionConfig {
                 tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
             },
             volume_window: VolumeWindow::FULL,

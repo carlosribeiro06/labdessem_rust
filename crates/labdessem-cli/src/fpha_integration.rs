@@ -408,7 +408,7 @@ fn build_fpha_config(
         DEFAULT_MAX_PLANES,
         DEFAULT_VOLUME_POINTS,
         DEFAULT_FLOW_POINTS,
-        PlaneReductionConfig::Angle {
+        PlaneReductionConfig {
             tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
         },
     );
@@ -419,7 +419,7 @@ fn build_fpha_config(
             fpha_config.max_planes = n;
         }
         if let Some(tolerance_deg) = c.tolerance {
-            fpha_config.reduction_config = PlaneReductionConfig::Angle { tolerance_deg };
+            fpha_config.reduction_config = PlaneReductionConfig { tolerance_deg };
         }
         if let Some(min_fraction) = c.min_volume_pct {
             fpha_config.volume_window.min_fraction = min_fraction;
@@ -603,10 +603,10 @@ mod tests {
         assert_eq!(config.max_planes, 10);
         assert_eq!(config.volume_points, 5);
         assert_eq!(config.flow_points, 5);
-        assert!(matches!(
-            config.reduction_config,
-            PlaneReductionConfig::Angle { tolerance_deg } if tolerance_deg == 1.0
-        ));
+        assert_eq!(
+            config.reduction_config.tolerance_deg.to_bits(),
+            1.0_f64.to_bits()
+        );
         assert_eq!(config.volume_window, VolumeWindow::FULL);
         assert_eq!(config.window_reference_hm3, Some((120.0, 792.0)));
     }
@@ -623,10 +623,10 @@ mod tests {
         let config = build_fpha_config(Some(&io_config), (100.0, 900.0));
 
         assert_eq!(config.max_planes, 7);
-        assert!(matches!(
-            config.reduction_config,
-            PlaneReductionConfig::Angle { tolerance_deg } if tolerance_deg == 0.005
-        ));
+        assert_eq!(
+            config.reduction_config.tolerance_deg.to_bits(),
+            0.005_f64.to_bits()
+        );
         assert_eq!(
             config.volume_window,
             VolumeWindow {

@@ -59,7 +59,7 @@ fn example_config(row: Option<&labdessem_io::readers::FphaPlantConfig>) -> FphaP
         DEFAULT_MAX_PLANES,
         DEFAULT_VOLUME_POINTS,
         DEFAULT_FLOW_POINTS,
-        PlaneReductionConfig::Angle {
+        PlaneReductionConfig {
             tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
         },
     );
@@ -69,7 +69,7 @@ fn example_config(row: Option<&labdessem_io::readers::FphaPlantConfig>) -> FphaP
             config.max_planes = n;
         }
         if let Some(tolerance_deg) = row.tolerance {
-            config.reduction_config = PlaneReductionConfig::Angle { tolerance_deg };
+            config.reduction_config = PlaneReductionConfig { tolerance_deg };
         }
         if let Some(min_fraction) = row.min_volume_pct {
             config.volume_window.min_fraction = min_fraction;

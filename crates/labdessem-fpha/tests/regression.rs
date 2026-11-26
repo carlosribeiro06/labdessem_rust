@@ -125,10 +125,10 @@ fn reduction_is_bit_deterministic() {
     let mut planes = fit_hull_planes(&pf, &bounds).unwrap();
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, 1_500.0);
 
-    let config = PlaneReductionConfig::Angle { tolerance_deg: 1.0 };
+    let config = PlaneReductionConfig { tolerance_deg: 1.0 };
 
-    let reduced1 = reduce_planes(&planes, &config, &pf, &bounds, 1, 0);
-    let reduced2 = reduce_planes(&planes, &config, &pf, &bounds, 1, 0);
+    let reduced1 = reduce_planes(&planes, &config);
+    let reduced2 = reduce_planes(&planes, &config);
 
     assert_eq!(reduced1.len(), reduced2.len());
     for (p1, p2) in reduced1.iter().zip(&reduced2) {

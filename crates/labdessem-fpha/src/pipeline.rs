@@ -3,9 +3,9 @@
 use crate::config::FphaPlantConfig;
 use crate::error::FphaFittingError;
 use crate::fitting::{
-    FittingBounds, FphaFitDeviation, PlaneReductionConfig, ProductionFunction, RawPlane,
-    compute_alpha_fpha, compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes,
-    reduce_planes, resolve_fitting_bounds, scale_planes, validate_fitted_planes,
+    FittingBounds, FphaFitDeviation, ProductionFunction, RawPlane, compute_alpha_fpha,
+    compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes, reduce_planes,
+    resolve_fitting_bounds, scale_planes, validate_fitted_planes,
 };
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel};
 
@@ -66,7 +66,7 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     fit_gamma_s_for_planes(&mut planes, &pf, &bounds, params.long_term_mean_inflow_m3s);
 
     // Stage 3: Plane reduction on the unscaled planes, within the plane limit
-    let planes = reduce_within_plane_limit(&planes, params, &pf, &bounds)?;
+    let planes = reduce_within_plane_limit(&planes, params, &bounds)?;
 
     // Stage 4: α correction on the final planes (applied once by the consumer; planes stay unscaled)
     let alpha = compute_alpha_fpha(&planes, &pf, &bounds);
@@ -95,7 +95,6 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
 fn reduce_within_plane_limit(
     planes: &[RawPlane],
     params: &FitPlantParams,
-    pf: &ProductionFunction,
     bounds: &FittingBounds,
 ) -> Result<Vec<RawPlane>, FphaFittingError> {
     let limit = bounds.max_planes_per_hydro;
@@ -109,24 +108,13 @@ fn reduce_within_plane_limit(
     }
 
     let mut config = params.config.reduction_config;
-    let mut reduced = reduce_planes(planes, &config, pf, bounds, params.codigo, 0);
+    let mut reduced = reduce_planes(planes, &config);
     for _ in 0..MAX_TOLERANCE_DOUBLINGS {
         if reduced.len() <= limit {
             break;
         }
-        config = match config {
-            PlaneReductionConfig::Angle { tolerance_deg } => PlaneReductionConfig::Angle {
-                tolerance_deg: tolerance_deg * 2.0,
-            },
-            PlaneReductionConfig::Distance {
-                tolerance_pct,
-                n_samples,
-            } => PlaneReductionConfig::Distance {
-                tolerance_pct: tolerance_pct * 2.0,
-                n_samples,
-            },
-        };
-        reduced = reduce_planes(planes, &config, pf, bounds, params.codigo, 0);
+        config.tolerance_deg *= 2.0;
+        reduced = reduce_planes(planes, &config);
     }
 
     if reduced.len() > limit {
@@ -210,6 +198,7 @@ pub fn fit_plants(
 mod tests {
     use super::*;
     use crate::config::VolumeWindow;
+    use crate::fitting::PlaneReductionConfig;
     use labdessem_model::hydro_geometry::VhaRow;
 
     fn test_forebay() -> ForebayTable {
@@ -251,7 +240,7 @@ mod tests {
                 10,
                 6,
                 6,
-                PlaneReductionConfig::Angle { tolerance_deg: 1.0 },
+                PlaneReductionConfig { tolerance_deg: 1.0 },
             ),
         }
     }
@@ -319,14 +308,7 @@ mod tests {
         let (pf, bounds) = fit_context(&params)?;
         let mut chain = fit_hull_planes(&pf, &bounds)?;
         fit_gamma_s_for_planes(&mut chain, &pf, &bounds, params.long_term_mean_inflow_m3s);
-        let expected = reduce_planes(
-            &chain,
-            &params.config.reduction_config,
-            &pf,
-            &bounds,
-            params.codigo,
-            0,
-        );
+        let expected = reduce_planes(&chain, &params.config.reduction_config);
 
         assert_eq!(result.planes.len(), expected.len());
         for (got, want) in result.planes.iter().zip(&expected) {

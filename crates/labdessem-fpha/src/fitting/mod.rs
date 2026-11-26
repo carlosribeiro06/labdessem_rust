@@ -6,7 +6,6 @@ mod grid;
 mod hull_fit;
 mod production;
 mod reduction;
-mod rng;
 mod secant;
 mod selection;
 

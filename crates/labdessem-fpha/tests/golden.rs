@@ -176,7 +176,7 @@ fn fixtures() -> Vec<(&'static str, FitPlantParams)> {
     };
 
     let mut angle_tolerance = reference_params("ANGLE_TOLERANCE");
-    angle_tolerance.config.reduction_config = PlaneReductionConfig::Angle { tolerance_deg: 5.0 };
+    angle_tolerance.config.reduction_config = PlaneReductionConfig { tolerance_deg: 5.0 };
 
     let mut zero_mlt = reference_params("ZERO_MLT");
     zero_mlt.long_term_mean_inflow_m3s = 0.0;

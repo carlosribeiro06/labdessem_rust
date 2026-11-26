@@ -58,7 +58,7 @@ fn fit_one_plant(case_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         DEFAULT_MAX_PLANES,
         DEFAULT_VOLUME_POINTS,
         DEFAULT_FLOW_POINTS,
-        PlaneReductionConfig::Angle {
+        PlaneReductionConfig {
             tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
         },
     );
