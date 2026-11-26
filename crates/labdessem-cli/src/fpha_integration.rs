@@ -6,13 +6,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use labdessem_core::entities::{HydroFphaSegment, HydroPlant};
+use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
-use labdessem_io::{
-    output::{ComputedFphaRecord, write_fpha_computed},
-    readers::read_fpha_config,
-};
+use labdessem_io::readers::read_fpha_config;
 use labdessem_model::production::{
     FitFailureReason, FphaInput, FphaPlantResult, IgnoredVolumeWindow, MissingInflowHistory,
     convert_to_fpha_segments, fit_system,
@@ -191,41 +188,6 @@ pub fn compute_fpha(
         plants_processed: processed,
         plants_skipped: skipped,
     })
-}
-
-pub fn write_computed_results(
-    case_path: &Path,
-    results: &[FphaPlantResult],
-    plants: &[HydroPlant],
-) -> Result<(), FphaComputeError> {
-    let plant_names: HashMap<HydroPlantId, &str> =
-        plants.iter().map(|p| (p.id, p.name.as_str())).collect();
-
-    let records: Vec<ComputedFphaRecord> = results
-        .iter()
-        .flat_map(|r| {
-            let name = plant_names.get(&r.id).copied().unwrap_or("UNKNOWN");
-            r.planes
-                .iter()
-                .enumerate()
-                .map(move |(idx, plane)| ComputedFphaRecord {
-                    codigo_usina: r.id.0 as u32,
-                    nome_usina: name.to_string(),
-                    plane_index: idx,
-                    gamma_0: plane.gamma_0,
-                    gamma_v: plane.gamma_v,
-                    gamma_q: plane.gamma_q,
-                    gamma_s: plane.gamma_s,
-                    alpha: r.alpha,
-                    max_deviation_mw: Some(r.deviation.max_abs_mw),
-                    mean_deviation_mw: Some(r.deviation.mean_abs_mw),
-                    rms_deviation_mw: Some(r.deviation.rms_mw),
-                })
-        })
-        .collect();
-
-    write_fpha_computed(case_path, &records)?;
-    Ok(())
 }
 
 /// Inject computed FPHA segments into the system.

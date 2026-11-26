@@ -10,14 +10,14 @@ use labdessem_core::system::System;
 use labdessem_core::test_support::golden::{
     GoldenFailure, GoldenRecord, check_or_bless, check_or_bless_bytes, fnv1a64,
 };
-use labdessem_io::output::write_all_results;
+use labdessem_io::output::{write_all_results, write_fpha_computed};
 use labdessem_io::read_study_from_path;
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
 use labdessem_model::{Model, SolveMode};
 use labdessem_simulation::{ExecutionOption, run_simulation_with_max_swallowing};
 
+use super::FphaComputeResult;
 use super::probe::{DerivedCase, computed_system, fit_contexts};
-use super::{FphaComputeResult, write_computed_results};
 
 const CONFIG_HEADER: &str = "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct";
 
@@ -360,7 +360,7 @@ fn capture_overrides() -> Result<GoldenRecord, Box<dyn Error>> {
 fn capture_fpha_csv() -> Result<Vec<u8>, Box<dyn Error>> {
     let case = DerivedCase::new("computed")?;
     let (system, result) = computed_system(case.path())?;
-    write_computed_results(case.path(), &result.plant_results, &system.hydro_plants)?;
+    write_fpha_computed(case.path(), &system, &result.plant_results)?;
     Ok(fs::read(
         case.path().join("RESULTADOS/resultado_fpha_computed.csv"),
     )?)

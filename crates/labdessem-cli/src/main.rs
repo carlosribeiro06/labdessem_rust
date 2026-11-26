@@ -1,6 +1,9 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
-use labdessem_io::{output::write_all_results, read_study_config, read_study_from_path};
+use labdessem_io::{
+    output::{write_all_results, write_fpha_computed},
+    read_study_config, read_study_from_path,
+};
 use labdessem_simulation::{
     ExecutionOption, MaxSwallowingDiagnostic, run_simulation_with_max_swallowing,
 };
@@ -134,11 +137,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
         let fpha_result = fpha_integration::compute_fpha(case_path, &system)?;
         fpha_integration::finalize_fpha_injection(&mut system, &fpha_result.plant_results)?;
-        fpha_integration::write_computed_results(
-            case_path,
-            &fpha_result.plant_results,
-            &system.hydro_plants,
-        )?;
+        write_fpha_computed(case_path, &system, &fpha_result.plant_results)?;
         eprintln!(
             "  Processed {} plants, {} skipped",
             fpha_result.plants_processed, fpha_result.plants_skipped

@@ -14,6 +14,7 @@ use std::path::Path;
 use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
+use labdessem_io::output::write_fpha_computed;
 use labdessem_io::read_study_from_path;
 use labdessem_model::production::RawPlane;
 use labdessem_model::{Model, SolveMode};
@@ -333,11 +334,7 @@ fn computed_csv_round_trip_reproduces_segments() -> Result<(), Box<dyn Error>> {
     // Arrange
     let computed_case = DerivedCase::new("computed")?;
     let (system, result) = computed_system(computed_case.path())?;
-    super::write_computed_results(
-        computed_case.path(),
-        &result.plant_results,
-        &system.hydro_plants,
-    )?;
+    write_fpha_computed(computed_case.path(), &system, &result.plant_results)?;
     let contexts = fit_contexts(computed_case.path(), &system)?;
     let precomputed_case = DerivedCase::new("precomputed")?;
     write_oper_fpha_from_csv(computed_case.path(), precomputed_case.path())?;
