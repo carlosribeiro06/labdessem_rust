@@ -244,6 +244,28 @@ dependencies are left out).
    context (entity type, field name, expected vs actual values) for
    better error messages and programmatic handling.
 
+6. **Hydro production physics in `labdessem-model`**: the FPHA fit (`production`),
+   the max swallowing formula (`swallowing`) and their shared geometry
+   (`hydro_geometry`) live in the model crate, behind four one-way doors:
+   - **qhull in the model crate**: the fit needs a 3-D convex hull, and building the
+     vendored qhull C sources (`vendor/qhull`) from the model's `build.rs` keeps the
+     whole fit in one crate, at the cost of a C compiler and the submodule
+     (`git submodule update --init --recursive`) for `labdessem-model`, a native
+     toolchain that `labdessem-io`, `labdessem-solver`, `labdessem-simulation` and
+     `labdessem-cli` already need for HiGHS.
+   - **One unsafe module**: the workspace forbids `unsafe_code`, and
+     `labdessem-model` copies the workspace lint table with `unsafe_code = "deny"`,
+     allows `unsafe` only on the crate-private `hull` module and forbids it on every
+     other module, so the FFI stays in one place and `tests/unsafe_scope.rs` fails
+     if that boundary moves.
+   - **Shared `hydro_geometry`**: the FPHA fit and max swallowing read the same
+     forebay table, tailrace polynomial and net head, so one definition serves both
+     while each consumer keeps its own missing-data policy.
+   - **Max swallowing vocabulary**: Rust identifiers and prose say max swallowing,
+     while the serialized names (the `EngMax` key of `study_config.json`, the
+     `engmax[` LP rows and the `EngMaxHM3` and `EngMaxM3s` columns) keep their
+     spelling, so existing cases and outputs stay valid.
+
 ## Data Flow
 
 ```
@@ -345,3 +367,120 @@ labdessem run examples/24Barras
 # Development run
 cargo run -p labdessem-cli -- run examples/24Barras
 ```
+
+## Known follow-ups
+
+Deferred items, recorded but not scheduled, from the move of the FPHA engine into
+`labdessem-model`; each bullet cites its code as `path:line`, and the R and RD ids are
+requirement and decision ids of the relocation plan, which is not tracked.
+
+- `clippy::module_inception` fires on `mod system;` at
+  `crates/labdessem-core/src/system/mod.rs:10` (R30, RD-21), because the module
+  `system` declares a child module of the same name. The relocation left it as
+  found.
+- `display_period` is defined three times in `labdessem-model`, at
+  `crates/labdessem-model/src/names.rs:5`,
+  `crates/labdessem-model/src/variables.rs:428` and
+  `crates/labdessem-model/src/constraints/mod.rs:58`.
+- The error `Display` impls are hand-written: `SimulationError` at
+  `crates/labdessem-simulation/src/error.rs:45` and the cli `FphaComputeError`
+  at `crates/labdessem-cli/src/fpha_integration.rs:49`.
+- The `RESULTADOS/` directory is created in three places: `write_fpha_computed`
+  at `crates/labdessem-io/src/output/fpha_computed.rs:23`, `write_all_results`
+  at `crates/labdessem-io/src/output/orchestrator.rs:44` and the cli at
+  `crates/labdessem-cli/src/main.rs:160`.
+- `docs/mapa_conexoes_codigo.md` describes an older layout. It cites paths that
+  no longer exist, for example `crates/labdessem-core/src/system.rs` and
+  `crates/labdessem-model/src/constraints.rs`, and it does not name the
+  relocated modules `production`, `swallowing`, `hydro_geometry` and `hull`.
+- The `engmax[` row prefix is written in three places (R9, RD-11):
+  `crates/labdessem-model/src/constraints/hydro.rs:466`,
+  `crates/labdessem-model/src/constraints/constraint_set.rs:233` and
+  `crates/labdessem-simulation/src/stages/solve.rs:529`. The tests
+  `extend_with_max_swallowing_adds_plant_rows`,
+  `extend_with_max_swallowing_sums_every_unit_of_the_plant`,
+  `max_swallowing_infeasible_display_lists_rows` and
+  `max_swallowing_infeasibility_names_exceeded_rows` pin the prefix, so a single
+  definition removes a duplicated literal and closes no coverage gap.
+- Schema drift (RD-24): `schemas/study_config.schema.json` is maintained by
+  hand and already differs from the output of `generate_study_config_schema()`
+  at `crates/labdessem-io/src/study.rs:251`, which the example
+  `crates/labdessem-io/examples/generate_schema.rs` writes to that file. The
+  file gives `EngMax` as `"enum": [0, 1]` and `FPHA` as a string enum; the
+  generator gives `EngMax` `format: uint8` and `minimum: 0.0`, and gives `FPHA`
+  an `allOf` `$ref` to `definitions.FphaOption`. No test compares the generated
+  schema with the file: `generates_valid_json_schema` at
+  `crates/labdessem-io/src/study.rs:344` only checks that the output is valid
+  JSON with `$schema` and `properties`.
+- The FPHA long-term mean inflow (MLT) is the mean of the incremental inflow,
+  not DESSEM's total natural inflow per posto (`mlt.dat`); see
+  `build_long_term_mean_inflow_table` at
+  `crates/labdessem-model/src/production/assembly.rs:130` and
+  `long_term_mean_inflow` at
+  `crates/labdessem-model/src/production/assembly.rs:237`. On the 24Barras case
+  FURNAS gets 590.8 m3/s against 886.2 m3/s in DESSEM, and ITUTINGA has MLT 0,
+  so the spillage bound `S_max` of the fit falls back to 2 x Q_max. The evidence
+  is the DESSEM review
+  `ticket-029-move-fit-input-assembly-into-model.dessem-review.1.md`, a plan
+  report that is not tracked. The follow-up is a posto MLT.
+- `ignored_volume_window` at
+  `crates/labdessem-model/src/production/assembly.rs:290` matches only a
+  single-point VHA table. A multi-point table with reservoir Vmin == Vmax also
+  drops a configured volume window without a warning: `fit_context` at
+  `crates/labdessem-model/src/production/pipeline.rs:136` then passes a
+  zero-width window, and `resolve_fitting_bounds` computes `forebay_span` at
+  `crates/labdessem-model/src/production/grid.rs:115` and takes the
+  run-of-river synthesis for `forebay_span <= V_EPS`. 24Barras is not affected.
+  The evidence is the same DESSEM review,
+  `ticket-029-move-fit-input-assembly-into-model.dessem-review.1.md`.
+- `labdessem-io` declares `labdessem-solver` at
+  `crates/labdessem-io/Cargo.toml:12`, and no non-test code uses it (only the
+  test-only `verify_imports_test.rs` imports it, as unused imports). Cargo's
+  `unused_dependencies` lint warns about it at every build.
+- `labdessem-uc` declares `labdessem-core` at
+  `crates/labdessem-uc/Cargo.toml:11` and uses none of it. The same
+  `unused_dependencies` lint warns about it at every build.
+- `fit_hull_planes` at `crates/labdessem-model/src/production/hull_fit.rs:60`
+  is public and `crates/labdessem-model/src/production/mod.rs:32` re-exports it,
+  but it returns `HullError` (`crates/labdessem-model/src/hull/mod.rs:19`),
+  which lives in the crate-private `hull` module declared at
+  `crates/labdessem-model/src/lib.rs:6`, so callers outside the crate cannot
+  name it. The follow-up is to narrow the function to `pub(crate)`, which also
+  moves its caller, the integration test `production_regression.rs`, into the
+  crate, or to map the error to a public type.
+- Test fixtures are duplicated. `storage_plant_params` at
+  `crates/labdessem-model/tests/production_integration.rs:16` repeats
+  `reference_params` at
+  `crates/labdessem-model/tests/production_regression.rs:53` field for field,
+  and the swallowing test builder `plant` at
+  `crates/labdessem-model/src/swallowing/plant.rs:152` writes a full
+  `HydroPlant` literal, while the `assembly.rs` tests start from `minimal_hydro`
+  (for example at `crates/labdessem-model/src/production/assembly.rs:349`). The
+  follow-up is one shared fixture home.
+- The cli probe's test-only `fit_contexts` at
+  `crates/labdessem-cli/src/fpha_integration/probe.rs:436` repeats the
+  per-plant assembly of `fit_system` at
+  `crates/labdessem-model/src/production/assembly.rs:82`: the mean inflow
+  table, the `read_fpha_config` overrides, `build_fit_params` and `fit_context`.
+  It does so because `FphaPlantResult` does not carry the `ProductionFunction`
+  and the `FittingBounds`, so a change to the assembly must be repeated there by
+  hand.
+- `use super::*` remains in test modules: the nine files `alpha.rs`,
+  `deviation.rs`, `function.rs`, `grid.rs`, `hull_fit.rs`, `pipeline.rs`,
+  `reduction.rs`, `secant.rs` and `selection.rs` of
+  `crates/labdessem-model/src/production/`, the io test module at
+  `crates/labdessem-io/src/readers/fpha_geometry.rs:373`, and other test modules
+  of the workspace. The newer test modules (`assembly.rs` and the cli
+  `fpha_integration.rs` tests) import items by name.
+- Three branches have no test that would fail if they changed: the negative
+  `hydro_id` skip of `build_long_term_mean_inflow_table` at
+  `crates/labdessem-model/src/production/assembly.rs:136`; `fit_system` setting
+  `ignored_window` at `crates/labdessem-model/src/production/assembly.rs:110`
+  (every model test passes no volume window, and the cli tests call
+  `ignored_volume_window` directly); and the strict `>` tie-break of the secant
+  search at `crates/labdessem-model/src/production/secant.rs:44`, which keeps
+  the first grid point of equal generation (a flip to `>=` passes the suite).
+- Three broken links in `docs/design/network-cuts.md`: the Key Files links at
+  `docs/design/network-cuts.md:111` and the next two lines point to
+  `crates/labdessem-simulation/src/network/{mod,ptdf,flow}.rs`, which do not
+  exist. The network code is in `crates/labdessem-network`.
