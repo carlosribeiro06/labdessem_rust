@@ -33,10 +33,10 @@ fn angle_deg(a: &RawPlane, b: &RawPlane) -> f64 {
 
 fn mean_plane(a: &RawPlane, b: &RawPlane) -> RawPlane {
     RawPlane {
-        gamma_0: (a.gamma_0 + b.gamma_0) / 2.0,
-        gamma_v: (a.gamma_v + b.gamma_v) / 2.0,
-        gamma_q: (a.gamma_q + b.gamma_q) / 2.0,
-        gamma_s: (a.gamma_s + b.gamma_s) / 2.0,
+        gamma_0: f64::midpoint(a.gamma_0, b.gamma_0),
+        gamma_v: f64::midpoint(a.gamma_v, b.gamma_v),
+        gamma_q: f64::midpoint(a.gamma_q, b.gamma_q),
+        gamma_s: f64::midpoint(a.gamma_s, b.gamma_s),
     }
 }
 

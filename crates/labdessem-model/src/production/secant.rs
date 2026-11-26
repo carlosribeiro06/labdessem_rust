@@ -41,7 +41,7 @@ fn representative_operating_point(
 
             if this_val - min_val <= 1e-8 {
                 let generation = pf.evaluate(v, q, 0.0);
-                if best.is_none() || generation > best.unwrap().2 {
+                if best.is_none_or(|(_, _, best_generation)| generation > best_generation) {
                     best = Some((v, q, generation));
                 }
             }
