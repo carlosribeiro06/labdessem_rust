@@ -163,7 +163,7 @@ Current keys:
   - `1`: calculate head-dependent turbining limits and add one EngMax constraint per hydro plant and period, recalculated after every solve
   - `0`: disable EngMax (default)
 
-  Design notes and limitations: [docs/design/engmax-formulation.md](docs/design/engmax-formulation.md).
+  Design notes and limitations: [docs/design/max-swallowing-formulation.md](docs/design/max-swallowing-formulation.md).
 
 Example:
 

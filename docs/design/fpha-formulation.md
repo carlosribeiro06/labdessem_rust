@@ -251,4 +251,4 @@ CLI, model and I/O:
 - MU 22.3.2: §III.5.4.5 (`FP` record), §III.6.3.1 (`REGRANPTV`), §V.11.4 (`AVL_FPHA1`).
 - [`docs/auditoria/fpha-decisions/`](../auditoria/fpha-decisions/): the nine decision briefs of the Decisions table.
 - [`docs/auditoria/fpha-baseline-reproduction.md`](../auditoria/fpha-baseline-reproduction.md): measurements of the FPHA corrections. Its sections 8 and 9 predate the ADR-030 and ADR-033 implementations; the `[Unreleased]` section of [`CHANGELOG.md`](../../CHANGELOG.md) holds the later before/after values.
-- [`docs/design/engmax-formulation.md`](engmax-formulation.md): EngMax, which shares the production-function geometry and the head volume of ADR-006.
+- [`docs/design/max-swallowing-formulation.md`](max-swallowing-formulation.md): max swallowing (option `EngMax`), which shares the `hydro_geometry` forebay and tailrace models and the head volume of ADR-006.
