@@ -50,7 +50,6 @@ labdessem_rust/
 |-- crates/
 |   |-- labdessem-cli
 |   |-- labdessem-core
-|   |-- labdessem-fpha
 |   |-- labdessem-io
 |   |-- labdessem-model
 |   |-- labdessem-network
@@ -71,14 +70,11 @@ labdessem_rust/
 - `labdessem-core`
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
-- `labdessem-fpha`
-  FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline. Computes hyperplanes from VHA geometry using convex hull fitting.
-
 - `labdessem-io`
   File I/O. Reads study input (`study_config.json`, `CAD/`, `OPER/`) and writes all result CSVs.
 
 - `labdessem-model`
-  Indexing, variables, objective function, and algebraic constraints.
+  Indexing, variables, objective function and algebraic constraints, plus the FPHA production engine (`production`), the max swallowing formula (`swallowing`), the shared VHA and tailrace geometry (`hydro_geometry`) and a crate-private qhull binding (`hull`) built from the vendored `vendor/qhull` submodule.
 
 - `labdessem-network`
   DC network flow computation, PTDF matrices, flow cut constraints, and CMB/CMO dual extraction.
@@ -160,8 +156,8 @@ Current keys:
 
 - `EngMax`
   Enables or disables dynamic maximum swallowing constraint:
-  - `1`: calculate head-dependent turbining limits and add one EngMax constraint per hydro plant and period, recalculated after every solve
-  - `0`: disable EngMax (default)
+  - `1`: calculate head-dependent turbining limits and add one max swallowing row per hydro plant and period, recalculated after every solve
+  - `0`: disable max swallowing (default)
 
   Design notes and limitations: [docs/design/max-swallowing-formulation.md](docs/design/max-swallowing-formulation.md).
 
@@ -214,8 +210,8 @@ Representative files currently used by the reader include:
 - `CAD_CONJ_UHE.csv`
 - `CAD_REN.csv`
 - `CAD_USIE.csv`
-- `CAD_GEOMETRIA_UHE.csv` — VHA geometry for net head calculation (required by computed FPHA for every plant with generating units; optional for EngMax)
-- `CAD_TAILRACE.csv` — tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for EngMax)
+- `CAD_GEOMETRIA_UHE.csv` — VHA geometry for net head calculation (required by computed FPHA for every plant with generating units; optional for max swallowing)
+- `CAD_TAILRACE.csv` — tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for max swallowing)
 - `CAD_FPHA_CONFIG.csv` — computed FPHA fitting parameters per plant (optional)
 - `OPER_SBM.csv`
 - `OPER_VAZAO.csv`
@@ -289,6 +285,17 @@ When network treatment is enabled, the run also writes:
 
 ## Build and Run
 
+### Get the source
+
+```bash
+git clone --recurse-submodules https://github.com/carlosribeiro06/labdessem_rust.git
+cd labdessem_rust
+```
+
+For an existing clone, run `git submodule update --init --recursive`.
+
+`labdessem-model` compiles the vendored qhull C sources with the `cc` crate, so the C/C++ compiler listed under Solver Requirements is also needed for that crate.
+
 ### Install the CLI
 
 ```bash
@@ -315,7 +322,7 @@ labdessem run
 The banner, the run header and the final summary are printed on stderr. The file-reading and solve progress lines go to stdout. With `EngMax = 1` the summary includes a line such as:
 
 ```text
-  EngMax:      0 plant-periods above the recomputed bound (0 above a zero bound)
+  Swallowing:  0 plant-periods above the recomputed max swallowing bound (0 above a zero bound)
 ```
 
 Warnings and other log events go to stderr as well, at `WARN` level by default. Set `RUST_LOG` to change the level:
