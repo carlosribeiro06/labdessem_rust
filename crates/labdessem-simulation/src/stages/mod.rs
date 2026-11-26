@@ -6,9 +6,6 @@ mod orchestration;
 mod solve;
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
-mod golden_24barras_tests;
-#[cfg(test)]
 // Rationale: tests use expect() for clearer failure messages
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod max_swallowing_tests;
