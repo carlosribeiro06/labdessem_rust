@@ -749,8 +749,6 @@ dependencies = [
  "labdessem-core",
  "labdessem-io",
  "labdessem-model",
- "serde",
- "tempfile",
  "thiserror",
 ]
 

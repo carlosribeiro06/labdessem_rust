@@ -117,23 +117,6 @@ fn fit_one_plant(case_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
 `fit_plant` fails with `FphaFittingError`. The tailrace polynomial, the hydraulic loss and the efficiency are mandatory inputs; the CLI rejects a plant that lacks any of them (see the design document, Known Limitations).
 
-### Run the example
-
-```bash
-cargo run -p labdessem-fpha --example fpha_fit -- <case_dir>
-```
-
-The example fits every plant of `CAD/CAD_GEOMETRIA_UHE.csv` that has a row in `CAD/CAD_UHE_PARAMS.csv`, and prints a warning for each plant without one. It uses the defaults above and every field of `CAD/CAD_FPHA_CONFIG.csv`, as the CLI computed mode does. It differs in one point: it has no `CAD_UHE.csv`, so the volume window is a fraction of the VHA span. The case directory must contain:
-
-| File | Required | Content |
-| --- | --- | --- |
-| `CAD/CAD_GEOMETRIA_UHE.csv` | yes | `codigo_usina;volume.hm3;cota.m;area.km2` |
-| `CAD/CAD_TAILRACE.csv` | yes | `codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4` |
-| `CAD/CAD_FPHA_CONFIG.csv` | no | `codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct` |
-| `CAD/CAD_UHE_PARAMS.csv` | yes | `Codigo;Nome;MaxTurbinedM3s;MaxGenerationMW;HydraulicLossM;Efficiency;MeanInflowM3s` |
-
-The example writes `<case_dir>/RESULTADOS/resultado_fpha_computed.csv`. `examples/24Barras` has no `CAD/CAD_UHE_PARAMS.csv`; copy the case and add one to use it.
-
 ## CLI Integration
 
 In `labdessem run`, when `study_config.json` sets `"FPHA": "computed"`, `run_and_print` in [`crates/labdessem-cli/src/main.rs`](../labdessem-cli/src/main.rs) calls `compute_fpha`, which fits every hydro plant with generating units, then `finalize_fpha_injection`, which injects the planes as `fpha_segments` with `correction_factor = alpha`, turns FPHA on and re-validates the system, then `write_computed_results`, which writes `RESULTADOS/resultado_fpha_computed.csv`. All three live in [`crates/labdessem-cli/src/fpha_integration.rs`](../labdessem-cli/src/fpha_integration.rs). `compute_fpha` returns `FphaComputeError::PlantsNotFitted` listing every plant with units that cannot be fitted, and the CLI then exits with code 1 before writing any result.
@@ -164,8 +147,7 @@ The gamma columns hold the unscaled planes. The deviation columns describe `alph
 
 The crate declares these dependencies in [`Cargo.toml`](Cargo.toml):
 
-- `labdessem-io` (workspace crate): supplies the readers and the writer used by `src/from_io.rs`, the example and the integration tests.
-- `labdessem-core` (workspace crate): declared as a dependency; no source, test or example file of this crate imports it.
-- `thiserror` for the error types. `serde` (with the `derive` feature) is used by `examples/fpha_fit.rs` to read `CAD_UHE_PARAMS.csv`.
+- `labdessem-io` (workspace crate): supplies the reader types used by `src/from_io.rs` and the integration tests.
+- `thiserror` for the error types.
 - `labdessem-model` (workspace crate): supplies the qhull convex hull (`labdessem_model::hull`) used by `src/fitting/hull_fit.rs`; model vendors qhull as a git submodule and compiles it with the C shim. If the build reports that the qhull source is missing, run `git submodule update --init --recursive`.
-- Development dependency `tempfile`, declared in `[dev-dependencies]`; no test of this crate imports it.
+- Development dependency `labdessem-core` (workspace crate) with the `test-support` feature: supplies the golden-file harness used by `tests/golden.rs`.
