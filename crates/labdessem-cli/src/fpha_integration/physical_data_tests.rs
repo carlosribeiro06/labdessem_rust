@@ -9,7 +9,7 @@
 //! The geometry and tailrace readers run on every study read, so a non-finite value or a duplicate
 //! tailrace row fails `read_study_from_path` before any fitting.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 
 use labdessem_core::entities::HydroPlant;
@@ -17,7 +17,9 @@ use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
 
 use super::probe::{DerivedCase, FitContext, computed_system, fit_contexts};
-use super::{FitFailureReason, FphaComputeError, FphaInput, PlantFitFailure, compute_fpha};
+use super::{
+    FitFailureReason, FphaComputeError, FphaInput, PlantFitFailure, build_fit_params, compute_fpha,
+};
 
 /// Tailrace table the computed FPHA reads, relative to the case directory.
 const TAILRACE_FILE: &str = "CAD/CAD_TAILRACE.csv";
@@ -183,6 +185,43 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
             "plant {}: the failure must name Eficiencia and Perda.m: {message}",
             failure.hydro_id
         );
+    }
+    Ok(())
+}
+
+/// The missing inputs are checked before the VHA table: a plant without a tailrace row fails with
+/// `MissingFphaInputs` even when its table repeats a volume, and with its tailrace row the same table
+/// fails the forebay construction.
+#[test]
+fn missing_inputs_are_reported_before_a_malformed_table() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let mut plant = read_study_from_path(case.path())?
+        .hydro_plants
+        .into_iter()
+        .find(|plant| code_of(plant) == TAILRACE_PLANT_CODE)
+        .ok_or("plant 3 not in 24Barras")?;
+    plant.volume_level_table = Some(vec![(0.0, 1.0), (0.0, 2.0)]);
+    let mut without_tailrace = plant.clone();
+    without_tailrace.tailrace_coefficients = None;
+
+    // Act
+    let missing = build_fit_params(&without_tailrace, None, 1.0, &HashMap::new(), false);
+    let malformed = build_fit_params(&plant, None, 1.0, &HashMap::new(), false);
+
+    // Assert
+    match missing {
+        Err(FphaComputeError::MissingFphaInputs { inputs, .. }) => {
+            assert_eq!(inputs, [FphaInput::Tailrace]);
+        }
+        other => return Err(format!("expected MissingFphaInputs, got {other:?}").into()),
+    }
+    match malformed {
+        Err(FphaComputeError::Fitting(message)) => assert!(
+            message.starts_with("ForebayTable creation failed: "),
+            "the failure must come from the forebay table: {message}"
+        ),
+        other => return Err(format!("expected a Fitting error, got {other:?}").into()),
     }
     Ok(())
 }

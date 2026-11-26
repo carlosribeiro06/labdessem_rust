@@ -18,12 +18,9 @@ use labdessem_fpha::{
 };
 use labdessem_io::{
     output::{ComputedFphaRecord, write_fpha_computed},
-    readers::{
-        FphaPlantConfig as IoFphaPlantConfig, TailraceData, VhaGeometryData, read_fpha_config,
-        read_tailrace, read_vha_geometry,
-    },
+    readers::{FphaPlantConfig as IoFphaPlantConfig, read_fpha_config},
 };
-use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+use labdessem_model::hydro_geometry::plant_geometry;
 
 /// Result of the FPHA computation process.
 #[derive(Debug)]
@@ -195,8 +192,6 @@ pub fn compute_fpha(
         eprintln!("Warning: inflow_history.parquet not found; using deck mean for MLT");
     }
 
-    let vha_data = read_vha_geometry(case_path)?;
-    let tailrace_data = read_tailrace(case_path)?;
     let fpha_config = read_fpha_config(case_path)?;
 
     let mut results = Vec::new();
@@ -222,15 +217,13 @@ pub fn compute_fpha(
             });
         };
 
-        let Some(vha) = vha_data.get(&plant_code) else {
+        if plant.volume_level_table.is_none() {
             fail(FitFailureReason::MissingGeometry);
             continue;
-        };
+        }
 
         let params = match build_fit_params(
             plant,
-            vha,
-            tailrace_data.get(&plant_code),
             fpha_config.get(&plant_code),
             period_duration_hours,
             &mlt_table,
@@ -297,8 +290,6 @@ fn build_long_term_mean_inflow_table(inflow_history: &[InflowHistoryRow]) -> Has
 
 fn build_fit_params(
     plant: &HydroPlant,
-    vha: &VhaGeometryData,
-    tailrace: Option<&TailraceData>,
     config: Option<&IoFphaPlantConfig>,
     period_duration_hours: f64,
     mlt_table: &HashMap<i32, f64>,
@@ -306,11 +297,13 @@ fn build_fit_params(
 ) -> Result<FitPlantParams, FphaComputeError> {
     let plant_code = plant.id.0 as i32;
 
-    let (Some(tailrace), Some(efficiency), Some(hydraulic_loss_m)) =
-        (tailrace, plant.efficiency, plant.hydraulic_loss_m)
-    else {
+    let (Some(_), Some(efficiency), Some(hydraulic_loss_m)) = (
+        plant.tailrace_coefficients,
+        plant.efficiency,
+        plant.hydraulic_loss_m,
+    ) else {
         let mut missing_inputs = Vec::new();
-        if tailrace.is_none() {
+        if plant.tailrace_coefficients.is_none() {
             missing_inputs.push(FphaInput::Tailrace);
         }
         if plant.efficiency.is_none() {
@@ -326,21 +319,9 @@ fn build_fit_params(
         });
     };
 
-    let vha_rows: Vec<VhaRow> = vha
-        .points
-        .iter()
-        .map(|p| VhaRow {
-            volume_hm3: p.volume_hm3,
-            height_m: p.height_m,
-        })
-        .collect();
-
-    let forebay = ForebayTable::new(&vha_rows, &plant.name)
-        .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?;
-
-    let tailrace_model = TailraceModel {
-        coefficients: tailrace.coefficients.to_vec(),
-    };
+    let (forebay, tailrace) = plant_geometry(plant)
+        .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?
+        .ok_or_else(|| FphaComputeError::Fitting(FitFailureReason::MissingGeometry.to_string()))?;
 
     let max_turbined_m3s = plant
         .groups
@@ -374,7 +355,7 @@ fn build_fit_params(
         });
     };
 
-    if let Some(msg) = ignored_window_warning(plant, vha, config) {
+    if let Some(msg) = ignored_window_warning(plant, config) {
         eprintln!("Warning: {msg}");
     }
 
@@ -390,7 +371,7 @@ fn build_fit_params(
         codigo: plant_code,
         nome: plant.name.clone(),
         forebay,
-        tailrace: tailrace_model,
+        tailrace,
         hydraulic_loss_m,
         efficiency,
         max_turbined_m3s,
@@ -435,11 +416,14 @@ fn build_fpha_config(
 /// `fit_context` ignores the volume window of a single-point geometry table.
 fn ignored_window_warning(
     plant: &HydroPlant,
-    vha: &VhaGeometryData,
     config: Option<&IoFphaPlantConfig>,
 ) -> Option<String> {
     let config = config?;
-    if vha.points.len() != 1 || (config.min_volume_pct.is_none() && config.max_volume_pct.is_none())
+    if plant
+        .volume_level_table
+        .as_ref()
+        .is_none_or(|table| table.len() != 1)
+        || (config.min_volume_pct.is_none() && config.max_volume_pct.is_none())
     {
         return None;
     }
@@ -589,6 +573,7 @@ mod golden_tests;
 mod tests {
     use std::fs;
 
+    use labdessem_core::entities::{HydroGroup, HydroUnit};
     use labdessem_fpha::config::VolumeWindow;
     use labdessem_io::read_study_from_path;
 
@@ -660,28 +645,23 @@ mod tests {
 
     /// Plant `code` of `examples/24Barras` with its VHA table: ITUTINGA (1) has one point,
     /// FURNAS (3) has a hundred.
-    fn plant_with_geometry(
-        code: usize,
-    ) -> Result<(HydroPlant, VhaGeometryData), Box<dyn std::error::Error>> {
+    fn plant_with_geometry(code: usize) -> Result<HydroPlant, Box<dyn std::error::Error>> {
         let case = DerivedCase::new("computed")?;
         let plant = read_study_from_path(case.path())?
             .hydro_plants
             .into_iter()
             .find(|p| p.id.0 == code)
             .ok_or("plant not in 24Barras")?;
-        let vha = read_vha_geometry(case.path())?
-            .remove(&u32::try_from(code)?)
-            .ok_or("plant without VHA rows")?;
-        Ok((plant, vha))
+        Ok(plant)
     }
 
     #[test]
     fn ignored_window_warning_names_single_point_plant() -> Result<(), Box<dyn std::error::Error>> {
-        let (plant, vha) = plant_with_geometry(1)?;
-        assert_eq!(vha.points.len(), 1);
+        let plant = plant_with_geometry(1)?;
+        assert_eq!(plant.volume_level_table.as_ref().map(Vec::len), Some(1));
 
-        let both = ignored_window_warning(&plant, &vha, Some(&window(Some(0.5), Some(0.6))));
-        let max_only = ignored_window_warning(&plant, &vha, Some(&window(None, Some(0.6))));
+        let both = ignored_window_warning(&plant, Some(&window(Some(0.5), Some(0.6))));
+        let max_only = ignored_window_warning(&plant, Some(&window(None, Some(0.6))));
 
         assert_eq!(
             both.as_deref(),
@@ -700,9 +680,9 @@ mod tests {
 
     #[test]
     fn ignored_window_warning_is_silent_otherwise() -> Result<(), Box<dyn std::error::Error>> {
-        let (single, single_vha) = plant_with_geometry(1)?;
-        let (several, several_vha) = plant_with_geometry(3)?;
-        assert!(several_vha.points.len() > 1);
+        let single = plant_with_geometry(1)?;
+        let several = plant_with_geometry(3)?;
+        assert!(several.volume_level_table.as_ref().map_or(0, Vec::len) > 1);
         let no_window = IoFphaPlantConfig {
             num_planes: Some(4),
             tolerance: Some(1.5),
@@ -710,14 +690,41 @@ mod tests {
         };
 
         assert_eq!(
-            ignored_window_warning(&several, &several_vha, Some(&window(Some(0.5), Some(0.6)))),
+            ignored_window_warning(&several, Some(&window(Some(0.5), Some(0.6)))),
             None
         );
-        assert_eq!(
-            ignored_window_warning(&single, &single_vha, Some(&no_window)),
-            None
-        );
-        assert_eq!(ignored_window_warning(&single, &single_vha, None), None);
+        assert_eq!(ignored_window_warning(&single, Some(&no_window)), None);
+        assert_eq!(ignored_window_warning(&single, None), None);
+        Ok(())
+    }
+
+    /// Pmax sums the units of each group, then the groups (RD-23). Unit limits 0.1 and 0.2 + 0.3
+    /// give 0.6 (`0x3fe3_3333_3333_3333`); one flat fold over the units would give
+    /// 0.6000000000000001 (`0x3fe3_3333_3333_3334`).
+    #[test]
+    fn build_fit_params_sums_pmax_per_group_then_across_groups()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut plant = plant_with_geometry(3)?;
+        let group = plant.groups.first().ok_or("plant 3 has no group")?.clone();
+        let unit = group.units.first().ok_or("plant 3 has no unit")?.clone();
+        let with_pmax = |max_generation_mw: f64| HydroUnit {
+            max_generation_mw,
+            ..unit.clone()
+        };
+        plant.groups = vec![
+            HydroGroup {
+                units: vec![with_pmax(0.1)],
+                ..group.clone()
+            },
+            HydroGroup {
+                units: vec![with_pmax(0.2), with_pmax(0.3)],
+                ..group
+            },
+        ];
+
+        let params = build_fit_params(&plant, None, 1.0, &HashMap::new(), false)?;
+
+        assert_eq!(params.max_generation_mw.to_bits(), 0x3fe3_3333_3333_3333);
         Ok(())
     }
 

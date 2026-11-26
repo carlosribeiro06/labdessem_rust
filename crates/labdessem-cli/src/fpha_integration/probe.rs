@@ -19,7 +19,7 @@ use labdessem_core::system::System;
 use labdessem_fpha::{
     FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha,
 };
-use labdessem_io::readers::{read_fpha_config, read_tailrace, read_vha_geometry};
+use labdessem_io::readers::read_fpha_config;
 use labdessem_io::{read_study_config, read_study_from_path};
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
 use labdessem_model::{Model, SolveMode};
@@ -438,20 +438,16 @@ pub(super) fn fit_contexts(
     let period_duration_hours = system.horizon.period_duration_hours;
     let mlt_table = super::build_long_term_mean_inflow_table(&system.inflow_history);
     let parquet_present = !system.inflow_history.is_empty();
-    let vha_data = read_vha_geometry(case)?;
-    let tailrace_data = read_tailrace(case)?;
     let fpha_config = read_fpha_config(case)?;
 
     let mut contexts = BTreeMap::new();
     for plant in &system.hydro_plants {
-        let plant_code = plant.id.0 as u32;
-        let Some(vha) = vha_data.get(&plant_code) else {
+        if plant.volume_level_table.is_none() {
             continue;
-        };
+        }
+        let plant_code = plant.id.0 as u32;
         let params = super::build_fit_params(
             plant,
-            vha,
-            tailrace_data.get(&plant_code),
             fpha_config.get(&plant_code),
             period_duration_hours,
             &mlt_table,
