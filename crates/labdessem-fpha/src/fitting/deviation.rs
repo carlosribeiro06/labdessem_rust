@@ -93,7 +93,6 @@ pub fn compute_fit_deviation(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     const WARN_RELATIVE_THRESHOLD: f64 = 0.05;

@@ -129,7 +129,6 @@ pub fn fit_gamma_s_for_planes(
 )]
 mod tests {
     use super::*;
-    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn spill_sensitive_pf() -> ProductionFunction {

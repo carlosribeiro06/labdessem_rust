@@ -151,7 +151,6 @@ pub fn resolve_fitting_bounds(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn test_pf(max_turbined: f64) -> ProductionFunction {

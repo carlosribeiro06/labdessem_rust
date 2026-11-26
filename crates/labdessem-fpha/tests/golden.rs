@@ -47,41 +47,6 @@ fn reference_params(nome: &str) -> FitPlantParams {
     }
 }
 
-fn storage_plant_params() -> FitPlantParams {
-    let rows = vec![
-        VhaRow {
-            volume_hm3: 0.0,
-            height_m: 380.0,
-        },
-        VhaRow {
-            volume_hm3: 10_000.0,
-            height_m: 396.0,
-        },
-        VhaRow {
-            volume_hm3: 20_000.0,
-            height_m: 404.0,
-        },
-        VhaRow {
-            volume_hm3: 30_000.0,
-            height_m: 408.0,
-        },
-    ];
-    FitPlantParams {
-        codigo: 1,
-        nome: "STORAGE".to_string(),
-        forebay: ForebayTable::new(&rows, "STORAGE").unwrap(),
-        tailrace: TailraceModel {
-            coefficients: vec![0.0, 0.0008, -2e-8],
-        },
-        hydraulic_loss_m: 2.0,
-        efficiency: 0.92,
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
-    }
-}
-
 fn run_of_river_params() -> FitPlantParams {
     let rows = vec![
         VhaRow {
@@ -186,7 +151,7 @@ fn fixtures() -> Vec<(&'static str, FitPlantParams)> {
         ("plane_limit", plane_limit),
         ("window", window),
         ("angle_tolerance", angle_tolerance),
-        ("storage", storage_plant_params()),
+        ("storage", reference_params("STORAGE")),
         ("run_of_river", run_of_river_params()),
         ("high_head", high_head_params()),
         ("single_point_vha", single_point_vha_params()),

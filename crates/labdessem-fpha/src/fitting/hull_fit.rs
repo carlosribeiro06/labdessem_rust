@@ -102,7 +102,6 @@ pub fn fit_hull_planes(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
