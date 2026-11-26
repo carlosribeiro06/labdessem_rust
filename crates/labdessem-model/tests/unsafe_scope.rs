@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 const LINT: &str = "unsafe_code";
 const LOWERING_LEVELS: [&str; 3] = ["allow", "expect", "warn"];
 const HULL: &str = "hull";
+const HULL_VISIBILITY: &str = "pub(crate)";
 
 type CheckResult = Result<(), String>;
 
@@ -152,7 +153,7 @@ fn mod_decls(lib_rs: &str) -> Vec<ModDecl> {
     decls
 }
 
-/// Check (iii): forbid on every module, a single allow on `hull`.
+/// Check (iii): forbid on every module, a single allow on the `pub(crate)` module `hull`.
 fn module_boundary(lib_rs: &str) -> CheckResult {
     let forbid = format!("#[forbid({LINT})]");
     let allow = format!("#[allow({LINT})]");
@@ -163,7 +164,7 @@ fn module_boundary(lib_rs: &str) -> CheckResult {
         let has_allow = decl.attributes.contains(&allow);
         match (has_forbid, has_allow) {
             (true, false) => {}
-            (false, true) => allowed.push(decl.name.clone()),
+            (false, true) => allowed.push((decl.visibility.as_str(), decl.name.as_str())),
             _ => {
                 return Err(format!(
                     "mod {} ({}) must carry exactly one of {forbid} or {allow}",
@@ -172,9 +173,9 @@ fn module_boundary(lib_rs: &str) -> CheckResult {
             }
         }
     }
-    if allowed != [HULL] {
+    if allowed != [(HULL_VISIBILITY, HULL)] {
         return Err(format!(
-            "{allow} must sit on mod {HULL} only, found {allowed:?}"
+            "{allow} must sit on {HULL_VISIBILITY} mod {HULL} only, found {allowed:?}"
         ));
     }
     Ok(())
@@ -364,7 +365,7 @@ fn mod_check_detects_missing_forbid() {
     let forbid = format!("#[forbid({LINT})]");
     let allow = format!("#[allow({LINT})]");
     let good = format!(
-        "{forbid}\npub mod a;\n{allow}\npub mod {HULL};\n#[cfg(test)]\n{forbid}\nmod tests;\n"
+        "{forbid}\npub mod a;\n{allow}\n{HULL_VISIBILITY} mod {HULL};\n#[cfg(test)]\n{forbid}\nmod tests;\n"
     );
     assert!(module_boundary(&good).is_ok());
     assert!(
@@ -378,6 +379,7 @@ fn mod_check_detects_missing_forbid() {
         .is_err()
     );
     assert!(module_boundary(&good.replace(&format!("{allow}\n"), "")).is_err());
+    assert!(module_boundary(&good.replace(&format!("{HULL_VISIBILITY} mod"), "pub mod")).is_err());
 }
 
 #[test]

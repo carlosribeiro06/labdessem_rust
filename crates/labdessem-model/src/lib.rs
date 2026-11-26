@@ -3,7 +3,7 @@ pub mod constraints;
 #[forbid(unsafe_code)]
 mod error;
 #[allow(unsafe_code)]
-pub mod hull;
+pub(crate) mod hull;
 #[forbid(unsafe_code)]
 pub mod hydro_geometry;
 #[forbid(unsafe_code)]
