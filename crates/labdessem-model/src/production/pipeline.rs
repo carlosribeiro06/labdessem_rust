@@ -1,13 +1,16 @@
 //! FPHA fitting pipeline orchestration.
 
-use crate::config::FphaPlantConfig;
-use crate::error::FphaFittingError;
-use crate::fitting::{
-    FittingBounds, FphaFitDeviation, ProductionFunction, RawPlane, compute_alpha_fpha,
-    compute_fit_deviation, fit_gamma_s_for_planes, fit_hull_planes, reduce_planes,
-    resolve_fitting_bounds, scale_planes, validate_fitted_planes,
-};
-use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel};
+use super::alpha::{compute_alpha_fpha, scale_planes};
+use super::config::FphaPlantConfig;
+use super::deviation::{FphaFitDeviation, compute_fit_deviation};
+use super::error::FphaFittingError;
+use super::function::ProductionFunction;
+use super::grid::{FittingBounds, resolve_fitting_bounds};
+use super::hull_fit::{RawPlane, fit_hull_planes};
+use super::reduction::reduce_planes;
+use super::secant::fit_gamma_s_for_planes;
+use super::selection::validate_fitted_planes;
+use crate::hydro_geometry::{ForebayTable, TailraceModel};
 
 const MAX_TOLERANCE_DOUBLINGS: u32 = 32;
 
@@ -189,9 +192,8 @@ pub fn fit_context(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::VolumeWindow;
-    use crate::fitting::PlaneReductionConfig;
-    use labdessem_model::hydro_geometry::VhaRow;
+    use crate::hydro_geometry::VhaRow;
+    use crate::production::{PlaneReductionConfig, VolumeWindow};
 
     fn test_forebay() -> ForebayTable {
         let rows = vec![

@@ -724,7 +724,6 @@ version = "0.12.0"
 dependencies = [
  "chrono",
  "labdessem-core",
- "labdessem-fpha",
  "labdessem-io",
  "labdessem-model",
  "labdessem-network",
@@ -745,11 +744,6 @@ dependencies = [
 [[package]]
 name = "labdessem-fpha"
 version = "0.12.0"
-dependencies = [
- "labdessem-core",
- "labdessem-model",
- "thiserror",
-]
 
 [[package]]
 name = "labdessem-io"

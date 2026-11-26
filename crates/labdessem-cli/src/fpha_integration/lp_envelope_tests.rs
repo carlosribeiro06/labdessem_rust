@@ -13,8 +13,8 @@ use std::path::Path;
 
 use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::system::System;
-use labdessem_fpha::RawPlane;
 use labdessem_io::read_study_from_path;
+use labdessem_model::production::RawPlane;
 use labdessem_model::{Model, SolveMode};
 
 use super::probe::{
@@ -82,8 +82,8 @@ fn min_plane_mw(planes: &[RawPlane], v: f64, q: f64, s: f64) -> f64 {
 }
 
 /// Mean absolute, maximum absolute and RMS of `fitted(v, q) - exact(v, q)` over `nodes`, with the
-/// formulas of `labdessem_fpha::compute_fit_deviation` so every deviation printed here is
-/// comparable with the reported one.
+/// formulas behind `labdessem_model::production::FphaFitDeviation` so every deviation printed here
+/// is comparable with the reported one.
 fn deviation_over(
     nodes: &[(f64, f64)],
     ctx: &FitContext,

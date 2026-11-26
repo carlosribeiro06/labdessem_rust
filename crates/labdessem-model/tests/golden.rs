@@ -3,9 +3,10 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use labdessem_core::test_support::golden::{GoldenFailure, GoldenRecord, check_or_bless};
-use labdessem_fpha::config::VolumeWindow;
-use labdessem_fpha::{FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant};
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+use labdessem_model::production::{
+    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, VolumeWindow, fit_plant,
+};
 use labdessem_model::swallowing::calculate_max_swallowing;
 
 fn reference_forebay() -> ForebayTable {

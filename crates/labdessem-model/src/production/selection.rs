@@ -1,7 +1,7 @@
 //! Coefficient-sign and α validation of the fitted plane set.
 
+use super::error::FphaFittingError;
 use super::hull_fit::RawPlane;
-use crate::error::FphaFittingError;
 
 const SIGN_TOLERANCE: f64 = 1e-10;
 

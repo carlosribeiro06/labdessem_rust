@@ -1,6 +1,6 @@
 //! Grid discretization for the (V, Q) production cloud.
 
-use super::production::ProductionFunction;
+use super::function::ProductionFunction;
 
 /// Tolerance for single-volume detection (hm³).
 const V_EPS: f64 = 1e-9;
@@ -151,7 +151,7 @@ pub fn resolve_fitting_bounds(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+    use crate::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn test_pf(max_turbined: f64) -> ProductionFunction {
         let rows = vec![

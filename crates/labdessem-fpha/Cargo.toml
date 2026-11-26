@@ -7,12 +7,5 @@ license.workspace = true
 repository.workspace = true
 description = "FPHA fitting pipeline with qhull convex hull"
 
-[dependencies]
-labdessem-model = { path = "../labdessem-model" }
-thiserror = "2"
-
-[dev-dependencies]
-labdessem-core = { path = "../labdessem-core", features = ["test-support"] }
-
 [lints]
 workspace = true

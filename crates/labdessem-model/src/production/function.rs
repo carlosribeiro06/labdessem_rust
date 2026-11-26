@@ -1,6 +1,6 @@
 //! Production function φ(v, q, s) = K · η · q · h_net.
 
-use labdessem_model::hydro_geometry::{ForebayTable, NetHeadModel, TailraceModel};
+use crate::hydro_geometry::{ForebayTable, NetHeadModel, TailraceModel};
 
 /// Gravitational constant for power calculation.
 const K_GRAVITY: f64 = 0.00981; // MW / (m³/s · m)
@@ -59,7 +59,7 @@ impl ProductionFunction {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::VhaRow;
+    use crate::hydro_geometry::VhaRow;
 
     fn simple_forebay() -> ForebayTable {
         let rows = vec![

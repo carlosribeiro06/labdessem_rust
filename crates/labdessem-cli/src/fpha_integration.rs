@@ -8,19 +8,15 @@ use std::path::Path;
 
 use labdessem_core::entities::{HydroFphaSegment, HydroPlant, InflowHistoryRow};
 use labdessem_core::system::System;
-use labdessem_fpha::{
-    FitPlantParams, FphaPlantConfig, FphaPlantResult,
-    config::{
-        DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
-    },
-    fit_plant,
-    fitting::PlaneReductionConfig,
-};
 use labdessem_io::{
     output::{ComputedFphaRecord, write_fpha_computed},
     readers::{FphaPlantConfig as IoFphaPlantConfig, read_fpha_config},
 };
 use labdessem_model::hydro_geometry::plant_geometry;
+use labdessem_model::production::{
+    DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
+    FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig, fit_plant,
+};
 
 /// Result of the FPHA computation process.
 #[derive(Debug)]
@@ -574,8 +570,8 @@ mod tests {
     use std::fs;
 
     use labdessem_core::entities::{HydroGroup, HydroUnit};
-    use labdessem_fpha::config::VolumeWindow;
     use labdessem_io::read_study_from_path;
+    use labdessem_model::production::VolumeWindow;
 
     use super::probe::{DerivedCase, computed_system};
     use super::*;
@@ -827,7 +823,7 @@ mod tests {
 
     #[test]
     fn convert_single_plane_lp_product_is_alpha_times_plane() {
-        use labdessem_fpha::fitting::{FphaFitDeviation, RawPlane};
+        use labdessem_model::production::{FphaFitDeviation, RawPlane};
 
         let result = FphaPlantResult {
             codigo: 1,
@@ -877,7 +873,7 @@ mod tests {
 
     #[test]
     fn convert_multiple_planes() {
-        use labdessem_fpha::fitting::{FphaFitDeviation, RawPlane};
+        use labdessem_model::production::{FphaFitDeviation, RawPlane};
 
         let result = FphaPlantResult {
             codigo: 1,
@@ -925,7 +921,7 @@ mod tests {
 
     #[test]
     fn convert_empty_planes() {
-        use labdessem_fpha::fitting::FphaFitDeviation;
+        use labdessem_model::production::FphaFitDeviation;
 
         let result = FphaPlantResult {
             codigo: 1,

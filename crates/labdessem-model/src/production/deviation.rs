@@ -1,8 +1,8 @@
 //! FPHA fit-quality deviation diagnostic.
 
+use super::function::ProductionFunction;
 use super::grid::{FittingBounds, build_grid};
 use super::hull_fit::RawPlane;
-use super::production::ProductionFunction;
 
 /// Aggregate FPHA-vs-exact deviation over the spill = 0 fit grid.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -93,7 +93,7 @@ pub fn compute_fit_deviation(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+    use crate::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     const WARN_RELATIVE_THRESHOLD: f64 = 0.05;
 

@@ -16,12 +16,12 @@ use std::path::{Component, Path, PathBuf};
 
 use labdessem_core::entities::HydroFphaSegment;
 use labdessem_core::system::System;
-use labdessem_fpha::{
-    FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha,
-};
 use labdessem_io::readers::read_fpha_config;
 use labdessem_io::{read_study_config, read_study_from_path};
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
+use labdessem_model::production::{
+    FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha, fit_context,
+};
 use labdessem_model::{Model, SolveMode};
 use tempfile::TempDir;
 
@@ -421,7 +421,7 @@ pub(super) fn segment_envelope_mw(
         .fold(f64::INFINITY, f64::min)
 }
 
-/// Inputs `labdessem_fpha::pipeline::fit_plant` derives for one plant.
+/// Inputs `labdessem_model::production::fit_plant` derives for one plant.
 #[derive(Debug)]
 pub(super) struct FitContext {
     pub(super) params: FitPlantParams,
@@ -454,8 +454,8 @@ pub(super) fn fit_contexts(
             parquet_present,
         )?;
 
-        let (pf, bounds) = labdessem_fpha::pipeline::fit_context(&params)
-            .map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
+        let (pf, bounds) =
+            fit_context(&params).map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
 
         contexts.insert(params.codigo, FitContext { params, pf, bounds });
     }

@@ -2,11 +2,11 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
-use labdessem_fpha::{
+use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+use labdessem_model::production::{
     FitPlantParams, FittingBounds, FphaPlantConfig, PlaneReductionConfig, ProductionFunction,
     compute_alpha_fpha, fit_gamma_s_for_planes, fit_hull_planes, fit_plant, reduce_planes,
 };
-use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 fn reference_forebay() -> ForebayTable {
     let rows = vec![

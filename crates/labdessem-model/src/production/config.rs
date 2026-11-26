@@ -1,6 +1,7 @@
 //! FPHA plant configuration types.
 
-use crate::fitting::{FittingBounds, PlaneReductionConfig};
+use super::grid::FittingBounds;
+use super::reduction::PlaneReductionConfig;
 
 pub const DEFAULT_MAX_PLANES: usize = 10;
 pub const DEFAULT_VOLUME_POINTS: usize = 5;

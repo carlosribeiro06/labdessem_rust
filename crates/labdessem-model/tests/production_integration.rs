@@ -2,8 +2,10 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use labdessem_fpha::{FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant};
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+use labdessem_model::production::{
+    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant,
+};
 
 fn storage_plant_params() -> FitPlantParams {
     let rows = vec![

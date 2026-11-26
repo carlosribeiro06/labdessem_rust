@@ -1,8 +1,8 @@
 //! Convex-hull FPHA fitter: production cloud → upper-envelope hyperplanes.
 
+use super::function::ProductionFunction;
 use super::grid::{FittingBounds, build_grid};
-use super::production::ProductionFunction;
-use labdessem_model::hull::{HullError, convex_hull_3d};
+use crate::hull::{HullError, convex_hull_3d};
 
 /// An unscaled FPHA plane: generation = γ₀ + γᵥ·V + γᵩ·Q + γₛ·S.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -102,7 +102,7 @@ pub fn fit_hull_planes(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+    use crate::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![

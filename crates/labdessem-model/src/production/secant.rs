@@ -1,8 +1,8 @@
 //! Per-plane lateral-flow secant γₛ on the spillage axis.
 
+use super::function::ProductionFunction;
 use super::grid::{FittingBounds, build_grid};
 use super::hull_fit::RawPlane;
-use super::production::ProductionFunction;
 
 const N_LATERAL_FLOW_SAMPLES: usize = 9;
 const GAMMA_S_SNAP_EPS: f64 = 1e-10;
@@ -129,7 +129,7 @@ pub fn fit_gamma_s_for_planes(
 )]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+    use crate::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn spill_sensitive_pf() -> ProductionFunction {
         let rows = vec![

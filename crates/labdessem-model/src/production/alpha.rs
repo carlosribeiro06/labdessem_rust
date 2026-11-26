@@ -6,9 +6,9 @@
 //! MM default (§9.16.11 step 4); the point distribution is a labdessem choice `[to confirm]`
 //! against the MM/Libs text (ADR-033).
 
+use super::function::ProductionFunction;
 use super::grid::{FittingBounds, GridParams, build_grid};
 use super::hull_fit::RawPlane;
-use super::production::ProductionFunction;
 
 const ALPHA_VOLUME_POINTS: usize = 6;
 const ALPHA_FLOW_POINTS: usize = 5;
@@ -109,7 +109,7 @@ pub fn scale_planes(planes: &[RawPlane], alpha: f64) -> Vec<RawPlane> {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
-    use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+    use crate::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![

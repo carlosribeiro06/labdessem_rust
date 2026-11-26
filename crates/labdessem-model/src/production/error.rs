@@ -1,6 +1,6 @@
 //! Error types for FPHA fitting.
 
-use labdessem_model::hydro_geometry::GeometryError;
+use crate::hydro_geometry::GeometryError;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
