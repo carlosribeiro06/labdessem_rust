@@ -11,14 +11,15 @@ use super::reduction::reduce_planes;
 use super::secant::fit_gamma_s_for_planes;
 use super::selection::validate_fitted_planes;
 use crate::hydro_geometry::{ForebayTable, TailraceModel};
+use labdessem_core::ids::HydroPlantId;
 
 const MAX_TOLERANCE_DOUBLINGS: u32 = 32;
 
 /// A fitted plant's FPHA result.
 #[derive(Debug, Clone)]
 pub struct FphaPlantResult {
-    pub codigo: i32,
-    pub nome: String,
+    pub id: HydroPlantId,
+    pub name: String,
     pub planes: Vec<RawPlane>,
     pub alpha: f64,
     pub deviation: FphaFitDeviation,
@@ -27,8 +28,8 @@ pub struct FphaPlantResult {
 /// Parameters for fitting a single plant.
 #[derive(Debug, Clone)]
 pub struct FitPlantParams {
-    pub codigo: i32,
-    pub nome: String,
+    pub id: HydroPlantId,
+    pub name: String,
     pub forebay: ForebayTable,
     pub tailrace: TailraceModel,
     pub hydraulic_loss_m: f64,
@@ -55,13 +56,13 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
 
     // Stage 1: Hull fitting
     let mut planes = fit_hull_planes(&pf, &bounds).map_err(|e| FphaFittingError::HullFailed {
-        hydro_name: params.nome.clone(),
+        hydro_name: params.name.clone(),
         reason: e.to_string(),
     })?;
 
     if planes.is_empty() {
         return Err(FphaFittingError::NoHyperplanesProduced {
-            hydro_name: params.nome.clone(),
+            hydro_name: params.name.clone(),
         });
     }
 
@@ -78,11 +79,11 @@ pub fn fit_plant(params: &FitPlantParams) -> Result<FphaPlantResult, FphaFitting
     let deviation = compute_fit_deviation(&scale_planes(&planes, alpha), &pf, &bounds);
 
     // Stage 6: Validation (sign checks are scale-invariant for α > 0)
-    validate_fitted_planes(&planes, alpha, &params.nome)?;
+    validate_fitted_planes(&planes, alpha, &params.name)?;
 
     Ok(FphaPlantResult {
-        codigo: params.codigo,
-        nome: params.nome.clone(),
+        id: params.id,
+        name: params.name.clone(),
         planes,
         alpha,
         deviation,
@@ -102,7 +103,7 @@ fn reduce_within_plane_limit(
 ) -> Result<Vec<RawPlane>, FphaFittingError> {
     let limit = bounds.max_planes_per_hydro;
     let unreachable = |remaining: usize| FphaFittingError::PlaneLimitUnreachable {
-        hydro_name: params.nome.clone(),
+        hydro_name: params.name.clone(),
         max_planes: limit,
         remaining,
     };
@@ -149,7 +150,7 @@ pub fn fit_context(
         (table_min, table_max, table_max - table_min)
     } else {
         let invalid = |reason: String| FphaFittingError::InvalidFitWindow {
-            hydro_name: params.nome.clone(),
+            hydro_name: params.name.clone(),
             reason,
         };
         let window = params.config.volume_window;
@@ -220,8 +221,8 @@ mod tests {
 
     fn test_params() -> FitPlantParams {
         FitPlantParams {
-            codigo: 1,
-            nome: "FURNAS".to_string(),
+            id: HydroPlantId(1),
+            name: "FURNAS".to_string(),
             forebay: test_forebay(),
             tailrace: TailraceModel {
                 coefficients: vec![0.0, 0.0008, -2e-8],
@@ -245,8 +246,8 @@ mod tests {
         let params = test_params();
         let result = fit_plant(&params).unwrap();
 
-        assert_eq!(result.codigo, 1);
-        assert_eq!(result.nome, "FURNAS");
+        assert_eq!(result.id, HydroPlantId(1));
+        assert_eq!(result.name, "FURNAS");
         assert!(!result.planes.is_empty());
         assert!(result.alpha > 0.0);
     }
@@ -486,8 +487,8 @@ mod tests {
         let forebay = ForebayTable::new(&rows, "FioAgua").unwrap();
 
         let params = FitPlantParams {
-            codigo: 99,
-            nome: "FIO_AGUA".to_string(),
+            id: HydroPlantId(99),
+            name: "FIO_AGUA".to_string(),
             forebay,
             tailrace: TailraceModel {
                 coefficients: vec![350.0],

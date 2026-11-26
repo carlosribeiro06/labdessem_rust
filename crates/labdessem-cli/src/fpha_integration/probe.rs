@@ -15,6 +15,7 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 
 use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::readers::read_fpha_config;
 use labdessem_io::{read_study_config, read_study_from_path};
@@ -429,12 +430,12 @@ pub(super) struct FitContext {
     pub(super) bounds: FittingBounds,
 }
 
-/// Fit contexts keyed by plant code. Loads the data as `compute_fpha` does; plants without VHA
+/// Fit contexts keyed by plant id. Loads the data as `compute_fpha` does; plants without VHA
 /// rows are omitted, every other failure is returned.
 pub(super) fn fit_contexts(
     case: &Path,
     system: &System,
-) -> Result<BTreeMap<i32, FitContext>, FphaComputeError> {
+) -> Result<BTreeMap<HydroPlantId, FitContext>, FphaComputeError> {
     let period_duration_hours = system.horizon.period_duration_hours;
     let mlt_table = super::build_long_term_mean_inflow_table(&system.inflow_history);
     let parquet_present = !system.inflow_history.is_empty();
@@ -456,7 +457,7 @@ pub(super) fn fit_contexts(
         let (pf, bounds) =
             fit_context(&params).map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
 
-        contexts.insert(params.codigo, FitContext { params, pf, bounds });
+        contexts.insert(params.id, FitContext { params, pf, bounds });
     }
     Ok(contexts)
 }
@@ -788,13 +789,13 @@ fn probe_lp_rows_match_injected_segments() {
     assert_eq!(system.hydro_plants.len(), 4, "24Barras has 4 hydro plants");
 
     for plant in &system.hydro_plants {
-        let code = i32::try_from(plant.id.0).expect("plant code fits i32");
+        let code = plant.id.0;
         assert!(
-            contexts.contains_key(&code),
+            contexts.contains_key(&plant.id),
             "no fit context for plant {code} ({})",
             plant.name
         );
-        let ctx = &contexts[&code];
+        let ctx = &contexts[&plant.id];
         // Q_max is the plant total `pf.max_turbined_m3s()`: the axis of `evaluation_grid_nodes`
         // and the spillage axis of `build_grid`.
         let q_max = ctx.pf.max_turbined_m3s();
@@ -847,21 +848,21 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
     // Assert
     assert_eq!(contexts.len(), result.plant_results.len());
     for plant_result in &result.plant_results {
-        let ctx = contexts.get(&plant_result.codigo).ok_or_else(|| {
+        let ctx = contexts.get(&plant_result.id).ok_or_else(|| {
             format!(
                 "no fit context for plant {} ({})",
-                plant_result.codigo, plant_result.nome
+                plant_result.id.0, plant_result.name
             )
         })?;
-        assert_eq!(ctx.params.codigo, plant_result.codigo);
-        assert_eq!(ctx.params.nome, plant_result.nome);
+        assert_eq!(ctx.params.id, plant_result.id);
+        assert_eq!(ctx.params.name, plant_result.name);
 
         let alpha = compute_alpha_fpha(&plant_result.planes, &ctx.pf, &ctx.bounds);
         assert_eq!(
             alpha.to_bits(),
             plant_result.alpha.to_bits(),
             "plant {}: probe alpha {alpha} vs pipeline alpha {}",
-            plant_result.nome,
+            plant_result.name,
             plant_result.alpha
         );
 
@@ -877,7 +878,7 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
             assert!(
                 (ctx.bounds.v_min..=ctx.bounds.v_max).contains(&v) && (0.0..=q_max).contains(&q),
                 "plant {}: evaluation node ({v}, {q}) outside the fit bounds",
-                plant_result.nome
+                plant_result.name
             );
         }
     }
@@ -901,7 +902,7 @@ fn pipeline_alpha_matches_adr033_values() -> Result<(), Box<dyn Error>> {
         let plant = result
             .plant_results
             .iter()
-            .find(|plant| plant.nome == name)
+            .find(|plant| plant.name == name)
             .ok_or_else(|| format!("no fit result for plant {name}"))?;
         assert!(
             (plant.alpha - alpha).abs() <= 5e-7,

@@ -12,6 +12,7 @@ use std::fs;
 use std::path::Path;
 
 use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
 use labdessem_model::production::RawPlane;
@@ -53,7 +54,7 @@ type DeviationStats = (f64, f64, f64);
 /// Everything the two tests assert on or print for one plant.
 #[derive(Debug)]
 struct PlantMeasurement {
-    code: i32,
+    code: usize,
     name: String,
     alpha: f64,
     /// The planes as returned by `fit_plant`: unscaled, alpha is applied by the LP.
@@ -122,18 +123,18 @@ fn measure_plants() -> Vec<PlantMeasurement> {
         .plant_results
         .into_iter()
         .map(|plant_result| {
-            let code = plant_result.codigo;
+            let code = plant_result.id.0;
             assert!(
-                contexts.contains_key(&code),
+                contexts.contains_key(&plant_result.id),
                 "no fit context for plant {code} ({})",
-                plant_result.nome
+                plant_result.name
             );
-            let ctx = &contexts[&code];
-            let rows = lp_fpha_rows(&model, &plant_result.nome, flow_conversion);
+            let ctx = &contexts[&plant_result.id];
+            let rows = lp_fpha_rows(&model, &plant_result.name, flow_conversion);
             assert!(
                 !rows.is_empty(),
                 "no period-2 LP rows for plant {code} ({})",
-                plant_result.nome
+                plant_result.name
             );
             let fit_nodes = fit_grid_nodes(ctx);
             let evaluation_nodes = evaluation_grid_nodes(ctx, EVALUATION_NODES_PER_AXIS);
@@ -143,7 +144,7 @@ fn measure_plants() -> Vec<PlantMeasurement> {
             PlantMeasurement {
                 code,
                 alpha: plant_result.alpha,
-                name: plant_result.nome,
+                name: plant_result.name,
                 planes: plant_result.planes,
                 rows,
                 fit_nodes,
@@ -394,7 +395,7 @@ fn computed_csv_round_trip_reproduces_segments() -> Result<(), Box<dyn Error>> {
         }
 
         let ctx = contexts
-            .get(&i32::try_from(code)?)
+            .get(&HydroPlantId(code))
             .ok_or_else(|| format!("no fit context for plant {code}"))?;
         let q_max = ctx.pf.max_turbined_m3s();
         let mut max_difference_mw = 0.0_f64;

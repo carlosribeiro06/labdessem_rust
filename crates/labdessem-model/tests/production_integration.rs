@@ -2,6 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use labdessem_core::ids::HydroPlantId;
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 use labdessem_model::production::{
     FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant,
@@ -27,8 +28,8 @@ fn storage_plant_params() -> FitPlantParams {
         },
     ];
     FitPlantParams {
-        codigo: 1,
-        nome: "STORAGE".to_string(),
+        id: HydroPlantId(1),
+        name: "STORAGE".to_string(),
         forebay: ForebayTable::new(&rows, "STORAGE").unwrap(),
         tailrace: TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
@@ -54,8 +55,8 @@ fn run_of_river_params() -> FitPlantParams {
         },
     ];
     FitPlantParams {
-        codigo: 2,
-        nome: "RUN_OF_RIVER".to_string(),
+        id: HydroPlantId(2),
+        name: "RUN_OF_RIVER".to_string(),
         forebay: ForebayTable::new(&rows, "RUN_OF_RIVER").unwrap(),
         tailrace: TailraceModel {
             coefficients: vec![380.0],
@@ -85,8 +86,8 @@ fn high_head_params() -> FitPlantParams {
         },
     ];
     FitPlantParams {
-        codigo: 3,
-        nome: "HIGH_HEAD".to_string(),
+        id: HydroPlantId(3),
+        name: "HIGH_HEAD".to_string(),
         forebay: ForebayTable::new(&rows, "HIGH_HEAD").unwrap(),
         tailrace: TailraceModel {
             coefficients: vec![200.0, 0.001],
@@ -159,8 +160,8 @@ fn single_point_vha_params() -> FitPlantParams {
         height_m: 386.5,
     }];
     FitPlantParams {
-        codigo: 2,
-        nome: "ITUTINGA".to_string(),
+        id: HydroPlantId(2),
+        name: "ITUTINGA".to_string(),
         forebay: ForebayTable::new(&rows, "ITUTINGA").unwrap(),
         tailrace: TailraceModel {
             coefficients: vec![0.0, 0.0005, -1e-8],

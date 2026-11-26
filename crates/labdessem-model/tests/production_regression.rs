@@ -2,6 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 
+use labdessem_core::ids::HydroPlantId;
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 use labdessem_model::production::{
     FitPlantParams, FittingBounds, FphaPlantConfig, PlaneReductionConfig, ProductionFunction,
@@ -49,10 +50,10 @@ fn reference_bounds() -> FittingBounds {
     }
 }
 
-fn reference_params(nome: &str) -> FitPlantParams {
+fn reference_params(name: &str) -> FitPlantParams {
     FitPlantParams {
-        codigo: 1,
-        nome: nome.to_string(),
+        id: HydroPlantId(1),
+        name: name.to_string(),
         forebay: reference_forebay(),
         tailrace: TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],

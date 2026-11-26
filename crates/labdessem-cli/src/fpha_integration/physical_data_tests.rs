@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 
 use labdessem_core::entities::HydroPlant;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
 
@@ -49,7 +50,7 @@ const HYDRO_PLANT_COUNT: usize = 4;
 /// context of every fitted plant, as the `labdessem` binary would build them.
 struct CaseRun {
     system: System,
-    contexts: BTreeMap<i32, FitContext>,
+    contexts: BTreeMap<HydroPlantId, FitContext>,
     plants_processed: usize,
     plants_skipped: usize,
 }
@@ -66,13 +67,13 @@ impl CaseRun {
         })
     }
 
-    fn context(&self, code: u32) -> &FitContext {
-        let key = i32::try_from(code).expect("plant code fits i32");
+    fn context(&self, id: HydroPlantId) -> &FitContext {
         assert!(
-            self.contexts.contains_key(&key),
-            "no fit context for plant {code}"
+            self.contexts.contains_key(&id),
+            "no fit context for plant {}",
+            id.0
         );
-        &self.contexts[&key]
+        &self.contexts[&id]
     }
 }
 
@@ -125,7 +126,7 @@ fn missing_inputs(failure: &PlantFitFailure) -> Result<&[FphaInput], Box<dyn Err
         FitFailureReason::MissingInputs(inputs) => Ok(inputs),
         other => Err(format!(
             "plant {}: expected MissingInputs, got {other:?}",
-            failure.hydro_id
+            failure.hydro_id.0
         )
         .into()),
     }
@@ -149,7 +150,7 @@ fn missing_tailrace_row_fails_fitting() -> Result<(), Box<dyn Error>> {
     let [failure] = failures.as_slice() else {
         return Err(format!("expected one failure, got {failures:?}").into());
     };
-    assert_eq!(failure.hydro_id, 3);
+    assert_eq!(failure.hydro_id, HydroPlantId(3));
     assert_eq!(missing_inputs(failure)?, [FphaInput::Tailrace]);
     assert!(
         failure.reason.to_string().contains(TAILRACE_FILE),
@@ -177,13 +178,13 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
             missing_inputs(failure)?,
             [FphaInput::Efficiency, FphaInput::HydraulicLoss],
             "plant {}",
-            failure.hydro_id
+            failure.hydro_id.0
         );
         let message = failure.reason.to_string();
         assert!(
             message.contains("Eficiencia") && message.contains("Perda.m"),
             "plant {}: the failure must name Eficiencia and Perda.m: {message}",
-            failure.hydro_id
+            failure.hydro_id.0
         );
     }
     Ok(())
@@ -359,7 +360,7 @@ fn control_a3_official_inputs_carry_physical_data() {
             plant.name,
             plant.hydraulic_loss_m
         );
-        let tailrace = &run.context(code).params.tailrace;
+        let tailrace = &run.context(plant.id).params.tailrace;
         assert!(
             plant
                 .tailrace_coefficients

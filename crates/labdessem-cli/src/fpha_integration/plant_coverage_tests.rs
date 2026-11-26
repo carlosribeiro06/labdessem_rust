@@ -12,6 +12,7 @@ use std::fs;
 use std::path::Path;
 
 use labdessem_core::entities::HydroPlant;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
 use labdessem_model::constraints::LinearConstraint;
@@ -138,7 +139,7 @@ fn plant_without_geometry_fails_with_typed_error() -> Result<(), Box<dyn Error>>
         matches!(
             failures.as_slice(),
             [PlantFitFailure {
-                hydro_id: 2,
+                hydro_id: HydroPlantId(2),
                 reason: FitFailureReason::MissingGeometry,
                 ..
             }]
@@ -170,7 +171,7 @@ fn missing_geometry_file_lists_every_plant_with_units() -> Result<(), Box<dyn Er
     eprintln!("a2[missing_file] failures={failures:?}\n{message}");
 
     // Assert
-    let hydro_ids: Vec<i32> = failures.iter().map(|failure| failure.hydro_id).collect();
+    let hydro_ids: Vec<usize> = failures.iter().map(|failure| failure.hydro_id.0).collect();
     assert_eq!(
         hydro_ids,
         [0, 1, 2, 3],
@@ -228,7 +229,7 @@ fn plant_without_units_is_excluded_from_fitting() -> Result<(), Box<dyn Error>> 
         result
             .plant_results
             .iter()
-            .all(|plant_result| plant_result.codigo != 2),
+            .all(|plant_result| plant_result.id != HydroPlantId(2)),
         "plant {SKIPPED_PLANT_CODE} has no units and must have no fitted result"
     );
     assert_eq!(result.plants_skipped, 1);
@@ -413,7 +414,7 @@ fn finalize_rejects_plant_with_units_without_segments() -> Result<(), Box<dyn Er
     let before = result.plant_results.len();
     result
         .plant_results
-        .retain(|plant_result| plant_result.codigo != 2);
+        .retain(|plant_result| plant_result.id != HydroPlantId(2));
     assert_eq!(
         result.plant_results.len(),
         before - 1,

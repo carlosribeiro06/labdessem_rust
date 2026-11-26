@@ -38,7 +38,7 @@ fn record_fit_inputs(record: &mut GoldenRecord, case: &Path) -> Result<(), Box<d
         let params = &context.params;
         let config = &params.config;
         let bounds = &context.bounds;
-        let prefix = format!("fit/{}", uhe(params.codigo, &params.nome));
+        let prefix = format!("fit/{}", uhe(params.id.0, &params.name));
 
         record.f64(
             format!("{prefix}/max_turbined_m3s"),
@@ -134,7 +134,7 @@ fn record_fit_inputs(record: &mut GoldenRecord, case: &Path) -> Result<(), Box<d
 
 fn record_fit_outputs(record: &mut GoldenRecord, result: &FphaComputeResult) {
     for plant in &result.plant_results {
-        let prefix = format!("fpha/{}", uhe(plant.codigo, &plant.nome));
+        let prefix = format!("fpha/{}", uhe(plant.id.0, &plant.name));
         record.text(format!("{prefix}/planes"), plant.planes.len().to_string());
         for (index, plane) in plant.planes.iter().enumerate() {
             record.f64(format!("{prefix}/plane={index}/gamma_0"), plane.gamma_0);
