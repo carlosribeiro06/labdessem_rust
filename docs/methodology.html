@@ -48,7 +48,7 @@
             <div class="docs-nav-title">Hydro</div>
             <a href="#hydro-balance">Hydraulic Balance</a>
             <a href="#fpha">FPHA Formulation</a>
-            <a href="#engmax">EngMax</a>
+            <a href="#engmax">Max Swallowing</a>
             <a href="#fcf">Future Cost Function</a>
           </div>
           <div class="docs-nav-section">
@@ -171,7 +171,7 @@ h_net = forebay(V) − tailrace(Q + S) − loss</code></pre>
         <pre><code>h_l = forebay_level(V) - tailrace_level(Q_jus) - hydraulic_loss</code></pre>
         <p>Where <code>V</code> is the average reservoir volume of the period and <code>Q_jus</code> is the plant outflow (turbining plus spillage, m³/s), both taken from the previous solve, and the hydraulic loss is in metres. The forebay level is interpolated from the VHA table (<code>CAD_GEOMETRIA_UHE.csv</code>), and the tailrace level is computed from a 4th-degree polynomial in <code>Q_jus</code> (<code>CAD_TAILRACE.csv</code>):</p>
         <pre><code>tailrace = a₀ + a₁×Q_jus + a₂×Q_jus² + a₃×Q_jus³ + a₄×Q_jus⁴</code></pre>
-        <p>The plant row is added beside the static per-unit turbining limits, so the tighter of the two applies. EngMax is not capped at <code>Q_ef</code>: it exceeds <code>Q_ef</code> when the net head is above the effective head. When geometry data is unavailable, the effective head from registration is used.</p>
+        <p>The plant row is added beside the static per-unit turbining limits, so the tighter of the two applies. The max swallowing bound is not capped at <code>Q_ef</code>: it exceeds <code>Q_ef</code> when the net head is above the effective head. When geometry data is unavailable, the effective head from registration is used.</p>
         <p>Bounds are recalculated after every solve (LP, MILP, LP-FIXED and LP-CALC-CMO) from the solution of the solve immediately before it. The first solve uses the initial volume, and the plant maximum turbining with no spillage.</p>
 
         <h2 id="fcf">Future Cost Function</h2>

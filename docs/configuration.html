@@ -279,7 +279,6 @@
                 <ul>
                   <li><code>no rows in CAD/CAD_GEOMETRIA_UHE.csv</code></li>
                   <li><code>missing inputs:</code> followed by <code>row in CAD/CAD_TAILRACE.csv</code>, <code>Eficiencia in CAD/CAD_UHE.csv (column absent or empty)</code> or <code>Perda.m in CAD/CAD_UHE.csv (column absent or empty)</code>, or several of them</li>
-                  <li><code>invalid fit parameters:</code> and the detail</li>
                   <li><code>fitting failed:</code> and the detail of the fit, for example <code>cannot reduce to</code> below</li>
                 </ul>
               </td>
@@ -337,7 +336,7 @@
           <li><code>EngMax=1</code>: Bound each hydro plant's total turbining by its head-dependent maximum swallowing, recalculated after every solve. See <a href="./methodology.html#engmax">Methodology</a> for the formula.</li>
           <li><code>EngMax=0</code>: Use static maximum turbining from registration data.</li>
         </ul>
-        <p>When geometry data is not available for a plant, EngMax falls back to the effective head from registration.</p>
+        <p>When geometry data is not available for a plant, max swallowing falls back to the effective head from registration.</p>
       </article>
     </div>
   </main>
