@@ -24,6 +24,19 @@ impl VolumeWindow {
     };
 }
 
+/// Per-plant overrides of `CAD/CAD_FPHA_CONFIG.csv`; a `None` field keeps the default.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct FphaConfigOverrides {
+    /// Column `num_planes`.
+    pub max_planes: Option<usize>,
+    /// Column `tolerance`, in degrees.
+    pub tolerance_deg: Option<f64>,
+    /// Column `min_volume_pct`, a fraction in [0, 1].
+    pub min_volume_fraction: Option<f64>,
+    /// Column `max_volume_pct`, a fraction in [0, 1].
+    pub max_volume_fraction: Option<f64>,
+}
+
 /// Per-plant FPHA configuration.
 #[derive(Debug, Clone)]
 pub struct FphaPlantConfig {

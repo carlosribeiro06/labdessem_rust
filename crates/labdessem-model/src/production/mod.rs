@@ -17,7 +17,7 @@ mod selection;
 pub use alpha::compute_alpha_fpha;
 pub use config::{
     DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
-    FphaPlantConfig, VolumeWindow,
+    FphaConfigOverrides, FphaPlantConfig, VolumeWindow,
 };
 pub use deviation::FphaFitDeviation;
 pub use error::FphaFittingError;

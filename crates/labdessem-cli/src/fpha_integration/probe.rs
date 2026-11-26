@@ -445,10 +445,9 @@ pub(super) fn fit_contexts(
         if plant.volume_level_table.is_none() {
             continue;
         }
-        let plant_code = plant.id.0 as u32;
         let params = super::build_fit_params(
             plant,
-            fpha_config.get(&plant_code),
+            fpha_config.get(&plant.id),
             period_duration_hours,
             &mlt_table,
             parquet_present,

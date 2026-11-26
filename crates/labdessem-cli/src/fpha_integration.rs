@@ -10,12 +10,13 @@ use labdessem_core::entities::{HydroFphaSegment, HydroPlant, InflowHistoryRow};
 use labdessem_core::system::System;
 use labdessem_io::{
     output::{ComputedFphaRecord, write_fpha_computed},
-    readers::{FphaPlantConfig as IoFphaPlantConfig, read_fpha_config},
+    readers::read_fpha_config,
 };
 use labdessem_model::hydro_geometry::plant_geometry;
 use labdessem_model::production::{
     DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
-    FitPlantParams, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig, fit_plant,
+    FitPlantParams, FphaConfigOverrides, FphaPlantConfig, FphaPlantResult, PlaneReductionConfig,
+    fit_plant,
 };
 
 /// Result of the FPHA computation process.
@@ -201,7 +202,6 @@ pub fn compute_fpha(
             continue;
         }
 
-        let plant_code = plant.id.0 as u32;
         // Deck plant codes are small; the width matches `MissingHydro::hydro_id`.
         #[allow(clippy::cast_possible_wrap)]
         let hydro_id = plant.id.0 as i32;
@@ -220,7 +220,7 @@ pub fn compute_fpha(
 
         let params = match build_fit_params(
             plant,
-            fpha_config.get(&plant_code),
+            fpha_config.get(&plant.id),
             period_duration_hours,
             &mlt_table,
             parquet_present,
@@ -242,7 +242,7 @@ pub fn compute_fpha(
             Ok(result) => {
                 eprintln!(
                     "Plant {} ({}): fitted {} planes (α = {:.4})",
-                    plant_code,
+                    plant.id.0,
                     plant.name,
                     result.planes.len(),
                     result.alpha
@@ -286,7 +286,7 @@ fn build_long_term_mean_inflow_table(inflow_history: &[InflowHistoryRow]) -> Has
 
 fn build_fit_params(
     plant: &HydroPlant,
-    config: Option<&IoFphaPlantConfig>,
+    config: Option<&FphaConfigOverrides>,
     period_duration_hours: f64,
     mlt_table: &HashMap<i32, f64>,
     parquet_present: bool,
@@ -378,7 +378,7 @@ fn build_fit_params(
 }
 
 fn build_fpha_config(
-    config: Option<&IoFphaPlantConfig>,
+    config: Option<&FphaConfigOverrides>,
     reference_hm3: (f64, f64),
 ) -> FphaPlantConfig {
     let mut fpha_config = FphaPlantConfig::computed(
@@ -392,16 +392,16 @@ fn build_fpha_config(
     fpha_config.window_reference_hm3 = Some(reference_hm3);
 
     if let Some(c) = config {
-        if let Some(n) = c.num_planes {
+        if let Some(n) = c.max_planes {
             fpha_config.max_planes = n;
         }
-        if let Some(tolerance_deg) = c.tolerance {
+        if let Some(tolerance_deg) = c.tolerance_deg {
             fpha_config.reduction_config = PlaneReductionConfig { tolerance_deg };
         }
-        if let Some(min_fraction) = c.min_volume_pct {
+        if let Some(min_fraction) = c.min_volume_fraction {
             fpha_config.volume_window.min_fraction = min_fraction;
         }
-        if let Some(max_fraction) = c.max_volume_pct {
+        if let Some(max_fraction) = c.max_volume_fraction {
             fpha_config.volume_window.max_fraction = max_fraction;
         }
     }
@@ -412,14 +412,14 @@ fn build_fpha_config(
 /// `fit_context` ignores the volume window of a single-point geometry table.
 fn ignored_window_warning(
     plant: &HydroPlant,
-    config: Option<&IoFphaPlantConfig>,
+    config: Option<&FphaConfigOverrides>,
 ) -> Option<String> {
     let config = config?;
     if plant
         .volume_level_table
         .as_ref()
         .is_none_or(|table| table.len() != 1)
-        || (config.min_volume_pct.is_none() && config.max_volume_pct.is_none())
+        || (config.min_volume_fraction.is_none() && config.max_volume_fraction.is_none())
     {
         return None;
     }
@@ -428,8 +428,8 @@ fn ignored_window_warning(
         "plant {} ({}) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct {} and max_volume_pct {} in CAD/CAD_FPHA_CONFIG.csv are ignored",
         plant.id.0,
         plant.name.trim(),
-        show(config.min_volume_pct),
-        show(config.max_volume_pct)
+        show(config.min_volume_fraction),
+        show(config.max_volume_fraction)
     ))
 }
 
@@ -593,11 +593,11 @@ mod tests {
 
     #[test]
     fn build_fpha_config_maps_every_field() {
-        let io_config = IoFphaPlantConfig {
-            num_planes: Some(7),
-            tolerance: Some(0.005),
-            min_volume_pct: Some(0.25),
-            max_volume_pct: Some(0.75),
+        let io_config = FphaConfigOverrides {
+            max_planes: Some(7),
+            tolerance_deg: Some(0.005),
+            min_volume_fraction: Some(0.25),
+            max_volume_fraction: Some(0.75),
         };
 
         let config = build_fpha_config(Some(&io_config), (100.0, 900.0));
@@ -618,9 +618,9 @@ mod tests {
         assert_eq!(config.volume_points, 5);
         assert_eq!(config.flow_points, 5);
 
-        let min_only = IoFphaPlantConfig {
-            min_volume_pct: Some(0.3),
-            ..IoFphaPlantConfig::default()
+        let min_only = FphaConfigOverrides {
+            min_volume_fraction: Some(0.3),
+            ..FphaConfigOverrides::default()
         };
         assert_eq!(
             build_fpha_config(Some(&min_only), (100.0, 900.0)).volume_window,
@@ -631,11 +631,11 @@ mod tests {
         );
     }
 
-    fn window(min: Option<f64>, max: Option<f64>) -> IoFphaPlantConfig {
-        IoFphaPlantConfig {
-            min_volume_pct: min,
-            max_volume_pct: max,
-            ..IoFphaPlantConfig::default()
+    fn window(min: Option<f64>, max: Option<f64>) -> FphaConfigOverrides {
+        FphaConfigOverrides {
+            min_volume_fraction: min,
+            max_volume_fraction: max,
+            ..FphaConfigOverrides::default()
         }
     }
 
@@ -679,10 +679,10 @@ mod tests {
         let single = plant_with_geometry(1)?;
         let several = plant_with_geometry(3)?;
         assert!(several.volume_level_table.as_ref().map_or(0, Vec::len) > 1);
-        let no_window = IoFphaPlantConfig {
-            num_planes: Some(4),
-            tolerance: Some(1.5),
-            ..IoFphaPlantConfig::default()
+        let no_window = FphaConfigOverrides {
+            max_planes: Some(4),
+            tolerance_deg: Some(1.5),
+            ..FphaConfigOverrides::default()
         };
 
         assert_eq!(

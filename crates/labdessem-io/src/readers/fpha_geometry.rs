@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use csv::ReaderBuilder;
+use labdessem_core::ids::HydroPlantId;
+use labdessem_model::production::FphaConfigOverrides;
 use serde::Deserialize;
 
 use super::common::log_read_file;
@@ -232,15 +234,6 @@ pub fn read_tailrace(case_path: &Path) -> Result<HashMap<u32, TailraceData>, IoE
     Ok(result)
 }
 
-/// FPHA fitting configuration overrides for a single plant.
-#[derive(Debug, Clone, Default)]
-pub struct FphaPlantConfig {
-    pub num_planes: Option<usize>,
-    pub tolerance: Option<f64>,
-    pub min_volume_pct: Option<f64>,
-    pub max_volume_pct: Option<f64>,
-}
-
 #[derive(Debug, Deserialize)]
 struct FphaConfigRow {
     #[serde(
@@ -262,12 +255,14 @@ struct FphaConfigRow {
 
 /// Read FPHA fitting configuration overrides from `CAD/CAD_FPHA_CONFIG.csv`.
 ///
-/// Returns a HashMap mapping plant codes to their configuration overrides.
+/// Returns a HashMap mapping plant ids to their configuration overrides.
 ///
 /// Returns an empty HashMap if the file does not exist (file is optional).
 /// Fails on a non-finite value, `num_planes = 0`, `min_volume_pct >= max_volume_pct` when both are
 /// given, or a second row for the same plant.
-pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig>, IoError> {
+pub fn read_fpha_config(
+    case_path: &Path,
+) -> Result<HashMap<HydroPlantId, FphaConfigOverrides>, IoError> {
     let file_path = case_path.join("CAD").join("CAD_FPHA_CONFIG.csv");
 
     if !file_path.exists() {
@@ -372,12 +367,12 @@ pub fn read_fpha_config(case_path: &Path) -> Result<HashMap<u32, FphaPlantConfig
         }
 
         result.insert(
-            row.codigo,
-            FphaPlantConfig {
-                num_planes: row.num_planes,
-                tolerance: row.tolerance,
-                min_volume_pct: row.min_volume_pct,
-                max_volume_pct: row.max_volume_pct,
+            HydroPlantId(row.codigo as usize),
+            FphaConfigOverrides {
+                max_planes: row.num_planes,
+                tolerance_deg: row.tolerance,
+                min_volume_fraction: row.min_volume_pct,
+                max_volume_fraction: row.max_volume_pct,
             },
         );
     }
@@ -546,11 +541,11 @@ mod tests {
         let dir = create_config_test_case(Some(content));
 
         let result = read_fpha_config(dir.path()).unwrap();
-        let config = &result[&1];
-        assert_eq!(config.num_planes, Some(5));
-        assert_eq!(config.tolerance, Some(0.01));
-        assert_eq!(config.min_volume_pct, Some(0.05));
-        assert_eq!(config.max_volume_pct, Some(1.0));
+        let config = &result[&HydroPlantId(1)];
+        assert_eq!(config.max_planes, Some(5));
+        assert_eq!(config.tolerance_deg, Some(0.01));
+        assert_eq!(config.min_volume_fraction, Some(0.05));
+        assert_eq!(config.max_volume_fraction, Some(1.0));
     }
 
     #[test]
@@ -559,11 +554,11 @@ mod tests {
         let dir = create_config_test_case(Some(content));
 
         let result = read_fpha_config(dir.path()).unwrap();
-        let config = &result[&1];
-        assert_eq!(config.num_planes, Some(7));
-        assert_eq!(config.tolerance, None);
-        assert_eq!(config.min_volume_pct, None);
-        assert_eq!(config.max_volume_pct, None);
+        let config = &result[&HydroPlantId(1)];
+        assert_eq!(config.max_planes, Some(7));
+        assert_eq!(config.tolerance_deg, None);
+        assert_eq!(config.min_volume_fraction, None);
+        assert_eq!(config.max_volume_fraction, None);
     }
 
     #[test]
@@ -573,8 +568,8 @@ mod tests {
 
         let result = read_fpha_config(dir.path()).unwrap();
         assert_eq!(result.len(), 2);
-        assert_eq!(result[&1].num_planes, Some(5));
-        assert_eq!(result[&3].num_planes, Some(7));
+        assert_eq!(result[&HydroPlantId(1)].max_planes, Some(5));
+        assert_eq!(result[&HydroPlantId(3)].max_planes, Some(7));
     }
 
     #[test]

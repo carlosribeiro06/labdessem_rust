@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use labdessem_core::ids::HydroPlantId;
 use labdessem_io::readers::{read_fpha_config, read_vha_geometry};
 use std::path::PathBuf;
 
@@ -88,9 +89,11 @@ fn read_fpha_config_from_example() {
     assert_eq!(configs.len(), 3, "Expected 3 plants in config");
 
     // Check FURNAS config (code 1)
-    let furnas_config = configs.get(&1).expect("FURNAS config not found");
-    assert_eq!(furnas_config.num_planes, Some(8));
-    assert_eq!(furnas_config.tolerance, Some(1.0));
+    let furnas_config = configs
+        .get(&HydroPlantId(1))
+        .expect("FURNAS config not found");
+    assert_eq!(furnas_config.max_planes, Some(8));
+    assert_eq!(furnas_config.tolerance_deg, Some(1.0));
 }
 
 #[test]
@@ -117,11 +120,11 @@ fn geometry_and_config_plant_codes_match() {
     let configs = read_fpha_config(&case_dir).expect("Failed to read config");
 
     // All plants in config should have geometry data
-    for (code, _config) in &configs {
+    for id in configs.keys() {
+        let code = id.0 as u32;
         assert!(
-            geometry.contains_key(code),
-            "Plant code {} in config has no geometry data",
-            code
+            geometry.contains_key(&code),
+            "Plant code {code} in config has no geometry data"
         );
     }
 }
