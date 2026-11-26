@@ -4,8 +4,6 @@ use super::grid::{FittingBounds, build_grid};
 use super::hull_fit::RawPlane;
 use super::production::ProductionFunction;
 
-const WARN_RELATIVE_THRESHOLD: f64 = 0.05;
-
 /// Aggregate FPHA-vs-exact deviation over the spill = 0 fit grid.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FphaFitDeviation {
@@ -29,11 +27,6 @@ impl FphaFitDeviation {
         mean_signed_mw: 0.0,
         relative: 0.0,
     };
-
-    /// Whether this fit's relative deviation warrants an operator warning.
-    pub fn exceeds_warn_threshold(&self) -> bool {
-        self.relative > WARN_RELATIVE_THRESHOLD
-    }
 }
 
 /// Measure the deviation of the fitted envelope from the exact production function.
@@ -96,67 +89,14 @@ pub fn compute_fit_deviation(
     }
 }
 
-/// Per-point deviation detail.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FphaDeviationPoint {
-    pub v: f64,
-    pub q: f64,
-    pub fph_exact: f64,
-    pub fpha_fitted: f64,
-    pub deviation: f64,
-    pub relative_to_peak: f64,
-}
-
-/// Collect per-point deviation details.
-pub fn collect_fit_deviation_points(
-    planes: &[RawPlane],
-    pf: &ProductionFunction,
-    bounds: &FittingBounds,
-) -> Vec<FphaDeviationPoint> {
-    if planes.is_empty() {
-        return Vec::new();
-    }
-
-    let grid = build_grid(pf, bounds);
-    let mut points: Vec<FphaDeviationPoint> =
-        Vec::with_capacity(grid.v_points.len() * grid.q_points.len());
-    let mut peak_fph = 0.0_f64;
-
-    for &v in &grid.v_points {
-        for &q in &grid.q_points {
-            let fpha_fitted = planes
-                .iter()
-                .map(|p| p.evaluate(v, q, 0.0))
-                .fold(f64::INFINITY, f64::min);
-            let fph_exact = pf.evaluate_capped(v, q, 0.0);
-            let deviation = fpha_fitted - fph_exact;
-            peak_fph = peak_fph.max(fph_exact);
-            points.push(FphaDeviationPoint {
-                v,
-                q,
-                fph_exact,
-                fpha_fitted,
-                deviation,
-                relative_to_peak: 0.0,
-            });
-        }
-    }
-
-    if peak_fph > 0.0 {
-        for point in &mut points {
-            point.relative_to_peak = point.deviation.abs() / peak_fph;
-        }
-    }
-
-    points
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
     use crate::fitting::production::ProductionFunction;
     use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
+
+    const WARN_RELATIVE_THRESHOLD: f64 = 0.05;
 
     fn concave_pf() -> ProductionFunction {
         let rows = vec![
@@ -210,7 +150,6 @@ mod tests {
         let bounds = small_bounds();
         let dev = compute_fit_deviation(&[], &pf, &bounds);
         assert_eq!(dev, FphaFitDeviation::NEUTRAL);
-        assert!(!dev.exceeds_warn_threshold());
     }
 
     #[test]
@@ -278,7 +217,6 @@ mod tests {
         let dev = compute_fit_deviation(&planes, &pf, &bounds);
         assert!(dev.mean_abs_mw > 0.0);
         assert_eq!(dev.relative, 0.0);
-        assert!(!dev.exceeds_warn_threshold());
     }
 
     #[test]
@@ -293,21 +231,6 @@ mod tests {
         }];
         let dev = compute_fit_deviation(&planes, &pf, &bounds);
         assert!(dev.relative > WARN_RELATIVE_THRESHOLD);
-        assert!(dev.exceeds_warn_threshold());
-    }
-
-    #[test]
-    fn collect_points_match_grid_size() {
-        let pf = concave_pf();
-        let bounds = small_bounds();
-        let planes = vec![RawPlane {
-            gamma_0: 50.0,
-            gamma_v: 0.01,
-            gamma_q: 0.3,
-            gamma_s: 0.0,
-        }];
-        let points = collect_fit_deviation_points(&planes, &pf, &bounds);
-        assert_eq!(points.len(), 4);
     }
 
     #[test]

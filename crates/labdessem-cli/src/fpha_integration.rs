@@ -589,7 +589,7 @@ mod golden_tests;
 mod tests {
     use std::fs;
 
-    use labdessem_fpha::{FphaMode, config::VolumeWindow};
+    use labdessem_fpha::config::VolumeWindow;
     use labdessem_io::read_study_from_path;
 
     use super::probe::{DerivedCase, computed_system};
@@ -599,7 +599,6 @@ mod tests {
     fn build_fpha_config_uses_adr028_defaults() {
         let config = build_fpha_config(None, (120.0, 792.0));
 
-        assert_eq!(config.mode, FphaMode::Computed);
         assert_eq!(config.max_planes, 10);
         assert_eq!(config.volume_points, 5);
         assert_eq!(config.flow_points, 5);

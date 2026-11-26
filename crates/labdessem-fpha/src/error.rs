@@ -8,14 +8,8 @@ pub enum FphaFittingError {
     #[error(transparent)]
     Geometry(#[from] GeometryError),
 
-    #[error("hydro {hydro_name}: degenerate production cloud")]
-    DegenerateProductionCloud { hydro_name: String },
-
     #[error("hydro {hydro_name}: hull computation failed: {reason}")]
     HullFailed { hydro_name: String, reason: String },
-
-    #[error("hydro {hydro_name}: plane validation failed: {reason}")]
-    PlaneValidationFailed { hydro_name: String, reason: String },
 
     #[error("hydro {hydro_name}: no hyperplanes produced")]
     NoHyperplanesProduced { hydro_name: String },
@@ -41,7 +35,4 @@ pub enum FphaFittingError {
         max_planes: usize,
         remaining: usize,
     },
-
-    #[error("I/O error reading {path}: {detail}")]
-    IoError { path: String, detail: String },
 }

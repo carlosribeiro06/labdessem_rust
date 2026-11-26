@@ -98,14 +98,6 @@ pub fn fit_hull_planes(
     Ok(planes)
 }
 
-/// Evaluate the pointwise max of an envelope of planes at (v, q).
-pub fn envelope_max(planes: &[RawPlane], v: f64, q: f64) -> f64 {
-    planes
-        .iter()
-        .map(|p| p.gamma_0 + p.gamma_v * v + p.gamma_q * q)
-        .fold(f64::NEG_INFINITY, f64::max)
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
@@ -170,7 +162,10 @@ mod tests {
         let cloud = build_cloud(&pf, &bounds);
         for point in &cloud {
             let [v, q, generation] = *point;
-            let envelope = envelope_max(&planes, v, q);
+            let envelope = planes
+                .iter()
+                .map(|p| p.evaluate(v, q, 0.0))
+                .fold(f64::INFINITY, f64::min);
             assert!(
                 envelope >= generation - 1e-8,
                 "outer approximation violated at ({v}, {q})"

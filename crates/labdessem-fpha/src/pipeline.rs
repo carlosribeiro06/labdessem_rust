@@ -187,13 +187,6 @@ pub fn fit_context(
     Ok((pf, bounds))
 }
 
-/// Batch fit multiple plants.
-pub fn fit_plants(
-    params_list: &[FitPlantParams],
-) -> Vec<Result<FphaPlantResult, FphaFittingError>> {
-    params_list.iter().map(fit_plant).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,18 +259,6 @@ mod tests {
             assert!(plane.gamma_q >= -1e-10);
             assert!(plane.gamma_s <= 1e-10);
         }
-    }
-
-    #[test]
-    fn batch_fit_handles_multiple_plants() {
-        let mut params2 = test_params();
-        params2.codigo = 2;
-        params2.nome = "ITAIPU".to_string();
-
-        let results = fit_plants(&[test_params(), params2]);
-        assert_eq!(results.len(), 2);
-        assert!(results[0].is_ok());
-        assert!(results[1].is_ok());
     }
 
     #[test]

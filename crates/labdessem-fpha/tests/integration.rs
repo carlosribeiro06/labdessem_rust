@@ -3,7 +3,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use labdessem_fpha::{
-    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant, fit_plants, forebay_from_vha,
+    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant, forebay_from_vha,
     tailrace_from_data,
 };
 use labdessem_io::readers::{TailraceData, VhaGeometryData, VhaPoint};
@@ -136,20 +136,6 @@ fn high_head_plant_fits_successfully() {
         result.deviation.relative < 0.15,
         "fit should be reasonably accurate"
     );
-}
-
-#[test]
-fn batch_fit_multiple_plant_types() {
-    let results = fit_plants(&[
-        storage_plant_params(),
-        run_of_river_params(),
-        high_head_params(),
-    ]);
-
-    assert_eq!(results.len(), 3);
-    for result in &results {
-        assert!(result.is_ok(), "all plants should fit: {:?}", result);
-    }
 }
 
 #[test]
