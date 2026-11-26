@@ -304,7 +304,6 @@ codigo_usina;nome_usina;plane_index;gamma_0;gamma_v;gamma_q;gamma_s;alpha;max_de
         write_fpha_computed(dir.path(), &system_with(&[]), &[]).unwrap();
 
         let content = written(&dir);
-        // Find the column header line (contains codigo_usina;nome_usina)
         let header = content
             .lines()
             .find(|l| l.starts_with("codigo_usina;"))
