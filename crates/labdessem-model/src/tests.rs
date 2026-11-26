@@ -6,8 +6,9 @@
 use crate::{Model, ModelError, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
-        EngMaxBounds, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
-        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
+        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
+        MaxSwallowingBounds, RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant,
+        ThermalUnit, TurbineType,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -1307,89 +1308,99 @@ fn fpha_rows_split_volume_coefficient_across_period_slots() -> Result<(), Box<dy
 }
 
 #[test]
-fn extend_with_engmax_adds_plant_rows() {
+fn extend_with_max_swallowing_adds_plant_rows() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
     // plant index 0 (UHE-1), periods 0 and 1
-    let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 15.0);
-    engmax_bounds.set(0, 1, 18.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(10);
+    max_swallowing_bounds.set(0, 0, 15.0);
+    max_swallowing_bounds.set(0, 1, 18.0);
 
-    assert!(model.constraints.engmax().is_empty());
+    assert!(model.constraints.max_swallowing().is_empty());
 
     model
         .constraints
-        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .extend_with_max_swallowing(
+            &system,
+            &model.indexing,
+            &model.variables,
+            &max_swallowing_bounds,
+        )
         .expect("all bounds are present");
 
-    let engmax_constraints = model.constraints.engmax();
-    assert_eq!(engmax_constraints.len(), 2);
+    let max_swallowing_constraints = model.constraints.max_swallowing();
+    assert_eq!(max_swallowing_constraints.len(), 2);
 
-    let c1 = engmax_constraints
+    let c1 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=1]")
-        .expect("engmax constraint for t=1 should exist");
+        .expect("max swallowing constraint for t=1 should exist");
     assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((c1.rhs - 15.0).abs() < 1e-6);
 
-    let c2 = engmax_constraints
+    let c2 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=2]")
-        .expect("engmax constraint for t=2 should exist");
+        .expect("max swallowing constraint for t=2 should exist");
     assert!((c2.rhs - 18.0).abs() < 1e-6);
 }
 
 #[test]
-fn extend_with_engmax_missing_bound_is_error() {
+fn extend_with_max_swallowing_missing_bound_is_error() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
     // horizon 2: period 1 has no bound
-    let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 15.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(10);
+    max_swallowing_bounds.set(0, 0, 15.0);
 
-    let result = model.constraints.extend_with_engmax(
+    let result = model.constraints.extend_with_max_swallowing(
         &system,
         &model.indexing,
         &model.variables,
-        &engmax_bounds,
+        &max_swallowing_bounds,
     );
 
     assert_eq!(
         result,
-        Err(ModelError::MissingEngMaxBound {
+        Err(ModelError::MissingMaxSwallowingBound {
             plant: "UHE-1".into(),
             period: 1,
         })
     );
-    assert!(model.constraints.engmax().is_empty());
+    assert!(model.constraints.max_swallowing().is_empty());
 }
 
 #[test]
-fn extend_with_engmax_sums_every_unit_of_the_plant() {
+fn extend_with_max_swallowing_sums_every_unit_of_the_plant() {
     use crate::names::hydro_turbining_name;
 
     // Multi-group plant: 2 groups × 2 units = 4 units, one plant row
     let system = build_multi_group_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
-    let mut engmax_bounds = EngMaxBounds::new(1);
-    engmax_bounds.set(0, 0, 30.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(1);
+    max_swallowing_bounds.set(0, 0, 30.0);
 
     model
         .constraints
-        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .extend_with_max_swallowing(
+            &system,
+            &model.indexing,
+            &model.variables,
+            &max_swallowing_bounds,
+        )
         .expect("all bounds are present");
 
-    let engmax_constraints = model.constraints.engmax();
+    let max_swallowing_constraints = model.constraints.max_swallowing();
     assert_eq!(
-        engmax_constraints.len(),
+        max_swallowing_constraints.len(),
         1,
         "Should have 1 constraint (one per plant)"
     );
 
-    let row = &engmax_constraints[0];
+    let row = &max_swallowing_constraints[0];
     assert_eq!(row.name, "engmax[p=UHE-MULTI,t=1]");
     assert_eq!(row.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((row.rhs - 30.0).abs() < 1e-6);

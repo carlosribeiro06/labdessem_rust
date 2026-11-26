@@ -419,7 +419,7 @@ impl ConstraintOffsetParams {
     /// `solve_mode` (ADR-020): commitment rows exist only in MILP and LP-FIXED.
     ///
     /// Only rows built with the model are counted; rows added after it (network flow cuts,
-    /// engmax rows) are not.
+    /// max swallowing rows) are not.
     pub fn from_system(system: &System, solve_mode: SolveMode) -> Self {
         Self {
             horizon: system.horizon.periods,

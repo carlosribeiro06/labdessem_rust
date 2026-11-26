@@ -7,8 +7,8 @@ use labdessem_model::SolveMode;
 use labdessem_network::{DcNetworkModel, FlowCutKey, all_flow_constraints, compute_line_flows};
 use labdessem_solver::HighsSolver;
 
-use crate::engmax::EngMaxState;
 use crate::error::SimulationError;
+use crate::max_swallowing::MaxSwallowingState;
 use crate::results::IterativeSimulationResult;
 use crate::workflow::{ExecutionOption, IterationStage};
 
@@ -21,24 +21,24 @@ pub fn run_simulation(
     network_enabled: bool,
     execution_option: ExecutionOption,
 ) -> Result<IterativeSimulationResult, SimulationError> {
-    run_simulation_with_engmax(system, network_enabled, execution_option, false)
+    run_simulation_with_max_swallowing(system, network_enabled, execution_option, false)
 }
 
-/// Run simulation with the specified execution option and optional EngMax.
-pub fn run_simulation_with_engmax(
+/// Run simulation with the specified execution option and optional max swallowing.
+pub fn run_simulation_with_max_swallowing(
     system: &System,
     network_enabled: bool,
     execution_option: ExecutionOption,
-    engmax_enabled: bool,
+    max_swallowing_enabled: bool,
 ) -> Result<IterativeSimulationResult, SimulationError> {
-    let mut engmax_state = engmax_enabled
-        .then(|| EngMaxState::new(system))
+    let mut max_swallowing_state = max_swallowing_enabled
+        .then(|| MaxSwallowingState::new(system))
         .transpose()?;
     run_simulation_with_state(
         system,
         network_enabled,
         execution_option,
-        engmax_state.as_mut(),
+        max_swallowing_state.as_mut(),
     )
 }
 
@@ -46,7 +46,7 @@ pub(super) fn run_simulation_with_state(
     system: &System,
     network_enabled: bool,
     execution_option: ExecutionOption,
-    mut engmax: Option<&mut EngMaxState>,
+    mut max_swallowing: Option<&mut MaxSwallowingState>,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut solver = HighsSolver::new()
         .map_err(|e| SimulationError::IterativeProcess(format!("Failed to create solver: {e}")))?;
@@ -55,15 +55,18 @@ pub(super) fn run_simulation_with_state(
         ExecutionOption::Iterative => run_iterative_simulation_strategy(
             system,
             network_enabled,
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             &mut solver,
         ),
-        ExecutionOption::SingleMilp => {
-            run_single_milp_simulation(system, network_enabled, engmax.as_deref_mut(), &mut solver)
-        }
+        ExecutionOption::SingleMilp => run_single_milp_simulation(
+            system,
+            network_enabled,
+            max_swallowing.as_deref_mut(),
+            &mut solver,
+        ),
     }?;
     // LP-CALC-CMO, the last solve of every path, solves in LP-FIXED.
-    result.engmax = engmax
+    result.max_swallowing = max_swallowing
         .as_deref()
         .map(|state| {
             state.outcome(
@@ -79,11 +82,11 @@ pub(super) fn run_simulation_with_state(
 fn run_iterative_simulation_strategy(
     system: &System,
     network_enabled: bool,
-    mut engmax: Option<&mut EngMaxState>,
+    mut max_swallowing: Option<&mut MaxSwallowingState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     if !network_enabled {
-        return run_simulation_without_network(system, engmax, solver);
+        return run_simulation_without_network(system, max_swallowing, solver);
     }
 
     let dc_network = DcNetworkModel::from_system(system)?;
@@ -96,7 +99,7 @@ fn run_iterative_simulation_strategy(
         system,
         &dc_network,
         &mut accumulated_cuts,
-        engmax.as_deref_mut(),
+        max_swallowing.as_deref_mut(),
         &mut steps,
         &mut network_infeasibilities,
         &mut operational_limit_infeasibilities,
@@ -109,7 +112,7 @@ fn run_iterative_simulation_strategy(
         SolveMode::MixedIntegerLinearProgramming,
         &accumulated_cuts,
         None,
-        engmax.as_deref_mut(),
+        max_swallowing.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -126,7 +129,7 @@ fn run_iterative_simulation_strategy(
             SolveMode::LinearProgrammingWithFixedCommitment,
             &all_cuts,
             Some(&milp_summary),
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             IterationStage::LinearProgrammingCalculateCmo,
             1,
             &mut steps,
@@ -158,7 +161,7 @@ fn run_iterative_simulation_strategy(
             cmb_records,
             cmo_values,
             flow_cut_mapping,
-            engmax: None,
+            max_swallowing: None,
         });
     }
 
@@ -173,7 +176,7 @@ fn run_iterative_simulation_strategy(
             SolveMode::LinearProgrammingWithFixedCommitment,
             &accumulated_cuts,
             Some(&milp_summary),
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             IterationStage::LinearProgrammingWithFixedCommitment,
             fixed_iteration,
             &mut steps,
@@ -209,7 +212,7 @@ fn run_iterative_simulation_strategy(
         SolveMode::LinearProgrammingWithFixedCommitment,
         &all_cuts,
         Some(&milp_summary),
-        engmax,
+        max_swallowing,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,
@@ -241,14 +244,14 @@ fn run_iterative_simulation_strategy(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
-        engmax: None,
+        max_swallowing: None,
     })
 }
 
 fn run_single_milp_simulation(
     system: &System,
     network_enabled: bool,
-    mut engmax: Option<&mut EngMaxState>,
+    mut max_swallowing: Option<&mut MaxSwallowingState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
@@ -264,7 +267,7 @@ fn run_single_milp_simulation(
             SolveMode::MixedIntegerLinearProgramming,
             &accumulated_cuts,
             None,
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             IterationStage::MixedIntegerLinearProgramming,
             1,
             &mut steps,
@@ -279,7 +282,7 @@ fn run_single_milp_simulation(
             SolveMode::LinearProgrammingWithFixedCommitment,
             &accumulated_cuts,
             Some(&milp_summary),
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             IterationStage::LinearProgrammingCalculateCmo,
             1,
             &mut steps,
@@ -311,7 +314,7 @@ fn run_single_milp_simulation(
             cmb_records,
             cmo_values,
             flow_cut_mapping,
-            engmax: None,
+            max_swallowing: None,
         });
     }
 
@@ -319,7 +322,7 @@ fn run_single_milp_simulation(
         system,
         SolveMode::MixedIntegerLinearProgramming,
         None,
-        engmax.as_deref_mut(),
+        max_swallowing.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -331,7 +334,7 @@ fn run_single_milp_simulation(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
-        engmax,
+        max_swallowing,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,
@@ -355,13 +358,13 @@ fn run_single_milp_simulation(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
-        engmax: None,
+        max_swallowing: None,
     })
 }
 
 fn run_simulation_without_network(
     system: &System,
-    mut engmax: Option<&mut EngMaxState>,
+    mut max_swallowing: Option<&mut MaxSwallowingState>,
     solver: &mut HighsSolver,
 ) -> Result<IterativeSimulationResult, SimulationError> {
     let mut steps = Vec::new();
@@ -371,7 +374,7 @@ fn run_simulation_without_network(
         system,
         SolveMode::LinearProgramming,
         None,
-        engmax.as_deref_mut(),
+        max_swallowing.as_deref_mut(),
         IterationStage::LinearProgramming,
         1,
         &mut steps,
@@ -383,7 +386,7 @@ fn run_simulation_without_network(
         system,
         SolveMode::MixedIntegerLinearProgramming,
         None,
-        engmax.as_deref_mut(),
+        max_swallowing.as_deref_mut(),
         IterationStage::MixedIntegerLinearProgramming,
         1,
         &mut steps,
@@ -395,7 +398,7 @@ fn run_simulation_without_network(
         system,
         SolveMode::LinearProgrammingWithFixedCommitment,
         Some(&milp_summary),
-        engmax,
+        max_swallowing,
         IterationStage::LinearProgrammingCalculateCmo,
         1,
         &mut steps,
@@ -419,6 +422,6 @@ fn run_simulation_without_network(
         cmb_records,
         cmo_values,
         flow_cut_mapping,
-        engmax: None,
+        max_swallowing: None,
     })
 }

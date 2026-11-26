@@ -1,7 +1,12 @@
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
-use labdessem_io::{output::write_all_results, read_study_config, read_study_from_path};
-use labdessem_simulation::{EngMaxDiagnostic, ExecutionOption, run_simulation_with_engmax};
+use labdessem_io::{
+    output::{write_all_results, write_fpha_computed},
+    read_study_config, read_study_from_path,
+};
+use labdessem_simulation::{
+    ExecutionOption, MaxSwallowingDiagnostic, run_simulation_with_max_swallowing,
+};
 
 mod banner;
 mod conversions;
@@ -115,7 +120,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         fpha_mode: config.fpha,
         fcf_enabled: config.fcf != 0,
         ton_residual_enabled: config.ton_residual != 0,
-        engmax_enabled: config.engmax != 0,
+        max_swallowing_enabled: config.max_swallowing != 0,
     });
 
     eprintln!("Reading input data...");
@@ -132,11 +137,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         eprintln!("Computing FPHA hyperplanes from VHA geometry...");
         let fpha_result = fpha_integration::compute_fpha(case_path, &system)?;
         fpha_integration::finalize_fpha_injection(&mut system, &fpha_result.plant_results)?;
-        fpha_integration::write_computed_results(
-            case_path,
-            &fpha_result.plant_results,
-            &system.hydro_plants,
-        )?;
+        write_fpha_computed(case_path, &system, &fpha_result.plant_results)?;
         eprintln!(
             "  Processed {} plants, {} skipped",
             fpha_result.plants_processed, fpha_result.plants_skipped
@@ -145,9 +146,13 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
 
     eprintln!("Solving...");
     let network_enabled = config.rede != 0;
-    let engmax_enabled = config.engmax != 0;
-    let result =
-        run_simulation_with_engmax(&system, network_enabled, execution_option, engmax_enabled)?;
+    let max_swallowing_enabled = config.max_swallowing != 0;
+    let result = run_simulation_with_max_swallowing(
+        &system,
+        network_enabled,
+        execution_option,
+        max_swallowing_enabled,
+    )?;
 
     let output_data = conversions::convert_to_output_data(&system, &result);
 
@@ -166,7 +171,7 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
         &constraint_duals,
         &output_dir,
         network_enabled,
-        result.engmax.as_ref().map(|outcome| &outcome.used),
+        result.max_swallowing.as_ref().map(|outcome| &outcome.used),
     )?;
 
     eprintln!();
@@ -187,8 +192,8 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     eprintln!("  Objective:   {:.4}", result.cmo_solution.objective);
     eprintln!("  Flow cuts:   {}", result.accumulated_flow_cuts);
     eprintln!("  Violations:  {}", result.final_violations.len());
-    if let Some(outcome) = &result.engmax {
-        for line in render_engmax_summary(&outcome.diagnostic) {
+    if let Some(outcome) = &result.max_swallowing {
+        for line in render_max_swallowing_summary(&outcome.diagnostic) {
             eprintln!("{line}");
         }
     }
@@ -199,12 +204,12 @@ fn run_and_print(case_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-/// The EngMax lines of the Summary (ADR-011): how far the final turbining exceeds EngMax
-/// recomputed from the final solution. The worst item and the relative excess are printed only
+/// The max swallowing lines of the Summary (ADR-011): how far the final turbining exceeds the max
+/// swallowing recomputed from the final solution. The worst item and the relative excess are printed only
 /// when some plant-period is counted.
-fn render_engmax_summary(diagnostic: &EngMaxDiagnostic) -> Vec<String> {
+fn render_max_swallowing_summary(diagnostic: &MaxSwallowingDiagnostic) -> Vec<String> {
     let mut lines = vec![format!(
-        "  EngMax:      {} plant-periods above the recomputed bound ({} above a zero bound)",
+        "  Swallowing:  {} plant-periods above the recomputed max swallowing bound ({} above a zero bound)",
         diagnostic.exceed_count, diagnostic.zero_bound_exceed_count
     )];
     if let Some((plant, period)) = &diagnostic.worst {
@@ -222,13 +227,13 @@ fn render_engmax_summary(diagnostic: &EngMaxDiagnostic) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use labdessem_simulation::EngMaxDiagnostic;
+    use labdessem_simulation::MaxSwallowingDiagnostic;
 
-    use super::render_engmax_summary;
+    use super::render_max_swallowing_summary;
 
     #[test]
-    fn render_engmax_summary_lists_worst_item() {
-        let diagnostic = EngMaxDiagnostic {
+    fn render_max_swallowing_summary_lists_worst_item() {
+        let diagnostic = MaxSwallowingDiagnostic {
             exceed_count: 2,
             zero_bound_exceed_count: 1,
             max_excess_m3s: 2.0,
@@ -237,9 +242,9 @@ mod tests {
         };
 
         assert_eq!(
-            render_engmax_summary(&diagnostic),
+            render_max_swallowing_summary(&diagnostic),
             [
-                "  EngMax:      2 plant-periods above the recomputed bound (1 above a zero bound)",
+                "  Swallowing:  2 plant-periods above the recomputed max swallowing bound (1 above a zero bound)",
                 "  Max excess:  2.0000 m3/s at UHE-1 period 2",
                 "  Max rel.:    2.04%",
             ]
@@ -247,10 +252,12 @@ mod tests {
     }
 
     #[test]
-    fn render_engmax_summary_without_exceedance_is_one_line() {
+    fn render_max_swallowing_summary_without_exceedance_is_one_line() {
         assert_eq!(
-            render_engmax_summary(&EngMaxDiagnostic::default()),
-            ["  EngMax:      0 plant-periods above the recomputed bound (0 above a zero bound)"]
+            render_max_swallowing_summary(&MaxSwallowingDiagnostic::default()),
+            [
+                "  Swallowing:  0 plant-periods above the recomputed max swallowing bound (0 above a zero bound)"
+            ]
         );
     }
 }

@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::io::{self, Write};
 use std::time::Instant;
 
-use labdessem_core::entities::EngMaxBounds;
+use labdessem_core::entities::MaxSwallowingBounds;
 use labdessem_core::system::System;
 use labdessem_model::indexing::{ColumnOffsets, Indexing};
 use labdessem_model::{Model, SolveMode};
@@ -13,8 +13,8 @@ use labdessem_solver::{
     HighsSolver, LpSolution, SolverError, SolverInterface, model_to_lp_template,
 };
 
-use crate::engmax::EngMaxState;
 use crate::error::SimulationError;
+use crate::max_swallowing::MaxSwallowingState;
 use crate::results::{
     FlowViolation, IterationReport, NetworkInfeasibilityRecord, OperationalLimitInfeasibilityRecord,
 };
@@ -69,43 +69,43 @@ fn stage_model(
     commitment_source: Option<&LpSolution>,
     indexing: &Indexing,
     col_offsets: &ColumnOffsets,
-    engmax_bounds: Option<&EngMaxBounds>,
+    max_swallowing_bounds: Option<&MaxSwallowingBounds>,
 ) -> Result<Model, SimulationError> {
     let mut model = Model::from_system(system, solve_mode);
     if let Some(commitment_source) = commitment_source {
         apply_commitment_fixes(&mut model, commitment_source, col_offsets);
     }
-    if let Some(bounds) = engmax_bounds {
+    if let Some(bounds) = max_swallowing_bounds {
         model
             .constraints
-            .extend_with_engmax(system, indexing, &model.variables, bounds)?;
+            .extend_with_max_swallowing(system, indexing, &model.variables, bounds)?;
     }
     Ok(model)
 }
 
-/// Largest excess (hm3) of a plant's turbining sum over its EngMax bound treated as zero.
-const ENGMAX_EXCEED_TOL_HM3: f64 = 1e-6;
+/// Largest excess (hm3) of a plant's turbining sum over its max swallowing bound treated as zero.
+const MAX_SWALLOWING_EXCEED_TOL_HM3: f64 = 1e-6;
 
-/// Diagnose an infeasible solve of `failing_model`, which carries engmax rows (ADR-017):
-/// solve `engmax_free_model` (the same model without engmax rows, with the same
-/// relaxations) once and name the engmax rows of `failing_model` its solution exceeds.
+/// Diagnose an infeasible solve of `failing_model`, which carries max swallowing rows (ADR-017):
+/// solve `max_swallowing_free_model` (the same model without max swallowing rows, with the same
+/// relaxations) once and name the max swallowing rows of `failing_model` its solution exceeds.
 ///
-/// Returns `SimulationError::EngMaxInfeasible` when the EngMax-free model is feasible and
+/// Returns `SimulationError::MaxSwallowingInfeasible` when the max-swallowing-free model is feasible and
 /// some row is exceeded, and `SimulationError::Solver(error)` (the original error,
 /// unchanged) otherwise.
-fn diagnose_engmax_infeasibility(
+fn diagnose_max_swallowing_infeasibility(
     solver: &mut HighsSolver,
     failing_model: &Model,
-    engmax_free_model: &Model,
+    max_swallowing_free_model: &Model,
     col_offsets: &ColumnOffsets,
     stage: IterationStage,
     iteration: usize,
     error: SolverError,
 ) -> SimulationError {
-    let Ok(solution) = solve_model_direct(solver, engmax_free_model) else {
+    let Ok(solution) = solve_model_direct(solver, max_swallowing_free_model) else {
         return SimulationError::Solver(error);
     };
-    let turbining: HashMap<&str, f64> = engmax_free_model
+    let turbining: HashMap<&str, f64> = max_swallowing_free_model
         .variables
         .hydro_turbining
         .iter()
@@ -118,7 +118,7 @@ fn diagnose_engmax_infeasibility(
         })
         .collect();
     let mut rows = Vec::new();
-    for row in failing_model.constraints.engmax() {
+    for row in failing_model.constraints.max_swallowing() {
         let mut lhs = 0.0;
         for term in &row.terms {
             let Some(value) = turbining.get(term.variable.as_str()) else {
@@ -126,14 +126,14 @@ fn diagnose_engmax_infeasibility(
             };
             lhs += term.coefficient * value;
         }
-        if lhs - row.rhs > ENGMAX_EXCEED_TOL_HM3 {
+        if lhs - row.rhs > MAX_SWALLOWING_EXCEED_TOL_HM3 {
             rows.push(row.name.clone());
         }
     }
     if rows.is_empty() {
         SimulationError::Solver(error)
     } else {
-        SimulationError::EngMaxInfeasible {
+        SimulationError::MaxSwallowingInfeasible {
             stage,
             iteration,
             rows,
@@ -146,7 +146,7 @@ pub(crate) fn run_lp_cut_loop(
     system: &System,
     dc_network: &DcNetworkModel,
     accumulated_cuts: &mut BTreeSet<FlowCutKey>,
-    mut engmax: Option<&mut EngMaxState>,
+    mut max_swallowing: Option<&mut MaxSwallowingState>,
     steps: &mut Vec<IterationReport>,
     network_infeasibilities: &mut Vec<NetworkInfeasibilityRecord>,
     operational_limit_infeasibilities: &mut Vec<OperationalLimitInfeasibilityRecord>,
@@ -160,7 +160,7 @@ pub(crate) fn run_lp_cut_loop(
             SolveMode::LinearProgramming,
             accumulated_cuts,
             None,
-            engmax.as_deref_mut(),
+            max_swallowing.as_deref_mut(),
             IterationStage::LinearProgramming,
             iteration,
             steps,
@@ -188,7 +188,7 @@ pub(crate) fn run_lp_cut_loop(
     }
 }
 
-/// Solve one stage over the full horizon. `engmax` is read to build the model (normal and
+/// Solve one stage over the full horizon. `max_swallowing` is read to build the model (normal and
 /// relaxed) and then advanced, once, on the solution this function returns.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_stage(
@@ -197,7 +197,7 @@ pub(crate) fn solve_stage(
     solve_mode: SolveMode,
     accumulated_cuts: &BTreeSet<FlowCutKey>,
     commitment_source: Option<&LpSolution>,
-    engmax: Option<&mut EngMaxState>,
+    max_swallowing: Option<&mut MaxSwallowingState>,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
@@ -212,7 +212,7 @@ pub(crate) fn solve_stage(
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
 
     let build_model =
-        |bounds: Option<&EngMaxBounds>, relaxed: bool| -> Result<Model, SimulationError> {
+        |bounds: Option<&MaxSwallowingBounds>, relaxed: bool| -> Result<Model, SimulationError> {
             let mut model = stage_model(
                 system,
                 solve_mode,
@@ -227,7 +227,10 @@ pub(crate) fn solve_stage(
             }
             Ok(model)
         };
-    let model = build_model(engmax.as_deref().map(EngMaxState::bounds), false)?;
+    let model = build_model(
+        max_swallowing.as_deref().map(MaxSwallowingState::bounds),
+        false,
+    )?;
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
@@ -245,12 +248,15 @@ pub(crate) fn solve_stage(
             );
             io::stdout().flush().ok();
 
-            let relaxed_model = build_model(engmax.as_deref().map(EngMaxState::bounds), true)?;
+            let relaxed_model = build_model(
+                max_swallowing.as_deref().map(MaxSwallowingState::bounds),
+                true,
+            )?;
 
             let relaxed_summary = match solve_model_direct(solver, &relaxed_model) {
                 Ok(summary) => summary,
-                Err(SolverError::Infeasible) if engmax.is_some() => {
-                    return Err(diagnose_engmax_infeasibility(
+                Err(SolverError::Infeasible) if max_swallowing.is_some() => {
+                    return Err(diagnose_max_swallowing_infeasibility(
                         solver,
                         &relaxed_model,
                         &build_model(None, true)?,
@@ -279,8 +285,8 @@ pub(crate) fn solve_stage(
             ));
             relaxed_summary
         }
-        Err(SolverError::Infeasible) if engmax.is_some() => {
-            return Err(diagnose_engmax_infeasibility(
+        Err(SolverError::Infeasible) if max_swallowing.is_some() => {
+            return Err(diagnose_max_swallowing_infeasibility(
                 solver,
                 &model,
                 &build_model(None, false)?,
@@ -293,7 +299,7 @@ pub(crate) fn solve_stage(
         Err(error) => return Err(error.into()),
     };
     let solve_time = started_at.elapsed();
-    if let Some(state) = engmax {
+    if let Some(state) = max_swallowing {
         state.after_solve(system, &indexing, stage, iteration, solve_mode, &summary);
     }
     let violations = detect_flow_violations(system, dc_network, &summary.primal, &col_offsets);
@@ -326,14 +332,14 @@ pub(crate) fn solve_stage(
     Ok((summary, violations, used_slacks))
 }
 
-/// Solve one stage over the full horizon without the network. `engmax` is read to build the
+/// Solve one stage over the full horizon without the network. `max_swallowing` is read to build the
 /// model (normal and relaxed) and then advanced, once, on the solution this function returns.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_stage_without_network(
     system: &System,
     solve_mode: SolveMode,
     commitment_source: Option<&LpSolution>,
-    engmax: Option<&mut EngMaxState>,
+    max_swallowing: Option<&mut MaxSwallowingState>,
     stage: IterationStage,
     iteration: usize,
     steps: &mut Vec<IterationReport>,
@@ -347,7 +353,7 @@ pub(crate) fn solve_stage_without_network(
     let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
 
     let build_model =
-        |bounds: Option<&EngMaxBounds>, relaxed: bool| -> Result<Model, SimulationError> {
+        |bounds: Option<&MaxSwallowingBounds>, relaxed: bool| -> Result<Model, SimulationError> {
             let mut model = stage_model(
                 system,
                 solve_mode,
@@ -361,7 +367,10 @@ pub(crate) fn solve_stage_without_network(
             }
             Ok(model)
         };
-    let model = build_model(engmax.as_deref().map(EngMaxState::bounds), false)?;
+    let model = build_model(
+        max_swallowing.as_deref().map(MaxSwallowingState::bounds),
+        false,
+    )?;
     let (variable_count, constraint_count) = model_dimensions(&model);
 
     let started_at = Instant::now();
@@ -377,12 +386,15 @@ pub(crate) fn solve_stage_without_network(
             );
             io::stdout().flush().ok();
 
-            let relaxed_model = build_model(engmax.as_deref().map(EngMaxState::bounds), true)?;
+            let relaxed_model = build_model(
+                max_swallowing.as_deref().map(MaxSwallowingState::bounds),
+                true,
+            )?;
 
             let relaxed_summary = match solve_model_direct(solver, &relaxed_model) {
                 Ok(summary) => summary,
-                Err(SolverError::Infeasible) if engmax.is_some() => {
-                    return Err(diagnose_engmax_infeasibility(
+                Err(SolverError::Infeasible) if max_swallowing.is_some() => {
+                    return Err(diagnose_max_swallowing_infeasibility(
                         solver,
                         &relaxed_model,
                         &build_model(None, true)?,
@@ -403,8 +415,8 @@ pub(crate) fn solve_stage_without_network(
             ));
             relaxed_summary
         }
-        Err(SolverError::Infeasible) if engmax.is_some() => {
-            return Err(diagnose_engmax_infeasibility(
+        Err(SolverError::Infeasible) if max_swallowing.is_some() => {
+            return Err(diagnose_max_swallowing_infeasibility(
                 solver,
                 &model,
                 &build_model(None, false)?,
@@ -417,7 +429,7 @@ pub(crate) fn solve_stage_without_network(
         Err(error) => return Err(error.into()),
     };
     let solve_time = started_at.elapsed();
-    if let Some(state) = engmax {
+    if let Some(state) = max_swallowing {
         state.after_solve(system, &indexing, stage, iteration, solve_mode, &summary);
     }
 
@@ -459,7 +471,7 @@ mod tests {
     use crate::error::SimulationError;
     use crate::results::OperationalLimitInfeasibilityRecord;
     use crate::workflow::IterationStage;
-    use labdessem_core::entities::EngMaxBounds;
+    use labdessem_core::entities::MaxSwallowingBounds;
     use labdessem_core::ids::{BranchId, BusId, ThermalPlantId};
     use labdessem_core::system::{
         Branch, OperationalLimit, OperationalLimitTarget, OperationalLimitVariable, System,
@@ -472,7 +484,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     #[test]
-    fn stage_model_without_engmax_adds_no_engmax_rows() {
+    fn stage_model_without_max_swallowing_adds_no_max_swallowing_rows() {
         let system = minimal_system_with_hydro();
         let indexing = Indexing::from_system(&system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
@@ -485,18 +497,18 @@ mod tests {
             &col_offsets,
             None,
         )
-        .expect("no EngMax bounds to build");
+        .expect("no max swallowing bounds to build");
 
-        assert_eq!(model.constraints.engmax().len(), 0);
+        assert_eq!(model.constraints.max_swallowing().len(), 0);
     }
 
     #[test]
-    fn stage_model_with_engmax_builds_rows_from_the_given_bounds() {
+    fn stage_model_with_max_swallowing_builds_rows_from_the_given_bounds() {
         let system = minimal_system_with_hydro();
         let indexing = Indexing::from_system(&system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
         // Copied into the rows, not computed: they differ from the plant's computed bound.
-        let mut bounds = EngMaxBounds::new(2);
+        let mut bounds = MaxSwallowingBounds::new(2);
         bounds.set(0, 0, 11.0);
         bounds.set(0, 1, 13.0);
 
@@ -510,7 +522,7 @@ mod tests {
         )
         .expect("all bounds are present");
 
-        let rows = model.constraints.engmax();
+        let rows = model.constraints.max_swallowing();
         assert_eq!(rows.len(), 2);
         let plant = &system.hydro_plants[0].name;
         for (period, expected) in [(1, 11.0), (2, 13.0)] {
@@ -518,7 +530,7 @@ mod tests {
             let row = rows
                 .iter()
                 .find(|row| row.name == name)
-                .expect("engmax row for every period");
+                .expect("max swallowing row for every period");
             assert_eq!(row.rhs, expected);
         }
     }
@@ -529,7 +541,7 @@ mod tests {
         let indexing = Indexing::from_system(&system);
         let col_offsets = indexing.compute_column_offsets(system.horizon.periods);
         // horizon 2: period 1 has no bound
-        let mut bounds = EngMaxBounds::new(2);
+        let mut bounds = MaxSwallowingBounds::new(2);
         bounds.set(0, 0, 11.0);
 
         let result = stage_model(
@@ -543,10 +555,9 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(SimulationError::Model(ModelError::MissingEngMaxBound {
-                period: 1,
-                ..
-            }))
+            Err(SimulationError::Model(
+                ModelError::MissingMaxSwallowingBound { period: 1, .. }
+            ))
         ));
     }
 

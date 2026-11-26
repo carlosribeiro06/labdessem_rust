@@ -1,6 +1,6 @@
 //! Terminal banner and display utilities for the labdessem CLI.
 
-use std::io::{stderr, IsTerminal};
+use std::io::{IsTerminal, stderr};
 
 use labdessem_io::FphaOption;
 
@@ -42,7 +42,7 @@ pub struct ExecutionInfo<'a> {
     pub fpha_mode: FphaOption,
     pub fcf_enabled: bool,
     pub ton_residual_enabled: bool,
-    pub engmax_enabled: bool,
+    pub max_swallowing_enabled: bool,
 }
 
 /// Print execution configuration to stderr.
@@ -67,7 +67,7 @@ fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
     if info.ton_residual_enabled {
         flags.push("TON_Residual".to_string());
     }
-    if info.engmax_enabled {
+    if info.max_swallowing_enabled {
         flags.push("EngMax".to_string());
     }
     if info.network_enabled {
@@ -99,7 +99,7 @@ fn render_execution_info(info: &ExecutionInfo, use_color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{render_banner, render_execution_info, ExecutionInfo};
+    use super::{ExecutionInfo, render_banner, render_execution_info};
     use labdessem_io::FphaOption;
 
     #[test]
@@ -139,7 +139,7 @@ mod tests {
             fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: true,
             ton_residual_enabled: false,
-            engmax_enabled: false,
+            max_swallowing_enabled: false,
         };
         let output = render_execution_info(&info, false);
         assert!(output.contains("UCT"));
@@ -160,7 +160,7 @@ mod tests {
             fpha_mode: FphaOption::Computed,
             fcf_enabled: false,
             ton_residual_enabled: false,
-            engmax_enabled: false,
+            max_swallowing_enabled: false,
         };
         let output = render_execution_info(&info, false);
         assert!(output.contains("FPHA=computed"));
@@ -177,7 +177,7 @@ mod tests {
             fpha_mode: FphaOption::Precomputed,
             fcf_enabled: false,
             ton_residual_enabled: false,
-            engmax_enabled: false,
+            max_swallowing_enabled: false,
         };
         let output = render_execution_info(&info, false);
         assert!(output.contains("FPHA=precomputed"));
@@ -194,7 +194,7 @@ mod tests {
             fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: false,
             ton_residual_enabled: false,
-            engmax_enabled: false,
+            max_swallowing_enabled: false,
         };
         let output = render_execution_info(&info, true);
         assert!(output.contains("\x1b[1m"));
@@ -212,7 +212,7 @@ mod tests {
             fpha_mode: FphaOption::ConstantProductivity,
             fcf_enabled: false,
             ton_residual_enabled: false,
-            engmax_enabled: false,
+            max_swallowing_enabled: false,
         };
         let output = render_execution_info(&info, false);
         assert!(output.contains("/my/case"));

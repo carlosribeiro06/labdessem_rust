@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use labdessem_core::entities::engmax_bounds::EngMaxBounds;
+use labdessem_core::entities::max_swallowing_bounds::MaxSwallowingBounds;
 use labdessem_core::system::System;
 use labdessem_model::names::{
     hydro_balance_constraint_name, hydro_commitment_name, hydro_diversion_name,
@@ -19,14 +19,14 @@ use crate::output::{
 
 /// Write hydro plant results to CSV.
 ///
-/// `engmax_bounds` fills `EngMaxHM3`/`EngMaxM3s` on the `99;99` rows; `None` (EngMax
-/// disabled) leaves both columns empty on every row (ADR-022).
+/// `max_swallowing_bounds` fills `EngMaxHM3`/`EngMaxM3s` on the `99;99` rows; `None` (max
+/// swallowing disabled) leaves both columns empty on every row (ADR-022).
 pub fn write_hydro_csv(
     system: &System,
     variable_values: &HashMap<String, f64>,
     constraint_duals: &HashMap<String, f64>,
     output_dir: &Path,
-    engmax_bounds: Option<&EngMaxBounds>,
+    max_swallowing_bounds: Option<&MaxSwallowingBounds>,
 ) -> Result<(), IoError> {
     let mut csv = csv_with_header(
         "Usina;Conjunto;Unidade;Periodo;VolumeHM3;VolumeUtilHM3;VolumeUtilMaxHM3;VolumeUtilPct;GeracaoMW;PmaxMW;GeracaoMaxPontoMW;StatusOn;StatusOff;TurbinamentoHM3;TurbinamentoM3s;TurbinamentoMaxHM3;TurbinamentoMaxM3s;EngMaxHM3;EngMaxM3s;VertimentoHM3;VertimentoM3s;DesvioHM3;DesvioM3s;AfluenciaM3s;AfluenciaHM3;RetiradaM3s;RetiradaHM3;BombeamentoHM3;BombeamentoM3s;Qmon;Vmon;PiBalHidr",
@@ -334,29 +334,30 @@ pub fn write_hydro_csv(
             };
             let aggregate_status_off = 1.0 - aggregate_status_on;
 
-            // Aggregate EngMax
-            let (agg_engmax_hm3_str, agg_engmax_m3s_str) = match engmax_bounds {
-                Some(bounds) => {
-                    let agg_engmax_hm3 = internal_periods
-                        .iter()
-                        .map(|&period| {
-                            bounds.get(plant_idx, period).ok_or_else(|| {
-                                IoError::invalid_data(format!(
-                                    "missing EngMax bound for plant {} period {period}",
-                                    plant.name
-                                ))
+            // Aggregate max swallowing
+            let (agg_max_swallowing_hm3_str, agg_max_swallowing_m3s_str) =
+                match max_swallowing_bounds {
+                    Some(bounds) => {
+                        let agg_max_swallowing_hm3 = internal_periods
+                            .iter()
+                            .map(|&period| {
+                                bounds.get(plant_idx, period).ok_or_else(|| {
+                                    IoError::invalid_data(format!(
+                                        "missing max swallowing bound for plant {} period {period}",
+                                        plant.name
+                                    ))
+                                })
                             })
-                        })
-                        .sum::<Result<f64, IoError>>()?;
-                    let agg_engmax_m3s =
-                        volume_hm3_to_flow_m3s(agg_engmax_hm3, period_duration_hours);
-                    (
-                        format!("{agg_engmax_hm3:.6}"),
-                        format!("{agg_engmax_m3s:.6}"),
-                    )
-                }
-                None => (String::new(), String::new()),
-            };
+                            .sum::<Result<f64, IoError>>()?;
+                        let agg_max_swallowing_m3s =
+                            volume_hm3_to_flow_m3s(agg_max_swallowing_hm3, period_duration_hours);
+                        (
+                            format!("{agg_max_swallowing_hm3:.6}"),
+                            format!("{agg_max_swallowing_m3s:.6}"),
+                        )
+                    }
+                    None => (String::new(), String::new()),
+                };
 
             csv.push_str(&format!(
                 "{};99;99;{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{};{};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6};{:.6}\n",
@@ -375,8 +376,8 @@ pub fn write_hydro_csv(
                 total_turbining_m3s,
                 total_turbining_max_hm3,
                 total_turbining_max_m3s,
-                agg_engmax_hm3_str,
-                agg_engmax_m3s_str,
+                agg_max_swallowing_hm3_str,
+                agg_max_swallowing_m3s_str,
                 spillage,
                 spillage_m3s,
                 diversion,
@@ -404,7 +405,7 @@ pub fn write_hydro_csv(
 mod tests {
     use super::{csv_with_header, write_hydro_csv};
     use crate::error::IoError;
-    use labdessem_core::entities::engmax_bounds::EngMaxBounds;
+    use labdessem_core::entities::max_swallowing_bounds::MaxSwallowingBounds;
     use labdessem_core::test_support::minimal_system_with_hydro;
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -417,9 +418,9 @@ mod tests {
     }
 
     #[test]
-    fn hydro_csv_engmax_only_on_plant_row() {
+    fn hydro_csv_max_swallowing_only_on_plant_row() {
         let system = minimal_system_with_hydro();
-        let mut bounds = EngMaxBounds::new(2);
+        let mut bounds = MaxSwallowingBounds::new(2);
         bounds.set(0, 0, 7.5);
         bounds.set(0, 1, 9.25);
         let temp_dir = TempDir::new().expect("failed to create temp dir");
@@ -460,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn hydro_csv_engmax_empty_without_bounds() {
+    fn hydro_csv_max_swallowing_empty_without_bounds() {
         let system = minimal_system_with_hydro();
         let temp_dir = TempDir::new().expect("failed to create temp dir");
 
@@ -489,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn hydro_csv_engmax_preamble_states_normative_wording() {
+    fn hydro_csv_max_swallowing_preamble_states_normative_wording() {
         let expected_hm3 = "EngMaxHM3: engolimento maximo da usina (MM eq. 9.34) em hm3, \
             preenchido apenas na linha agregada 99;99 e vazio nas linhas de unidade e quando \
             EngMax desabilitado; limite que construiu o modelo final do \
@@ -527,9 +528,9 @@ mod tests {
     }
 
     #[test]
-    fn hydro_csv_engmax_missing_bound_is_error() {
+    fn hydro_csv_max_swallowing_missing_bound_is_error() {
         let system = minimal_system_with_hydro();
-        let bounds = EngMaxBounds::new(0);
+        let bounds = MaxSwallowingBounds::new(0);
         let temp_dir = TempDir::new().expect("failed to create temp dir");
 
         let error = write_hydro_csv(
@@ -539,12 +540,12 @@ mod tests {
             temp_dir.path(),
             Some(&bounds),
         )
-        .expect_err("missing EngMax bound must be an error");
+        .expect_err("missing max swallowing bound must be an error");
 
         assert!(matches!(
             &error,
             IoError::InvalidData(message)
-                if message == "missing EngMax bound for plant HYDRO-1 period 0"
+                if message == "missing max swallowing bound for plant HYDRO-1 period 0"
         ));
     }
 }

@@ -59,16 +59,17 @@
 
         <h2 id="installation">Installation</h2>
         <p>Clone the repository and install the CLI:</p>
-        <pre><code>git clone https://github.com/carlosribeiro06/labdessem_rust.git
+        <pre><code>git clone --recurse-submodules https://github.com/carlosribeiro06/labdessem_rust.git
 cd labdessem_rust
 cargo install --path crates/labdessem-cli</code></pre>
+        <p>For an existing clone, run <code>git submodule update --init --recursive</code>; it fetches the qhull sources that <code>labdessem-model</code> compiles.</p>
         <p>This installs the <code>labdessem</code> binary to <code>~/.cargo/bin/</code>.</p>
 
         <h3>Requirements</h3>
         <ul>
           <li>Rust 1.70 or later</li>
           <li>CMake (for HiGHS solver compilation)</li>
-          <li>C++ compiler (Visual Studio Build Tools on Windows, GCC/Clang on Linux)</li>
+          <li>C and C++ compiler (Visual Studio Build Tools on Windows, GCC/Clang on Linux), for HiGHS and the vendored qhull</li>
         </ul>
 
         <h2 id="quick-start">Quick Start</h2>
@@ -93,9 +94,8 @@ labdessem run --help</code></pre>
 ├── crates/
 │   ├── labdessem-cli        # Command-line interface
 │   ├── labdessem-core       # Domain entities, IDs, validation
-│   ├── labdessem-fpha       # FPHA fitting pipeline (convex hull)
 │   ├── labdessem-io         # Case reader and output writers
-│   ├── labdessem-model      # Variables, objective, constraints
+│   ├── labdessem-model      # Variables, constraints, FPHA fit, max swallowing
 │   ├── labdessem-network    # DC network flow, PTDF, CMB/CMO
 │   ├── labdessem-simulation # Workflow orchestration
 │   ├── labdessem-solver     # Optimization backend (HiGHS)
@@ -123,16 +123,12 @@ labdessem run --help</code></pre>
               <td>Domain entities, identifiers, validations, horizon representation.</td>
             </tr>
             <tr>
-              <td><code>labdessem-fpha</code></td>
-              <td>FPHA fitting pipeline. Computes hyperplanes from VHA geometry using convex hull.</td>
-            </tr>
-            <tr>
               <td><code>labdessem-io</code></td>
               <td>Case reader. Loads <code>study_config.json</code> and CSV files from <code>CAD/</code> and <code>OPER/</code>.</td>
             </tr>
             <tr>
               <td><code>labdessem-model</code></td>
-              <td>Indexing, variables, objective function, and algebraic constraints.</td>
+              <td>Indexing, variables, objective function and algebraic constraints, plus the FPHA fit (<code>production</code>), the max swallowing formula (<code>swallowing</code>), the shared VHA and tailrace geometry (<code>hydro_geometry</code>) and a crate-private qhull binding built from the vendored <code>vendor/qhull</code> submodule.</td>
             </tr>
             <tr>
               <td><code>labdessem-network</code></td>
@@ -169,8 +165,8 @@ labdessem run --help</code></pre>
           <li><code>CAD_CONJ_UHE.csv</code> — Hydro groups and units</li>
           <li><code>CAD_REN.csv</code> — Renewable plants</li>
           <li><code>CAD_USIE.csv</code> — Pumping plants</li>
-          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (required by computed FPHA for every plant with generating units; optional for EngMax)</li>
-          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for EngMax)</li>
+          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (required by computed FPHA for every plant with generating units; optional for max swallowing)</li>
+          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for max swallowing)</li>
           <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional; columns and defaults in <a href="./configuration.html#fpha-config">Configuration</a>)</li>
         </ul>
 
@@ -191,7 +187,7 @@ labdessem run --help</code></pre>
           <li><code>resultado_termicas.csv</code> — Thermal generation and commitment</li>
           <li><code>resultado_hidreletricas.csv</code> — Hydro generation, turbining, spillage. When <code>EngMax=1</code>, the columns <code>EngMaxHM3</code> and <code>EngMaxM3s</code> hold the plant maximum swallowing (MM eq. 9.34):
             <ul>
-              <li>They are filled only on the plant aggregate rows <code>99;99</code>, and are empty on unit rows and when EngMax is off.</li>
+              <li>They are filled only on the plant aggregate rows <code>99;99</code>, and are empty on unit rows and when max swallowing is off.</li>
               <li>The value is the bound that built the final <code>LP-CALC-CMO</code> model.</li>
               <li>The value is raw, so it may exceed <code>TurbinamentoMaxHM3</code> / <code>TurbinamentoMaxM3s</code> on the same row.</li>
               <li><code>EngMaxHM3</code> is summed over the internal periods of each original period; <code>EngMaxM3s</code> is that value converted to m³/s over the original period's duration.</li>

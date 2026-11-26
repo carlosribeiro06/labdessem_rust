@@ -8,6 +8,6 @@ mod solve;
 #[cfg(test)]
 // Rationale: tests use expect() for clearer failure messages
 #[allow(clippy::unwrap_used, clippy::expect_used)]
-mod engmax_tests;
+mod max_swallowing_tests;
 
-pub use orchestration::{run_simulation, run_simulation_with_engmax};
+pub use orchestration::{run_simulation, run_simulation_with_max_swallowing};

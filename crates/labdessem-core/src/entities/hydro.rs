@@ -33,7 +33,7 @@ impl TurbineType {
     /// when it falls back to [`TurbineType::Unknown`] (R24, ADR-019).
     ///
     /// No warning for codes 1-3, or for code 0 on a plant without units (such plants get no
-    /// EngMax row). Every other fallback warns, including a non-integer value.
+    /// max swallowing row). Every other fallback warns, including a non-integer value.
     pub fn from_deck_field(raw: &str, plant_name: &str, has_units: bool) -> Self {
         let (turbine_type, warning) = Self::classify_deck_field(raw, plant_name, has_units);
         if let Some(message) = warning {
@@ -252,7 +252,7 @@ pub struct HydroPlant {
     pub turbine_type: TurbineType,
 
     /// Volume-level table for forebay interpolation: Vec<(volume_hm3, level_m)>
-    /// Sorted by volume ascending. Used for net head calculation in EngMax.
+    /// Sorted by volume ascending. Used for the net head of the max swallowing bound.
     /// None if geometry data is not available for this plant.
     pub volume_level_table: Option<Vec<(f64, f64)>>,
 

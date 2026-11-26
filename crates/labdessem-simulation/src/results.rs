@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use labdessem_core::entities::EngMaxBounds;
+use labdessem_core::entities::MaxSwallowingBounds;
 use labdessem_core::{ids::SubmarketId, system::OperationalLimitVariable};
 use labdessem_solver::LpSolution;
 
@@ -44,25 +44,25 @@ pub struct IterativeSimulationResult {
     pub cmo_values: HashMap<(SubmarketId, usize), f64>,
     /// Flow cut mapping from LP-CALC-CMO stage — None when network disabled
     pub flow_cut_mapping: Option<FlowCutMapping>,
-    /// EngMax outcome of the run (ADR-011); `None` when EngMax is disabled
-    pub engmax: Option<EngMaxOutcome>,
+    /// Max swallowing outcome of the run (ADR-011); `None` when max swallowing is disabled
+    pub max_swallowing: Option<MaxSwallowingOutcome>,
 }
 
-/// EngMax at the end of a run (ADR-011).
+/// Max swallowing at the end of a run (ADR-011).
 #[derive(Debug, Clone)]
-pub struct EngMaxOutcome {
+pub struct MaxSwallowingOutcome {
     /// Bounds the final LP-CALC-CMO model was built from; the hydro CSV reports these.
-    pub used: EngMaxBounds,
-    /// EngMax recomputed from the final LP-CALC-CMO solution.
-    pub recomputed: EngMaxBounds,
+    pub used: MaxSwallowingBounds,
+    /// Max swallowing recomputed from the final LP-CALC-CMO solution.
+    pub recomputed: MaxSwallowingBounds,
     /// Consistency of the final turbining with `recomputed` (R12).
-    pub diagnostic: EngMaxDiagnostic,
+    pub diagnostic: MaxSwallowingDiagnostic,
 }
 
-/// Consistency of the final LP-CALC-CMO turbining with EngMax recomputed from that same
+/// Consistency of the final LP-CALC-CMO turbining with max swallowing recomputed from that same
 /// solution (ADR-011, R12), over every plant with units and every model period, in m3/s.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct EngMaxDiagnostic {
+pub struct MaxSwallowingDiagnostic {
     /// Plant-periods whose turbining exceeds the recomputed bound by more than 0.01 m3/s,
     /// including those whose bound is zero.
     pub exceed_count: usize,

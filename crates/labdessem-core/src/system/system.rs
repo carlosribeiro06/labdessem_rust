@@ -3,7 +3,10 @@
 use std::collections::HashSet;
 
 use crate::{
-    entities::{Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket, ThermalPlant},
+    entities::{
+        Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket,
+        ThermalPlant,
+    },
     error::CoreError,
 };
 

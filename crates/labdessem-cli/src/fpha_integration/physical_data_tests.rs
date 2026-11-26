@@ -9,15 +9,19 @@
 //! The geometry and tailrace readers run on every study read, so a non-finite value or a duplicate
 //! tailrace row fails `read_study_from_path` before any fitting.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 
 use labdessem_core::entities::HydroPlant;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
 use labdessem_io::read_study_from_path;
+use labdessem_model::production::{
+    FitFailureReason, FphaFittingError, FphaInput, build_fit_params,
+};
 
 use super::probe::{DerivedCase, FitContext, computed_system, fit_contexts};
-use super::{FitFailureReason, FphaComputeError, FphaInput, PlantFitFailure, compute_fpha};
+use super::{FphaComputeError, PlantFitFailure, compute_fpha, fit_failure_text};
 
 /// Tailrace table the computed FPHA reads, relative to the case directory.
 const TAILRACE_FILE: &str = "CAD/CAD_TAILRACE.csv";
@@ -47,7 +51,7 @@ const HYDRO_PLANT_COUNT: usize = 4;
 /// context of every fitted plant, as the `labdessem` binary would build them.
 struct CaseRun {
     system: System,
-    contexts: BTreeMap<i32, FitContext>,
+    contexts: BTreeMap<HydroPlantId, FitContext>,
     plants_processed: usize,
     plants_skipped: usize,
 }
@@ -64,13 +68,13 @@ impl CaseRun {
         })
     }
 
-    fn context(&self, code: u32) -> &FitContext {
-        let key = i32::try_from(code).expect("plant code fits i32");
+    fn context(&self, id: HydroPlantId) -> &FitContext {
         assert!(
-            self.contexts.contains_key(&key),
-            "no fit context for plant {code}"
+            self.contexts.contains_key(&id),
+            "no fit context for plant {}",
+            id.0
         );
-        &self.contexts[&key]
+        &self.contexts[&id]
     }
 }
 
@@ -123,7 +127,7 @@ fn missing_inputs(failure: &PlantFitFailure) -> Result<&[FphaInput], Box<dyn Err
         FitFailureReason::MissingInputs(inputs) => Ok(inputs),
         other => Err(format!(
             "plant {}: expected MissingInputs, got {other:?}",
-            failure.hydro_id
+            failure.hydro_id.0
         )
         .into()),
     }
@@ -147,12 +151,12 @@ fn missing_tailrace_row_fails_fitting() -> Result<(), Box<dyn Error>> {
     let [failure] = failures.as_slice() else {
         return Err(format!("expected one failure, got {failures:?}").into());
     };
-    assert_eq!(failure.hydro_id, 3);
+    assert_eq!(failure.hydro_id, HydroPlantId(3));
     assert_eq!(missing_inputs(failure)?, [FphaInput::Tailrace]);
+    let message = fit_failure_text(&failure.reason);
     assert!(
-        failure.reason.to_string().contains(TAILRACE_FILE),
-        "the failure must name {TAILRACE_FILE}: {}",
-        failure.reason
+        message.contains(TAILRACE_FILE),
+        "the failure must name {TAILRACE_FILE}: {message}"
     );
     Ok(())
 }
@@ -175,14 +179,48 @@ fn missing_efficiency_and_loss_fail_fitting() -> Result<(), Box<dyn Error>> {
             missing_inputs(failure)?,
             [FphaInput::Efficiency, FphaInput::HydraulicLoss],
             "plant {}",
-            failure.hydro_id
+            failure.hydro_id.0
         );
-        let message = failure.reason.to_string();
+        let message = fit_failure_text(&failure.reason);
         assert!(
             message.contains("Eficiencia") && message.contains("Perda.m"),
             "plant {}: the failure must name Eficiencia and Perda.m: {message}",
-            failure.hydro_id
+            failure.hydro_id.0
         );
+    }
+    Ok(())
+}
+
+/// The missing inputs are checked before the VHA table: a plant without a tailrace row fails with
+/// `MissingInputs` even when its table repeats a volume, and with its tailrace row the same table
+/// fails the forebay construction.
+#[test]
+fn missing_inputs_are_reported_before_a_malformed_table() -> Result<(), Box<dyn Error>> {
+    // Arrange
+    let case = DerivedCase::new("computed")?;
+    let mut plant = read_study_from_path(case.path())?
+        .hydro_plants
+        .into_iter()
+        .find(|plant| code_of(plant) == TAILRACE_PLANT_CODE)
+        .ok_or("plant 3 not in 24Barras")?;
+    plant.volume_level_table = Some(vec![(0.0, 1.0), (0.0, 2.0)]);
+    let mut without_tailrace = plant.clone();
+    without_tailrace.tailrace_coefficients = None;
+
+    // Act
+    let missing = build_fit_params(&without_tailrace, None, 1.0, &HashMap::new(), false);
+    let malformed = build_fit_params(&plant, None, 1.0, &HashMap::new(), false);
+
+    // Assert
+    match missing {
+        Ok(Err(FitFailureReason::MissingInputs(inputs))) => {
+            assert_eq!(inputs, [FphaInput::Tailrace]);
+        }
+        other => return Err(format!("expected MissingInputs, got {other:?}").into()),
+    }
+    match malformed {
+        Ok(Err(FitFailureReason::Fitting(FphaFittingError::Geometry(_)))) => {}
+        other => return Err(format!("expected a forebay table error, got {other:?}").into()),
     }
     Ok(())
 }
@@ -320,9 +358,12 @@ fn control_a3_official_inputs_carry_physical_data() {
             plant.name,
             plant.hydraulic_loss_m
         );
+        let tailrace = &run.context(plant.id).params.tailrace;
         assert!(
-            run.context(code).params.tailrace.is_some(),
-            "plant {code} ({}): the fit params must carry a tailrace model",
+            plant
+                .tailrace_coefficients
+                .is_some_and(|coefficients| tailrace.coefficients == coefficients),
+            "plant {code} ({}): the fit params must carry the plant's tailrace polynomial",
             plant.name
         );
         plants_with_groups += 1;

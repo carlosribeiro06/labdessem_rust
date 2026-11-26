@@ -4,10 +4,10 @@ This document describes how labdessem models hydro generation with the FPHA (Fun
 
 Terms used below:
 
-- FPH: the exact hydro production function, in MW (`ProductionFunction::evaluate`, [`production.rs`](../../crates/labdessem-fpha/src/fitting/production.rs)).
+- FPH: the exact hydro production function, in MW (`ProductionFunction::evaluate`, [`function.rs`](../../crates/labdessem-model/src/production/function.rs)).
 - FPHA: a set of planes `γ_0 + γ_V·V + γ_Q·Q + γ_S·S`, each a linear bound on generation, fitted to the FPH. `V` is the reservoir volume in hm3, `Q` the turbined flow and `S` the spilled flow, both in m3/s.
 - MM, MU, Libs: the DESSEM Methodology Manual (22.3.0), the DESSEM User Manual (22.3.2) and the Libs manual (11.0.0). The decision briefs cite them through secondary summaries; the manual PDFs were not re-read. A DESSEM claim in this document carries a section number or `[to confirm]`.
-- MLT: the long-term mean inflow of a plant in m3/s, used as the spillage range of the `γ_S` fit.
+- MLT: the long-term mean of the plant's incremental inflow in m3/s, used as the spillage range of the `γ_S` fit. It is the mean of `OPER/inflow_history.parquet`; without that file, the mean of the deck `natural_inflow_hm3` converted to m3/s; else 0.0. The fit uses `2 · Q_max` as the spillage range when the MLT is not above 0. It is not DESSEM's total natural inflow per posto (`mlt.dat`); the follow-up is recorded in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 - VHA: the volume-height-area table of a plant, read from `CAD/CAD_GEOMETRIA_UHE.csv`.
 
 The FPH is `K · η · Q · h_net` with `K = 0.00981` MW/(m3/s · m), `η` the plant efficiency, `Q` clamped to `[0, Q_max]` and
@@ -30,7 +30,7 @@ The `FPHA` key of `study_config.json` takes one of three strings. A number (the 
 
 `conv = period_duration_hours · 0.0036` converts a flow in m3/s to hm3 per period. The variables `g[u,t]` (MW), `q[u,t]` and `S[t]` (hm3 per period) are per unit `u` and period `t`.
 
-The computed mode writes `RESULTADOS/resultado_fpha_computed.csv`. It does not read `OPER/OPER_FPHA.csv`: the deck is read with FPHA off, and `finalize_fpha_injection` turns FPHA on after the planes are injected. The CLI runs `compute_fpha`, `finalize_fpha_injection` and `write_computed_results` in this order in `run_and_print` ([`main.rs`](../../crates/labdessem-cli/src/main.rs)), before the solve.
+The computed mode writes `RESULTADOS/resultado_fpha_computed.csv`. It does not read `OPER/OPER_FPHA.csv`: the deck is read with FPHA off, and `finalize_fpha_injection` turns FPHA on after the planes are injected. The CLI runs `compute_fpha`, `finalize_fpha_injection` and `write_fpha_computed` (io, `output/fpha_computed.rs`) in this order in `run_and_print` ([`main.rs`](../../crates/labdessem-cli/src/main.rs)), before the solve.
 
 ## LP Constraint
 
@@ -53,18 +53,20 @@ A second row couples generation to turbining. `build_hydro_generation_turbining_
 
 ## Computed Fit Pipeline
 
-`compute_fpha` ([`fpha_integration.rs`](../../crates/labdessem-cli/src/fpha_integration.rs)) fits every hydro plant with generating units and fails when any such plant cannot be fitted:
+The computed fit is split between the model and the CLI. `fit_system` ([`assembly.rs`](../../crates/labdessem-model/src/production/assembly.rs)) fits every hydro plant with generating units and returns typed results and failures as data. `compute_fpha` ([`fpha_integration.rs`](../../crates/labdessem-cli/src/fpha_integration.rs)) reads the overrides, calls `fit_system`, renders the text (R17) and fails when any such plant cannot be fitted:
 
-1. It excludes plants without generating units before any geometry or `inflow_history.parquet` lookup, and counts them in `plants_skipped` (ADR-026).
-2. It reads `CAD_GEOMETRIA_UHE.csv`, `CAD_TAILRACE.csv` and `CAD_FPHA_CONFIG.csv`.
-3. For each plant with units, `build_fit_params` builds `FitPlantParams`:
+1. `fit_system` excludes plants without generating units before any geometry or `inflow_history.parquet` lookup, and counts them in `plants_without_units`; `compute_fpha` reports them as `plants_skipped` (ADR-026).
+2. The study read has already loaded the VHA table (`CAD_GEOMETRIA_UHE.csv`) and the tailrace polynomial (`CAD_TAILRACE.csv`) into `System`. `compute_fpha` reads only `CAD_FPHA_CONFIG.csv`, with `read_fpha_config` (io), which returns the overrides keyed by `HydroPlantId`.
+3. For each plant with units, `fit_system` records a plant without a VHA table as `FitFailureReason::MissingGeometry`. Otherwise `build_fit_params` builds `FitPlantParams` from the `System`:
    - `Q_max` is the sum of the maximum turbining of every unit, converted to m3/s with the period duration. `Pmax` is the sum of the units' maximum generation.
    - The tailrace polynomial, `Eficiencia` and `Perda.m` are required. An absent one is a missing input, not a default.
    - The MLT is the plant mean of `OPER/inflow_history.parquet`. When the file is absent the MLT is the mean of the deck `natural_inflow_hm3` converted to m3/s, and the CLI prints `Warning: inflow_history.parquet not found; using deck mean for MLT`.
+   - When the file exists but has no row for the plant, `build_fit_params` stops the whole batch with `MissingInflowHistory` at the first such plant, before any later plant is fitted.
    - The window reference is the `[Vmin.hm3, Vmax.hm3]` interval of the plant in `CAD/CAD_UHE.csv`.
-4. It calls `fit_plant` and records each failure with its reason. After the last plant it returns `PlantsNotFitted` with every failure, or the results.
+4. `fit_system` checks the ignored volume window (`ignored_volume_window`), calls `fit_plant` and records the outcome of each plant in plant order: a `FphaPlantResult` or a `FitFailureReason`.
+5. `compute_fpha` renders the text: `ignored_window_warning` for an ignored window and `fit_failure_text` for each failure. After the last plant it returns `PlantsNotFitted` with every failure, or the results. It turns `MissingInflowHistory` into `FphaComputeError::MissingHydro`.
 
-`fit_plant` ([`pipeline.rs`](../../crates/labdessem-fpha/src/pipeline.rs)) runs these stages in this order:
+`fit_plant` ([`pipeline.rs`](../../crates/labdessem-model/src/production/pipeline.rs)) runs these stages in this order:
 
 | Stage | Function | Behavior |
 | --- | --- | --- |
@@ -78,7 +80,7 @@ A second row couples generation to turbining. `build_hydro_generation_turbining_
 
 Alpha (ADR-033) minimizes `Σ (alpha · FPHA_0 − FPH)²`, so `alpha = Σ FPHA_0 · FPH / Σ FPHA_0²`. `FPHA_0` is the lowest of the final planes at spillage 0 and `FPH` is the capped FPH. The 30 evaluation points are a uniform grid of 6 volumes over the fit window and 5 flows over `[0, Q_max]`, or 2 volumes and 15 flows for a single-volume plant. `volume_points` and `flow_points` do not change them. The count 30 is the MM default (§9.16.11, step 4); the point layout is a labdessem choice `[to confirm]`. When `Σ FPHA_0²` is 0, `alpha` is 1.0. Because the planes are the reduced ones, `alpha` depends on `max_planes`.
 
-The turbining axis is `[0, Q_max]` with `Q_max` the sum of the units' maximum turbining, and the FPH is capped at `Pmax` in the hull cloud, in alpha and in the deviation. The secant and the distance reduction use the uncapped FPH (ADR-031).
+The turbining axis is `[0, Q_max]` with `Q_max` the sum of the units' maximum turbining, and the FPH is capped at `Pmax` in the hull cloud, in alpha and in the deviation. The secant uses the uncapped FPH (ADR-031).
 
 ## Alpha Contract and OPER_FPHA Copy Rule
 
@@ -107,7 +109,7 @@ The test `computed_csv_round_trip_reproduces_objective` ([`fpha_e2e.rs`](../../c
 
 ## Fitting Configuration
 
-Defaults come from named constants in [`config.rs`](../../crates/labdessem-fpha/src/config.rs):
+Defaults come from named constants in [`config.rs`](../../crates/labdessem-model/src/production/config.rs):
 
 | Constant | Value | Meaning |
 | --- | --- | --- |
@@ -135,7 +137,7 @@ codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct
 | `min_volume_pct` | `MinVolumePct` | Lower window bound as a fraction in [0, 1] of the `CAD_UHE.csv` interval |
 | `max_volume_pct` | `MaxVolumePct` | Upper window bound as a fraction in [0, 1] of the `CAD_UHE.csv` interval |
 
-An empty cell keeps the default. Despite the `_pct` suffix, the window bounds are fractions, not percentages. The reference of the window is the `CAD_UHE.csv` `[Vmin.hm3, Vmax.hm3]` interval, not the VHA span. A window bound on a plant with a single-point VHA table has no effect and the CLI prints the warning listed under Failure Policies. The example `fpha_fit` has no `CAD_UHE.csv`, so it takes the window as a fraction of the VHA span.
+An empty cell keeps the default. Despite the `_pct` suffix, the window bounds are fractions, not percentages. The reference of the window is the `CAD_UHE.csv` `[Vmin.hm3, Vmax.hm3]` interval, not the VHA span. A window bound on a plant with a single-point VHA table has no effect and the CLI prints the warning listed under Failure Policies.
 
 `CAD/CAD_TAILRACE.csv` has the header `codigo_usina;a0.m;a1.m/m3s;a2.m/m3s2;a3.m/m3s3;a4.m/m3s4`, one row per plant, giving the tailrace level in metres as a degree-4 polynomial of the total outflow in m3/s. `CAD/CAD_GEOMETRIA_UHE.csv` has the header `codigo_usina;volume.hm3;cota.m;area.km2`.
 
@@ -145,13 +147,13 @@ A failure stops the run before any result is written. The CLI prints `Error: <me
 
 | Message | Error type | Raised by | Notes |
 | --- | --- | --- | --- |
-| `computed FPHA could not be fitted for <n> hydro plant(s) with generating units:` | `FphaComputeError::PlantsNotFitted` | `compute_fpha` | One line follows per plant: `plant <id> (<name>): <reason>`. A reason is `no rows in CAD/CAD_GEOMETRIA_UHE.csv`, `missing inputs: <inputs>`, `invalid fit parameters: <detail>` or `fitting failed: <detail>` (`FitFailureReason`). |
-| `row in CAD/CAD_TAILRACE.csv` | `FphaInput::Tailrace`, inside `FitFailureReason::MissingInputs` | `compute_fpha` through `build_fit_params` | The plant has no tailrace row. |
-| `Eficiencia in CAD/CAD_UHE.csv (column absent or empty)` | `FphaInput::Efficiency`, inside `MissingInputs` | `compute_fpha` through `build_fit_params` | An explicit `Eficiencia` is required. |
-| `Perda.m in CAD/CAD_UHE.csv (column absent or empty)` | `FphaInput::HydraulicLoss`, inside `MissingInputs` | `compute_fpha` through `build_fit_params` | An explicit `Perda.m = 0` is valid; only an absent column or an empty cell is missing. |
-| `hydro <name>: cannot reduce to <n> planes (<k> remain after the last tolerance)` | `FphaFittingError::PlaneLimitUnreachable`, inside `FittingFailed` | `fit_plant`, called by `compute_fpha` | Raise `num_planes` or `tolerance` of the plant. |
-| `hydro <name>: invalid fit volume window: <reason>` | `FphaFittingError::InvalidFitWindow`, inside `FittingFailed` | `fit_context`, called by `compute_fpha` | The fractions are outside [0, 1], `min_volume_pct` is not below `max_volume_pct`, or the window leaves the VHA table. |
-| `hydro <id> (<name>) missing from inflow_history.parquet` | `FphaComputeError::MissingHydro` | `compute_fpha` | Fails at the first plant, without collecting the others, when the file exists and lacks the plant. |
+| `computed FPHA could not be fitted for <n> hydro plant(s) with generating units:` | `FphaComputeError::PlantsNotFitted` | `compute_fpha` | One line follows per plant: `plant <id> (<name>): <reason>`. A reason is `no rows in CAD/CAD_GEOMETRIA_UHE.csv`, `missing inputs: <inputs>` or `fitting failed: <detail>` (`FitFailureReason`, rendered by `fit_failure_text`). |
+| `row in CAD/CAD_TAILRACE.csv` | `FphaInput::Tailrace`, inside `FitFailureReason::MissingInputs` | `fit_system` through `build_fit_params` | The plant has no tailrace row. |
+| `Eficiencia in CAD/CAD_UHE.csv (column absent or empty)` | `FphaInput::Efficiency`, inside `MissingInputs` | `fit_system` through `build_fit_params` | An explicit `Eficiencia` is required. |
+| `Perda.m in CAD/CAD_UHE.csv (column absent or empty)` | `FphaInput::HydraulicLoss`, inside `MissingInputs` | `fit_system` through `build_fit_params` | An explicit `Perda.m = 0` is valid; only an absent column or an empty cell is missing. |
+| `hydro <name>: cannot reduce to <n> planes (<k> remain after the last tolerance)` | `FphaFittingError::PlaneLimitUnreachable`, inside `FitFailureReason::Fitting` | `fit_plant`, called by `fit_system` | Raise `num_planes` or `tolerance` of the plant. |
+| `hydro <name>: invalid fit volume window: <reason>` | `FphaFittingError::InvalidFitWindow`, inside `FitFailureReason::Fitting` | `fit_context`, called by `fit_system` through `fit_plant` | The fractions are outside [0, 1], `min_volume_pct` is not below `max_volume_pct`, or the window leaves the VHA table. |
+| `hydro <id> (<name>) missing from inflow_history.parquet` | `FphaComputeError::MissingHydro` | `compute_fpha` | The model `fit_system` reports `MissingInflowHistory` at the first plant, without collecting the others, when the file exists and lacks the plant; `compute_fpha` turns it into `FphaComputeError::MissingHydro`. |
 | `system validation failed after FPHA injection: <detail>` | `FphaComputeError::InvalidSystem` | `finalize_fpha_injection` | Validates the whole system with FPHA on, so a plant with units and no segment fails here (ADR-026). |
 | `Warning: plant <id> (<name>) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct <a> and max_volume_pct <b> in CAD/CAD_FPHA_CONFIG.csv are ignored` | none (stderr warning) | `compute_fpha` | An unset bound prints `unset`. The fit continues. |
 | `OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: <code> (<name>), ...` | `IoError::InvalidData` | study read, precomputed mode | Lists every affected plant in ascending code order. |
@@ -163,43 +165,46 @@ A failure stops the run before any result is written. The CLI prints `Error: <me
 
 The `CAD_FPHA_CONFIG.csv` reader also rejects a negative `tolerance` (`plant <id> has negative tolerance <v> at line <n> in CAD_FPHA_CONFIG.csv`) and a window bound outside [0, 1] (`plant <id> has invalid min_volume_pct <v> (must be 0-1) at line <n> in CAD_FPHA_CONFIG.csv`, and the same for `max_volume_pct`).
 
-`build_fit_params` returns `FphaComputeError::MissingFphaInputs` for a plant with missing inputs, and `compute_fpha` records it as `FitFailureReason::MissingInputs`. `FphaComputeError::Fitting` carries a forebay-table construction failure, which `compute_fpha` records as `invalid fit parameters`.
+`build_fit_params` (model) returns the missing inputs of a plant, and `fit_system` records them as `FitFailureReason::MissingInputs`. A malformed VHA table or a failed fit is `FitFailureReason::Fitting(FphaFittingError)`, which `compute_fpha` renders as `fitting failed: <error>`. `fit_failure_text` ([`fpha_integration.rs`](../../crates/labdessem-cli/src/fpha_integration.rs)) holds all three reason texts: `no rows in CAD/CAD_GEOMETRIA_UHE.csv` for `MissingGeometry`, `missing inputs: <inputs>` with the inputs joined by `; `, and `fitting failed: <error>`.
 
 Policies behind the table:
 
 - ADR-026: a plant with generating units that cannot be fitted stops the run, and the error lists every such plant. Plants without generating units are not fitted.
-- ADR-027: computed mode never substitutes a 0 m tailrace, an efficiency of 1.0 or a zero loss. The policy covers computed fitting only; EngMax keeps its defaults.
+- ADR-027: computed mode never substitutes a 0 m tailrace, an efficiency of 1.0 or a zero loss. The policy covers computed fitting only; max swallowing keeps its defaults.
 - ADR-029: a plane limit that the reduction cannot reach is an error, not a silent truncation.
 
 ## Decisions
 
-Each row summarizes a decision brief in [`docs/auditoria/fpha-decisions/`](../auditoria/fpha-decisions/). All nine briefs are accepted and each accepted option is implemented, or needs no code (ADR-031).
+Each row summarizes a decision brief in [`docs/auditoria/fpha-decisions/`](../auditoria/fpha-decisions/). All ten briefs are accepted and each accepted option is implemented, or needs no code (ADR-031).
 
 | ADR | Title | Status | Summary |
 | --- | --- | --- | --- |
 | ADR-025 | Apply the FPHA correction factor alpha exactly once in computed mode | accepted | Accepted 2026-11-18. Option (b): the fit returns unscaled planes and `correction_factor = alpha`; the model applies `alpha` once. [Brief](../auditoria/fpha-decisions/ADR-025-alpha-application.md). |
 | ADR-026 | Policy for plants with generating units whose computed FPHA cannot be fitted | accepted | Accepted 2026-11-18. Options (a)+(c): `compute_fpha` returns `PlantsNotFitted`, the system is re-validated after injection, and plants without units are not fitted. [Brief](../auditoria/fpha-decisions/ADR-026-skipped-plant-policy.md). |
-| ADR-027 | Policy for missing tailrace, efficiency or hydraulic-loss data in computed FPHA | accepted | Accepted 2026-11-18. Option (a): a typed error names the plant and every missing input; `Perda.m = 0` is valid; EngMax is unchanged. [Brief](../auditoria/fpha-decisions/ADR-027-missing-physical-data-policy.md). |
+| ADR-027 | Policy for missing tailrace, efficiency or hydraulic-loss data in computed FPHA | accepted | Accepted 2026-11-18. Option (a): a typed error names the plant and every missing input; `Perda.m = 0` is valid; max swallowing is unchanged. [Brief](../auditoria/fpha-decisions/ADR-027-missing-physical-data-policy.md). |
 | ADR-028 | Semantics of CAD_FPHA_CONFIG.csv, fitting defaults and fit volume domain | accepted | Accepted 2026-11-19. Option (a): every field takes effect, with the MM defaults, a window relative to the `CAD_UHE.csv` interval and an angle tolerance in degrees. [Brief](../auditoria/fpha-decisions/ADR-028-fpha-config-semantics.md). |
-| ADR-029 | Plane-count rule, reduction criterion and MILP plane selection | accepted | Accepted 2026-11-19. Option (a): `max_planes` is enforced by tolerance doubling with the angle criterion; no MILP plane selection; every plane stays in every solve stage. [Brief](../auditoria/fpha-decisions/ADR-029-plane-count-and-milp-selection.md). |
+| ADR-029 | Plane-count rule, reduction criterion and MILP plane selection | accepted | Accepted 2026-11-19. Option (a): `max_planes` is enforced by tolerance doubling with the angle criterion; no MILP plane selection; every plane stays in every solve stage. The S2 `Distance` clause is superseded by ADR-034. [Brief](../auditoria/fpha-decisions/ADR-029-plane-count-and-milp-selection.md). |
 | ADR-030 | Volume used in the FPHA rows | accepted | Accepted 2026-11-19. Option (b): the rows read the period-mean volume, with `γ_V` split over two slots. Implemented. [Brief](../auditoria/fpha-decisions/ADR-030-fpha-volume-reference.md). |
 | ADR-031 | Turbining axis bound and Pmax cap of the fit cloud | accepted | Accepted 2026-11-19. Option (a): keep the axis `[0, Q_max]` and the Pmax cap; the divergence from MM §9.17.1 is recorded. No code change. [Brief](../auditoria/fpha-decisions/ADR-031-turbining-axis-and-pmax-cap.md). |
 | ADR-032 | Tailrace modelling for computed FPHA | accepted | Accepted 2026-11-19. Option (a): one degree-4 polynomial per plant; families, piecewise ranges and drowning stay unmodelled; `TailraceSource::Families` is removed. [Brief](../auditoria/fpha-decisions/ADR-032-tailrace-family-modelling.md). |
 | ADR-033 | Points and stage at which alpha is computed | accepted | Accepted 2026-11-19. Option (b): `alpha` on 30 evaluation points of the final reduced planes. Implemented. [Brief](../auditoria/fpha-decisions/ADR-033-alpha-evaluation-points.md). |
+| ADR-034 | Removal of the distance plane-reduction criterion | accepted | Accepted 2026-11-24. Option (a): the unwired `Distance` reduction is deleted; this supersedes only the ADR-029 S2 clause that kept it in the library. [Brief](../auditoria/fpha-decisions/ADR-034-remove-distance-reduction.md) |
 
 ## Known Limitations
 
 - The plane limit `max_planes` is a labdessem extension. DESSEM limits the plane count only in the MILP, through the `NFHAMILP` selection (MM §27.2), and the `FP` record has no maximum-plane field in the sources read (ADR-029).
 - `NFHAMILP` plane selection is not implemented. Every fitted plane stays in every solve stage: LP, MILP, LP with fixed commitment and LP-CALC-CMO (ADR-029).
 - A row of `OPER_FPHA.csv` whose plant code is absent from `CAD_UHE.csv` is ignored (`build_hydro_plants`, [`hydro.rs`](../../crates/labdessem-io/src/readers/hydro.rs)).
-- The library API accepts a fit without a tailrace. `FitPlantParams.tailrace = None` gives a tailrace level of 0 m, and a missing efficiency or loss gives 1.0 and 0 m (`ProductionFunction::new`). The `fpha_fit` example reaches this path for a plant without a `CAD_TAILRACE.csv` row. The computed CLI path rejects a missing tailrace row under ADR-027. Decision of 2026-11-19: documented, not changed. Rework trigger: a library caller other than the CLI fits without a tailrace.
-- Each plant has one tailrace polynomial. Backwater families (MM §9.16.4), piecewise polynomials by flow range (MM eq. 9.24) and explicit drowning (MM §9.16.5, Libs §15.3.3) are not modelled, in computed FPHA and in EngMax (ADR-032).
+- Each plant has one tailrace polynomial. Backwater families (MM §9.16.4), piecewise polynomials by flow range (MM eq. 9.24) and explicit drowning (MM §9.16.5, Libs §15.3.3) are not modelled, in computed FPHA and in max swallowing (ADR-032).
 - The fit samples turbining on `[0, Q_max]`, the sum of the units' maximum turbining, and caps the FPH at `Pmax`. MM §9.17.1 builds the FPHA with turbining from 0 to the maximum swallowing (eq. 9.34). The divergence is recorded, not removed (ADR-031). On `examples/24Barras` the brief measured the maximum-swallowing axis at the head of the window top as identical to the current axis.
 - Every plant with a volume span takes the daily defaults. The weekly and monthly defaults of DESSEM need a regulation-type input that labdessem does not have (ADR-028).
 - The reduction runs on unscaled planes, and the angle test is not scale-free. This is recorded, not changed (ADR-029, ADR-033).
 - `alpha` depends on `max_planes` and on the 30-point layout. For CAMARGOS the ADR-033 brief records `alpha` 0.955708, 0.913740 and 0.797232 for plane limits 5, 4 and 3.
 - A single-volume plant can get `alpha` above 1, so the scaled envelope lies above the FPH at the fit-grid nodes: ITUTINGA 1.014733 and FUNIL-GRANDE 1.011552 in `examples/24Barras` (CHANGELOG).
 - `compute_alpha_fpha` ignores `n_volume_points` and `n_flow_points` of its bounds and expects the final planes (CHANGELOG).
+- Summation order (R31, RD-23). The FPHA fit sums the units of each group, then the groups (`max_turbined_m3s`, `crates/labdessem-model/src/production/assembly.rs:216`). Max swallowing folds every unit flat (`PlantReference::from_plant`, `crates/labdessem-model/src/swallowing/plant.rs:27`). The two differ in the last bit of the plant maximum outflow in m3/s for FURNAS: `0x4097880000000000` (1506.0) per group against `0x409787ffffffffff` (1505.9999999999998) flat. Two tests pin them: `build_fit_params_sums_qmax_per_group_then_across_groups` (model) and `plant_max_outflow_pins_furnas_first_solve_flow` (simulation). Unifying the two orders is a follow-up that changes bits of one of the two engines.
+- hm3 <-> m3/s conversion (Q6(c), R22). The factor `1e6 / (hours x 3600)` and its inverse `0.0036 x hours` are written out in 5 crates instead of one helper. io: `output/common.rs:29`, `readers/common.rs:127` (`flow_m3s_to_hm3`), `output/helpers.rs:201`. model: `constraints/limits.rs:267` (a second `flow_m3s_to_hm3`), `constraints/hydro.rs:210`, `:284` and `:332`, `constraints/demand.rs:113`, `production/assembly.rs:222` and `:252`. simulation: `flow_units.rs:8`, `max_swallowing.rs:718`, `stages/helpers.rs:45`. network: `flow/computation.rs:100`, `constraints/input.rs:58` (the `flow_conversion` field that carries the factor). cli: `fpha_integration/probe.rs:790` and `fpha_integration/lp_envelope_tests.rs:121` (both `#[cfg(test)]` modules).
+- FPHA envelope in io (Q6(c), R22). `hydro_generation_max_at_point_mw` (`crates/labdessem-io/src/output/helpers.rs:194`) re-evaluates the FPHA envelope, the `min` over the segments of `alpha x plane` at the period-mean volume, to write `GeracaoMaxPontoMW`. The evaluation belongs next to the model's FPHA rows, and moving it is a follow-up.
 
 ### Open points `[to confirm]`
 
@@ -220,26 +225,29 @@ These points are open in the ADR-028..033 briefs. This document does not settle 
 
 ## Key Files
 
-Fit crate `labdessem-fpha`:
+Fit module `labdessem_model::production`:
 
-- [`pipeline.rs`](../../crates/labdessem-fpha/src/pipeline.rs): `fit_plant`, `fit_context`, `reduce_within_plane_limit`, `FitPlantParams`, `FphaPlantResult`.
-- [`config.rs`](../../crates/labdessem-fpha/src/config.rs): defaults, `FphaPlantConfig`, `VolumeWindow`.
-- [`error.rs`](../../crates/labdessem-fpha/src/error.rs): `FphaFittingError`.
-- [`fitting/production.rs`](../../crates/labdessem-fpha/src/fitting/production.rs): `ProductionFunction`, `TailraceSource`.
-- [`fitting/grid.rs`](../../crates/labdessem-fpha/src/fitting/grid.rs): the sampling grid and the single-volume synthesis.
-- [`fitting/hull_fit.rs`](../../crates/labdessem-fpha/src/fitting/hull_fit.rs): the cloud and the hull planes.
-- [`fitting/secant.rs`](../../crates/labdessem-fpha/src/fitting/secant.rs): the `γ_S` secant.
-- [`fitting/reduction.rs`](../../crates/labdessem-fpha/src/fitting/reduction.rs): the plane reduction.
-- [`fitting/alpha.rs`](../../crates/labdessem-fpha/src/fitting/alpha.rs): `compute_alpha_fpha`.
-- [`fitting/deviation.rs`](../../crates/labdessem-fpha/src/fitting/deviation.rs): the deviation columns.
-- [`fitting/selection.rs`](../../crates/labdessem-fpha/src/fitting/selection.rs): `validate_fitted_planes`.
-- [`examples/fpha_fit.rs`](../../crates/labdessem-fpha/examples/fpha_fit.rs): the stand-alone fit example.
+- [`pipeline.rs`](../../crates/labdessem-model/src/production/pipeline.rs): `fit_plant`, `fit_context`, `FitPlantParams`, `FphaPlantResult`.
+- [`assembly.rs`](../../crates/labdessem-model/src/production/assembly.rs): `fit_system`, `build_fit_params`, `FitFailureReason`, `build_long_term_mean_inflow_table`, `ignored_volume_window`, `convert_to_fpha_segments`.
+- [`config.rs`](../../crates/labdessem-model/src/production/config.rs): defaults, `FphaPlantConfig`, `VolumeWindow`, `FphaConfigOverrides`.
+- [`error.rs`](../../crates/labdessem-model/src/production/error.rs): `FphaFittingError`.
+- [`function.rs`](../../crates/labdessem-model/src/production/function.rs): `ProductionFunction`.
+- [`grid.rs`](../../crates/labdessem-model/src/production/grid.rs): the sampling grid and the single-volume synthesis.
+- [`hull_fit.rs`](../../crates/labdessem-model/src/production/hull_fit.rs): the cloud and the hull planes.
+- [`secant.rs`](../../crates/labdessem-model/src/production/secant.rs): the `γ_S` secant.
+- [`reduction.rs`](../../crates/labdessem-model/src/production/reduction.rs): the plane reduction.
+- [`alpha.rs`](../../crates/labdessem-model/src/production/alpha.rs): `compute_alpha_fpha`.
+- [`deviation.rs`](../../crates/labdessem-model/src/production/deviation.rs): the deviation columns.
+- [`selection.rs`](../../crates/labdessem-model/src/production/selection.rs): `validate_fitted_planes`.
+- [`hydro_geometry/mod.rs`](../../crates/labdessem-model/src/hydro_geometry/mod.rs): `ForebayTable`, `TailraceModel`, `NetHeadModel`, `GeometryError`.
+- [`hull/mod.rs`](../../crates/labdessem-model/src/hull/mod.rs): the crate-private qhull binding (not public API), built by [`build.rs`](../../crates/labdessem-model/build.rs) from `csrc/` and the `vendor/qhull` submodule.
+- [`production_regression.rs`](../../crates/labdessem-model/tests/production_regression.rs) and [`production_integration.rs`](../../crates/labdessem-model/tests/production_integration.rs): the fit tests, for determinism and numerical stability, the plant types and `fit_system` on `examples/24Barras`.
 
 CLI, model and I/O:
 
-- [`fpha_integration.rs`](../../crates/labdessem-cli/src/fpha_integration.rs): `compute_fpha`, `finalize_fpha_injection`, `FphaComputeError`, `convert_to_fpha_segments`.
+- [`fpha_integration.rs`](../../crates/labdessem-cli/src/fpha_integration.rs): `compute_fpha`, `finalize_fpha_injection`, `FphaComputeError`.
 - [`hydro.rs`](../../crates/labdessem-model/src/constraints/hydro.rs): `build_hydro_fpha_constraints` and the coupling rows.
-- [`fpha_geometry.rs`](../../crates/labdessem-io/src/readers/fpha_geometry.rs): the readers of the geometry, tailrace and configuration files.
+- [`fpha_geometry.rs`](../../crates/labdessem-io/src/readers/fpha_geometry.rs): the readers of the geometry and tailrace files, whose rows the study read puts into `System`, and `read_fpha_config`, which returns the overrides keyed by `HydroPlantId`.
 - [`readers/hydro.rs`](../../crates/labdessem-io/src/readers/hydro.rs): the `OPER_FPHA.csv` reader and its plant check.
 - [`fpha_computed.rs`](../../crates/labdessem-io/src/output/fpha_computed.rs): the writer of `resultado_fpha_computed.csv`.
 - [`fpha_e2e.rs`](../../crates/labdessem-cli/tests/fpha_e2e.rs): the end-to-end tests, including the copy-rule round trip.
@@ -249,6 +257,6 @@ CLI, model and I/O:
 - MM 22.3.0: §9.16.1 to §9.16.12 (FPHA construction, defaults and the `alpha` step), §9.16.4, eq. 9.24 and §9.16.5 (tailrace), eq. 9.33 (FPHA row), §9.17.1 and eq. 9.34 (maximum swallowing), §9.4 and eq. 9.2 (volume interval), §27.2 (`NFHAMILP`).
 - Libs 11.0.0: §15.3.3 and §15.3.4 (tailrace), §15.6.1 (angle reduction and the `alpha` bracket), §15.6.2, §15.7.
 - MU 22.3.2: §III.5.4.5 (`FP` record), §III.6.3.1 (`REGRANPTV`), §V.11.4 (`AVL_FPHA1`).
-- [`docs/auditoria/fpha-decisions/`](../auditoria/fpha-decisions/): the nine decision briefs of the Decisions table.
+- [`docs/auditoria/fpha-decisions/`](../auditoria/fpha-decisions/): the ten decision briefs of the Decisions table.
 - [`docs/auditoria/fpha-baseline-reproduction.md`](../auditoria/fpha-baseline-reproduction.md): measurements of the FPHA corrections. Its sections 8 and 9 predate the ADR-030 and ADR-033 implementations; the `[Unreleased]` section of [`CHANGELOG.md`](../../CHANGELOG.md) holds the later before/after values.
-- [`docs/design/engmax-formulation.md`](engmax-formulation.md): EngMax, which shares the production-function geometry and the head volume of ADR-006.
+- [`docs/design/max-swallowing-formulation.md`](max-swallowing-formulation.md): max swallowing (option `EngMax`), which shares the `hydro_geometry` forebay and tailrace models and the head volume of ADR-006.

@@ -12,9 +12,11 @@ use std::fs;
 use std::path::Path;
 
 use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
-use labdessem_fpha::RawPlane;
+use labdessem_io::output::write_fpha_computed;
 use labdessem_io::read_study_from_path;
+use labdessem_model::production::RawPlane;
 use labdessem_model::{Model, SolveMode};
 
 use super::probe::{
@@ -53,7 +55,7 @@ type DeviationStats = (f64, f64, f64);
 /// Everything the two tests assert on or print for one plant.
 #[derive(Debug)]
 struct PlantMeasurement {
-    code: i32,
+    code: usize,
     name: String,
     alpha: f64,
     /// The planes as returned by `fit_plant`: unscaled, alpha is applied by the LP.
@@ -82,8 +84,8 @@ fn min_plane_mw(planes: &[RawPlane], v: f64, q: f64, s: f64) -> f64 {
 }
 
 /// Mean absolute, maximum absolute and RMS of `fitted(v, q) - exact(v, q)` over `nodes`, with the
-/// formulas of `labdessem_fpha::compute_fit_deviation` so every deviation printed here is
-/// comparable with the reported one.
+/// formulas behind `labdessem_model::production::FphaFitDeviation` so every deviation printed here
+/// is comparable with the reported one.
 fn deviation_over(
     nodes: &[(f64, f64)],
     ctx: &FitContext,
@@ -122,18 +124,18 @@ fn measure_plants() -> Vec<PlantMeasurement> {
         .plant_results
         .into_iter()
         .map(|plant_result| {
-            let code = plant_result.codigo;
+            let code = plant_result.id.0;
             assert!(
-                contexts.contains_key(&code),
+                contexts.contains_key(&plant_result.id),
                 "no fit context for plant {code} ({})",
-                plant_result.nome
+                plant_result.name
             );
-            let ctx = &contexts[&code];
-            let rows = lp_fpha_rows(&model, &plant_result.nome, flow_conversion);
+            let ctx = &contexts[&plant_result.id];
+            let rows = lp_fpha_rows(&model, &plant_result.name, flow_conversion);
             assert!(
                 !rows.is_empty(),
                 "no period-2 LP rows for plant {code} ({})",
-                plant_result.nome
+                plant_result.name
             );
             let fit_nodes = fit_grid_nodes(ctx);
             let evaluation_nodes = evaluation_grid_nodes(ctx, EVALUATION_NODES_PER_AXIS);
@@ -143,7 +145,7 @@ fn measure_plants() -> Vec<PlantMeasurement> {
             PlantMeasurement {
                 code,
                 alpha: plant_result.alpha,
-                name: plant_result.nome,
+                name: plant_result.name,
                 planes: plant_result.planes,
                 rows,
                 fit_nodes,
@@ -332,11 +334,7 @@ fn computed_csv_round_trip_reproduces_segments() -> Result<(), Box<dyn Error>> {
     // Arrange
     let computed_case = DerivedCase::new("computed")?;
     let (system, result) = computed_system(computed_case.path())?;
-    super::write_computed_results(
-        computed_case.path(),
-        &result.plant_results,
-        &system.hydro_plants,
-    )?;
+    write_fpha_computed(computed_case.path(), &system, &result.plant_results)?;
     let contexts = fit_contexts(computed_case.path(), &system)?;
     let precomputed_case = DerivedCase::new("precomputed")?;
     write_oper_fpha_from_csv(computed_case.path(), precomputed_case.path())?;
@@ -394,7 +392,7 @@ fn computed_csv_round_trip_reproduces_segments() -> Result<(), Box<dyn Error>> {
         }
 
         let ctx = contexts
-            .get(&i32::try_from(code)?)
+            .get(&HydroPlantId(code))
             .ok_or_else(|| format!("no fit context for plant {code}"))?;
         let q_max = ctx.pf.max_turbined_m3s();
         let mut max_difference_mw = 0.0_f64;

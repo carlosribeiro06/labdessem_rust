@@ -2,8 +2,8 @@
 
 use std::{error::Error, fmt};
 
-use labdessem_fpha::FphaFittingError;
 use labdessem_model::ModelError;
+use labdessem_model::hydro_geometry::GeometryError;
 use labdessem_network::NetworkError;
 use labdessem_solver::SolverError;
 
@@ -20,19 +20,19 @@ pub enum SimulationError {
     Model(ModelError),
     /// Error in iterative process.
     IterativeProcess(String),
-    /// EngMax is enabled and a hydro plant has `Hef.m <= 0` on some of its groups but not on all of them.
+    /// Max swallowing is enabled and a hydro plant has `Hef.m <= 0` on some of its groups but not on all of them.
     PartialEffectiveHead {
         /// Hydro plant name.
         plant: String,
         /// Groups holding a unit with `effective_head_m <= 0`, in input order.
         groups: Vec<String>,
     },
-    /// EngMax is enabled and a plant's VHA table is malformed (ADR-018).
-    Geometry(FphaFittingError),
-    /// A solve with EngMax rows is infeasible and the same model without them is feasible
-    /// (ADR-017): `rows` names the engmax rows the EngMax-free solution exceeds, ordered by
-    /// plant, then period.
-    EngMaxInfeasible {
+    /// Max swallowing is enabled and a plant's VHA table is malformed (ADR-018).
+    Geometry(GeometryError),
+    /// A solve with max swallowing rows is infeasible and the same model without them is
+    /// feasible (ADR-017): `rows` names the max swallowing rows the max-swallowing-free solution
+    /// exceeds, ordered by plant, then period.
+    MaxSwallowingInfeasible {
         /// Stage whose solve failed.
         stage: IterationStage,
         /// Iteration of that stage.
@@ -51,17 +51,17 @@ impl fmt::Display for SimulationError {
             Self::IterativeProcess(message) => write!(f, "{message}"),
             Self::PartialEffectiveHead { plant, groups } => write!(
                 f,
-                "EngMax: plant {plant} has Hef.m <= 0 on group(s) {} but not on every group; set Hef.m for every group of the plant",
+                "max swallowing: plant {plant} has Hef.m <= 0 on group(s) {} but not on every group; set Hef.m for every group of the plant",
                 groups.join(", ")
             ),
-            Self::Geometry(error) => write!(f, "EngMax: {error}"),
-            Self::EngMaxInfeasible {
+            Self::Geometry(error) => write!(f, "max swallowing: {error}"),
+            Self::MaxSwallowingInfeasible {
                 stage,
                 iteration,
                 rows,
             } => write!(
                 f,
-                "EngMax: {} #{iteration:02} is infeasible with the EngMax rows and feasible without them; the EngMax-free solution exceeds {}",
+                "max swallowing: {} #{iteration:02} is infeasible with the max swallowing rows and feasible without them; the solution without them exceeds {}",
                 stage.label(),
                 rows.join(", ")
             ),
@@ -78,7 +78,7 @@ impl Error for SimulationError {
             Self::Geometry(error) => Some(error),
             Self::IterativeProcess(_)
             | Self::PartialEffectiveHead { .. }
-            | Self::EngMaxInfeasible { .. } => None,
+            | Self::MaxSwallowingInfeasible { .. } => None,
         }
     }
 }
@@ -101,8 +101,8 @@ impl From<ModelError> for SimulationError {
     }
 }
 
-impl From<FphaFittingError> for SimulationError {
-    fn from(value: FphaFittingError) -> Self {
+impl From<GeometryError> for SimulationError {
+    fn from(value: GeometryError) -> Self {
         Self::Geometry(value)
     }
 }
@@ -117,8 +117,8 @@ mod tests {
     use crate::workflow::IterationStage;
 
     #[test]
-    fn engmax_infeasible_display_lists_rows() {
-        let error = SimulationError::EngMaxInfeasible {
+    fn max_swallowing_infeasible_display_lists_rows() {
+        let error = SimulationError::MaxSwallowingInfeasible {
             stage: IterationStage::LinearProgramming,
             iteration: 1,
             rows: vec![
@@ -129,14 +129,14 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "EngMax: LP #01 is infeasible with the EngMax rows and feasible without them; the EngMax-free solution exceeds engmax[p=UHE-ENG,t=1], engmax[p=UHE-ENG,t=2]"
+            "max swallowing: LP #01 is infeasible with the max swallowing rows and feasible without them; the solution without them exceeds engmax[p=UHE-ENG,t=1], engmax[p=UHE-ENG,t=2]"
         );
         assert!(error.source().is_none());
     }
 
     #[test]
     fn model_error_converts_into_simulation_error() {
-        let err = ModelError::MissingEngMaxBound {
+        let err = ModelError::MissingMaxSwallowingBound {
             plant: "UHE-1".into(),
             period: 3,
         };

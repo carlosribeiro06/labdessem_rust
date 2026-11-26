@@ -15,17 +15,19 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 
 use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
-use labdessem_fpha::{
-    FitPlantParams, FittingBounds, ProductionFunction, build_grid, compute_alpha_fpha,
-};
-use labdessem_io::readers::{read_fpha_config, read_tailrace, read_vha_geometry};
+use labdessem_io::readers::read_fpha_config;
 use labdessem_io::{read_study_config, read_study_from_path};
 use labdessem_model::constraints::{ConstraintSense, LinearConstraint};
+use labdessem_model::production::{
+    FitPlantParams, FittingBounds, ProductionFunction, build_fit_params, build_grid,
+    build_long_term_mean_inflow_table, compute_alpha_fpha, fit_context,
+};
 use labdessem_model::{Model, SolveMode};
 use tempfile::TempDir;
 
-use super::{FphaComputeError, FphaComputeResult};
+use super::{FphaComputeError, FphaComputeResult, fit_failure_text};
 
 /// Official example every derived case is copied from. Read-only.
 const SOURCE_CASE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/24Barras");
@@ -282,7 +284,7 @@ impl DerivedCase {
 }
 
 /// Runs the computed-FPHA sequence of `run_and_print` in `main.rs` (`compute_fpha`,
-/// `finalize_fpha_injection`). `write_computed_results` is not called.
+/// `finalize_fpha_injection`). `write_fpha_computed` is not called.
 pub(super) fn computed_system(case: &Path) -> Result<(System, FphaComputeResult), Box<dyn Error>> {
     let mut system = read_study_from_path(case)?;
     let result = super::compute_fpha(case, &system)?;
@@ -421,7 +423,7 @@ pub(super) fn segment_envelope_mw(
         .fold(f64::INFINITY, f64::min)
 }
 
-/// Inputs `labdessem_fpha::pipeline::fit_plant` derives for one plant.
+/// Inputs `labdessem_model::production::fit_plant` derives for one plant.
 #[derive(Debug)]
 pub(super) struct FitContext {
     pub(super) params: FitPlantParams,
@@ -429,39 +431,35 @@ pub(super) struct FitContext {
     pub(super) bounds: FittingBounds,
 }
 
-/// Fit contexts keyed by plant code. Loads the data as `compute_fpha` does; plants without VHA
+/// Fit contexts keyed by plant id. Loads the data as `compute_fpha` does; plants without VHA
 /// rows are omitted, every other failure is returned.
 pub(super) fn fit_contexts(
     case: &Path,
     system: &System,
-) -> Result<BTreeMap<i32, FitContext>, FphaComputeError> {
+) -> Result<BTreeMap<HydroPlantId, FitContext>, Box<dyn Error>> {
     let period_duration_hours = system.horizon.period_duration_hours;
-    let mlt_table = super::build_long_term_mean_inflow_table(&system.inflow_history);
-    let parquet_present = !system.inflow_history.is_empty();
-    let vha_data = read_vha_geometry(case)?;
-    let tailrace_data = read_tailrace(case)?;
+    let mlt_table = build_long_term_mean_inflow_table(&system.inflow_history);
+    let history_present = !system.inflow_history.is_empty();
     let fpha_config = read_fpha_config(case)?;
 
     let mut contexts = BTreeMap::new();
     for plant in &system.hydro_plants {
-        let plant_code = plant.id.0 as u32;
-        let Some(vha) = vha_data.get(&plant_code) else {
+        if plant.volume_level_table.is_none() {
             continue;
-        };
-        let params = super::build_fit_params(
+        }
+        let params = build_fit_params(
             plant,
-            vha,
-            tailrace_data.get(&plant_code),
-            fpha_config.get(&plant_code),
+            fpha_config.get(&plant.id),
             period_duration_hours,
             &mlt_table,
-            parquet_present,
-        )?;
+            history_present,
+        )
+        .map_err(FphaComputeError::from)?
+        .map_err(|reason| fit_failure_text(&reason))?;
 
-        let (pf, bounds) = labdessem_fpha::pipeline::fit_context(&params)
-            .map_err(|e| FphaComputeError::Fitting(e.to_string()))?;
+        let (pf, bounds) = fit_context(&params)?;
 
-        contexts.insert(params.codigo, FitContext { params, pf, bounds });
+        contexts.insert(params.id, FitContext { params, pf, bounds });
     }
     Ok(contexts)
 }
@@ -793,13 +791,13 @@ fn probe_lp_rows_match_injected_segments() {
     assert_eq!(system.hydro_plants.len(), 4, "24Barras has 4 hydro plants");
 
     for plant in &system.hydro_plants {
-        let code = i32::try_from(plant.id.0).expect("plant code fits i32");
+        let code = plant.id.0;
         assert!(
-            contexts.contains_key(&code),
+            contexts.contains_key(&plant.id),
             "no fit context for plant {code} ({})",
             plant.name
         );
-        let ctx = &contexts[&code];
+        let ctx = &contexts[&plant.id];
         // Q_max is the plant total `pf.max_turbined_m3s()`: the axis of `evaluation_grid_nodes`
         // and the spillage axis of `build_grid`.
         let q_max = ctx.pf.max_turbined_m3s();
@@ -852,21 +850,21 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
     // Assert
     assert_eq!(contexts.len(), result.plant_results.len());
     for plant_result in &result.plant_results {
-        let ctx = contexts.get(&plant_result.codigo).ok_or_else(|| {
+        let ctx = contexts.get(&plant_result.id).ok_or_else(|| {
             format!(
                 "no fit context for plant {} ({})",
-                plant_result.codigo, plant_result.nome
+                plant_result.id.0, plant_result.name
             )
         })?;
-        assert_eq!(ctx.params.codigo, plant_result.codigo);
-        assert_eq!(ctx.params.nome, plant_result.nome);
+        assert_eq!(ctx.params.id, plant_result.id);
+        assert_eq!(ctx.params.name, plant_result.name);
 
         let alpha = compute_alpha_fpha(&plant_result.planes, &ctx.pf, &ctx.bounds);
         assert_eq!(
             alpha.to_bits(),
             plant_result.alpha.to_bits(),
             "plant {}: probe alpha {alpha} vs pipeline alpha {}",
-            plant_result.nome,
+            plant_result.name,
             plant_result.alpha
         );
 
@@ -882,7 +880,7 @@ fn probe_fit_context_reproduces_pipeline_alpha() -> Result<(), Box<dyn Error>> {
             assert!(
                 (ctx.bounds.v_min..=ctx.bounds.v_max).contains(&v) && (0.0..=q_max).contains(&q),
                 "plant {}: evaluation node ({v}, {q}) outside the fit bounds",
-                plant_result.nome
+                plant_result.name
             );
         }
     }
@@ -906,7 +904,7 @@ fn pipeline_alpha_matches_adr033_values() -> Result<(), Box<dyn Error>> {
         let plant = result
             .plant_results
             .iter()
-            .find(|plant| plant.nome == name)
+            .find(|plant| plant.name == name)
             .ok_or_else(|| format!("no fit result for plant {name}"))?;
         assert!(
             (plant.alpha - alpha).abs() <= 5e-7,
