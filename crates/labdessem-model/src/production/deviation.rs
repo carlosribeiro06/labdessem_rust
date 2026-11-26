@@ -70,7 +70,6 @@ pub fn compute_fit_deviation(
         }
     }
 
-    #[allow(clippy::cast_precision_loss)]
     let n = count.max(1) as f64;
     let mean_abs_mw = sum_abs / n;
     let rms_mw = (sum_sq / n).sqrt();

@@ -153,8 +153,6 @@ fn determinism_across_multiple_runs() {
     }
 }
 
-// --- Run-of-River Single-Point VHA Tests (epic-01 ticket-004) ---
-
 fn single_point_vha_params() -> FitPlantParams {
     let rows = vec![VhaRow {
         volume_hm3: 1500.0,

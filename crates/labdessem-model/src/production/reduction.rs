@@ -49,23 +49,15 @@ fn reduce_planes_angle(planes: &[RawPlane], tolerance_deg: f64) -> Vec<RawPlane>
     let mut out: Vec<RawPlane> = Vec::with_capacity(planes.len());
 
     for candidate in planes {
-        let merged_tail = match out.last() {
+        match out.last_mut() {
             Some(tail)
                 if !is_origin_plane(tail)
                     && !is_origin_plane(candidate)
                     && angle_deg(tail, candidate) < tolerance_deg =>
             {
-                Some(mean_plane(tail, candidate))
+                *tail = mean_plane(tail, candidate);
             }
-            _ => None,
-        };
-
-        if let Some(merged) = merged_tail {
-            if let Some(tail) = out.last_mut() {
-                *tail = merged;
-            }
-        } else {
-            out.push(*candidate);
+            _ => out.push(*candidate),
         }
     }
 
