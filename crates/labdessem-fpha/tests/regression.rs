@@ -34,15 +34,7 @@ fn reference_pf() -> ProductionFunction {
     let tailrace = TailraceModel {
         coefficients: vec![0.0, 0.0008, -2e-8],
     };
-    ProductionFunction::new(
-        reference_forebay(),
-        tailrace,
-        2.0,
-        0.92,
-        3_000.0,
-        5_000.0,
-        "REFERENCE".to_owned(),
-    )
+    ProductionFunction::new(reference_forebay(), tailrace, 2.0, 0.92, 3_000.0, 5_000.0)
 }
 
 fn reference_bounds() -> FittingBounds {

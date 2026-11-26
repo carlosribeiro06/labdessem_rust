@@ -121,15 +121,7 @@ mod tests {
         let tailrace = TailraceModel {
             coefficients: vec![0.0, 0.0008, -2e-8],
         };
-        ProductionFunction::new(
-            forebay,
-            tailrace,
-            2.0,
-            0.92,
-            3_000.0,
-            5_000.0,
-            "Concave".to_owned(),
-        )
+        ProductionFunction::new(forebay, tailrace, 2.0, 0.92, 3_000.0, 5_000.0)
     }
 
     fn small_bounds() -> FittingBounds {
@@ -204,8 +196,7 @@ mod tests {
         let tailrace = TailraceModel {
             coefficients: vec![200.0],
         };
-        let pf =
-            ProductionFunction::new(forebay, tailrace, 0.0, 1.0, 3_000.0, 0.0, "Zero".to_owned());
+        let pf = ProductionFunction::new(forebay, tailrace, 0.0, 1.0, 3_000.0, 0.0);
         let bounds = small_bounds();
 
         let planes = vec![RawPlane {

@@ -15,7 +15,6 @@ pub struct ProductionFunction {
     efficiency: f64,
     max_turbined_m3s: f64,
     max_generation_mw: f64,
-    hydro_name: String,
 }
 
 impl ProductionFunction {
@@ -27,14 +26,12 @@ impl ProductionFunction {
         efficiency: f64,
         max_turbined_m3s: f64,
         max_generation_mw: f64,
-        hydro_name: String,
     ) -> Self {
         Self {
             head: NetHeadModel::new(forebay, tailrace, hydraulic_losses_m),
             efficiency,
             max_turbined_m3s,
             max_generation_mw,
-            hydro_name,
         }
     }
 
@@ -52,25 +49,9 @@ impl ProductionFunction {
             .min(self.max_generation_mw)
     }
 
-    /// Override max generation (for testing capacity ceiling).
-    pub fn with_max_generation_mw(mut self, mw: f64) -> Self {
-        self.max_generation_mw = mw;
-        self
-    }
-
     /// Maximum turbined flow (m³/s).
     pub fn max_turbined_m3s(&self) -> f64 {
         self.max_turbined_m3s
-    }
-
-    /// Maximum generation (MW).
-    pub fn max_generation_mw(&self) -> f64 {
-        self.max_generation_mw
-    }
-
-    /// Hydro plant name.
-    pub fn hydro_name(&self) -> &str {
-        &self.hydro_name
     }
 }
 
@@ -115,7 +96,6 @@ mod tests {
             0.92,
             3000.0,
             5000.0,
-            "Test".to_owned(),
         );
 
         let g = pf.evaluate(15000.0, 1500.0, 0.0);
@@ -136,7 +116,6 @@ mod tests {
             0.92,
             3000.0,
             1000.0, // Low cap
-            "Capped".to_owned(),
         );
 
         let g = pf.evaluate_capped(15000.0, 1500.0, 0.0);
@@ -152,7 +131,6 @@ mod tests {
             1.0,
             3000.0,
             5000.0,
-            "Poly".to_owned(),
         );
 
         let g_low_q = pf.evaluate(15000.0, 500.0, 0.0);
@@ -174,7 +152,6 @@ mod tests {
             0.92,
             3000.0,
             5000.0,
-            "Zero".to_owned(),
         );
 
         let g = pf.evaluate(15000.0, 0.0, 0.0);
@@ -190,7 +167,6 @@ mod tests {
             1.0,
             3000.0,
             5000.0,
-            "Spill".to_owned(),
         );
 
         let g_no_spill = pf.evaluate(15000.0, 1000.0, 0.0);

@@ -139,7 +139,6 @@ pub fn fit_context(
         params.efficiency,
         params.max_turbined_m3s,
         params.max_generation_mw,
-        params.nome.clone(),
     );
 
     let (table_min, table_max) = (params.forebay.v_min(), params.forebay.v_max());

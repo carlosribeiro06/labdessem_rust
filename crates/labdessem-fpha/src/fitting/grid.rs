@@ -175,7 +175,6 @@ mod tests {
             1.0,
             max_turbined,
             1000.0,
-            "Grid".to_owned(),
         )
     }
 

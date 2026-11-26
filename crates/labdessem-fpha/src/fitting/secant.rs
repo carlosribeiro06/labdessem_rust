@@ -155,15 +155,7 @@ mod tests {
         let tailrace = TailraceModel {
             coefficients: vec![5.0, 0.001],
         };
-        ProductionFunction::new(
-            forebay,
-            tailrace,
-            0.0,
-            0.9,
-            3_000.0,
-            5_000.0,
-            "SpillSensitive".to_owned(),
-        )
+        ProductionFunction::new(forebay, tailrace, 0.0, 0.9, 3_000.0, 5_000.0)
     }
 
     fn flat_tailrace_pf() -> ProductionFunction {
@@ -181,15 +173,7 @@ mod tests {
         let tailrace = TailraceModel {
             coefficients: vec![10.0],
         };
-        ProductionFunction::new(
-            forebay,
-            tailrace,
-            0.0,
-            1.0,
-            3_000.0,
-            5_000.0,
-            "Flat".to_owned(),
-        )
+        ProductionFunction::new(forebay, tailrace, 0.0, 1.0, 3_000.0, 5_000.0)
     }
 
     fn small_bounds() -> FittingBounds {
