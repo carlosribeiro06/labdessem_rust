@@ -742,10 +742,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "labdessem-fpha"
-version = "0.12.0"
-
-[[package]]
 name = "labdessem-io"
 version = "0.12.0"
 dependencies = [
