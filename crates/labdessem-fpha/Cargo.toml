@@ -8,7 +8,6 @@ repository.workspace = true
 description = "FPHA fitting pipeline with qhull convex hull"
 
 [dependencies]
-labdessem-io = { path = "../labdessem-io" }
 labdessem-model = { path = "../labdessem-model" }
 thiserror = "2"
 

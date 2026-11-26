@@ -747,7 +747,6 @@ name = "labdessem-fpha"
 version = "0.12.0"
 dependencies = [
  "labdessem-core",
- "labdessem-io",
  "labdessem-model",
  "thiserror",
 ]

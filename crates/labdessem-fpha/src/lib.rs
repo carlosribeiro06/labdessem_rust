@@ -6,7 +6,6 @@
 pub mod config;
 pub mod error;
 pub mod fitting;
-pub mod from_io;
 pub mod pipeline;
 
 pub use config::FphaPlantConfig;
@@ -18,5 +17,4 @@ pub use fitting::{
     resolve_fitting_bounds, resolve_s_max, scale_plane_affine, scale_planes,
     validate_fitted_planes,
 };
-pub use from_io::{forebay_from_vha, tailrace_from_data};
 pub use pipeline::{FitPlantParams, FphaPlantResult, fit_plant};

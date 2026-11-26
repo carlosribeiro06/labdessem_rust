@@ -24,96 +24,7 @@ The formulation, the decisions ADR-025 to ADR-033, the failure policies and the 
 
 ## Usage
 
-### Fit one plant
-
-The snippet reads the three FPHA inputs with the `labdessem-io` readers, fits one plant with the default configuration, applies the `num_planes` override of `CAD/CAD_FPHA_CONFIG.csv` when present and writes `RESULTADOS/resultado_fpha_computed.csv`. Add `labdessem-fpha` and `labdessem-io` to the `[dependencies]` of the calling crate.
-
-```rust
-use std::path::Path;
-
-use labdessem_fpha::config::{
-    DEFAULT_ANGLE_TOLERANCE_DEG, DEFAULT_FLOW_POINTS, DEFAULT_MAX_PLANES, DEFAULT_VOLUME_POINTS,
-};
-use labdessem_fpha::{
-    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant, forebay_from_vha,
-    tailrace_from_data,
-};
-use labdessem_io::output::{ComputedFphaRecord, write_fpha_computed};
-use labdessem_io::readers::{read_fpha_config, read_tailrace, read_vha_geometry};
-
-fn fit_one_plant(case_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let code = 3_u32;
-    let name = "FURNAS";
-
-    // Each reader returns an empty map when its optional file is absent.
-    let geometry = read_vha_geometry(case_dir)?;
-    let tailrace = read_tailrace(case_dir)?;
-    let overrides = read_fpha_config(case_dir)?;
-
-    let vha = geometry
-        .get(&code)
-        .ok_or("plant has no rows in CAD/CAD_GEOMETRIA_UHE.csv")?;
-
-    let mut config = FphaPlantConfig::computed(
-        DEFAULT_MAX_PLANES,
-        DEFAULT_VOLUME_POINTS,
-        DEFAULT_FLOW_POINTS,
-        PlaneReductionConfig {
-            tolerance_deg: DEFAULT_ANGLE_TOLERANCE_DEG,
-        },
-    );
-    if let Some(num_planes) = overrides.get(&code).and_then(|row| row.num_planes) {
-        config.max_planes = num_planes;
-    }
-
-    let params = FitPlantParams {
-        codigo: 3,
-        nome: name.to_string(),
-        forebay: forebay_from_vha(vha, name)?,
-        tailrace: tailrace_from_data(
-            tailrace
-                .get(&code)
-                .ok_or("plant has no row in CAD/CAD_TAILRACE.csv")?,
-        ),
-        // Illustrative values; the CLI reads them from CAD_UHE.csv and the unit tables.
-        hydraulic_loss_m: 2.0,
-        efficiency: 0.92,
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config,
-    };
-
-    let result = fit_plant(&params)?;
-    println!(
-        "{} planes, alpha = {:.4}",
-        result.planes.len(),
-        result.alpha
-    );
-
-    // The planes are unscaled: `alpha` is written beside them and applied once by the model.
-    let records: Vec<ComputedFphaRecord> = result
-        .planes
-        .iter()
-        .enumerate()
-        .map(|(plane_index, plane)| ComputedFphaRecord {
-            codigo_usina: code,
-            nome_usina: result.nome.clone(),
-            plane_index,
-            gamma_0: plane.gamma_0,
-            gamma_v: plane.gamma_v,
-            gamma_q: plane.gamma_q,
-            gamma_s: plane.gamma_s,
-            alpha: result.alpha,
-            max_deviation_mw: Some(result.deviation.max_abs_mw),
-            mean_deviation_mw: Some(result.deviation.mean_abs_mw),
-            rms_deviation_mw: Some(result.deviation.rms_mw),
-        })
-        .collect();
-    write_fpha_computed(case_dir, &records)?;
-    Ok(())
-}
-```
+`fit_plant` takes one `FitPlantParams`: the plant's code and name, its `ForebayTable` and `TailraceModel` (`labdessem_model::hydro_geometry`), hydraulic loss, efficiency, turbining and generation limits, long-term mean inflow and `FphaPlantConfig`. The CLI builds it in `build_fit_params` (see CLI Integration).
 
 `fit_plant` fails with `FphaFittingError`. The tailrace polynomial, the hydraulic loss and the efficiency are mandatory inputs; the CLI rejects a plant that lacks any of them (see the design document, Known Limitations).
 
@@ -147,7 +58,6 @@ The gamma columns hold the unscaled planes. The deviation columns describe `alph
 
 The crate declares these dependencies in [`Cargo.toml`](Cargo.toml):
 
-- `labdessem-io` (workspace crate): supplies the reader types used by `src/from_io.rs` and the integration tests.
 - `thiserror` for the error types.
 - `labdessem-model` (workspace crate): supplies the qhull convex hull (`labdessem_model::hull`) used by `src/fitting/hull_fit.rs`; model vendors qhull as a git submodule and compiles it with the C shim. If the build reports that the qhull source is missing, run `git submodule update --init --recursive`.
 - Development dependency `labdessem-core` (workspace crate) with the `test-support` feature: supplies the golden-file harness used by `tests/golden.rs`.

@@ -2,11 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use labdessem_fpha::{
-    FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant, forebay_from_vha,
-    tailrace_from_data,
-};
-use labdessem_io::readers::{TailraceData, VhaGeometryData, VhaPoint};
+use labdessem_fpha::{FitPlantParams, FphaPlantConfig, PlaneReductionConfig, fit_plant};
 use labdessem_model::hydro_geometry::{ForebayTable, TailraceModel, VhaRow};
 
 fn storage_plant_params() -> FitPlantParams {
@@ -135,62 +131,6 @@ fn high_head_plant_fits_successfully() {
     assert!(
         result.deviation.relative < 0.15,
         "fit should be reasonably accurate"
-    );
-}
-
-#[test]
-fn full_io_roundtrip() {
-    // Create VHA geometry data using labdessem_io types
-    let vha_data = VhaGeometryData {
-        plant_code: 1,
-        points: vec![
-            VhaPoint {
-                volume_hm3: 0.0,
-                height_m: 380.0,
-                area_km2: 1000.0,
-            },
-            VhaPoint {
-                volume_hm3: 30000.0,
-                height_m: 408.0,
-                area_km2: 1400.0,
-            },
-        ],
-    };
-
-    // Create tailrace data using labdessem_io types
-    let tailrace_data = TailraceData {
-        plant_code: 1,
-        coefficients: [0.0, 0.0008, -2e-8, 0.0, 0.0],
-    };
-
-    // Convert to domain types using from_io utilities
-    let forebay = forebay_from_vha(&vha_data, "FURNAS").unwrap();
-    let tailrace = tailrace_from_data(&tailrace_data);
-
-    let params = FitPlantParams {
-        codigo: 1,
-        nome: "FURNAS".to_string(),
-        forebay,
-        tailrace,
-        hydraulic_loss_m: 2.0,
-        efficiency: 0.92,
-        max_turbined_m3s: 3_000.0,
-        max_generation_mw: 5_000.0,
-        long_term_mean_inflow_m3s: 1_500.0,
-        config: FphaPlantConfig::computed(10, 6, 6, PlaneReductionConfig::default()),
-    };
-
-    let result = fit_plant(&params).unwrap();
-
-    // Verify the fitting produces valid results
-    assert!(
-        !result.planes.is_empty(),
-        "should produce at least one plane"
-    );
-    assert!(result.alpha > 0.0, "α must be positive");
-    assert!(
-        result.deviation.mean_abs_mw.is_finite(),
-        "deviation must be finite"
     );
 }
 
