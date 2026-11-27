@@ -384,7 +384,6 @@ fn max_swallowing_trace_is_consistent_on_every_path() {
         (ExecutionOption::SingleMilp, false),
     ] {
         let case = format!("{option:?} network={network}");
-        println!("checking case {case}");
         let mut state = MaxSwallowingState::new(&system).expect("fixture has full Hef.m");
 
         let result = run_simulation_with_state(&system, network, option, Some(&mut state))

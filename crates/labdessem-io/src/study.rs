@@ -120,8 +120,7 @@ pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, I
         ))
     })?;
 
-    let config: StudyConfig = serde_json::from_str(&contents)?;
-    Ok(config)
+    Ok(serde_json::from_str(&contents)?)
 }
 
 pub fn read_study_from_path(case_path: impl AsRef<Path>) -> Result<System, IoError> {
@@ -353,7 +352,7 @@ mod tests {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod fpha_option_tests {
-    use super::*;
+    use super::{FphaOption, StudyConfig};
 
     #[test]
     fn deserialize_constant_productivity() {

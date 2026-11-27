@@ -20,7 +20,6 @@ labdessem-solver = { path = "../labdessem-solver" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "tracing-log"] }
 
 [dev-dependencies]
-chrono = "0.4"
 tempfile = "3"
 
 [lints]
