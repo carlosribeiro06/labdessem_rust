@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
+### Added
+- Model audit report `docs/auditoria/2026-11-05-auditoria-modelo.md` (in Portuguese); the audit ids cited below (`FP-xx`, `HI-xx`, `EM-xx`, `NU-xx`) are its findings
+- FPHA decision records ADR-025 to ADR-034 in `docs/auditoria/fpha-decisions/`, and the FPHA baseline and post-fix evidence in `docs/auditoria/fpha-baseline-reproduction.md`
+
 ### Changed
 - **BREAKING**: The `labdessem-fpha` crate is removed
   - Before: the FPHA fit, the plant geometry and the max swallowing formula were the public API of the crate `labdessem-fpha`, which built the vendored qhull
@@ -118,8 +124,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Computed FPHA stderr output follows the model fit results
   - A plant whose VHA table is invalid (empty or with a repeated volume) used to print `plant <id> (<name>): invalid fit parameters: Fitting error: ForebayTable creation failed: <geometry error>` in the `PlantsNotFitted` list; it now prints `plant <id> (<name>): fitting failed: <geometry error>`, where `<geometry error>` is `hydro <name>: insufficient geometry points (<n> < 2)` or `hydro <name>: duplicate volume <v> in geometry table`
   - A plant missing from `inflow_history.parquet` (when the file has rows) used to fail after the `Plant <id> (<name>): fitted <n> planes (α = <alpha>)` lines, and the single-point window `Warning:` lines, of the plants checked before it; now the run fails with the same `hydro <id> (<name>) missing from inflow_history.parquet` message before any such line, because `labdessem_model::production::fit_system` fits every plant before the CLI prints them
+- `docs/design/engmax-formulation.md` is renamed `docs/design/max-swallowing-formulation.md`, and `docs/design/fpha-formulation.md` describes the implemented FPHA formulation and its decisions
 
 ### Fixed
+- `examples/24Barras`: `OPER/OPER_VAZAO.csv` still used the plant codes 1, 2, 4 and 6 after `CAD_UHE.csv` and `CAD_CONJ_UHE.csv` were renumbered 0 to 3, and the hydro reader matches inflows by code only, so the inflow of CAMARGOS went to ITUTINGA and the FUNIL-GRANDE and FURNAS rows were dropped: the model saw 11.65% of the water
+  - Only the `Codigo` column changes, and every result of the example changes
+  - The reader still accepts an unknown plant code silently (audit HI-01)
 - Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
 - A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
 - Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
@@ -422,7 +432,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `labdessem-common`: shared utilities
 - Example cases: 3Barras, 24Barras
 
-[Unreleased]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.9.0...v0.10.0
