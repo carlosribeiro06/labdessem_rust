@@ -1,18 +1,19 @@
 //! Constraint set builder and accessors.
 
-use labdessem_core::entities::EngMaxBounds;
+use labdessem_core::entities::MaxSwallowingBounds;
 use labdessem_core::system::System;
 
 use crate::{ModelError, SolveMode, indexing::Indexing, variables::Variables};
 
 use super::{
-    ConstraintSense, LinearConstraint, build_demand_balance_constraints, build_engmax_constraints,
+    ConstraintSense, LinearConstraint, build_demand_balance_constraints,
     build_future_cost_constraints, build_hydro_balance_constraints,
     build_hydro_commitment_channeling_constraints, build_hydro_fpha_constraints,
     build_hydro_generation_turbining_coupling_constraints, build_hydro_productivity_constraints,
     build_hydro_spillage_nonnegativity_constraints, build_hydro_turbining_limit_constraints,
-    build_interchange_limit_constraints, build_operational_limit_constraints,
-    build_thermal_min_up_down_constraints, build_thermal_ramp_constraints,
+    build_interchange_limit_constraints, build_max_swallowing_constraints,
+    build_operational_limit_constraints, build_thermal_min_up_down_constraints,
+    build_thermal_ramp_constraints,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -211,22 +212,22 @@ impl ConstraintSet {
             .collect()
     }
 
-    /// Adds one EngMax row per (plant with units, period). Fails without modifying the set
-    /// when a bound is missing.
-    pub fn extend_with_engmax(
+    /// Adds one max swallowing row per (plant with units, period). Fails without modifying the
+    /// set when a bound is missing.
+    pub fn extend_with_max_swallowing(
         &mut self,
         system: &System,
         indexing: &Indexing,
         variables: &Variables,
-        engmax_bounds: &EngMaxBounds,
+        max_swallowing_bounds: &MaxSwallowingBounds,
     ) -> Result<(), ModelError> {
-        let engmax_constraints =
-            build_engmax_constraints(system, indexing, variables, engmax_bounds)?;
-        self.linear_constraints.extend(engmax_constraints);
+        let max_swallowing_constraints =
+            build_max_swallowing_constraints(system, indexing, variables, max_swallowing_bounds)?;
+        self.linear_constraints.extend(max_swallowing_constraints);
         Ok(())
     }
 
-    pub fn engmax(&self) -> Vec<&LinearConstraint> {
+    pub fn max_swallowing(&self) -> Vec<&LinearConstraint> {
         self.linear_constraints
             .iter()
             .filter(|constraint| constraint.name.starts_with("engmax["))

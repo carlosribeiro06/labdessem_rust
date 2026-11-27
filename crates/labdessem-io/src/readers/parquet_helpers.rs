@@ -8,9 +8,8 @@ use parquet::arrow::arrow_reader::{ParquetRecordBatchReader, ParquetRecordBatchR
 use crate::IoError;
 
 pub(crate) fn open_record_batch_reader(path: &Path) -> Result<ParquetRecordBatchReader, IoError> {
-    let file = File::open(path).map_err(|e| {
-        IoError::invalid_data(format!("failed to open {}: {e}", path.display()))
-    })?;
+    let file = File::open(path)
+        .map_err(|e| IoError::invalid_data(format!("failed to open {}: {e}", path.display())))?;
 
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| {
         IoError::invalid_data(format!("failed to read parquet {}: {e}", path.display()))

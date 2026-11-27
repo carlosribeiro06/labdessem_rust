@@ -3,7 +3,7 @@
 //! Includes hydraulic balance, turbining limits, spillage, FPHA cuts,
 //! productivity coupling, and commitment channeling.
 
-use labdessem_core::entities::EngMaxBounds;
+use labdessem_core::entities::MaxSwallowingBounds;
 use labdessem_core::system::System;
 
 use crate::ModelError;
@@ -195,6 +195,12 @@ pub fn build_hydro_spillage_nonnegativity_constraints(
 }
 
 /// Build FPHA (piecewise linear) generation constraints.
+///
+/// One `<=` row per plant, period `t` and segment, shared by precomputed and computed segments
+/// (ADR-030). Each row bounds generation by the plane at the period-mean volume
+/// `(V[t] + V[t+1]) / 2`, so the volume coefficient `alpha * gamma_v` is split in half across the
+/// volume slots `t` and `t + 1`. In period 0 slot 0 is the fixed initial volume: that half moves to
+/// the right-hand side as `alpha * gamma_v / 2 * initial_volume_hm3` and the row has no slot-0 term.
 pub fn build_hydro_fpha_constraints(
     system: &System,
     indexing: &Indexing,
@@ -230,9 +236,20 @@ pub fn build_hydro_fpha_constraints(
                         }
                     }
 
+                    let half_volume = 0.5 * segment.correction_factor * segment.volume_coefficient;
+                    let volume_base = plant_entry_idx * (horizon + 1);
+                    let mut rhs = segment.correction_factor * segment.rhs;
+                    if period == 0 {
+                        rhs += half_volume * plant.reservoir.initial_volume_hm3;
+                    } else {
+                        terms.push(term(
+                            &variables.hydro_volume[volume_base + period],
+                            -half_volume,
+                        ));
+                    }
                     terms.push(term(
-                        &variables.hydro_volume[plant_entry_idx * (horizon + 1) + period + 1],
-                        -(segment.correction_factor * segment.volume_coefficient),
+                        &variables.hydro_volume[volume_base + period + 1],
+                        -half_volume,
                     ));
                     terms.push(term(
                         &variables.hydro_spillage[plant_entry_idx * horizon + period],
@@ -249,7 +266,7 @@ pub fn build_hydro_fpha_constraints(
                         ),
                         terms,
                         sense: ConstraintSense::LessOrEqual,
-                        rhs: segment.correction_factor * segment.rhs,
+                        rhs,
                     }
                 })
             })
@@ -409,18 +426,18 @@ pub fn build_hydro_commitment_channeling_constraints(
     .collect()
 }
 
-/// Build EngMax (dynamic maximum swallowing) constraints: one row per (plant, period).
+/// Build max swallowing (dynamic maximum swallowing) constraints: one row per (plant, period).
 ///
-/// Each row bounds the sum of the plant's unit turbining by the plant EngMax and
+/// Each row bounds the sum of the plant's unit turbining by the plant max swallowing and
 /// coexists with the static per-unit turbining limit constraints.
-/// The caller decides enablement by calling this only when EngMax is on (the CLI enables it
-/// when `config.engmax != 0`); every (plant with units, period) must have a bound, otherwise
-/// `ModelError::MissingEngMaxBound` is returned.
-pub fn build_engmax_constraints(
+/// The caller decides enablement by calling this only when max swallowing is on (the CLI enables
+/// it when the study_config `EngMax` key is non-zero); every (plant with units, period) must have
+/// a bound, otherwise `ModelError::MissingMaxSwallowingBound` is returned.
+pub fn build_max_swallowing_constraints(
     system: &System,
     indexing: &Indexing,
     variables: &Variables,
-    engmax_bounds: &EngMaxBounds,
+    max_swallowing_bounds: &MaxSwallowingBounds,
 ) -> Result<Vec<LinearConstraint>, ModelError> {
     let horizon = system.horizon.periods;
     let mut constraints = Vec::new();
@@ -438,12 +455,13 @@ pub fn build_engmax_constraints(
         }
 
         for period in 0..horizon {
-            let engmax_bound = engmax_bounds.get(plant_idx, period).ok_or_else(|| {
-                ModelError::MissingEngMaxBound {
-                    plant: plant.name.clone(),
-                    period,
-                }
-            })?;
+            let max_swallowing_bound =
+                max_swallowing_bounds
+                    .get(plant_idx, period)
+                    .ok_or_else(|| ModelError::MissingMaxSwallowingBound {
+                        plant: plant.name.clone(),
+                        period,
+                    })?;
             constraints.push(LinearConstraint {
                 name: format!("engmax[p={},t={}]", plant.name, display_period(period)),
                 terms: entry_indices
@@ -456,7 +474,7 @@ pub fn build_engmax_constraints(
                     })
                     .collect(),
                 sense: ConstraintSense::LessOrEqual,
-                rhs: engmax_bound,
+                rhs: max_swallowing_bound,
             });
         }
     }

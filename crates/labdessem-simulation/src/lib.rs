@@ -6,24 +6,24 @@
 //! - Iterative solve workflow (LP → MILP → LP-FIXED → LP-CALC-CMO)
 //! - Network constraint iteration
 //! - Dual extraction for marginal costs
-//! - EngMax inter-stage recalculation
+//! - Max swallowing inter-stage recalculation
 //!
 //! ## Note
 //!
 //! This crate does NOT perform file I/O. All input reading and output writing
 //! is handled by the `labdessem-io` crate.
 
-mod engmax;
 mod error;
 mod flow_units;
+mod max_swallowing;
 mod results;
 mod stages;
 mod workflow;
 
 pub use error::SimulationError;
 pub use results::{
-    AddedFlowCutLineResult, EngMaxDiagnostic, EngMaxOutcome, FlowViolation, IterationReport,
-    IterativeSimulationResult, LineFlowResult, NetworkInfeasibilityRecord,
+    AddedFlowCutLineResult, FlowViolation, IterationReport, IterativeSimulationResult,
+    LineFlowResult, MaxSwallowingDiagnostic, MaxSwallowingOutcome, NetworkInfeasibilityRecord,
     OperationalLimitInfeasibilityRecord,
 };
 pub use workflow::{ExecutionOption, IterationStage};
@@ -47,14 +47,19 @@ pub fn run_simulation(
     stages::run_simulation(system, network_enabled, execution_option)
 }
 
-/// Run simulation with specified execution option and optional EngMax.
-pub fn run_simulation_with_engmax(
+/// Run simulation with specified execution option and optional max swallowing.
+pub fn run_simulation_with_max_swallowing(
     system: &System,
     network_enabled: bool,
     execution_option: ExecutionOption,
-    engmax_enabled: bool,
+    max_swallowing_enabled: bool,
 ) -> Result<IterativeSimulationResult, SimulationError> {
-    stages::run_simulation_with_engmax(system, network_enabled, execution_option, engmax_enabled)
+    stages::run_simulation_with_max_swallowing(
+        system,
+        network_enabled,
+        execution_option,
+        max_swallowing_enabled,
+    )
 }
 
 #[cfg(test)]
@@ -394,12 +399,13 @@ mod tests {
     }
 
     #[test]
-    fn engmax_enabled_simulation_runs_without_error() {
-        use super::{ExecutionOption, run_simulation_with_engmax};
+    fn max_swallowing_enabled_simulation_runs_without_error() {
+        use super::{ExecutionOption, run_simulation_with_max_swallowing};
 
         let system = build_system();
-        let result = run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, true)
-            .expect("Simulation with EngMax enabled should succeed");
+        let result =
+            run_simulation_with_max_swallowing(&system, false, ExecutionOption::Iterative, true)
+                .expect("Simulation with max swallowing enabled should succeed");
 
         assert!(
             !result.steps.is_empty(),
@@ -410,49 +416,49 @@ mod tests {
             "Should have primal values"
         );
         assert!(
-            result.engmax.is_some(),
-            "EngMax enabled should carry the EngMax outcome"
+            result.max_swallowing.is_some(),
+            "max swallowing enabled should carry the max swallowing outcome"
         );
     }
 
     #[test]
-    fn engmax_disabled_simulation_equivalent_to_regular() {
-        use super::{ExecutionOption, run_simulation, run_simulation_with_engmax};
+    fn max_swallowing_disabled_simulation_equivalent_to_regular() {
+        use super::{ExecutionOption, run_simulation, run_simulation_with_max_swallowing};
 
         let system = build_system();
 
         let result_regular = run_simulation(&system, false, ExecutionOption::Iterative)
             .expect("Regular simulation should succeed");
 
-        let result_engmax_off =
-            run_simulation_with_engmax(&system, false, ExecutionOption::Iterative, false)
-                .expect("Simulation with EngMax disabled should succeed");
+        let result_max_swallowing_off =
+            run_simulation_with_max_swallowing(&system, false, ExecutionOption::Iterative, false)
+                .expect("Simulation with max swallowing disabled should succeed");
 
         assert!(
-            result_regular.engmax.is_none(),
-            "run_simulation should not carry an EngMax outcome"
+            result_regular.max_swallowing.is_none(),
+            "run_simulation should not carry a max swallowing outcome"
         );
         assert!(
-            result_engmax_off.engmax.is_none(),
-            "EngMax disabled should not carry an EngMax outcome"
+            result_max_swallowing_off.max_swallowing.is_none(),
+            "max swallowing disabled should not carry a max swallowing outcome"
         );
 
         // Same number of stages
         assert_eq!(
             result_regular.steps.len(),
-            result_engmax_off.steps.len(),
+            result_max_swallowing_off.steps.len(),
             "Should have same number of stages"
         );
 
         // Same objective value (within tolerance)
         let obj_diff = (result_regular.cmo_solution.objective
-            - result_engmax_off.cmo_solution.objective)
+            - result_max_swallowing_off.cmo_solution.objective)
             .abs();
         assert!(
             obj_diff < 1e-6,
             "Objective values should match: {} vs {}",
             result_regular.cmo_solution.objective,
-            result_engmax_off.cmo_solution.objective
+            result_max_swallowing_off.cmo_solution.objective
         );
     }
 }

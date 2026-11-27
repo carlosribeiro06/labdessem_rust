@@ -5,9 +5,9 @@
 
 pub mod branch;
 pub mod bus;
-pub mod engmax_bounds;
 pub mod hydro;
 pub mod inflow_history;
+pub mod max_swallowing_bounds;
 pub mod pumping;
 pub mod renewable;
 pub mod submarket;
@@ -15,12 +15,12 @@ pub mod thermal;
 
 pub use branch::Branch;
 pub use bus::Bus;
-pub use engmax_bounds::EngMaxBounds;
 pub use hydro::{
     HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit, Reservoir,
     TurbineType,
 };
 pub use inflow_history::InflowHistoryRow;
+pub use max_swallowing_bounds::MaxSwallowingBounds;
 pub use pumping::PumpingPlant;
 pub use renewable::RenewablePlant;
 pub use submarket::Submarket;

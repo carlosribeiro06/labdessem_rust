@@ -50,7 +50,6 @@ labdessem_rust/
 |-- crates/
 |   |-- labdessem-cli
 |   |-- labdessem-core
-|   |-- labdessem-fpha
 |   |-- labdessem-io
 |   |-- labdessem-model
 |   |-- labdessem-network
@@ -71,14 +70,11 @@ labdessem_rust/
 - `labdessem-core`
   Domain entities, identifiers, validations, horizon representation, and study data structures.
 
-- `labdessem-fpha`
-  FPHA (Função de Produção Hidrelétrica Aproximada) fitting pipeline. Computes hyperplanes from VHA geometry using convex hull fitting.
-
 - `labdessem-io`
   File I/O. Reads study input (`study_config.json`, `CAD/`, `OPER/`) and writes all result CSVs.
 
 - `labdessem-model`
-  Indexing, variables, objective function, and algebraic constraints.
+  Indexing, variables, objective function and algebraic constraints, plus the FPHA production engine (`production`), the max swallowing formula (`swallowing`), the shared VHA and tailrace geometry (`hydro_geometry`) and a crate-private qhull binding (`hull`) built from the vendored `vendor/qhull` submodule.
 
 - `labdessem-network`
   DC network flow computation, PTDF matrices, flow cut constraints, and CMB/CMO dual extraction.
@@ -132,14 +128,26 @@ Current keys:
   Selects hydro generation formulation:
   - `"constant_productivity"`: use plant productivity times turbining
   - `"precomputed"`: read `OPER/OPER_FPHA.csv` and enforce FPHA cuts
-  - `"computed"`: compute FPHA hyperplanes from VHA geometry at runtime
+  - `"computed"`: fit FPHA planes to the production function of each hydro plant at runtime
 
-  When `"computed"` mode is active, the solver reads:
-  - `CAD/CAD_GEOMETRIA_UHE.csv` — VHA geometry table (volume × turbining × generation)
-  - `CAD/CAD_TAILRACE.csv` — tailrace level table (optional, for future expansion)
-  - `CAD/CAD_FPHA_CONFIG.csv` — fitting parameters per plant (optional)
+  A number (the earlier `0` and `1` flags) makes `study_config.json` fail to parse.
 
-  The computed hyperplanes are injected into the hydro plant model and written to `RESULTADOS/resultado_fpha_computed.csv`.
+  When `"computed"` mode is active, every hydro plant with generating units needs:
+  - `CAD/CAD_GEOMETRIA_UHE.csv` — VHA geometry table (`volume.hm3`, `cota.m`, `area.km2`)
+  - `CAD/CAD_TAILRACE.csv` — tailrace level as a degree-4 polynomial of the total outflow
+  - `Eficiencia` and `Perda.m` in `CAD/CAD_UHE.csv` — an explicit `Perda.m = 0` is valid; an absent column or an empty cell counts as missing
+
+  Optional inputs of `"computed"` mode:
+  - `CAD/CAD_FPHA_CONFIG.csv` — fitting parameters per plant: plane limit, angle tolerance and volume window. Without the file, or with an empty cell, a plant uses at most 10 planes, a 1.0 degree tolerance and the whole `[Vmin, Vmax]` volume interval of `CAD_UHE.csv`; the 5 x 5 fit grid is not configurable. Columns, aliases and units: [Configuration](https://carlosribeiro06.github.io/labdessem_rust/configuration.html#fpha-config).
+  - `OPER/inflow_history.parquet` — sets the long-term mean inflow of the fit; without it the mean of the deck inflows is used and a warning is printed
+
+  The computed planes are injected into the hydro plant model and written to `RESULTADOS/resultado_fpha_computed.csv`. Computed mode does not read `OPER/OPER_FPHA.csv`.
+
+  To reuse the planes as a precomputed deck, copy the rows of a plant into `OPER/OPER_FPHA.csv` with `USIH = codigo_usina`, `SegFPHA = plane_index + 1`, `Fcorrec = alpha`, `Rhs.mw = gamma_0`, `Varm.mw/hm3 = gamma_v`, `Qtur.mw/m3s = gamma_q` and `Qlat.mw/m3s = gamma_s`. The copy reproduces the computed run; `Fcorrec = 1` would be a different model.
+
+  A hydro plant with generating units that cannot be fitted (a missing input, an invalid input file or a plane limit that cannot be reached) stops the run: the CLI prints `Error: <message>` and exits with code 1 before any result is written. Plants without generating units are not fitted. Messages and fixes: [Computed FPHA failures](https://carlosribeiro06.github.io/labdessem_rust/configuration.html#fpha-failures).
+
+  Formulation and decisions: [docs/design/fpha-formulation.md](docs/design/fpha-formulation.md). The BREAKING changes of the FPHA corrections, with their before and after behavior and migration notes, are in [CHANGELOG.md](CHANGELOG.md).
 
 - `FCF`
   Enables or disables future cost function:
@@ -148,10 +156,10 @@ Current keys:
 
 - `EngMax`
   Enables or disables dynamic maximum swallowing constraint:
-  - `1`: calculate head-dependent turbining limits and add one EngMax constraint per hydro plant and period, recalculated after every solve
-  - `0`: disable EngMax (default)
+  - `1`: calculate head-dependent turbining limits and add one max swallowing row per hydro plant and period, recalculated after every solve
+  - `0`: disable max swallowing (default)
 
-  Design notes and limitations: [docs/design/engmax-formulation.md](docs/design/engmax-formulation.md).
+  Design notes and limitations: [docs/design/max-swallowing-formulation.md](docs/design/max-swallowing-formulation.md).
 
 Example:
 
@@ -202,8 +210,9 @@ Representative files currently used by the reader include:
 - `CAD_CONJ_UHE.csv`
 - `CAD_REN.csv`
 - `CAD_USIE.csv`
-- `CAD_GEOMETRIA_UHE.csv` — VHA geometry for net head calculation (optional, used by EngMax and computed FPHA)
-- `CAD_TAILRACE.csv` — tailrace polynomial coefficients (optional, used by EngMax)
+- `CAD_GEOMETRIA_UHE.csv` — VHA geometry for net head calculation (required by computed FPHA for every plant with generating units; optional for max swallowing)
+- `CAD_TAILRACE.csv` — tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for max swallowing)
+- `CAD_FPHA_CONFIG.csv` — computed FPHA fitting parameters per plant (optional)
 - `OPER_SBM.csv`
 - `OPER_VAZAO.csv`
 - `OPER_REN.csv`
@@ -276,6 +285,17 @@ When network treatment is enabled, the run also writes:
 
 ## Build and Run
 
+### Get the source
+
+```bash
+git clone --recurse-submodules https://github.com/carlosribeiro06/labdessem_rust.git
+cd labdessem_rust
+```
+
+For an existing clone, run `git submodule update --init --recursive`.
+
+`labdessem-model` compiles the vendored qhull C sources with the `cc` crate, so the C/C++ compiler listed under Solver Requirements is also needed for that crate.
+
 ### Install the CLI
 
 ```bash
@@ -302,7 +322,7 @@ labdessem run
 The banner, the run header and the final summary are printed on stderr. The file-reading and solve progress lines go to stdout. With `EngMax = 1` the summary includes a line such as:
 
 ```text
-  EngMax:      0 plant-periods above the recomputed bound (0 above a zero bound)
+  Swallowing:  0 plant-periods above the recomputed max swallowing bound (0 above a zero bound)
 ```
 
 Warnings and other log events go to stderr as well, at `WARN` level by default. Set `RUST_LOG` to change the level:

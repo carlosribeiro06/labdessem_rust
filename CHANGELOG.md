@@ -7,6 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
+### Added
+- Model audit report `docs/auditoria/2026-11-05-auditoria-modelo.md` (in Portuguese); the audit ids cited below (`FP-xx`, `HI-xx`, `EM-xx`, `NU-xx`) are its findings
+- FPHA decision records ADR-025 to ADR-034 in `docs/auditoria/fpha-decisions/`, and the FPHA baseline and post-fix evidence in `docs/auditoria/fpha-baseline-reproduction.md`
+
+### Changed
+- **BREAKING**: The `labdessem-fpha` crate is removed
+  - Before: the FPHA fit, the plant geometry and the max swallowing formula were the public API of the crate `labdessem-fpha`, which built the vendored qhull
+  - Now the fit is `labdessem_model::production`, the shared geometry is `labdessem_model::hydro_geometry` and the formula is `labdessem_model::swallowing`; the qhull binding is crate-private (`labdessem_model::hull` is `pub(crate)`); no run changes: every result file and objective is bit-identical (golden capture `994158e`), and only the stderr texts named in the entries below change
+  - Now `labdessem-model` compiles the vendored qhull C sources (`links = "qhull_r"`); building it needs a C compiler and the `qhull` submodule at `crates/labdessem-model/vendor/qhull`, which `git submodule update --init --recursive` fills
+  - To migrate the fit, replace `labdessem_fpha::<name>` with `labdessem_model::production::<name>` for `FitPlantParams`, `FittingBounds`, `FphaFitDeviation`, `FphaFittingError`, `FphaPlantConfig`, `FphaPlantResult`, `GridParams`, `PlaneReductionConfig`, `ProductionFunction`, `RawPlane`, `build_grid`, `compute_alpha_fpha`, `fit_gamma_s_for_planes`, `fit_hull_planes`, `fit_plant` and `reduce_planes`, and replace `labdessem_fpha::config::<name>` with `labdessem_model::production::<name>` for `VolumeWindow`, `DEFAULT_MAX_PLANES`, `DEFAULT_VOLUME_POINTS`, `DEFAULT_FLOW_POINTS` and `DEFAULT_ANGLE_TOLERANCE_DEG`
+  - To migrate the plant geometry, replace `labdessem_fpha::<name>` with `labdessem_model::hydro_geometry::<name>` for `ForebayTable`, `VhaRow` and `TailraceModel`
+  - To migrate the max swallowing formula, replace `labdessem_fpha::calculate_max_swallowing` with `labdessem_model::swallowing::calculate_max_swallowing`
+  - To migrate, stop calling `labdessem_fpha::<name>` for `build_cloud`, `compute_fit_deviation`, `is_origin_plane`, `resolve_fitting_bounds`, `resolve_s_max`, `scale_plane_affine`, `scale_planes` and `validate_fitted_planes` (no longer public: they are crate-internal in `labdessem_model::production` and `fit_plant` uses them) and for the qhull binding `convex_hull_3d`, `Hyperplane3d` and `HullError` (no longer public: private to `labdessem-model`)
+  - To migrate, remove the uses of the names that are removed without replacement (RD-15; ADR-034 for `PlaneReductionConfig::Distance`): `FphaMode`, `fit_plants`, `envelope_max`, `FphaDeviationPoint`, `collect_fit_deviation_points`, `forebay_from_vha` and `tailrace_from_data` (module `from_io`), `TailraceSource` (see the `TailraceSource` entry below), `TailraceModel::Constant`, `VhaRow::area_km2`, the `ProductionFunction` methods `net_head`, `with_max_generation_mw`, `max_generation_mw`, `hydro_name` and `forebay`, the `fitting::rng` module and the `fpha_fit` example
+  - To migrate `ProductionFunction::new`, pass `(forebay: ForebayTable, tailrace: TailraceModel, hydraulic_losses_m: f64, efficiency: f64, max_turbined_m3s: f64, max_generation_mw: f64)`; it used to take a `TailraceSource`, two `Option<f64>` (loss and efficiency, defaulting to 0 m and 1.0) and a trailing `hydro_name: String`, and it now applies no default
+  - To migrate the changed shapes of the fit types: `FitPlantParams` and `FphaPlantResult` have `id: HydroPlantId` and `name: String` instead of `codigo: i32` and `nome: String`; `FitPlantParams` has `tailrace: TailraceModel`, `hydraulic_loss_m: f64` and `efficiency: f64` instead of three `Option` fields; `FphaPlantConfig` has no `mode` field and no `Default` (build it with `FphaPlantConfig::computed`); `PlaneReductionConfig` is the struct `PlaneReductionConfig { tolerance_deg }` instead of the enum with `Angle` and `Distance`, and `reduce_planes(planes, config)` no longer takes `pf`, `bounds`, `hydro_id` and `entry_level_bits`; `FphaFitDeviation::exceeds_warn_threshold` is removed
+  - To migrate the changed shapes of the geometry and the errors: `ForebayTable::new` returns `labdessem_model::hydro_geometry::GeometryError`, and `FphaFittingError` has the variant `Geometry(GeometryError)` instead of `InsufficientPoints` and `DuplicateVolume` and no longer has `DegenerateProductionCloud`, `PlaneValidationFailed` and `IoError`; `SimulationError::Geometry` holds a `GeometryError` instead of an `FphaFittingError`; `TailraceModel` is the struct `TailraceModel { coefficients }`, so a constant level is `coefficients: vec![level_m]`; `ForebayTable` has no `hydro_name` accessor
+  - To migrate an existing clone before pulling this change, run:
+
+    ```bash
+    git submodule deinit -f crates/labdessem-fpha/vendor/qhull
+    git pull
+    git submodule update --init --recursive
+    rm -rf "$(git rev-parse --git-path modules/crates/labdessem-fpha)"
+    rmdir "$(git rev-parse --git-path modules/crates)"
+    ```
+  - To migrate an existing clone that already pulled this change, run:
+
+    ```bash
+    git submodule update --init --recursive
+    git config --remove-section submodule.crates/labdessem-fpha/vendor/qhull
+    rm -rf crates/labdessem-fpha/vendor && rmdir crates/labdessem-fpha
+    rm -rf "$(git rev-parse --git-path modules/crates/labdessem-fpha)"
+    rmdir "$(git rev-parse --git-path modules/crates)"
+    ```
+
+    If `rmdir` fails, the directory holds files of your own. Inspect it before deleting it.
+- **BREAKING**: Rust identifiers say max swallowing instead of EngMax
+  - Before: the Rust identifiers of the dynamic maximum swallowing constraint were named `EngMax*` and `engmax*`, and the stderr texts said `EngMax`
+  - Now the identifiers say `MaxSwallowing*` and `max_swallowing*`: `EngMaxBounds` -> `MaxSwallowingBounds` in `labdessem-core`, with its module `engmax_bounds` -> `max_swallowing_bounds`; `ConstraintSet::engmax` -> `ConstraintSet::max_swallowing`; `extend_with_engmax` -> `extend_with_max_swallowing`; `ModelError::MissingEngMaxBound` -> `ModelError::MissingMaxSwallowingBound`; `build_engmax_constraints` -> `build_max_swallowing_constraints`; `StudyConfig::engmax` -> `StudyConfig::max_swallowing`, with the serde key still `EngMax`; `EngMaxDiagnostic` -> `MaxSwallowingDiagnostic`; `EngMaxOutcome` -> `MaxSwallowingOutcome`; `IterativeSimulationResult::engmax` -> `IterativeSimulationResult::max_swallowing`; `run_simulation_with_engmax` -> `run_simulation_with_max_swallowing`; `SimulationError::EngMaxInfeasible` -> `SimulationError::MaxSwallowingInfeasible`
+  - Now three stderr texts change, old -> new: the Summary line `  EngMax:      <n> plant-periods above the recomputed bound (<k> above a zero bound)` -> `  Swallowing:  <n> plant-periods above the recomputed max swallowing bound (<k> above a zero bound)`; the `EngMax: ` prefix of the `SimulationError` messages -> `max swallowing: `, and the infeasibility message `EngMax: <stage> #<nn> is infeasible with the EngMax rows and feasible without them; the EngMax-free solution exceeds <rows>` -> `max swallowing: <stage> #<nn> is infeasible with the max swallowing rows and feasible without them; the solution without them exceeds <rows>`; `missing EngMax bound for plant <plant> period <period>` -> `missing max swallowing bound for plant <plant> period <period>`
+  - Now the same words change in two more places: the `IoError` of `write_hydro_csv` takes the same `missing max swallowing bound for plant <plant> period <period>` text, and the eight `tracing` messages of `labdessem-simulation` say `max swallowing` instead of `EngMax` (the four WARN ones are on stderr by default), for example `EngMax consistency: the final turbining exceeds the recomputed EngMax` -> `max swallowing consistency: the final turbining exceeds the recomputed max swallowing bound` and `Recalculated EngMax bounds` -> `Recalculated max swallowing bounds`
+  - The serialized names are unchanged and keep `EngMax`: the `EngMax` key of `study_config.json` and its values, the `engmax[p=<plant>,t=<period>]` LP rows, the `EngMaxHM3` and `EngMaxM3s` columns of `resultado_hidreletricas.csv` with their preamble, and the banner flag that names the config key; no input deck, result file, LP row name or golden key changes
+  - To migrate code, rename each identifier of the map above (`EngMax*` -> `MaxSwallowing*`, `engmax*` -> `max_swallowing*`); the `study_config.json` key stays `EngMax`
+  - To migrate scripts that parse stderr, match the Summary label `Swallowing:` instead of `EngMax:`, the prefix `max swallowing: ` instead of `EngMax: ` on the simulation error messages, and the new texts above
+- **BREAKING**: The io FPHA API is narrowed
+  - Before: `labdessem_io::readers::read_vha_geometry`, `read_tailrace`, `VhaPoint`, `VhaGeometryData` and `TailraceData` were public, `read_fpha_config(case_path)` returned `HashMap<u32, FphaPlantConfig>` with the `labdessem_io::readers::FphaPlantConfig` overrides (`num_planes`, `tolerance`, `min_volume_pct`, `max_volume_pct`), and `write_fpha_computed(case_path, &[ComputedFphaRecord])` took `labdessem_io::output::ComputedFphaRecord` rows
+  - Now `read_vha_geometry`, `read_tailrace`, `VhaPoint`, `VhaGeometryData` and `TailraceData` are `pub(crate)`, and `labdessem_io::readers::FphaPlantConfig` and `labdessem_io::output::ComputedFphaRecord` are removed
+  - Now `read_fpha_config(case_path)` returns `HashMap<HydroPlantId, FphaConfigOverrides>`, where `labdessem_model::production::FphaConfigOverrides` holds the `Option` fields `max_planes`, `tolerance_deg`, `min_volume_fraction` and `max_volume_fraction`
+  - Now `write_fpha_computed(case_path, &System, &[FphaPlantResult])` takes the system and the fit results, writes the same CSV as before, and returns an `IoError` without writing the file when a fit names a plant that is not in the system
+  - To migrate, call `read_fpha_config` with the new map type (key `HydroPlantId`, value `FphaConfigOverrides`), pass `&System` and the fit results (`&[FphaPlantResult]`) to `write_fpha_computed` instead of building `ComputedFphaRecord` rows, and read the geometry from the `System` (`HydroPlant::volume_level_table` and `tailrace_coefficients`) instead of `read_vha_geometry` and `read_tailrace`
+- **BREAKING**: `resultado_fpha_computed.csv`: the gamma columns are now unscaled and the model applies `alpha` once
+  - Before: `gamma_0`, `gamma_v` and `gamma_q` were already multiplied by `alpha`, `gamma_s` was not, and the model multiplied all four by `alpha` again
+  - Now `gamma_0`, `gamma_v`, `gamma_q` and `gamma_s` hold the unscaled fitted planes, and the model applies `alpha` once to all four coefficients
+  - The `max_deviation_mw`, `mean_deviation_mw` and `rms_deviation_mw` columns describe `alpha` x plane against the FPH on the fit grid
+  - Column names, positions and number format are unchanged
+  - Copying the rows into `OPER_FPHA.csv` reproduces the computed run with `USIH = codigo_usina`, `SegFPHA = plane_index + 1`, `Fcorrec = alpha`, `Rhs.mw = gamma_0`, `Varm.mw/hm3 = gamma_v`, `Qtur.mw/m3s = gamma_q` and `Qlat.mw/m3s = gamma_s`
+- **BREAKING**: Computed FPHA runs now fail when a hydro plant with generating units cannot be fitted
+  - Before: `compute_fpha` printed a `Warning:` and skipped a plant with units whose geometry rows were missing, whose fit parameters were invalid or whose fit failed (every plant, when `CAD/CAD_GEOMETRIA_UHE.csv` was absent), and the plant generated without water
+  - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` listing every such plant, and the CLI prints `Error: computed FPHA could not be fitted for <n> hydro plant(s) with generating units:` with one `plant <id> (<name>): <reason>` line per plant and exits with code 1 before writing any result
+  - Plants without generating units are no longer fitted: they are excluded before any geometry or `inflow_history.parquet` lookup and counted in `plants_skipped`
+  - `FphaComputeError::MissingHydro` is unchanged and still fails the run at the first plant missing from `inflow_history.parquet`
+- **BREAKING**: Computed FPHA runs now require a tailrace row, `Eficiencia` and `Perda.m` for every hydro plant with generating units
+  - Before: a plant without a `CAD/CAD_TAILRACE.csv` row was fitted with a 0 m tailrace level, and an absent or empty `Eficiencia` or `Perda.m` was fitted as efficiency 1.0 and loss 0 m, silently inflating the plant's production function
+  - Now `compute_fpha` returns `FphaComputeError::PlantsNotFitted` with `FitFailureReason::MissingInputs` naming every missing input of every affected plant, and the CLI exits with code 1 before writing any result
+  - An explicit `Perda.m = 0` stays valid; only an absent column or an empty cell counts as missing
+  - Max swallowing is unchanged and keeps its defaults for missing efficiency, loss and tailrace
+- **BREAKING**: Precomputed FPHA decks are rejected when `OPER_FPHA.csv` has rows for a hydro plant without generating units
+  - Before: a plant without rows in `CAD/CAD_CONJ_UHE.csv` kept its `OPER_FPHA.csv` rows, and the model built FPHA constraints for it with no generation or turbining terms
+  - Now the reader fails with `OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in CAD_CONJ_UHE.csv: <code> (<name>), ...`, listing every affected plant in ascending code order, and the CLI exits with code 1 before writing any result
+  - A plant without generating units and without `OPER_FPHA.csv` rows reads as before; computed mode is unchanged
+  - To migrate, delete the `OPER_FPHA.csv` rows of the listed plants or add their generating units to `CAD_CONJ_UHE.csv`
+- **BREAKING**: The FPHA geometry readers reject non-finite values and duplicate rows
+  - Before: `NaN` and `inf` passed the sign checks of the volume, level and area columns of `CAD/CAD_GEOMETRIA_UHE.csv` and of `tolerance` in `CAD/CAD_FPHA_CONFIG.csv`, `CAD/CAD_TAILRACE.csv` had no value check, a second row for the same plant in `CAD_TAILRACE.csv` or `CAD_FPHA_CONFIG.csv` silently replaced the first, and `CAD_GEOMETRIA_UHE.csv` kept two points of one plant with the same `volume.hm3`
+  - Now each reader returns `IoError::InvalidData` with `plant <id> has non-finite <column> <value> at line <n> in <file>`, `plant <id> has duplicate rows at lines <a> and <b> in <file>` or `plant <id> has duplicate volume <v> at lines <a> and <b> in CAD_GEOMETRIA_UHE.csv`; when several plants have a duplicate volume, the error names the lowest plant code
+  - `CAD_GEOMETRIA_UHE.csv` and `CAD_TAILRACE.csv` are read for every study, so a bad value fails the study read and the CLI exits with code 1 before writing any result; a bad `CAD_FPHA_CONFIG.csv` fails `compute_fpha`
+  - Decks with finite values and one row per plant, such as `examples/24Barras`, read as before
+  - To migrate, replace each non-finite cell with a finite value and delete the repeated row or point
+- **BREAKING**: Computed FPHA fits with the MM defaults and `CAD/CAD_FPHA_CONFIG.csv` takes effect
+  - Before: every computed fit used a 6 x 6 volume-flow grid, and no field of the file changed the fit: `num_planes` was copied into the plane limit, which no production code enforced, and `tolerance`, `min_volume_pct` and `max_volume_pct` were read and dropped
+  - Now every computed fit starts from 5 volume points, 5 flow points, at most 10 planes and an angle reduction tolerance of 1.0 degrees, so the planes, `alpha` and `resultado_fpha_computed.csv` of every computed run change, with or without the file
+  - A row of `CAD_FPHA_CONFIG.csv` changes only its plant: `num_planes` is a plane limit, `tolerance` the angle tolerance in degrees, and `min_volume_pct` / `max_volume_pct` the fractions of the `[Vmin.hm3, Vmax.hm3]` interval of `CAD_UHE.csv` the fit covers (an absent bound keeps 0 or 1)
+  - The plane limit is now enforced: the angle reduction is repeated with a doubled tolerance, always from the original plane set and at most 32 times, until the plant has at most `num_planes` planes; when the limit cannot be reached the fit fails with `hydro <name>: cannot reduce to <n> planes (<k> remain after the last tolerance)` and the plant is listed in `PlantsNotFitted`; the fit deviation grows, and `alpha` is fitted on the reduced planes (see the `alpha` entry below)
+  - A window outside the geometry table of its plant fails the fit and the plant is listed in `PlantsNotFitted`; a window configured for a plant with a single-point geometry table is ignored and the CLI prints `Warning: plant <id> (<name>) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct <a> and max_volume_pct <b> in CAD/CAD_FPHA_CONFIG.csv are ignored`
+  - The `CAD_FPHA_CONFIG.csv` reader now returns `IoError::InvalidData` with `plant <id> has num_planes 0 (must be at least 1) at line <n> in CAD_FPHA_CONFIG.csv` or `plant <id> has min_volume_pct <a> not below max_volume_pct <b> at line <n> in CAD_FPHA_CONFIG.csv` (the latter only when both bounds are given), and `compute_fpha` fails with it
+  - To migrate, set `num_planes` to at least 1 and `min_volume_pct` below `max_volume_pct` in each row, raise `num_planes` for a plant whose fit reports that the limit cannot be reached, and set `tolerance` where the previous plane count must be kept
+- **BREAKING**: FPHA rows read the period-mean volume instead of the end-of-period volume (audit FP-06, ADR-030)
+  - Before: the `hydro_fpha` row of a period carried `alpha * gamma_v` on the end-of-period volume only, while the max swallowing head volume and the Libs form of the row use the period mean
+  - Now every `hydro_fpha` row, computed and precomputed, bounds generation by the planes at the period-mean volume `(V[t] + V[t+1]) / 2`: `alpha * gamma_v / 2` sits on each of the volume slots `t` and `t + 1`, and in the first period (`t=1`), where slot 0 is the fixed initial volume, the row has no slot-0 term and `alpha * gamma_v / 2 * VolInic` moves to the right-hand side
+  - Row names, sense and row count are unchanged, and the plants with `gamma_v` 0 (ITUTINGA and FUNIL-GRANDE in `examples/24Barras`) are unaffected
+  - `Varm.mw/hm3` of a precomputed `OPER_FPHA.csv` is now a coefficient on the period-mean volume; the columns of `resultado_fpha_computed.csv` and the fit are unchanged
+  - `GeracaoMaxPontoMW` follows the period-mean volume; `VolumeHM3` is still the end-of-period volume
+  - Measured on `examples/24Barras` before -> after (R$): `O_c` (computed) 2420590.3195 -> 2420558.7522, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420591.0652 -> 2420559.4979, `O_one` (precomputed, `Fcorrec = 1`) 2374998.0326 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420590.3195 -> 2420558.7522
+  - Maximum static envelope difference `|E(V_mean) - E(V_end)|` along the solved trajectory, before -> after: CAMARGOS 0, ITUTINGA 0, FUNIL-GRANDE 0, FURNAS 0.011043 -> 0.011038 MW (period 9); the maximum change of `GeracaoMaxPontoMW` between the two runs is 0.011084 MW (FURNAS, period 9) and 0 for the other plants
+- **BREAKING**: `TailraceSource` is removed
+  - Before: `labdessem_fpha::TailraceSource` was a public enum with the variants `Entity(Option<TailraceModel>)` and `Families`; `Families` was documented as a placeholder for backwater coupling, no code constructed it and it evaluated to a 0 m tailrace level
+  - Now the tailrace of a production function is the mandatory polynomial `labdessem_model::hydro_geometry::TailraceModel`; no run changes (computed planes, alpha and objectives are bit-identical); tailrace families stay unmodelled (ADR-032 (a); backwater, piecewise ranges and drowning are documented as limitations)
+  - To migrate, pass the `TailraceModel` itself where a `TailraceSource::Entity` held `Some(model)`
+- **BREAKING**: Computed FPHA fits `alpha` on 30 evaluation points of the final reduced planes (audit B5, ADR-033)
+  - Before: `alpha` was fitted on the fit-grid nodes over the raw hull planes, before the gamma_S secant and the plane reduction, and did not depend on `num_planes`
+  - Now `alpha` is fitted after the reduction on the planes written to `resultado_fpha_computed.csv`, over 30 evaluation points (6 volume x 5 flow over the fit window and `[0, Q_max]`, 2 x 15 for single-volume plants), so it depends on `num_planes`; the MM default count is 30 and the point distribution is a labdessem choice `[to confirm]`
+  - The gamma columns and the plane counts are unchanged; the `alpha` and deviation columns and every computed objective change; the copy rule `Fcorrec = alpha` of precomputed decks is unchanged
+  - Measured on `examples/24Barras` before -> after: `alpha` CAMARGOS 0.972834 -> 0.968663, ITUTINGA 1.000000 -> 1.014733, FUNIL-GRANDE 1.000000 -> 1.011552, FURNAS 0.993203 -> 0.989872 (planes 6 / 3 / 3 / 5 before and after); maximum fit deviation of `alpha x planes` (MW) CAMARGOS 2.876295 -> 2.826087, ITUTINGA 0 -> 0.766124, FUNIL-GRANDE 0 -> 2.079277, FURNAS 23.284586 -> 22.245847
+  - Objectives (R$): `O_c` (computed) 2420558.7522 -> 2440503.4875, `O_alpha` (precomputed, `Fcorrec = alpha`) 2420559.4979 -> 2440499.3558, `O_one` (precomputed, `Fcorrec = 1`) 2374967.2890 -> 2374967.2890; the release `FPHA: computed` run `Objective:` 2420558.7522 -> 2440503.4875; which plant drives the `O_c` change is `[not measured]`
+  - Single-volume plants can get `alpha` above 1 and an envelope above the FPH at the fit-grid nodes: ITUTINGA 1.014733 and FUNIL-GRANDE 1.011552 in `examples/24Barras`
+  - The public `labdessem_model::production::compute_alpha_fpha` ignores `n_volume_points` and `n_flow_points` of its bounds and expects the final planes
+- **BREAKING**: Public Rust API of the FPHA fit (now `labdessem_model::production`)
+  - Before: `FphaPlantConfig::default()` used a 6 x 6 volume-flow grid, `fit_plant` returned `FphaPlantResult::planes` with `gamma_0`, `gamma_v` and `gamma_q` already multiplied by `alpha` and `gamma_s` not, and `FphaFittingError` had no variant for a fit window or an unreachable plane limit
+  - Now `FphaFittingError` has the variants `InvalidFitWindow { hydro_name, reason }` and `PlaneLimitUnreachable { hydro_name, max_planes, remaining }`, so an exhaustive `match` must handle them; it is carried by `FitFailureReason::Fitting`
+  - Now `FphaPlantConfig` has the public fields `volume_window: production::VolumeWindow` and `window_reference_hm3: Option<(f64, f64)>`, so a struct literal must set them (`FphaPlantConfig::computed` sets the full window); the default grid of a computed fit is 5 x 5 points, from the new constants `production::DEFAULT_VOLUME_POINTS`, `DEFAULT_FLOW_POINTS`, `DEFAULT_MAX_PLANES` and `DEFAULT_ANGLE_TOLERANCE_DEG`
+  - Now `fit_plant` returns unscaled `FphaPlantResult::planes` and the fitted `FphaPlantResult::alpha`; the consumer applies `alpha` once to all four coefficients (the model does, as `correction_factor`)
+  - To migrate, add the two variants to exhaustive matches, set `volume_window: VolumeWindow::FULL` and `window_reference_hm3: None` in struct literals (or use `FphaPlantConfig::computed`), and apply `alpha` once to all four coefficients wherever the old planes were used directly
+- Computed FPHA stderr output follows the model fit results
+  - A plant whose VHA table is invalid (empty or with a repeated volume) used to print `plant <id> (<name>): invalid fit parameters: Fitting error: ForebayTable creation failed: <geometry error>` in the `PlantsNotFitted` list; it now prints `plant <id> (<name>): fitting failed: <geometry error>`, where `<geometry error>` is `hydro <name>: insufficient geometry points (<n> < 2)` or `hydro <name>: duplicate volume <v> in geometry table`
+  - A plant missing from `inflow_history.parquet` (when the file has rows) used to fail after the `Plant <id> (<name>): fitted <n> planes (α = <alpha>)` lines, and the single-point window `Warning:` lines, of the plants checked before it; now the run fails with the same `hydro <id> (<name>) missing from inflow_history.parquet` message before any such line, because `labdessem_model::production::fit_system` fits every plant before the CLI prints them
+- `docs/design/engmax-formulation.md` is renamed `docs/design/max-swallowing-formulation.md`, and `docs/design/fpha-formulation.md` describes the implemented FPHA formulation and its decisions
+
+### Fixed
+- `examples/24Barras`: `OPER/OPER_VAZAO.csv` still used the plant codes 1, 2, 4 and 6 after `CAD_UHE.csv` and `CAD_CONJ_UHE.csv` were renumbered 0 to 3, and the hydro reader matches inflows by code only, so the inflow of CAMARGOS went to ITUTINGA and the FUNIL-GRANDE and FURNAS rows were dropped: the model saw 11.65% of the water
+  - Only the `Codigo` column changes, and every result of the example changes
+  - The reader still accepts an unknown plant code silently (audit HI-01)
+- Computed FPHA applied `alpha` twice to `gamma_0`..`gamma_q` and only once to `gamma_s` (audit FP-02, FP-08); the LP now applies `alpha` once to all four coefficients
+- A hydro plant with generating units and no fitted FPHA planes was skipped with a warning and generated without water (audit HI-03, FP-01, NU-04); the run now fails naming the plant and the reason
+- Computed FPHA silently fitted a plant with a missing tailrace row as a 0 m tailrace level, and a missing `Eficiencia` or `Perda.m` as efficiency 1.0 and loss 0 m, inflating the production function (audit FP-R02); the run now fails naming the plant and every missing input
+- Precomputed FPHA rows for a hydro plant without generating units were kept silently and became FPHA constraints with no generation term, hiding an inconsistent deck (audit FP-07); the reader now rejects the deck naming every such plant
+- The FPHA geometry readers let `NaN` and infinities through (the sign checks are false for `NaN`), sorted the volume table in an undefined order for `NaN`, and silently kept the last of two rows for the same plant, so a `NaN` water level reached the fit or the net-head model (audit EM-04, FP-R01); the readers now reject the value or the duplicate naming the file, plant, column and line
+- `CAD/CAD_FPHA_CONFIG.csv` had no effect on the fit: `num_planes` was copied but never enforced, `tolerance`, `min_volume_pct` and `max_volume_pct` were dropped, and the grid was fixed at 6 x 6 (audit FP-05); each field now changes the fit of its plant and the defaults follow the MM
+
 ## [0.12.0] - 2026-11-05
 
 ### Added
@@ -302,7 +432,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `labdessem-common`: shared utilities
 - Example cases: 3Barras, 24Barras
 
-[Unreleased]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/carlosribeiro06/labdessem_rust/compare/v0.9.0...v0.10.0

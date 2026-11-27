@@ -1,4 +1,4 @@
-//! Unit conversions shared by the EngMax recalculation and the stage helpers (ADR-014).
+//! Unit conversions shared by the max swallowing recalculation and the stage helpers (ADR-014).
 
 /// Convert volume in hm³ to flow in m³/s given duration in hours.
 pub(crate) fn volume_hm3_to_flow_m3s(volume_hm3: f64, duration_hours: f64) -> f64 {

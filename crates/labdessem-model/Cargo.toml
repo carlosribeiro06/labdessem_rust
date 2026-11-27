@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+links = "qhull_r"
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
@@ -12,7 +13,59 @@ labdessem-uc = { path = "../labdessem-uc" }
 thiserror = "2"
 
 [dev-dependencies]
+labdessem-core = { path = "../labdessem-core", features = ["test-support"] }
 labdessem-io = { path = "../labdessem-io" }
 
-[lints]
-workspace = true
+[build-dependencies]
+cc = "1.2"
+
+# labdessem-model cannot inherit the workspace lints: Cargo rejects `[lints] workspace = true`
+# combined with any override, and the qhull FFI module needs `unsafe_code` at `deny` (not `forbid`)
+# so that `src/lib.rs` can allow it on that one module. The clippy table is a verbatim copy of
+# `[workspace.lints.clippy]`; `tests/unsafe_scope.rs` fails if the two tables drift apart.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+
+# Allowed pedantic lints (with rationale)
+# Rationale: Not requiring full docs yet — incremental documentation effort
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Rationale: Most functions don't need #[must_use] in this domain
+must_use_candidate = "allow"
+# Rationale: Scientific computing uses casts between usize and f64 intentionally
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+# Rationale: Acceptable in public API for clarity (e.g., ThermalPlant in thermal module)
+module_name_repetitions = "allow"
+# Rationale: Minor style issue, not worth the noise
+doc_markdown = "allow"
+# Rationale: Float comparison is intentional in optimization context (bounds, equality checks)
+float_cmp = "allow"
+# Rationale: Builder pattern uses Self returns without must_use
+return_self_not_must_use = "allow"
+# Rationale: HashMap with default hasher is acceptable in this domain
+implicit_hasher = "allow"
+# Rationale: Struct bools represent domain flags (e.g., UCT, UCH, FPHA)
+struct_excessive_bools = "allow"
+fn_params_excessive_bools = "allow"
+# Rationale: Similar names in domain context are meaningful (e.g., idx, index)
+similar_names = "allow"
+# Rationale: Long functions were reviewed during Phase 1-2 refactoring and are cohesive
+too_many_lines = "allow"
+# Rationale: Complex domain types in optimization (will refactor incrementally)
+type_complexity = "allow"
+# Rationale: String building with format! is acceptable style
+format_push_string = "allow"
+# Rationale: clone_on_ref_ptr is acceptable for Arc/Rc cloning
+clone_on_ref_ptr = "allow"

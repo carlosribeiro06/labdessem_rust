@@ -5,7 +5,8 @@ use super::{
     validate_system,
 };
 use crate::entities::{
-    Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket, ThermalPlant,
+    Branch, Bus, HydroPlant, InflowHistoryRow, PumpingPlant, RenewablePlant, Submarket,
+    ThermalPlant,
 };
 use crate::error::CoreError;
 

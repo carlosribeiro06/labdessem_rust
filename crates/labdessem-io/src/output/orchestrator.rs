@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use labdessem_core::entities::engmax_bounds::EngMaxBounds;
+use labdessem_core::entities::max_swallowing_bounds::MaxSwallowingBounds;
 use labdessem_core::system::System;
 
 use crate::error::IoError;
@@ -26,8 +26,8 @@ use super::{
 /// * `constraint_duals` - Map of constraint names to dual values from LP-CALC-CMO solution
 /// * `output_dir` - Directory to write output files
 /// * `network_enabled` - Whether network treatment is enabled
-/// * `engmax_bounds` - EngMax bounds that built the final LP-CALC-CMO model, written on the
-///   hydro `99;99` rows; `None` when EngMax is disabled
+/// * `max_swallowing_bounds` - Max swallowing bounds that built the final LP-CALC-CMO model,
+///   written on the hydro `99;99` rows; `None` when max swallowing is disabled
 ///
 /// # Errors
 /// Returns `IoError` if any writer fails.
@@ -38,7 +38,7 @@ pub fn write_all_results(
     constraint_duals: &HashMap<String, f64>,
     output_dir: impl AsRef<Path>,
     network_enabled: bool,
-    engmax_bounds: Option<&EngMaxBounds>,
+    max_swallowing_bounds: Option<&MaxSwallowingBounds>,
 ) -> Result<(), IoError> {
     let output_dir = output_dir.as_ref();
     std::fs::create_dir_all(output_dir)?;
@@ -48,7 +48,7 @@ pub fn write_all_results(
         variable_values,
         constraint_duals,
         output_dir,
-        engmax_bounds,
+        max_swallowing_bounds,
     )?;
     write_thermal_csv(system, variable_values, output_dir)?;
     write_pumping_csv(system, variable_values, output_dir)?;

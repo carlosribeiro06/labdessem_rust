@@ -6,8 +6,9 @@
 use crate::{Model, ModelError, SolveMode, constraints, objective};
 use labdessem_core::{
     entities::{
-        EngMaxBounds, HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
-        RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant, ThermalUnit, TurbineType,
+        HydroFphaSegment, HydroGroup, HydroInitialCondition, HydroPlant, HydroUnit,
+        MaxSwallowingBounds, RenewablePlant, Reservoir, ThermalInitialCondition, ThermalPlant,
+        ThermalUnit, TurbineType,
     },
     ids::{
         BusId, HydroGroupId, HydroPlantId, HydroUnitId, PumpingPlantId, RenewablePlantId,
@@ -1152,6 +1153,27 @@ fn adds_future_cost_variable_constraints_and_objective_when_enabled() {
     );
 }
 
+fn computed_fpha_segments() -> Vec<HydroFphaSegment> {
+    vec![
+        HydroFphaSegment {
+            segment: 1,
+            correction_factor: 0.95,
+            rhs: 100.0,
+            volume_coefficient: 0.01,
+            turbining_coefficient: 2.5,
+            lateral_flow_coefficient: -0.005,
+        },
+        HydroFphaSegment {
+            segment: 2,
+            correction_factor: 0.95,
+            rhs: 80.0,
+            volume_coefficient: 0.008,
+            turbining_coefficient: 2.2,
+            lateral_flow_coefficient: -0.003,
+        },
+    ]
+}
+
 /// Test that verifies the FPHA computed workflow:
 /// 1. System starts with fpha_enabled=false and empty fpha_segments
 /// 2. FPHA segments are injected dynamically (simulating compute_fpha + inject_fpha_segments)
@@ -1180,25 +1202,7 @@ fn fpha_computed_flow_adds_constraints_correctly() {
     );
 
     // Step 2: Simulate inject_fpha_segments - inject computed segments
-    let computed_segments = vec![
-        HydroFphaSegment {
-            segment: 1,
-            correction_factor: 0.95,
-            rhs: 100.0,
-            volume_coefficient: 0.01,
-            turbining_coefficient: 2.5,
-            lateral_flow_coefficient: -0.005,
-        },
-        HydroFphaSegment {
-            segment: 2,
-            correction_factor: 0.95,
-            rhs: 80.0,
-            volume_coefficient: 0.008,
-            turbining_coefficient: 2.2,
-            lateral_flow_coefficient: -0.003,
-        },
-    ];
-    system.hydro_plants[0].fpha_segments = computed_segments;
+    system.hydro_plants[0].fpha_segments = computed_fpha_segments();
 
     // Step 3: Set fpha_enabled = true (as main.rs does after inject_fpha_segments)
     system.fpha_enabled = true;
@@ -1241,14 +1245,14 @@ fn fpha_computed_flow_adds_constraints_correctly() {
     );
 
     // Verify RHS values include correction factor
-    let seg1_t1 = fpha_constraints
+    let seg1_t2 = fpha_constraints
         .iter()
-        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=1]")
+        .find(|c| c.name == "hydro_fpha[p=UHE-1,seg=1,t=2]")
         .expect("constraint should exist");
     assert!(
-        (seg1_t1.rhs - 0.95 * 100.0).abs() < 1e-6,
+        (seg1_t2.rhs - 0.95 * 100.0).abs() < 1e-6,
         "RHS should be correction_factor * rhs = 0.95 * 100.0 = 95.0, got {}",
-        seg1_t1.rhs
+        seg1_t2.rhs
     );
 
     // Verify generation-turbining coupling constraints are also generated
@@ -1262,89 +1266,141 @@ fn fpha_computed_flow_adds_constraints_correctly() {
 }
 
 #[test]
-fn extend_with_engmax_adds_plant_rows() {
+fn fpha_rows_split_volume_coefficient_across_period_slots() -> Result<(), Box<dyn std::error::Error>>
+{
+    // Arrange
+    let mut system = build_system();
+    system.hydro_plants[0].fpha_segments = computed_fpha_segments();
+    system.fpha_enabled = true;
+    let model = Model::from_system(&system, SolveMode::LinearProgramming);
+    let rows = model.constraints.hydro_fpha();
+    let volume_terms_and_rhs = |name: &str| -> Result<(Vec<(String, f64)>, f64), String> {
+        let row = rows
+            .iter()
+            .find(|row| row.name == name)
+            .ok_or_else(|| format!("missing row {name}"))?;
+        let terms = row
+            .terms
+            .iter()
+            .filter(|term| term.variable.starts_with("hydro_volume["))
+            .map(|term| (term.variable.clone(), term.coefficient))
+            .collect();
+        Ok((terms, row.rhs))
+    };
+
+    // Act
+    let (period_0_terms, period_0_rhs) = volume_terms_and_rhs("hydro_fpha[p=UHE-1,seg=1,t=1]")?;
+    let (period_1_terms, period_1_rhs) = volume_terms_and_rhs("hydro_fpha[p=UHE-1,seg=1,t=2]")?;
+
+    // Assert
+    let half = -0.5 * 0.95 * 0.01;
+    assert_eq!(period_0_terms.len(), 1);
+    assert_eq!(period_0_terms[0].0, "hydro_volume[p=UHE-1,t=1]");
+    assert!((period_0_terms[0].1 - half).abs() < 1e-12);
+    assert!((period_0_rhs - 0.95 * (100.0 + 0.01 * 5.0 / 2.0)).abs() < 1e-12);
+    assert_eq!(period_1_terms.len(), 2);
+    assert_eq!(period_1_terms[0].0, "hydro_volume[p=UHE-1,t=1]");
+    assert_eq!(period_1_terms[1].0, "hydro_volume[p=UHE-1,t=2]");
+    assert!((period_1_terms[0].1 - half).abs() < 1e-12);
+    assert!((period_1_terms[1].1 - half).abs() < 1e-12);
+    assert!((period_1_rhs - 0.95 * 100.0).abs() < 1e-12);
+    Ok(())
+}
+
+#[test]
+fn extend_with_max_swallowing_adds_plant_rows() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
     // plant index 0 (UHE-1), periods 0 and 1
-    let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 15.0);
-    engmax_bounds.set(0, 1, 18.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(10);
+    max_swallowing_bounds.set(0, 0, 15.0);
+    max_swallowing_bounds.set(0, 1, 18.0);
 
-    assert!(model.constraints.engmax().is_empty());
+    assert!(model.constraints.max_swallowing().is_empty());
 
     model
         .constraints
-        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .extend_with_max_swallowing(
+            &system,
+            &model.indexing,
+            &model.variables,
+            &max_swallowing_bounds,
+        )
         .expect("all bounds are present");
 
-    let engmax_constraints = model.constraints.engmax();
-    assert_eq!(engmax_constraints.len(), 2);
+    let max_swallowing_constraints = model.constraints.max_swallowing();
+    assert_eq!(max_swallowing_constraints.len(), 2);
 
-    let c1 = engmax_constraints
+    let c1 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=1]")
-        .expect("engmax constraint for t=1 should exist");
+        .expect("max swallowing constraint for t=1 should exist");
     assert_eq!(c1.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((c1.rhs - 15.0).abs() < 1e-6);
 
-    let c2 = engmax_constraints
+    let c2 = max_swallowing_constraints
         .iter()
         .find(|c| c.name == "engmax[p=UHE-1,t=2]")
-        .expect("engmax constraint for t=2 should exist");
+        .expect("max swallowing constraint for t=2 should exist");
     assert!((c2.rhs - 18.0).abs() < 1e-6);
 }
 
 #[test]
-fn extend_with_engmax_missing_bound_is_error() {
+fn extend_with_max_swallowing_missing_bound_is_error() {
     let system = build_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
     // horizon 2: period 1 has no bound
-    let mut engmax_bounds = EngMaxBounds::new(10);
-    engmax_bounds.set(0, 0, 15.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(10);
+    max_swallowing_bounds.set(0, 0, 15.0);
 
-    let result = model.constraints.extend_with_engmax(
+    let result = model.constraints.extend_with_max_swallowing(
         &system,
         &model.indexing,
         &model.variables,
-        &engmax_bounds,
+        &max_swallowing_bounds,
     );
 
     assert_eq!(
         result,
-        Err(ModelError::MissingEngMaxBound {
+        Err(ModelError::MissingMaxSwallowingBound {
             plant: "UHE-1".into(),
             period: 1,
         })
     );
-    assert!(model.constraints.engmax().is_empty());
+    assert!(model.constraints.max_swallowing().is_empty());
 }
 
 #[test]
-fn extend_with_engmax_sums_every_unit_of_the_plant() {
+fn extend_with_max_swallowing_sums_every_unit_of_the_plant() {
     use crate::names::hydro_turbining_name;
 
     // Multi-group plant: 2 groups × 2 units = 4 units, one plant row
     let system = build_multi_group_system();
     let mut model = Model::from_system(&system, SolveMode::LinearProgramming);
 
-    let mut engmax_bounds = EngMaxBounds::new(1);
-    engmax_bounds.set(0, 0, 30.0);
+    let mut max_swallowing_bounds = MaxSwallowingBounds::new(1);
+    max_swallowing_bounds.set(0, 0, 30.0);
 
     model
         .constraints
-        .extend_with_engmax(&system, &model.indexing, &model.variables, &engmax_bounds)
+        .extend_with_max_swallowing(
+            &system,
+            &model.indexing,
+            &model.variables,
+            &max_swallowing_bounds,
+        )
         .expect("all bounds are present");
 
-    let engmax_constraints = model.constraints.engmax();
+    let max_swallowing_constraints = model.constraints.max_swallowing();
     assert_eq!(
-        engmax_constraints.len(),
+        max_swallowing_constraints.len(),
         1,
         "Should have 1 constraint (one per plant)"
     );
 
-    let row = &engmax_constraints[0];
+    let row = &max_swallowing_constraints[0];
     assert_eq!(row.name, "engmax[p=UHE-MULTI,t=1]");
     assert_eq!(row.sense, constraints::ConstraintSense::LessOrEqual);
     assert!((row.rhs - 30.0).abs() < 1e-6);

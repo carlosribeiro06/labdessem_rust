@@ -59,16 +59,17 @@
 
         <h2 id="installation">Installation</h2>
         <p>Clone the repository and install the CLI:</p>
-        <pre><code>git clone https://github.com/carlosribeiro06/labdessem_rust.git
+        <pre><code>git clone --recurse-submodules https://github.com/carlosribeiro06/labdessem_rust.git
 cd labdessem_rust
 cargo install --path crates/labdessem-cli</code></pre>
+        <p>For an existing clone, run <code>git submodule update --init --recursive</code>; it fetches the qhull sources that <code>labdessem-model</code> compiles.</p>
         <p>This installs the <code>labdessem</code> binary to <code>~/.cargo/bin/</code>.</p>
 
         <h3>Requirements</h3>
         <ul>
           <li>Rust 1.70 or later</li>
           <li>CMake (for HiGHS solver compilation)</li>
-          <li>C++ compiler (Visual Studio Build Tools on Windows, GCC/Clang on Linux)</li>
+          <li>C and C++ compiler (Visual Studio Build Tools on Windows, GCC/Clang on Linux), for HiGHS and the vendored qhull</li>
         </ul>
 
         <h2 id="quick-start">Quick Start</h2>
@@ -93,9 +94,8 @@ labdessem run --help</code></pre>
 ├── crates/
 │   ├── labdessem-cli        # Command-line interface
 │   ├── labdessem-core       # Domain entities, IDs, validation
-│   ├── labdessem-fpha       # FPHA fitting pipeline (convex hull)
 │   ├── labdessem-io         # Case reader and output writers
-│   ├── labdessem-model      # Variables, objective, constraints
+│   ├── labdessem-model      # Variables, constraints, FPHA fit, max swallowing
 │   ├── labdessem-network    # DC network flow, PTDF, CMB/CMO
 │   ├── labdessem-simulation # Workflow orchestration
 │   ├── labdessem-solver     # Optimization backend (HiGHS)
@@ -123,16 +123,12 @@ labdessem run --help</code></pre>
               <td>Domain entities, identifiers, validations, horizon representation.</td>
             </tr>
             <tr>
-              <td><code>labdessem-fpha</code></td>
-              <td>FPHA fitting pipeline. Computes hyperplanes from VHA geometry using convex hull.</td>
-            </tr>
-            <tr>
               <td><code>labdessem-io</code></td>
               <td>Case reader. Loads <code>study_config.json</code> and CSV files from <code>CAD/</code> and <code>OPER/</code>.</td>
             </tr>
             <tr>
               <td><code>labdessem-model</code></td>
-              <td>Indexing, variables, objective function, and algebraic constraints.</td>
+              <td>Indexing, variables, objective function and algebraic constraints, plus the FPHA fit (<code>production</code>), the max swallowing formula (<code>swallowing</code>), the shared VHA and tailrace geometry (<code>hydro_geometry</code>) and a crate-private qhull binding built from the vendored <code>vendor/qhull</code> submodule.</td>
             </tr>
             <tr>
               <td><code>labdessem-network</code></td>
@@ -165,13 +161,13 @@ labdessem run --help</code></pre>
         <ul>
           <li><code>CAD_UNID_UTE.csv</code> — Thermal plants and units</li>
           <li><code>CAD_RAMPAS_TERMICAS.csv</code> — Thermal ramp trajectories</li>
-          <li><code>CAD_UHE.csv</code> — Hydro plants</li>
+          <li><code>CAD_UHE.csv</code> — Hydro plants. Computed FPHA also requires <code>Eficiencia</code> and <code>Perda.m</code> for every plant with generating units.</li>
           <li><code>CAD_CONJ_UHE.csv</code> — Hydro groups and units</li>
           <li><code>CAD_REN.csv</code> — Renewable plants</li>
           <li><code>CAD_USIE.csv</code> — Pumping plants</li>
-          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (optional, for EngMax/computed FPHA)</li>
-          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (optional, for EngMax)</li>
-          <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional)</li>
+          <li><code>CAD_GEOMETRIA_UHE.csv</code> — VHA geometry table (required by computed FPHA for every plant with generating units; optional for max swallowing)</li>
+          <li><code>CAD_TAILRACE.csv</code> — Tailrace polynomial coefficients (required by computed FPHA for every plant with generating units; optional for max swallowing)</li>
+          <li><code>CAD_FPHA_CONFIG.csv</code> — FPHA fitting config (optional; columns and defaults in <a href="./configuration.html#fpha-config">Configuration</a>)</li>
         </ul>
 
         <h3>OPER Files (Operational)</h3>
@@ -180,8 +176,9 @@ labdessem run --help</code></pre>
           <li><code>OPER_VAZAO.csv</code> — Hydro inflows</li>
           <li><code>OPER_REN.csv</code> — Renewable availability</li>
           <li><code>OPER_REST_LIM.csv</code> — Operational limits</li>
-          <li><code>OPER_FPHA.csv</code> — FPHA cuts (when <code>FPHA=1</code>)</li>
+          <li><code>OPER_FPHA.csv</code> — FPHA cuts (when <code>FPHA="precomputed"</code>)</li>
           <li><code>OPER_FCF.bin</code> — Future cost cuts (when <code>FCF=1</code>)</li>
+          <li><code>inflow_history.parquet</code> — Inflow history (optional; sets the long-term mean inflow of the computed FPHA fit)</li>
         </ul>
 
         <h2 id="outputs">Outputs</h2>
@@ -190,7 +187,7 @@ labdessem run --help</code></pre>
           <li><code>resultado_termicas.csv</code> — Thermal generation and commitment</li>
           <li><code>resultado_hidreletricas.csv</code> — Hydro generation, turbining, spillage. When <code>EngMax=1</code>, the columns <code>EngMaxHM3</code> and <code>EngMaxM3s</code> hold the plant maximum swallowing (MM eq. 9.34):
             <ul>
-              <li>They are filled only on the plant aggregate rows <code>99;99</code>, and are empty on unit rows and when EngMax is off.</li>
+              <li>They are filled only on the plant aggregate rows <code>99;99</code>, and are empty on unit rows and when max swallowing is off.</li>
               <li>The value is the bound that built the final <code>LP-CALC-CMO</code> model.</li>
               <li>The value is raw, so it may exceed <code>TurbinamentoMaxHM3</code> / <code>TurbinamentoMaxM3s</code> on the same row.</li>
               <li><code>EngMaxHM3</code> is summed over the internal periods of each original period; <code>EngMaxM3s</code> is that value converted to m³/s over the original period's duration.</li>
@@ -200,7 +197,13 @@ labdessem run --help</code></pre>
           <li><code>resultado_elevatorias.csv</code> — Pumping plant operation</li>
           <li><code>resultado_cmosist.csv</code> — Marginal operating costs (PiDemanda and CMO)</li>
           <li><code>resultado_fcf_eco.csv</code> — Future cost cut values (when <code>FCF=1</code>)</li>
-          <li><code>resultado_fpha_computed.csv</code> — Computed FPHA hyperplanes (when <code>FPHA="computed"</code>)</li>
+          <li><code>resultado_fpha_computed.csv</code> — Computed FPHA planes, one row per plane (when <code>FPHA="computed"</code>):
+            <ul>
+              <li><code>gamma_0</code>, <code>gamma_v</code>, <code>gamma_q</code> and <code>gamma_s</code> are the unscaled fitted plane. <code>alpha</code> is the correction factor, which the model applies once to all four coefficients. <code>plane_index</code> starts at 0. The three deviation columns compare <code>alpha</code> × the planes with the production function on the fit grid.</li>
+              <li>Copy rule: copying the rows of a plant into <code>OPER/OPER_FPHA.csv</code> reproduces the computed run. The header is <code>USIH;Nome;SegFPHA;Fcorrec;Rhs.mw;Varm.mw/hm3;Qtur.mw/m3s;Qlat.mw/m3s</code>, and each row takes <code>USIH = codigo_usina</code>, <code>SegFPHA = plane_index + 1</code>, <code>Fcorrec = alpha</code>, <code>Rhs.mw = gamma_0</code>, <code>Varm.mw/hm3 = gamma_v</code>, <code>Qtur.mw/m3s = gamma_q</code> and <code>Qlat.mw/m3s = gamma_s</code>. A copy with <code>Fcorrec = 1</code> is a different model.</li>
+              <li>Details of the copy rule and the formulation: <a href="https://github.com/carlosribeiro06/labdessem_rust/blob/main/docs/design/fpha-formulation.md" target="_blank" rel="noopener">docs/design/fpha-formulation.md</a>.</li>
+            </ul>
+          </li>
           <li><code>resultado_rede.csv</code> — Network flows (when <code>rede=1</code>)</li>
           <li><code>resultado_cmobar.csv</code> — Nodal marginal costs per bus (when <code>rede=1</code>)</li>
         </ul>

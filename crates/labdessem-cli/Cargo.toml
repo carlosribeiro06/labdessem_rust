@@ -12,7 +12,6 @@ path = "src/main.rs"
 
 [dependencies]
 labdessem-core = { path = "../labdessem-core" }
-labdessem-fpha = { path = "../labdessem-fpha" }
 labdessem-io = { path = "../labdessem-io" }
 labdessem-model = { path = "../labdessem-model" }
 labdessem-network = { path = "../labdessem-network" }
@@ -21,7 +20,7 @@ labdessem-solver = { path = "../labdessem-solver" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "tracing-log"] }
 
 [dev-dependencies]
-chrono = "0.4"
+tempfile = "3"
 
 [lints]
 workspace = true

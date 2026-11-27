@@ -157,12 +157,171 @@
           </tbody>
         </table>
 
-        <h3>FPHA Flag</h3>
-        <p>Controls how hydro generation is computed:</p>
+        <h3 id="fpha-mode">FPHA Flag</h3>
+        <p>Controls how hydro generation is computed. <code>FPHA</code> takes one of three strings. A number, such as the earlier <code>0</code> and <code>1</code> values, makes <code>study_config.json</code> fail to parse.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>Hydro generation</th>
+              <th>Files read</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>"constant_productivity"</code></td>
+              <td>Generation = productivity × turbining. Simpler but less accurate for varying head.</td>
+              <td><code>Prod.mw/m3s</code> of <code>CAD/CAD_UHE.csv</code></td>
+            </tr>
+            <tr>
+              <td><code>"precomputed"</code></td>
+              <td>Generation bounded by the piecewise linear planes of <code>OPER_FPHA.csv</code>.</td>
+              <td><code>OPER/OPER_FPHA.csv</code></td>
+            </tr>
+            <tr>
+              <td><code>"computed"</code></td>
+              <td>Generation bounded by planes fitted at run time to the production function of each hydro plant. The constraint rows are the same as in <code>"precomputed"</code>. The planes are written to <code>RESULTADOS/resultado_fpha_computed.csv</code>; <code>OPER_FPHA.csv</code> is not read.</td>
+              <td>
+                Required for every hydro plant with generating units:
+                <ul>
+                  <li><code>CAD/CAD_GEOMETRIA_UHE.csv</code></li>
+                  <li><code>CAD/CAD_TAILRACE.csv</code></li>
+                  <li><code>Eficiencia</code> and <code>Perda.m</code> of <code>CAD/CAD_UHE.csv</code>. An explicit <code>Perda.m = 0</code> is valid; an absent column or an empty cell counts as missing.</li>
+                </ul>
+                Optional:
+                <ul>
+                  <li><code>CAD/CAD_FPHA_CONFIG.csv</code> (see <a href="#fpha-config">below</a>)</li>
+                  <li><code>OPER/inflow_history.parquet</code>: its plant mean is the long-term mean inflow that sets the spillage range of the fit. Without the file the fit uses the mean of the deck inflows and the CLI prints <code>Warning: inflow_history.parquet not found; using deck mean for MLT</code>. With the file, a plant it lacks stops the run with <code>missing from inflow_history.parquet</code>.</li>
+                </ul>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Computed mode fits only hydro plants with generating units (<code>CAD_CONJ_UHE.csv</code>). A plant without units is not fitted and needs none of the inputs above. If any plant with units cannot be fitted, the run stops before writing any result (see <a href="#fpha-failures">Computed FPHA failures</a>). The formulation is in <a href="./methodology.html#fpha">Methodology</a>.</p>
+
+        <h3 id="fpha-config">CAD_FPHA_CONFIG.csv</h3>
+        <p><code>CAD/CAD_FPHA_CONFIG.csv</code> is optional and read only when <code>FPHA="computed"</code>. It overrides the fit of single plants: a <code>;</code>-delimited file with a header line and one row per plant. A plant without a row, or a study without the file, uses the defaults.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Accepted header aliases</th>
+              <th>Meaning</th>
+              <th>Unit</th>
+              <th>Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>codigo_usina</code></td>
+              <td><code>Codigo</code>, <code>CODIGO</code>, <code>codigo</code></td>
+              <td>Plant code of <code>CAD_UHE.csv</code>. Required in every row.</td>
+              <td>plant code</td>
+              <td>none</td>
+            </tr>
+            <tr>
+              <td><code>num_planes</code></td>
+              <td><code>MaxPlanes</code>, <code>max_planes</code></td>
+              <td>Plane limit: the most planes kept for the plant. An integer of at least 1.</td>
+              <td>planes</td>
+              <td>10</td>
+            </tr>
+            <tr>
+              <td><code>tolerance</code></td>
+              <td><code>ReductionTolerance</code>, <code>Tolerance</code></td>
+              <td>Starting angle tolerance for merging planes with nearly parallel normals. Not negative.</td>
+              <td>degrees</td>
+              <td>1.0</td>
+            </tr>
+            <tr>
+              <td><code>min_volume_pct</code></td>
+              <td><code>MinVolumePct</code></td>
+              <td>Lower bound of the fit volume window.</td>
+              <td>fraction in [0, 1] of the <code>CAD_UHE.csv</code> <code>[Vmin, Vmax]</code> interval</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td><code>max_volume_pct</code></td>
+              <td><code>MaxVolumePct</code></td>
+              <td>Upper bound of the fit volume window.</td>
+              <td>fraction in [0, 1] of the <code>CAD_UHE.csv</code> <code>[Vmin, Vmax]</code> interval</td>
+              <td>1</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Example file with one row:</p>
+        <pre><code>codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct
+0;6;2.0;;0.9</code></pre>
+        <p>This row sets, for plant 0, a limit of 6 planes, a starting angle tolerance of 2.0 degrees and a window that ends at 90% of the <code>[Vmin, Vmax]</code> interval. The empty <code>min_volume_pct</code> cell keeps its default of 0.</p>
         <ul>
-          <li><code>FPHA=1</code>: Read FPHA cuts from <code>OPER_FPHA.csv</code>. Generation bounded by piecewise linear approximation.</li>
-          <li><code>FPHA=0</code>: Generation = productivity × turbining. Simpler but less accurate for varying head.</li>
+          <li><strong>Empty cell:</strong> an empty cell keeps the default of its column. A column missing from the header keeps the default for every plant.</li>
+          <li><strong>Window:</strong> despite the <code>_pct</code> suffix, the bounds are fractions, not percentages. The window is <code>[Vmin + min_volume_pct × span, Vmax − (1 − max_volume_pct) × span]</code> with <code>span = Vmax − Vmin</code>, both from <code>CAD_UHE.csv</code> (<code>Vmin.hm3</code>, <code>Vmax.hm3</code>), not from the geometry table. The window must lie inside the volume range of the plant in <code>CAD_GEOMETRIA_UHE.csv</code>, and <code>min_volume_pct</code> must be below <code>max_volume_pct</code>; otherwise the plant cannot be fitted. A plant whose geometry table has a single point ignores the window.</li>
+          <li><strong>Plane limit:</strong> a labdessem extension, not DESSEM behavior. The fit merges planes with the angle tolerance and, while more planes than the limit remain, doubles the tolerance and merges again. A limit the merging cannot reach fails the plant.</li>
+          <li><strong>Defaults without the file:</strong> at most 10 planes, an angle tolerance of 1.0 degree and a window over the whole <code>[Vmin, Vmax]</code> interval. The fit samples a 5 × 5 volume-flow grid; the grid is not configurable.</li>
+          <li><strong>Rejected rows:</strong> a negative <code>tolerance</code>, a window bound outside [0, 1], <code>num_planes</code> 0, <code>min_volume_pct</code> not below <code>max_volume_pct</code>, a non-finite value and a second row for the same plant stop the run (see below).</li>
         </ul>
+
+        <h3 id="fpha-failures">Computed FPHA failures</h3>
+        <p>A failure prints <code>Error: &lt;message&gt;</code> on stderr and exits with code 1 before any result is written. A message found while reading <code>CAD_FPHA_CONFIG.csv</code> in computed mode carries the extra prefix <code>I/O error:</code>; a message found while reading the study (<code>CAD_GEOMETRIA_UHE.csv</code>, <code>CAD_TAILRACE.csv</code>, <code>OPER_FPHA.csv</code>) does not. The table quotes the fixed part of each message. Text in angle brackets, such as <code>&lt;n&gt;</code> or <code>&lt;name&gt;</code>, stands for a value the run fills in.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Message fragment</th>
+              <th>Meaning</th>
+              <th>How to fix the deck</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>computed FPHA could not be fitted for</code></td>
+              <td>
+                The full text is <code>computed FPHA could not be fitted for &lt;n&gt; hydro plant(s) with generating units:</code>, followed by one line <code>plant &lt;id&gt; (&lt;name&gt;): &lt;reason&gt;</code> for every plant with units that could not be fitted. The reason is one of:
+                <ul>
+                  <li><code>no rows in CAD/CAD_GEOMETRIA_UHE.csv</code></li>
+                  <li><code>missing inputs:</code> followed by <code>row in CAD/CAD_TAILRACE.csv</code>, <code>Eficiencia in CAD/CAD_UHE.csv (column absent or empty)</code> or <code>Perda.m in CAD/CAD_UHE.csv (column absent or empty)</code>, or several of them</li>
+                  <li><code>fitting failed:</code> and the detail of the fit, for example <code>cannot reduce to</code> below</li>
+                </ul>
+              </td>
+              <td>Fix every plant listed, not only the first. Add the geometry rows or the missing input named in the line. A plant without generating units needs none of them.</td>
+            </tr>
+            <tr>
+              <td><code>system validation failed after FPHA injection:</code></td>
+              <td>After the fitted planes are injected, the whole system is validated again with FPHA on. The text after the colon names the violated rule, for example a plant with generating units that ended with no FPHA segment.</td>
+              <td>Correct the item named after the colon.</td>
+            </tr>
+            <tr>
+              <td><code>cannot reduce to</code></td>
+              <td>The full text is <code>hydro &lt;name&gt;: cannot reduce to &lt;n&gt; planes (&lt;k&gt; remain after the last tolerance)</code>, shown as a <code>fitting failed:</code> reason. Merging planes with a doubled tolerance, at most 32 times, did not reach the plane limit.</td>
+              <td>Raise <code>num_planes</code> or <code>tolerance</code> of that plant in <code>CAD_FPHA_CONFIG.csv</code>.</td>
+            </tr>
+            <tr>
+              <td><code>has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv</code></td>
+              <td>A <code>Warning:</code>, not an error; the fit continues. The plant has one point in its geometry table, so the <code>min_volume_pct</code> and <code>max_volume_pct</code> of its <code>CAD_FPHA_CONFIG.csv</code> row are ignored. An unset bound prints <code>unset</code>.</td>
+              <td>Delete the window bounds of that row to silence the warning.</td>
+            </tr>
+            <tr>
+              <td><code>OPER_FPHA.csv has FPHA rows for hydro plant(s) without generating units in</code></td>
+              <td>Precomputed mode. The full text continues with <code>CAD_CONJ_UHE.csv: &lt;code&gt; (&lt;name&gt;), ...</code> and lists every affected plant in ascending code order.</td>
+              <td>Delete the <code>OPER_FPHA.csv</code> rows of the listed plants, or add their generating units to <code>CAD_CONJ_UHE.csv</code>.</td>
+            </tr>
+            <tr>
+              <td><code>has non-finite</code></td>
+              <td>The full text is <code>plant &lt;id&gt; has non-finite &lt;column&gt; &lt;value&gt; at line &lt;n&gt; in &lt;file&gt;</code>. A cell of <code>CAD_GEOMETRIA_UHE.csv</code>, <code>CAD_TAILRACE.csv</code> or <code>CAD_FPHA_CONFIG.csv</code> holds <code>NaN</code>, <code>inf</code> or <code>-inf</code>.</td>
+              <td>Replace the cell at the line named with a finite value.</td>
+            </tr>
+            <tr>
+              <td><code>has duplicate rows at lines</code></td>
+              <td>The full text is <code>plant &lt;id&gt; has duplicate rows at lines &lt;a&gt; and &lt;b&gt; in &lt;file&gt;</code>. <code>CAD_TAILRACE.csv</code> and <code>CAD_FPHA_CONFIG.csv</code> take one row per plant. In <code>CAD_GEOMETRIA_UHE.csv</code> the same check reads <code>has duplicate volume</code>: two points of one plant share a <code>volume.hm3</code>.</td>
+              <td>Delete the repeated row or point.</td>
+            </tr>
+            <tr>
+              <td><code>has num_planes 0 (must be at least 1)</code></td>
+              <td>The full text is <code>plant &lt;id&gt; has num_planes 0 (must be at least 1) at line &lt;n&gt; in CAD_FPHA_CONFIG.csv</code>. The plane limit cannot be 0.</td>
+              <td>Set <code>num_planes</code> to 1 or more, or leave the cell empty for the default of 10.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>The design behind these policies, with the decision records, is in <a href="https://github.com/carlosribeiro06/labdessem_rust/blob/main/docs/design/fpha-formulation.md" target="_blank" rel="noopener">docs/design/fpha-formulation.md</a>.</p>
 
         <h3>FCF Flag</h3>
         <p>Controls future cost function:</p>
@@ -177,7 +336,7 @@
           <li><code>EngMax=1</code>: Bound each hydro plant's total turbining by its head-dependent maximum swallowing, recalculated after every solve. See <a href="./methodology.html#engmax">Methodology</a> for the formula.</li>
           <li><code>EngMax=0</code>: Use static maximum turbining from registration data.</li>
         </ul>
-        <p>When geometry data is not available for a plant, EngMax falls back to the effective head from registration.</p>
+        <p>When geometry data is not available for a plant, max swallowing falls back to the effective head from registration.</p>
       </article>
     </div>
   </main>

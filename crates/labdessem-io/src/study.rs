@@ -3,9 +3,9 @@
 use std::{fmt, fs, path::Path};
 
 use labdessem_core::system::System;
+use schemars::JsonSchema;
 use schemars::r#gen::SchemaGenerator;
 use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::IoError;
@@ -73,7 +73,8 @@ impl JsonSchema for FphaOption {
             ]),
             metadata: Some(Box::new(schemars::schema::Metadata {
                 description: Some(
-                    "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\"".to_owned(),
+                    "FPHA mode: \"constant_productivity\", \"precomputed\", or \"computed\""
+                        .to_owned(),
                 ),
                 ..Default::default()
             })),
@@ -107,7 +108,7 @@ pub struct StudyConfig {
     pub ton_residual: u8,
     /// Enable dynamic maximum swallowing constraint (0 = disabled, 1 = enabled).
     #[serde(rename = "EngMax", default)]
-    pub engmax: u8,
+    pub max_swallowing: u8,
 }
 
 pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, IoError> {
@@ -119,8 +120,7 @@ pub fn read_study_config(config_path: impl AsRef<Path>) -> Result<StudyConfig, I
         ))
     })?;
 
-    let config: StudyConfig = serde_json::from_str(&contents)?;
-    Ok(config)
+    Ok(serde_json::from_str(&contents)?)
 }
 
 pub fn read_study_from_path(case_path: impl AsRef<Path>) -> Result<System, IoError> {
@@ -352,7 +352,7 @@ mod tests {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod fpha_option_tests {
-    use super::*;
+    use super::{FphaOption, StudyConfig};
 
     #[test]
     fn deserialize_constant_productivity() {
@@ -393,7 +393,8 @@ mod fpha_option_tests {
 
     #[test]
     fn deserialize_number_fails() {
-        let json = r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
+        let json =
+            r#"{"FPHA": 0, "opcao_execucao": 1, "rede": 0, "UCT": 0, "UCH": 0, "TON_Residual": 0}"#;
         let result: Result<StudyConfig, _> = serde_json::from_str(json);
         assert!(result.is_err());
     }
@@ -408,7 +409,7 @@ mod fpha_option_tests {
             fpha: FphaOption::ConstantProductivity,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"constant_productivity""#));
@@ -424,7 +425,7 @@ mod fpha_option_tests {
             fpha: FphaOption::Precomputed,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"precomputed""#));
@@ -440,7 +441,7 @@ mod fpha_option_tests {
             fpha: FphaOption::Computed,
             fcf: 0,
             ton_residual: 0,
-            engmax: 0,
+            max_swallowing: 0,
         };
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains(r#""FPHA":"computed""#));
@@ -448,7 +449,10 @@ mod fpha_option_tests {
 
     #[test]
     fn display_trait() {
-        assert_eq!(FphaOption::ConstantProductivity.to_string(), "constant_productivity");
+        assert_eq!(
+            FphaOption::ConstantProductivity.to_string(),
+            "constant_productivity"
+        );
         assert_eq!(FphaOption::Precomputed.to_string(), "precomputed");
         assert_eq!(FphaOption::Computed.to_string(), "computed");
     }
@@ -468,7 +472,7 @@ mod fpha_option_tests {
                 fpha: original,
                 fcf: 0,
                 ton_residual: 0,
-                engmax: 0,
+                max_swallowing: 0,
             };
             let json = serde_json::to_string(&config).unwrap();
             let parsed: StudyConfig = serde_json::from_str(&json).unwrap();

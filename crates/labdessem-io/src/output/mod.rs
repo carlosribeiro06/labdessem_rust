@@ -38,7 +38,7 @@ pub mod thermal;
 pub mod types;
 
 pub use common::{csv_with_header, volume_hm3_to_flow_m3s, write_csv_file};
-pub use fpha_computed::{write_fpha_computed, ComputedFphaRecord};
+pub use fpha_computed::write_fpha_computed;
 pub use helpers::{
     average_internal_values, hydro_generation_max_at_point_mw, hydro_pumping_out_hm3,
     hydro_total_turbining_hm3, hydro_upstream_inflow_hm3, operational_limit_variable_label,

@@ -6,19 +6,13 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use labdessem_core::entities::{HydroFphaSegment, HydroPlant, InflowHistoryRow};
+use labdessem_core::entities::HydroFphaSegment;
+use labdessem_core::ids::HydroPlantId;
 use labdessem_core::system::System;
-use labdessem_fpha::{
-    fit_plant, FitPlantParams, FphaPlantConfig, FphaPlantResult,
-    fitting::{ForebayTable, PlaneReductionConfig, VhaRow},
-    types::TailraceModel,
-};
-use labdessem_io::{
-    output::{write_fpha_computed, ComputedFphaRecord},
-    readers::{
-        read_fpha_config, read_tailrace, read_vha_geometry, FphaPlantConfig as IoFphaPlantConfig,
-        TailraceData, VhaGeometryData,
-    },
+use labdessem_io::readers::read_fpha_config;
+use labdessem_model::production::{
+    FitFailureReason, FphaInput, FphaPlantResult, IgnoredVolumeWindow, MissingInflowHistory,
+    convert_to_fpha_segments, fit_system,
 };
 
 /// Result of the FPHA computation process.
@@ -26,25 +20,64 @@ use labdessem_io::{
 pub struct FphaComputeResult {
     pub plant_results: Vec<FphaPlantResult>,
     pub plants_processed: usize,
+    /// Plants without generating units (no FPHA needed).
     pub plants_skipped: usize,
+}
+
+/// A plant with generating units whose computed FPHA could not be fitted.
+#[derive(Debug)]
+pub struct PlantFitFailure {
+    pub hydro_id: HydroPlantId,
+    pub hydro_name: String,
+    pub reason: FitFailureReason,
 }
 
 /// Error type for FPHA computation.
 #[derive(Debug)]
 pub enum FphaComputeError {
     Io(String),
-    #[allow(dead_code)]
-    Fitting(String),
-    MissingHydro { hydro_id: i32, hydro_name: String },
+    MissingHydro {
+        hydro_id: HydroPlantId,
+        hydro_name: String,
+    },
+    PlantsNotFitted {
+        failures: Vec<PlantFitFailure>,
+    },
+    InvalidSystem(String),
 }
 
 impl std::fmt::Display for FphaComputeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FphaComputeError::Io(msg) => write!(f, "I/O error: {msg}"),
-            FphaComputeError::Fitting(msg) => write!(f, "Fitting error: {msg}"),
-            FphaComputeError::MissingHydro { hydro_id, hydro_name } => {
-                write!(f, "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet")
+            FphaComputeError::MissingHydro {
+                hydro_id: HydroPlantId(hydro_id),
+                hydro_name,
+            } => {
+                write!(
+                    f,
+                    "hydro {hydro_id} ({hydro_name}) missing from inflow_history.parquet"
+                )
+            }
+            FphaComputeError::PlantsNotFitted { failures } => {
+                write!(
+                    f,
+                    "computed FPHA could not be fitted for {} hydro plant(s) with generating units:",
+                    failures.len()
+                )?;
+                for failure in failures {
+                    write!(
+                        f,
+                        "\n  plant {} ({}): {}",
+                        failure.hydro_id.0,
+                        failure.hydro_name.trim(),
+                        fit_failure_text(&failure.reason)
+                    )?;
+                }
+                Ok(())
+            }
+            FphaComputeError::InvalidSystem(msg) => {
+                write!(f, "system validation failed after FPHA injection: {msg}")
             }
         }
     }
@@ -58,102 +91,97 @@ impl From<labdessem_io::IoError> for FphaComputeError {
     }
 }
 
-/// Compute FPHA planes from VHA geometry for all plants with available data.
+impl From<MissingInflowHistory> for FphaComputeError {
+    fn from(e: MissingInflowHistory) -> Self {
+        FphaComputeError::MissingHydro {
+            hydro_id: e.id,
+            hydro_name: e.name,
+        }
+    }
+}
+
+/// The deck file and column that supply `input`.
+fn fpha_input_text(input: FphaInput) -> &'static str {
+    match input {
+        FphaInput::Tailrace => "row in CAD/CAD_TAILRACE.csv",
+        FphaInput::Efficiency => "Eficiencia in CAD/CAD_UHE.csv (column absent or empty)",
+        FphaInput::HydraulicLoss => "Perda.m in CAD/CAD_UHE.csv (column absent or empty)",
+    }
+}
+
+/// Why a plant was not fitted, naming the deck files to fix.
+fn fit_failure_text(reason: &FitFailureReason) -> String {
+    match reason {
+        FitFailureReason::MissingGeometry => "no rows in CAD/CAD_GEOMETRIA_UHE.csv".to_string(),
+        FitFailureReason::MissingInputs(inputs) => {
+            let inputs: Vec<&str> = inputs.iter().map(|&input| fpha_input_text(input)).collect();
+            format!("missing inputs: {}", inputs.join("; "))
+        }
+        FitFailureReason::Fitting(e) => format!("fitting failed: {e}"),
+    }
+}
+
+/// The warning for a volume window that a single-point VHA table ignores.
+fn ignored_window_warning(window: &IgnoredVolumeWindow) -> String {
+    let show = |bound: Option<f64>| bound.map_or_else(|| "unset".to_string(), |v| v.to_string());
+    format!(
+        "plant {} ({}) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct {} and max_volume_pct {} in CAD/CAD_FPHA_CONFIG.csv are ignored",
+        window.id.0,
+        window.name.trim(),
+        show(window.min_volume_fraction),
+        show(window.max_volume_fraction)
+    )
+}
+
+/// Compute FPHA planes from VHA geometry for every plant with generating units.
+///
+/// Fails with `PlantsNotFitted`, listing every plant with units that could not be fitted.
 pub fn compute_fpha(
     case_path: &Path,
     system: &System,
 ) -> Result<FphaComputeResult, FphaComputeError> {
     eprintln!("Computing FPHA planes from geometry data...");
 
-    let plants = &system.hydro_plants;
-    let period_duration_hours = system.horizon.period_duration_hours;
-
-    let mlt_table = build_long_term_mean_inflow_table(&system.inflow_history);
-    let parquet_present = !system.inflow_history.is_empty();
-
-    if !parquet_present {
+    if system.inflow_history.is_empty() {
         eprintln!("Warning: inflow_history.parquet not found; using deck mean for MLT");
     }
 
-    let vha_data = read_vha_geometry(case_path)?;
-    let tailrace_data = read_tailrace(case_path)?;
-    let fpha_config = read_fpha_config(case_path)?;
-
-    if vha_data.is_empty() {
-        eprintln!("Warning: No VHA geometry data found. No planes will be computed.");
-        return Ok(FphaComputeResult {
-            plant_results: vec![],
-            plants_processed: 0,
-            plants_skipped: plants.len(),
-        });
-    }
+    let overrides = read_fpha_config(case_path)?;
+    let fit = fit_system(system, &overrides)?;
 
     let mut results = Vec::new();
-    let mut processed = 0;
-    let mut skipped = 0;
+    let mut failures = Vec::new();
 
-    for plant in plants {
-        let plant_code = plant.id.0 as u32;
-
-        let Some(vha) = vha_data.get(&plant_code) else {
-            eprintln!(
-                "Warning: Plant {} ({}) has no VHA geometry data, skipping",
-                plant_code, plant.name
-            );
-            skipped += 1;
-            continue;
-        };
-
-        let params = match build_fit_params(
-            plant,
-            vha,
-            tailrace_data.get(&plant_code),
-            fpha_config.get(&plant_code),
-            period_duration_hours,
-            &mlt_table,
-            parquet_present,
-        ) {
-            Ok(p) => p,
-            Err(e) => {
-                // MissingHydro is a fatal error, not a skip
-                if matches!(e, FphaComputeError::MissingHydro { .. }) {
-                    return Err(e);
-                }
-                eprintln!(
-                    "Warning: Plant {} ({}): failed to build fit params: {}",
-                    plant_code, plant.name, e
-                );
-                skipped += 1;
-                continue;
-            }
-        };
-
-        match fit_plant(&params) {
+    for plant in fit.plants {
+        if let Some(window) = &plant.ignored_window {
+            eprintln!("Warning: {}", ignored_window_warning(window));
+        }
+        match plant.outcome {
             Ok(result) => {
                 eprintln!(
                     "Plant {} ({}): fitted {} planes (α = {:.4})",
-                    plant_code,
+                    plant.id.0,
                     plant.name,
                     result.planes.len(),
                     result.alpha
                 );
                 results.push(result);
-                processed += 1;
             }
-            Err(e) => {
-                eprintln!(
-                    "Warning: Plant {} ({}): fitting failed: {}",
-                    plant_code, plant.name, e
-                );
-                skipped += 1;
-            }
+            Err(reason) => failures.push(PlantFitFailure {
+                hydro_id: plant.id,
+                hydro_name: plant.name,
+                reason,
+            }),
         }
     }
 
-    eprintln!(
-        "FPHA computation complete: {} plants processed, {} skipped",
-        processed, skipped
-    );
+    if !failures.is_empty() {
+        return Err(FphaComputeError::PlantsNotFitted { failures });
+    }
+
+    let processed = results.len();
+    let skipped = fit.plants_without_units;
+    eprintln!("FPHA computation complete: {processed} plants processed, {skipped} skipped");
 
     Ok(FphaComputeResult {
         plant_results: results,
@@ -162,185 +190,22 @@ pub fn compute_fpha(
     })
 }
 
-fn build_long_term_mean_inflow_table(inflow_history: &[InflowHistoryRow]) -> HashMap<i32, f64> {
-    let mut acc: HashMap<i32, (f64, u64)> = HashMap::new();
-
-    for row in inflow_history {
-        let entry = acc.entry(row.hydro_id).or_insert((0.0, 0));
-        entry.0 += row.value_m3s;
-        entry.1 += 1;
-    }
-
-    acc.into_iter()
-        .filter(|(_, (_, count))| *count > 0)
-        .map(|(id, (sum, count))| (id, sum / count as f64))
-        .collect()
-}
-
-fn build_fit_params(
-    plant: &HydroPlant,
-    vha: &VhaGeometryData,
-    tailrace: Option<&TailraceData>,
-    config: Option<&IoFphaPlantConfig>,
-    period_duration_hours: f64,
-    mlt_table: &HashMap<i32, f64>,
-    parquet_present: bool,
-) -> Result<FitPlantParams, FphaComputeError> {
-    let plant_code = plant.id.0 as i32;
-
-    let vha_rows: Vec<VhaRow> = vha
-        .points
-        .iter()
-        .map(|p| VhaRow {
-            volume_hm3: p.volume_hm3,
-            height_m: p.height_m,
-            area_km2: p.area_km2,
-        })
-        .collect();
-
-    let forebay = ForebayTable::new(&vha_rows, &plant.name)
-        .map_err(|e| FphaComputeError::Fitting(format!("ForebayTable creation failed: {e}")))?;
-
-    let tailrace_model = tailrace.map(|t| TailraceModel::Polynomial {
-        coefficients: t.coefficients.to_vec(),
-    });
-
-    let max_turbined_m3s = plant
-        .groups
-        .iter()
-        .map(|g| g.units.iter().map(|u| u.max_turbining_hm3).sum::<f64>())
-        .sum::<f64>() * 1e6 / (period_duration_hours * 3600.0);
-
-    let max_generation_mw = plant
-        .groups
-        .iter()
-        .map(|g| g.units.iter().map(|u| u.max_generation_mw).sum::<f64>())
-        .sum();
-
-    // MLT fallback logic: parquet MLT → deck mean → error (if parquet present)
-    let long_term_mean_inflow_m3s = if let Some(&mlt) = mlt_table.get(&plant_code) {
-        mlt
-    } else if !parquet_present {
-        // No parquet: use deck mean
-        if plant.natural_inflow_hm3.is_empty() {
-            0.0
-        } else {
-            let mean_hm3 = plant.natural_inflow_hm3.iter().sum::<f64>() / plant.natural_inflow_hm3.len() as f64;
-            mean_hm3 * 1e6 / (period_duration_hours * 3600.0)
-        }
-    } else {
-        // Parquet present but hydro missing
-        return Err(FphaComputeError::MissingHydro {
-            hydro_id: plant_code,
-            hydro_name: plant.name.clone(),
-        });
-    };
-
-    let fpha_config = build_fpha_config(config);
-
-    Ok(FitPlantParams {
-        codigo: plant_code,
-        nome: plant.name.clone(),
-        forebay,
-        tailrace: tailrace_model,
-        hydraulic_loss_m: plant.hydraulic_loss_m,
-        efficiency: plant.efficiency,
-        max_turbined_m3s,
-        max_generation_mw,
-        long_term_mean_inflow_m3s,
-        config: fpha_config,
-    })
-}
-
-fn build_fpha_config(config: Option<&IoFphaPlantConfig>) -> FphaPlantConfig {
-    let mut fpha_config = FphaPlantConfig::computed(
-        10, 6, 6,
-        PlaneReductionConfig::Angle { tolerance_deg: 1.0 },
-    );
-
-    if let Some(c) = config {
-        if let Some(n) = c.num_planes {
-            fpha_config.max_planes = n;
-        }
-        // tolerance applies to the reduction config, not a direct field
-    }
-
-    fpha_config
-}
-
-pub fn write_computed_results(
-    case_path: &Path,
-    results: &[FphaPlantResult],
-    plants: &[HydroPlant],
-) -> Result<(), FphaComputeError> {
-    let plant_names: HashMap<i32, &str> = plants
-        .iter()
-        .map(|p| (p.id.0 as i32, p.name.as_str()))
-        .collect();
-
-    let records: Vec<ComputedFphaRecord> = results
-        .iter()
-        .flat_map(|r| {
-            let name = plant_names.get(&r.codigo).unwrap_or(&"UNKNOWN");
-            r.planes.iter().enumerate().map(move |(idx, plane)| {
-                ComputedFphaRecord {
-                    codigo_usina: r.codigo as u32,
-                    nome_usina: (*name).to_string(),
-                    plane_index: idx,
-                    gamma_0: plane.gamma_0,
-                    gamma_v: plane.gamma_v,
-                    gamma_q: plane.gamma_q,
-                    gamma_s: plane.gamma_s,
-                    alpha: r.alpha,
-                    max_deviation_mw: Some(r.deviation.max_abs_mw),
-                    mean_deviation_mw: Some(r.deviation.mean_abs_mw),
-                    rms_deviation_mw: Some(r.deviation.rms_mw),
-                }
-            })
-        })
-        .collect();
-
-    write_fpha_computed(case_path, &records)?;
-    Ok(())
-}
-
-/// Convert fitting results to model-compatible segments.
-pub fn convert_to_fpha_segments(result: &FphaPlantResult) -> Vec<HydroFphaSegment> {
-    result
-        .planes
-        .iter()
-        .enumerate()
-        .map(|(idx, plane)| HydroFphaSegment {
-            segment: idx + 1, // 1-indexed
-            correction_factor: result.alpha,
-            rhs: plane.gamma_0,
-            volume_coefficient: plane.gamma_v,
-            turbining_coefficient: plane.gamma_q,
-            lateral_flow_coefficient: plane.gamma_s,
-        })
-        .collect()
-}
-
 /// Inject computed FPHA segments into the system.
-pub fn inject_fpha_segments(
-    system: &mut System,
-    plant_results: &[FphaPlantResult],
-) {
-    let segments_by_plant: HashMap<i32, Vec<HydroFphaSegment>> = plant_results
+pub fn inject_fpha_segments(system: &mut System, plant_results: &[FphaPlantResult]) {
+    let segments_by_plant: HashMap<HydroPlantId, Vec<HydroFphaSegment>> = plant_results
         .iter()
-        .map(|r| (r.codigo, convert_to_fpha_segments(r)))
+        .map(|r| (r.id, convert_to_fpha_segments(r)))
         .collect();
 
     let mut injected = 0;
 
     for plant in &mut system.hydro_plants {
-        let plant_code = plant.id.0 as i32;
-        if let Some(segments) = segments_by_plant.get(&plant_code) {
+        if let Some(segments) = segments_by_plant.get(&plant.id) {
             plant.fpha_segments = segments.clone();
             eprintln!(
                 "Injected {} FPHA segments for plant {} ({})",
                 segments.len(),
-                plant_code,
+                plant.id.0,
                 plant.name
             );
             injected += 1;
@@ -348,218 +213,278 @@ pub fn inject_fpha_segments(
     }
 
     for result in plant_results {
-        if !system
-            .hydro_plants
-            .iter()
-            .any(|p| p.id.0 as i32 == result.codigo)
-        {
+        if !system.hydro_plants.iter().any(|p| p.id == result.id) {
             eprintln!(
                 "Warning: Computed FPHA for plant {} but it doesn't exist in system",
-                result.codigo
+                result.id.0
             );
         }
     }
 
-    eprintln!(
-        "FPHA injection complete: {} plants updated",
-        injected
-    );
+    eprintln!("FPHA injection complete: {injected} plants updated");
 }
+
+/// Inject computed FPHA segments, enable FPHA and re-validate the whole system.
+///
+/// `read_study_from_path` validates with `fpha_enabled = false`, so the rule that a plant with
+/// units must carry FPHA segments only runs here.
+pub fn finalize_fpha_injection(
+    system: &mut System,
+    plant_results: &[FphaPlantResult],
+) -> Result<(), FphaComputeError> {
+    inject_fpha_segments(system, plant_results);
+    system.fpha_enabled = true;
+    system
+        .validate()
+        .map_err(|e| FphaComputeError::InvalidSystem(e.to_string()))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+mod probe;
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+mod lp_envelope_tests;
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+mod plant_coverage_tests;
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+mod physical_data_tests;
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use super::*;
+    use std::collections::HashMap;
+    use std::fs;
 
-    #[test]
-    fn build_fpha_config_defaults() {
-        let config = build_fpha_config(None);
-        assert_eq!(config.max_planes, 10);
+    use labdessem_core::entities::HydroPlant;
+    use labdessem_core::ids::HydroPlantId;
+    use labdessem_io::read_study_from_path;
+    use labdessem_model::production::{
+        FitFailureReason, FphaConfigOverrides, FphaFittingError, FphaInput, FphaPlantResult,
+        ignored_volume_window,
+    };
+
+    use super::probe::{DerivedCase, computed_system};
+    use super::{FphaComputeError, PlantFitFailure, fit_failure_text, ignored_window_warning};
+
+    fn window(min: Option<f64>, max: Option<f64>) -> FphaConfigOverrides {
+        FphaConfigOverrides {
+            min_volume_fraction: min,
+            max_volume_fraction: max,
+            ..FphaConfigOverrides::default()
+        }
+    }
+
+    /// Plant `code` of `examples/24Barras` with its VHA table: ITUTINGA (1) has one point,
+    /// FURNAS (3) has a hundred.
+    fn plant_with_geometry(code: usize) -> Result<HydroPlant, Box<dyn std::error::Error>> {
+        let case = DerivedCase::new("computed")?;
+        let plant = read_study_from_path(case.path())?
+            .hydro_plants
+            .into_iter()
+            .find(|p| p.id.0 == code)
+            .ok_or("plant not in 24Barras")?;
+        Ok(plant)
+    }
+
+    /// The warning `compute_fpha` prints for `plant` with `overrides`, if any.
+    fn warning(plant: &HydroPlant, overrides: Option<&FphaConfigOverrides>) -> Option<String> {
+        ignored_volume_window(plant, overrides)
+            .as_ref()
+            .map(ignored_window_warning)
     }
 
     #[test]
-    fn build_fpha_config_with_overrides() {
-        let io_config = IoFphaPlantConfig {
-            num_planes: Some(7),
-            tolerance: Some(0.005),
-            min_volume_pct: None,
-            max_volume_pct: None,
-        };
+    fn ignored_window_warning_names_single_point_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let plant = plant_with_geometry(1)?;
+        assert_eq!(plant.volume_level_table.as_ref().map(Vec::len), Some(1));
 
-        let config = build_fpha_config(Some(&io_config));
-        assert_eq!(config.max_planes, 7);
+        let both = warning(&plant, Some(&window(Some(0.5), Some(0.6))));
+        let max_only = warning(&plant, Some(&window(None, Some(0.6))));
+
+        assert_eq!(
+            both.as_deref(),
+            Some(
+                "plant 1 (ITUTINGA) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct 0.5 and max_volume_pct 0.6 in CAD/CAD_FPHA_CONFIG.csv are ignored"
+            )
+        );
+        assert_eq!(
+            max_only.as_deref(),
+            Some(
+                "plant 1 (ITUTINGA) has a single-point table in CAD/CAD_GEOMETRIA_UHE.csv, so min_volume_pct unset and max_volume_pct 0.6 in CAD/CAD_FPHA_CONFIG.csv are ignored"
+            )
+        );
+        Ok(())
     }
 
     #[test]
-    fn convert_single_plane() {
-        use labdessem_fpha::fitting::{FphaFitDeviation, RawPlane};
-
-        let result = FphaPlantResult {
-            codigo: 1,
-            nome: "TEST".to_string(),
-            planes: vec![RawPlane {
-                gamma_0: 1000.0,
-                gamma_v: -0.002,
-                gamma_q: 0.05,
-                gamma_s: 0.001,
-            }],
-            alpha: 0.95,
-            deviation: FphaFitDeviation {
-                mean_abs_mw: 0.0,
-                max_abs_mw: 0.0,
-                rms_mw: 0.0,
-                mean_signed_mw: 0.0,
-                relative: 0.0,
-            },
+    fn ignored_window_warning_is_silent_otherwise() -> Result<(), Box<dyn std::error::Error>> {
+        let single = plant_with_geometry(1)?;
+        let several = plant_with_geometry(3)?;
+        assert!(several.volume_level_table.as_ref().map_or(0, Vec::len) > 1);
+        let no_window = FphaConfigOverrides {
+            max_planes: Some(4),
+            tolerance_deg: Some(1.5),
+            ..FphaConfigOverrides::default()
         };
 
-        let segments = convert_to_fpha_segments(&result);
-
-        assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0].segment, 1);
-        assert_eq!(segments[0].rhs, 1000.0);
-        assert_eq!(segments[0].volume_coefficient, -0.002);
-        assert_eq!(segments[0].turbining_coefficient, 0.05);
-        assert_eq!(segments[0].lateral_flow_coefficient, 0.001);
-        assert_eq!(segments[0].correction_factor, 0.95);
+        assert_eq!(warning(&several, Some(&window(Some(0.5), Some(0.6)))), None);
+        assert_eq!(warning(&single, Some(&no_window)), None);
+        assert_eq!(warning(&single, None), None);
+        Ok(())
     }
 
-    #[test]
-    fn convert_multiple_planes() {
-        use labdessem_fpha::fitting::{FphaFitDeviation, RawPlane};
+    const CAMARGOS: HydroPlantId = HydroPlantId(0);
+    const FURNAS: HydroPlantId = HydroPlantId(3);
+    const CONFIG_HEADER: &str = "codigo_usina;num_planes;tolerance;min_volume_pct;max_volume_pct";
 
-        let result = FphaPlantResult {
-            codigo: 1,
-            nome: "TEST".to_string(),
-            planes: vec![
-                RawPlane { gamma_0: 100.0, gamma_v: 0.1, gamma_q: 0.2, gamma_s: 0.3 },
-                RawPlane { gamma_0: 200.0, gamma_v: 0.4, gamma_q: 0.5, gamma_s: 0.6 },
-                RawPlane { gamma_0: 300.0, gamma_v: 0.7, gamma_q: 0.8, gamma_s: 0.9 },
-            ],
-            alpha: 0.98,
-            deviation: FphaFitDeviation {
-                mean_abs_mw: 0.0,
-                max_abs_mw: 0.0,
-                rms_mw: 0.0,
-                mean_signed_mw: 0.0,
-                relative: 0.0,
-            },
-        };
+    fn fit_with_config_rows(
+        rows: &[&str],
+    ) -> Result<HashMap<HydroPlantId, FphaPlantResult>, Box<dyn std::error::Error>> {
+        let case = DerivedCase::new("computed")?;
+        if !rows.is_empty() {
+            let csv = format!("{CONFIG_HEADER}\n{}\n", rows.join("\n"));
+            fs::write(case.path().join("CAD/CAD_FPHA_CONFIG.csv"), csv)?;
+        }
+        let (_, result) = computed_system(case.path())?;
+        Ok(result
+            .plant_results
+            .into_iter()
+            .map(|r| (r.id, r))
+            .collect())
+    }
 
-        let segments = convert_to_fpha_segments(&result);
+    fn bit_pattern(result: &FphaPlantResult) -> Vec<u64> {
+        let d = &result.deviation;
+        result
+            .planes
+            .iter()
+            .flat_map(|p| [p.gamma_0, p.gamma_v, p.gamma_q, p.gamma_s])
+            .chain([
+                result.alpha,
+                d.mean_abs_mw,
+                d.max_abs_mw,
+                d.rms_mw,
+                d.mean_signed_mw,
+                d.relative,
+            ])
+            .map(f64::to_bits)
+            .collect()
+    }
 
-        assert_eq!(segments.len(), 3);
-        assert_eq!(segments[0].segment, 1);
-        assert_eq!(segments[1].segment, 2);
-        assert_eq!(segments[2].segment, 3);
-        for seg in &segments {
-            assert_eq!(seg.correction_factor, 0.98);
+    fn assert_only_plant_changed(
+        control: &HashMap<HydroPlantId, FphaPlantResult>,
+        configured: &HashMap<HydroPlantId, FphaPlantResult>,
+        changed: HydroPlantId,
+    ) {
+        assert_eq!(control.len(), 4, "24Barras has 4 plants with units");
+        assert_eq!(configured.len(), control.len());
+        for (id, before) in control {
+            let same = bit_pattern(before) == bit_pattern(&configured[id]);
+            let (code, changed_code) = (id.0, changed.0);
+            if *id == changed {
+                assert!(
+                    !same,
+                    "plant {code} is unchanged: the config row had no effect"
+                );
+            } else {
+                assert!(
+                    same,
+                    "plant {code} changed although only plant {changed_code} is configured"
+                );
+            }
         }
     }
 
     #[test]
-    fn convert_empty_planes() {
-        use labdessem_fpha::fitting::FphaFitDeviation;
+    fn config_tolerance_changes_only_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
 
-        let result = FphaPlantResult {
-            codigo: 1,
-            nome: "TEST".to_string(),
-            planes: vec![],
-            alpha: 1.0,
-            deviation: FphaFitDeviation {
-                mean_abs_mw: 0.0,
-                max_abs_mw: 0.0,
-                rms_mw: 0.0,
-                mean_signed_mw: 0.0,
-                relative: 0.0,
-            },
-        };
+        let configured = fit_with_config_rows(&["3;;5.0;;"])?;
 
-        let segments = convert_to_fpha_segments(&result);
-        assert!(segments.is_empty());
+        assert_only_plant_changed(&control, &configured, FURNAS);
+        Ok(())
     }
 
     #[test]
-    fn build_mlt_table_empty_history() {
-        let table = build_long_term_mean_inflow_table(&[]);
-        assert!(table.is_empty());
+    fn config_window_changes_only_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
+
+        let configured = fit_with_config_rows(&["3;;;0.5;0.6"])?;
+
+        assert_only_plant_changed(&control, &configured, FURNAS);
+        Ok(())
     }
 
     #[test]
-    fn build_mlt_table_single_hydro() {
-        use chrono::NaiveDate;
+    fn config_plane_limit_caps_its_plant() -> Result<(), Box<dyn std::error::Error>> {
+        let control = fit_with_config_rows(&[])?;
+        let limit = 2;
+        assert!(
+            control[&CAMARGOS].planes.len() > limit,
+            "the control fit must exceed the limit for the cap to be observable"
+        );
 
-        let rows = vec![
-            InflowHistoryRow {
-                hydro_id: 1,
-                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
-                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
-                value_m3s: 100.0,
-            },
-            InflowHistoryRow {
-                hydro_id: 1,
-                start_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
-                end_date: NaiveDate::from_ymd_opt(2020, 3, 1).unwrap(),
-                value_m3s: 200.0,
-            },
-        ];
+        let configured = fit_with_config_rows(&["0;2;;;"])?;
 
-        let table = build_long_term_mean_inflow_table(&rows);
-
-        assert_eq!(table.len(), 1);
-        assert!((table[&1] - 150.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn build_mlt_table_multiple_hydros() {
-        use chrono::NaiveDate;
-
-        let rows = vec![
-            InflowHistoryRow {
-                hydro_id: 1,
-                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
-                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
-                value_m3s: 100.0,
-            },
-            InflowHistoryRow {
-                hydro_id: 2,
-                start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
-                end_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
-                value_m3s: 500.0,
-            },
-            InflowHistoryRow {
-                hydro_id: 1,
-                start_date: NaiveDate::from_ymd_opt(2020, 2, 1).unwrap(),
-                end_date: NaiveDate::from_ymd_opt(2020, 3, 1).unwrap(),
-                value_m3s: 300.0,
-            },
-        ];
-
-        let table = build_long_term_mean_inflow_table(&rows);
-
-        assert_eq!(table.len(), 2);
-        assert!((table[&1] - 200.0).abs() < 1e-9);
-        assert!((table[&2] - 500.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn fallback_uses_mlt_when_present() {
-        let mut mlt_table = HashMap::new();
-        mlt_table.insert(1, 123.45);
-        
-        // mlt_table has the hydro, so it should return the value
-        assert_eq!(mlt_table.get(&1), Some(&123.45));
+        assert!(configured[&CAMARGOS].planes.len() <= limit);
+        assert_only_plant_changed(&control, &configured, CAMARGOS);
+        Ok(())
     }
 
     #[test]
     fn fallback_missing_hydro_error_format() {
         let err = FphaComputeError::MissingHydro {
-            hydro_id: 42,
+            hydro_id: HydroPlantId(42),
             hydro_name: "TestPlant".to_string(),
         };
         let msg = format!("{err}");
         assert!(msg.contains("42"));
         assert!(msg.contains("TestPlant"));
         assert!(msg.contains("inflow_history.parquet"));
+    }
+
+    #[test]
+    fn plants_not_fitted_display_lists_every_failure() {
+        let err = FphaComputeError::PlantsNotFitted {
+            failures: vec![
+                PlantFitFailure {
+                    hydro_id: HydroPlantId(2),
+                    hydro_name: " FUNIL-GRANDE ".to_string(),
+                    reason: FitFailureReason::MissingGeometry,
+                },
+                PlantFitFailure {
+                    hydro_id: HydroPlantId(7),
+                    hydro_name: "TestPlant".to_string(),
+                    reason: FitFailureReason::Fitting(FphaFittingError::NoHyperplanesProduced {
+                        hydro_name: "TestPlant".to_string(),
+                    }),
+                },
+            ],
+        };
+
+        assert_eq!(
+            err.to_string(),
+            "computed FPHA could not be fitted for 2 hydro plant(s) with generating units:\n  \
+             plant 2 (FUNIL-GRANDE): no rows in CAD/CAD_GEOMETRIA_UHE.csv\n  \
+             plant 7 (TestPlant): fitting failed: hydro TestPlant: no hyperplanes produced"
+        );
+    }
+
+    #[test]
+    fn missing_inputs_display_lists_every_input() {
+        let reason =
+            FitFailureReason::MissingInputs(vec![FphaInput::Efficiency, FphaInput::HydraulicLoss]);
+
+        assert_eq!(
+            fit_failure_text(&reason),
+            "missing inputs: Eficiencia in CAD/CAD_UHE.csv (column absent or empty); \
+             Perda.m in CAD/CAD_UHE.csv (column absent or empty)"
+        );
     }
 }
